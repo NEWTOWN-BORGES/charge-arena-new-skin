@@ -1493,6 +1493,17 @@ func dust(at: Vector3, color: Color, amount: int, life: float, speed: float, siz
 	if fx != null:
 		fx.smoke(at, color, amount, size, life * 1.3, size, 0.3 + speed * 0.1)
 
+# -1 follows the quality profile; tests set it to compare.
+var light_override = -1
+
+func light_cap() -> int:
+	# Every lamp is paid again on every lit pixel of every mesh it touches. On a phone one
+	# lamp at a time is enough for the arena to answer a big hit; the particles' glow does
+	# the rest.
+	if light_override >= 0:
+		return light_override
+	return mini([0, 1, 1][quality_level], 1) if OS.has_feature("mobile") else [2, 4, 6][quality_level]
+
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:
 	# A short-lived lamp: what sells an impact is the light it throws on the ceramic.
 	# Even the performance profile gets one, just dimmer and shorter.
@@ -1503,7 +1514,7 @@ func flash(at: Vector3, color: Color, energy: float, life: float, reach: float =
 		life *= 0.7
 	if fx != null:
 		fx.glow(at, color, clampf(reach * 0.14, 0.4, 1.6), life * 0.8)
-	if light_pool.is_empty() or active_lights >= [2, 4, 8][quality_level]: return
+	if light_pool.is_empty() or active_lights >= light_cap(): return
 	var lamp = light_pool.pop_back()
 	active_lights += 1
 	lamp.show()

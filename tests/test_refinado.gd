@@ -5,7 +5,7 @@ const Video = preload("res://scripts/video_settings.gd")
 const News = preload("res://scripts/cup_news.gd")
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
-	assert(Video.AA_LEVELS[2] == Viewport.MSAA_8X)
+	assert(Video.AA_LEVELS[2] == Viewport.MSAA_4X)
 	assert(Video.SCREEN_AA[2] == Viewport.SCREEN_SPACE_AA_DISABLED)
 	var view = View.new()
 	var dimensions = Vector3(0.7, 0.9, 0.4)

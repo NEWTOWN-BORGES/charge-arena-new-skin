@@ -38,17 +38,26 @@ func run() -> void:
 	check(restored.fps == 60, "A setting of 120 saved by an older build lands on 60")
 	restored.configure(90, 2, false, false)
 	restored.apply(root, game.arena)
+	for i in range(8):
+		restored.adapt(root, 45, true)
+	check(restored.runtime_fps == 90 and is_equal_approx(root.scaling_3d_scale, 0.8) and root.msaa_3d == Settings.AA_LEVELS[2], "Refinado first gives up a little 3D resolution, keeping 90 FPS and its antialiasing")
 	for i in range(4):
 		restored.adapt(root, 45, true)
-	check(restored.runtime_fps == 60 and is_equal_approx(root.scaling_3d_scale, 1.0) and root.msaa_3d == Settings.AA_LEVELS[2], "Refinado falls from 90 to 60 FPS without lowering graphics")
+	check(restored.runtime_fps == 60 and is_equal_approx(root.scaling_3d_scale, 0.8), "Then falls from 90 to 60 FPS")
+	for i in range(Settings.RECOVER_WINDOWS):
+		restored.adapt(root, 60, true)
+	check(restored.runtime_fps == 90, "Once the phone keeps up again it wins the frame rate back")
+	for i in range(Settings.RECOVER_WINDOWS):
+		restored.adapt(root, 90, true)
+	check(is_equal_approx(root.scaling_3d_scale, 0.86), "And then its resolution, a step at a time")
 	for i in range(4):
 		restored.adapt(root, 45, true)
-	check(restored.runtime_fps == 30 and is_equal_approx(root.scaling_3d_scale, 1.0), "And from 60 to 30 while preserving native 3D resolution")
+	check(restored.recover_after == Settings.RECOVER_WINDOWS * 2, "A step up that does not hold makes the next one wait longer")
 	restored.configure(60, 0, false, false)
 	restored.apply(root, game.arena)
 	for i in range(2):
 		restored.adapt(root, 20, true)
-	check(root.scaling_3d_scale < Settings.RENDER_SCALES[0], "Only Leve may reduce 3D resolution on a weak phone")
+	check(root.scaling_3d_scale < Settings.RENDER_SCALES[0], "Leve reduces its 3D resolution on a weak phone")
 	settings.configure(90, 2, true, true)
 	game.hud.sync_video(settings)
 	check(game.hud.fps_choice.selected == Settings.FPS_OPTIONS.find(90) and game.hud.quality_choice.selected == 2 and game.hud.fps_label.visible, "Settings menu and real FPS counter reflect selected preferences")

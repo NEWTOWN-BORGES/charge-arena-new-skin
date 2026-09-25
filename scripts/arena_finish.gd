@@ -23,7 +23,9 @@ static func environment(env: Environment, quality: int) -> void:
 	env.ambient_light_color = Color("91b5c5")
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.12
-	env.glow_enabled = quality == 2
+	# Glow is several full-screen passes: kept on a computer, left off on a phone, where the
+	# particles' own additive glow already carries the light.
+	env.glow_enabled = quality == 2 and not OS.has_feature("mobile")
 	env.glow_intensity = 0.65
 	env.glow_bloom = 0.03
 	env.glow_hdr_threshold = 1.12
