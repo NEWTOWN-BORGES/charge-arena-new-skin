@@ -45,6 +45,15 @@ HEAD_TOP = 1.80
 HEAD_CENTER = 1.44
 
 CONVERT = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # Godot -> Blender
+# Detalhe das primitivas: 1 no kit normal; as variantes "lo_" (topos em miniatura nos tijolos)
+# são geradas com metade, porque ali cada peça ocupa poucos píxeis.
+DETAIL = 1.0
+LOW_DETAIL = ["top_antenna", "top_handle", "top_dish", "top_leaves", "top_beacon", "top_horns", "top_rods",
+              "top_bolts", "top_mohawk", "top_crest", "top_fins"]
+
+
+def seg(n, least=1):
+    return max(least, int(round(n * DETAIL)))
 
 
 def xform(at=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
@@ -89,19 +98,19 @@ class Part:
             v.co = Vector((v.co.x * size[0], v.co.y * size[1], v.co.z * size[2]))
         r = min(radius, min(size) * 0.48)
         if r > 0.001:
-            bmesh.ops.bevel(bm, geom=list(bm.edges), offset=r, segments=segments, profile=0.5,
+            bmesh.ops.bevel(bm, geom=list(bm.edges), offset=r, segments=seg(segments), profile=0.5,
                             affect="EDGES", clamp_overlap=True)
         self.add(role, bm, xform(at, rot))
 
     def ball(self, role, at, size, rot=(0, 0, 0), detail=16):
         bm = bmesh.new()
-        bmesh.ops.create_uvsphere(bm, u_segments=detail, v_segments=max(6, detail // 2), radius=0.5)
+        bmesh.ops.create_uvsphere(bm, u_segments=seg(detail, 6), v_segments=max(4, seg(detail, 6) // 2), radius=0.5)
         self.add(role, bm, xform(at, rot, size))
 
     def tube(self, role, at, radius, length, rot=(0, 0, 0), detail=16, radius2=None, bevel=0.0, caps=True):
         """Cilindro ao longo do Y local (roda-o com `rot`)."""
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=caps, segments=detail, radius1=radius,
+        bmesh.ops.create_cone(bm, cap_ends=caps, segments=seg(detail, 5), radius1=radius,
                               radius2=radius if radius2 is None else radius2, depth=length)
         bmesh.ops.rotate(bm, verts=bm.verts, matrix=Matrix.Rotation(math.radians(-90), 3, "X"))
         if bevel > 0 and caps:
@@ -117,7 +126,7 @@ class Part:
         d = b - a
         q = Vector((0, 1, 0)).rotation_difference(d.normalized())
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, segments=detail, radius1=radius,
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=seg(detail, 5), radius1=radius,
                               radius2=radius if radius2 is None else radius2, depth=d.length)
         bmesh.ops.rotate(bm, verts=bm.verts, matrix=Matrix.Rotation(math.radians(-90), 3, "X"))
         self.add(role, bm, Matrix.Translation((a + b) / 2) @ q.to_matrix().to_4x4())
@@ -130,6 +139,7 @@ class Part:
 
     def ring(self, role, at, major, minor, rot=(0, 0, 0), detail=24, sides=6):
         """Toro deitado no plano XZ local (eixo Y)."""
+        detail, sides = seg(detail, 6), seg(sides, 3)
         bm = bmesh.new()
         verts = []
         for i in range(detail):
@@ -156,7 +166,7 @@ class Part:
             v.co = Vector((v.co.x * size[0] * k, v.co.y * size[1], v.co.z * size[2] * max(k, 0.35)))
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
         if radius > 0:
-            bmesh.ops.bevel(bm, geom=list(bm.edges), offset=radius, segments=2, profile=0.5,
+            bmesh.ops.bevel(bm, geom=list(bm.edges), offset=radius, segments=seg(2), profile=0.5,
                             affect="EDGES", clamp_overlap=True)
         self.add(role, bm, xform(at, rot))
 
@@ -939,19 +949,17 @@ def _(p):
 # ======================================================================================
 @part("brick_crate")
 def _(p):
-    p.box("dark", (0, 0.05, 0), (0.56, 0.1, 0.3), 0.03)
-    p.box("shell", (0, 0.31, 0), (0.52, 0.44, 0.27), 0.05, segments=3)
+    # Pouco detalhe de propósito: há até oitenta destes no ecrã.
+    p.box("dark", (0, 0.05, 0), (0.56, 0.1, 0.3), 0.02, segments=1)
+    p.box("shell", (0, 0.31, 0), (0.52, 0.44, 0.27), 0.04, segments=1)
     for x in (-0.245, 0.245):
-        p.box("trim", (x, 0.31, 0), (0.06, 0.46, 0.3), 0.02)
-    p.box("team", (0, 0.17, 0), (0.44, 0.05, 0.285), 0.01)
+        p.box("trim", (x, 0.31, 0), (0.06, 0.46, 0.3), 0.015, segments=1)
+    p.box("team", (0, 0.17, 0), (0.44, 0.05, 0.285), 0.0)
     for z in (-0.137, 0.137):
-        p.box("dark", (0, 0.37, z), (0.26, 0.14, 0.02), 0.02)
-        p.box("glow", (0, 0.37, z * 1.05), (0.2, 0.08, 0.012), 0.01)
+        p.box("glow", (0, 0.37, z * 1.03), (0.2, 0.08, 0.012), 0.0)
     # A tampa é o que a câmara de jogo vê: fica na cor da equipa, com uma moldura escura.
-    p.box("dark", (0, 0.56, 0), (0.54, 0.04, 0.3), 0.015)
-    p.box("team", (0, 0.585, 0), (0.48, 0.03, 0.25), 0.012)
-    for x in (-0.25, 0.25):
-        p.tube("metal", (x, 0.585, 0), 0.022, 0.03, detail=10)
+    p.box("dark", (0, 0.56, 0), (0.54, 0.04, 0.3), 0.01, segments=1)
+    p.box("team", (0, 0.585, 0), (0.48, 0.03, 0.25), 0.008, segments=1)
 
 
 @part("bumper_body")
@@ -1002,9 +1010,12 @@ def reset():
 
 
 def build_kit():
+    global DETAIL
     reset()
     objects = {}
-    for name, fn in PARTS.items():
+    jobs = [(name, fn, 1.0) for name, fn in PARTS.items()] + [("lo_" + name, PARTS[name], 0.5) for name in LOW_DETAIL]
+    for name, fn, detail in jobs:
+        DETAIL = detail
         p = Part(name)
         fn(p)
         root = bpy.data.objects.new(name, None)

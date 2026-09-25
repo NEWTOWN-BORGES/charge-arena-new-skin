@@ -85,7 +85,9 @@ var unit_tints: Array = [false, false]
 var unit_hues: Array = ["", ""]
 var shot_colors: Array = [CYAN, CORAL]
 var aim_guide: Node3D
-var guide_dots: Array = []
+var guide_dots: MultiMeshInstance3D
+# How many guide dots the current prediction shows.
+var guide_shown = 0
 var guide_marker: MeshInstance3D
 var guide_enabled = true
 var guide_timer = 0.0
@@ -98,8 +100,9 @@ var camera_home = Vector3(0, 26, 15)
 var shake_power = 0.0
 var shake_scale = 0.55
 var shot_age = [1.0, 1.0]
-var feedback_pool: Array[MeshInstance3D] = []
+var feedback_pool: Array[Node3D] = []
 var feedback_allocated = 0
+var chip_batch: MultiMeshInstance3D
 const FEEDBACK_POOL_LIMIT = 80
 var brick_reactions: Dictionary = {}
 var shake_seed = 0.0
@@ -440,14 +443,19 @@ func build(new_map: Dictionary = {}) -> void:
 	build_obstacles()
 	build_barriers()
 	build_power_effects()
+	# The short aim line and the dotted shot guide are one MultiMesh each: a draw apiece
+	# instead of one per dot.
 	aim_line = Node3D.new()
 	add_child(aim_line)
+	var line_dots = dot_batch(aim_line, 8, 0.031)
 	for i in range(8):
-		cylinder(aim_line, Vector3(0, 0, -0.9 - i * 0.24), 0.031 if i < 5 else 0.022, 0.012, Color(CREAM, 0.55 - i * 0.045), true, 8)
+		var width = 1.0 if i < 5 else 0.022 / 0.031
+		line_dots.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(width, 1, width)), Vector3(0, 0, -0.9 - i * 0.24)))
+		line_dots.multimesh.set_instance_color(i, Color(CREAM, 0.55 - i * 0.045))
 	aim_guide = Node3D.new()
 	add_child(aim_guide)
-	for i in range(GUIDE_DOTS):
-		guide_dots.append(cylinder(aim_guide, Vector3.ZERO, 0.045, 0.012, Color(CREAM, 0.7), true, 10))
+	guide_dots = dot_batch(aim_guide, GUIDE_DOTS, 0.045)
+	guide_dots.multimesh.visible_instance_count = 0
 	guide_marker = torus(aim_guide, Vector3.ZERO, 0.42, 0.024, LIME)
 	aim_guide.hide()
 	CombatFinish.prepare(self)
@@ -677,7 +685,9 @@ func build_boosters() -> void:
 		booster_nodes.append(root)
 
 func build_obstacles() -> void:
-	var color = Color("a4c8d4")
+	# Painted guides are opaque, pre-blended with the floor, so they merge with the static
+	# geometry instead of costing a transparent draw each.
+	var color = theme.line
 	for spec in map.get("obstacles", []):
 		var kind: String = spec.get("kind", "fixed")
 		var radius: float = spec.get("radius", Rules.OBSTACLE_RADIUS)
@@ -688,17 +698,17 @@ func build_obstacles() -> void:
 			var axis: Vector2 = spec.get("axis", Vector2.RIGHT)
 			for n in range(-10, 11):
 				var at = center + axis * travel * n / 10.0
-				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), Color(color, 0.24), true)
+				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), color.lerp(theme.floor, 0.7), true)
 				tick.rotation.y = -axis.angle()
 			for end in [-1, 1]:
 				var cap = center + axis * travel * end
-				cylinder(self, Vector3(cap.x, 0.021, cap.y), 0.085, 0.015, Color(color, 0.45), true, 12)
+				cylinder(self, Vector3(cap.x, 0.021, cap.y), 0.085, 0.015, color.lerp(theme.floor, 0.5), true, 12)
 		elif kind == "orbit":
 			var dots = maxi(24, int(TAU * travel / 0.32))
 			for n in range(dots):
 				var angle = TAU * n / dots
 				var at = center + Vector2(cos(angle), sin(angle)) * travel
-				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), Color(color, 0.22), true)
+				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), color.lerp(theme.floor, 0.72), true)
 				tick.rotation.y = -(angle + PI * 0.5)
 		else:
 			cylinder(self, Vector3(center.x, 0.02, center.y), radius + 0.14, 0.03, DARK, false, 32)
@@ -1261,9 +1271,40 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			elif effect.get("pooled", false):
 				effect.node.hide()
 				feedback_pool.append(effect.node)
+				chip_batch.multimesh.set_instance_transform(int(effect.node.get_meta("slot")), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.000001), effect.node.position))
 			else:
 				effect.node.queue_free()
 			effects.remove_at(effect_index)
+	sync_chips()
+
+func sync_chips() -> void:
+	if chip_batch == null:
+		return
+	for effect in effects:
+		if effect.get("pooled", false):
+			chip_batch.multimesh.set_instance_transform(int(effect.node.get_meta("slot")), effect.node.transform)
+
+func dot_batch(parent: Node3D, count: int, radius: float) -> MultiMeshInstance3D:
+	var disc = CylinderMesh.new()
+	disc.top_radius = radius
+	disc.bottom_radius = radius
+	disc.height = 0.012
+	disc.radial_segments = 10
+	disc.rings = 1
+	var batch = MultiMeshInstance3D.new()
+	batch.multimesh = MultiMesh.new()
+	batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	batch.multimesh.use_colors = true
+	batch.multimesh.mesh = disc
+	batch.multimesh.instance_count = count
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	batch.material_override = mat
+	batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(batch)
+	return batch
 
 func update_aim_guide(rules, local_team: int, dt: float) -> void:
 	# Dotted path of the shot the local pilot would fire now, ricochets included, and a ring
@@ -1292,17 +1333,15 @@ func update_aim_guide(rules, local_team: int, dt: float) -> void:
 	var shown = 0
 	for i in range(1, points.size()):
 		var length = points[i].distance_to(points[i - 1])
-		while next_dot <= travelled + length and shown < guide_dots.size():
+		while next_dot <= travelled + length and shown < GUIDE_DOTS:
 			var at = points[i - 1].lerp(points[i], (next_dot - travelled) / maxf(length, 0.0001))
-			var dot: MeshInstance3D = guide_dots[shown]
-			dot.position = Vector3(at.x, 0.035, at.y)
-			dot.material_override = material(Color(CREAM, snappedf(lerpf(0.85, 0.25, next_dot / maxf(total, 0.001)), 0.1)), true)
-			dot.show()
+			guide_dots.multimesh.set_instance_transform(shown, Transform3D(Basis.IDENTITY, Vector3(at.x, 0.035, at.y)))
+			guide_dots.multimesh.set_instance_color(shown, Color(CREAM, lerpf(0.85, 0.25, next_dot / maxf(total, 0.001))))
 			shown += 1
 			next_dot += 0.34
 		travelled += length
-	for i in range(shown, guide_dots.size()):
-		guide_dots[i].hide()
+	guide_dots.multimesh.visible_instance_count = shown
+	guide_shown = shown
 	var outcome: Dictionary = path.outcome
 	guide_marker.show()
 	match outcome.get("kind", ""):
@@ -2403,17 +2442,31 @@ func world_at(screen: Vector2) -> Vector2:
 func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, size: Vector3, debris: bool = false) -> void:
 	if effects.size() >= effect_limit:
 		return
-	var chip: MeshInstance3D
+	# Chips are plain nodes animated like any effect; one MultiMesh draws them all (see
+	# sync_chips), so a volley of sparks costs a single draw.
+	var chip: Node3D
 	if not feedback_pool.is_empty():
 		chip = feedback_pool.pop_back()
 	elif feedback_allocated < FEEDBACK_POOL_LIMIT:
-		chip = MeshInstance3D.new()
-		if not shapes.has("feedback_cube"):
+		if chip_batch == null:
+			chip_batch = MultiMeshInstance3D.new()
 			var cube = BoxMesh.new()
 			cube.size = Vector3.ONE
-			shapes["feedback_cube"] = cube
-		chip.mesh = shapes["feedback_cube"]
-		chip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			chip_batch.multimesh = MultiMesh.new()
+			chip_batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+			chip_batch.multimesh.use_colors = true
+			chip_batch.multimesh.mesh = cube
+			chip_batch.multimesh.instance_count = FEEDBACK_POOL_LIMIT
+			for i in range(FEEDBACK_POOL_LIMIT):
+				chip_batch.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.000001), Vector3.ZERO))
+			var mat = StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.vertex_color_use_as_albedo = true
+			chip_batch.material_override = mat
+			chip_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(chip_batch)
+		chip = Node3D.new()
+		chip.set_meta("slot", feedback_allocated)
 		add_child(chip)
 		feedback_allocated += 1
 	else:
@@ -2421,8 +2474,8 @@ func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, siz
 	chip.position = at
 	chip.rotation = Vector3.ZERO
 	chip.scale = size
-	chip.material_override = material(tint, not debris)
 	chip.show()
+	chip_batch.multimesh.set_instance_color(int(chip.get_meta("slot")), tint if not debris else tint.darkened(0.25))
 	effects.append({"node": chip, "v": velocity, "ttl": life, "life": life, "gravity": debris, "base": size, "pooled": true})
 
 func shot_feedback(team: int) -> void:

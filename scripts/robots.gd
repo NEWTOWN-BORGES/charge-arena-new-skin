@@ -1,8 +1,9 @@
 extends RefCounted
 ## The robot cast. Parts are modelled in Blender (tools/blender/robot_kit.py writes
 ## art/robots/kit.glb), recipes live in art/robots/roster.json, and this script assembles
-## a pilot from them: one merged mesh per colour role for each moving group (body, legs,
-## weapon, spinning crest), an ink outline per group and a face screen of its own.
+## a pilot from them. Each moving group (body, legs, weapon, spinning crest) becomes ONE mesh
+## with the colours baked into its vertices, so a robot costs a handful of draws: that mesh,
+## an ink outline per group and a face screen of its own.
 const KIT = preload("res://art/robots/kit.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 const PAINT = preload("res://shaders/robot_paint.gdshader")
@@ -20,7 +21,9 @@ const HEAD_CENTER = 1.44
 # Crests that turn in their own plane, behind the head, pivot about these centres.
 const DISC_SPINS = {"spin_rays": Vector3(0, 1.44, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
 const CENTRED_SPINS = ["spin_rays", "spin_halo", "spin_orbit"]
-const GLOSS = {"shell": 0.6, "trim": 0.55, "dark": 0.25, "metal": 0.8, "team": 0.55, "glow": 0.0}
+# Vertex alpha tells the paint shader what a surface is made of.
+const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5}
+const PAINTED = 0.25
 const OUTLINE_GROUP = "robot_outline"
 
 static var _parts: Dictionary = {}
@@ -84,41 +87,78 @@ static func part(name: String) -> Array:
 		scene.free()
 	return _parts.get(name, [])
 
-static func merged(key: String, placed: Array) -> Dictionary:
-	# `placed`: [part name, Transform3D] pairs. Returns role -> one mesh with every part of
-	# that role, plus "outline": the whole group with smooth normals, so the inflated ink hull
-	# has no cracks along hard edges.
+static func merged(key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Dictionary:
+	# `placed`: [part name, Transform3D] pairs (identity, translation or uniform scale).
+	# Returns "paint": every painted part in one mesh, its colour and finish in the vertex
+	# colours; "screen" when there is a face; and "outline": the group with smooth normals,
+	# so the inflated ink hull has no cracks along hard edges.
 	if _merged.has(key):
 		return _merged[key]
-	var by_role: Dictionary = {}
+	var verts = PackedVector3Array()
+	var normals = PackedVector3Array()
+	var tints = PackedColorArray()
+	var index = PackedInt32Array()
+	var screen: Array = []
+	var hull_verts = PackedVector3Array()
+	var hull_index = PackedInt32Array()
 	for entry in placed:
+		var at: Transform3D = entry[1]
 		for item in part(entry[0]):
-			if not by_role.has(item[1]):
-				by_role[item[1]] = []
-			by_role[item[1]].append([item[0], entry[1]])
+			var role: String = item[1]
+			if role == "screen":
+				screen.append([item[0], at])
+				continue
+			var arrays: Array = item[0].surface_get_arrays(0)
+			var points: PackedVector3Array = at * PackedVector3Array(arrays[Mesh.ARRAY_VERTEX])
+			var faces = PackedInt32Array(arrays[Mesh.ARRAY_INDEX]) if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(points.size()))
+			var tone: Color = Color(paint.get(role, Color.WHITE)).srgb_to_linear()
+			tone.a = FINISH.get(role, PAINTED)
+			var fill = PackedColorArray()
+			fill.resize(points.size())
+			fill.fill(tone)
+			var base = verts.size()
+			verts.append_array(points)
+			normals.append_array(arrays[Mesh.ARRAY_NORMAL])
+			tints.append_array(fill)
+			var start = index.size()
+			index.append_array(faces)
+			for i in range(start, index.size()):
+				index[i] += base
+			if outline and role != "glow":
+				var hull_base = hull_verts.size()
+				hull_verts.append_array(points)
+				var hull_start = hull_index.size()
+				hull_index.append_array(faces)
+				for i in range(hull_start, hull_index.size()):
+					hull_index[i] += hull_base
 	var out: Dictionary = {}
-	var hull = SurfaceTool.new()
-	hull.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for role in by_role:
+	var arrays = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = tints
+	arrays[Mesh.ARRAY_INDEX] = index
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	out["paint"] = mesh
+	if not screen.is_empty():
 		var tool = SurfaceTool.new()
 		tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for piece in by_role[role]:
-			var at: Transform3D = piece[1]
-			tool.append_from(piece[0], 0, at)
-			if role != "screen" and role != "glow":
-				var arrays: Array = piece[0].surface_get_arrays(0)
-				var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-				var index = arrays[Mesh.ARRAY_INDEX]
-				if index == null or index.is_empty():
-					for point in points:
-						hull.add_vertex(at * point)
-				else:
-					for i in index:
-						hull.add_vertex(at * points[i])
-		out[role] = tool.commit()
-	hull.index()
-	hull.generate_normals()
-	out["outline"] = hull.commit()
+		for piece in screen:
+			tool.append_from(piece[0], 0, piece[1])
+		out["screen"] = tool.commit()
+	if outline and not hull_verts.is_empty():
+		var shell = []
+		shell.resize(Mesh.ARRAY_MAX)
+		shell[Mesh.ARRAY_VERTEX] = hull_verts
+		shell[Mesh.ARRAY_INDEX] = hull_index
+		var hull = SurfaceTool.new()
+		hull.create_from_arrays(shell)
+		# Weld every copy of a position so the normals average across hard edges.
+		hull.deindex()
+		hull.index()
+		hull.generate_normals()
+		out["outline"] = hull.commit()
 	_merged[key] = out
 	return out
 
@@ -190,9 +230,10 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 	var placed: Array = [["brick_crate", Transform3D.IDENTITY]]
 	var crest = String(cast()[skin].get("brick_top", "")) if skin >= 0 and skin < cast().size() else ""
 	if crest != "":
+		# The low-detail copy: up to eighty bricks share the screen.
 		var s = 0.3
-		placed.append([crest, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), Vector3(0, 0.6 - HEAD_TOP * s, 0))])
-	_mount(view, node, "brick:%d:%s" % [skin, crest], placed, paint)
+		placed.append(["lo_" + crest, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), Vector3(0, 0.6 - HEAD_TOP * s, 0))])
+	_mount(view, node, "brick:%d:%s" % [skin, crest], placed, paint, false)
 
 static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionary) -> Array:
 	# Arena furniture from the same kit (bumpers, goal posts), painted like the robots.
@@ -203,8 +244,11 @@ static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionar
 		paint["wear"] = 0.4
 	return _mount(view, node, key, placed, paint)
 
-static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary) -> Array:
-	var meshes = merged(key, placed)
+static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Array:
+	var signature = ""
+	for role in ["shell", "trim", "dark", "metal", "glow", "team"]:
+		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
+	var meshes = merged(key + ":" + signature, placed, paint, outline)
 	var nodes: Array = []
 	for role in meshes:
 		var node = MeshInstance3D.new()
@@ -220,7 +264,7 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 			face.shader = FACE
 			node.material_override = face
 		else:
-			node.material_override = paint_material(view, role, paint.get(role, Color.WHITE), paint.wear)
+			node.material_override = paint_material(view, paint.wear)
 		parent.add_child(node)
 		nodes.append(node)
 	return nodes
@@ -236,19 +280,15 @@ static func set_mood(body: Node3D, mood: int) -> void:
 	body.set_meta("robot_mood", mood)
 	_face(body).set_shader_parameter("mood", mood)
 
-static func paint_material(view, role: String, color: Color, wear: float = 0.4) -> ShaderMaterial:
-	var worn = 0.0 if role in ["glow", "metal"] else wear
-	var key = "robot:%s:%s:%.2f" % [role, color.to_html(), worn]
+static func paint_material(view, wear: float = 0.4) -> ShaderMaterial:
+	# One material for every robot, brick and prop with the same wear: colours live in the
+	# vertices, so the whole cast shares a handful of materials.
+	var key = "robot:paint:%.2f" % wear
 	if view.materials.has(key):
 		return view.materials[key]
 	var mat = ShaderMaterial.new()
 	mat.set_meta("robot_paint", true)
-	mat.set_shader_parameter("paint", color)
-	mat.set_shader_parameter("metal", 0.85 if role == "metal" else 0.0)
-	mat.set_shader_parameter("gloss", GLOSS.get(role, 0.5))
-	mat.set_shader_parameter("glow", 1.4 if role == "glow" else 0.0)
-	mat.set_shader_parameter("rim", 0.0 if role == "glow" else (0.1 if role == "dark" else 0.16))
-	mat.set_shader_parameter("wear", worn)
+	mat.set_shader_parameter("wear", wear)
 	mat.shader = PAINT_LOW if view.quality_level == 0 else PAINT
 	view.materials[key] = mat
 	return mat

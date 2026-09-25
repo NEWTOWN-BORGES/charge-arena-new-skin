@@ -43,9 +43,9 @@ func run():
 		video.apply(root, view)
 		check(ivory.normal_enabled == (quality == 2) and (ivory.albedo_texture != null) == (quality > 0), "Profile %d uses the intended texture budget" % quality)
 		check(view.presentation_environment.glow_enabled == (quality == 2) and root.msaa_3d == Video.AA_LEVELS[quality], "Profile %d applies glow and anti-aliasing" % quality)
-		var shell = view.units[0].get_node("Body/Robot_shell").material_override
-		var paint = shell.get_shader_parameter("paint")
-		check(shell.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and paint != null, "Profile %d preserves armour colours with the intended shader" % quality)
+		var armour: MeshInstance3D = view.units[0].get_node("Body/Robot_paint")
+		var colours = armour.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+		check(armour.material_override.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and colours != null and colours.size() > 0, "Profile %d preserves armour colours with the intended shader" % quality)
 		check(view.units[0].get_node("Body/Robot_outline").visible == (quality > 0), "Profile %d shows ink outlines only when it can afford them" % quality)
 		var new_paint = view.material(Color(0.43, 0.38, 0.49 + quality * 0.03))
 		check((new_paint.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED) == (quality == 0), "Newly created materials respect the current profile")

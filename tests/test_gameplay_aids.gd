@@ -118,7 +118,7 @@ func run() -> void:
 	var outcome: Dictionary = game.rules.predict_path(0, aimed_at_brick).outcome
 	arena.guide_timer = 0
 	arena.update_state(game.rules, 0, 1.0 / 60)
-	var shown = arena.guide_dots.filter(func(d): return d.visible).size()
+	var shown = arena.guide_shown
 	var target: Dictionary = game.rules.bricks[outcome.target]
 	check(arena.aim_guide.visible and shown >= 3 and not arena.aim_line.visible, "The guide draws the shot path instead of the short aim line")
 	check(arena.guide_marker.visible and Vector2(arena.guide_marker.position.x, arena.guide_marker.position.z).is_equal_approx(target.p), "A ring marks the brick the shot would hit")
