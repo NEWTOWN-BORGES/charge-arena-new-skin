@@ -1,7 +1,7 @@
 extends SceneTree
 # Frame cost of a real match: draw calls, primitives and CPU time per frame, per quality profile
 # (needs a GPU for the render counters; omit --headless).
-# Usage: godot -s tests/benchmark_frame.gd -- [level index]
+# Usage: godot -s tests/benchmark_frame.gd -- [level index] [nohud]
 func _initialize() -> void:
 	call_deferred("run")
 
@@ -18,6 +18,9 @@ func run() -> void:
 		game.start_level(level)
 	else:
 		game.start_pve()
+	# Without the HUD, to see what the interface alone costs.
+	if args.has("nohud"):
+		game.hud.visible = false
 	print("BENCH build_ms=", (Time.get_ticks_usec() - t0) / 1000.0)
 	for quality in [2, 1, 0]:
 		game.video.configure(60, quality, false, false)

@@ -7,8 +7,8 @@ jogo (regras, IA, poderes, campanha, Taça, PvP). O trabalho está dividido em f
 |---|---|---|
 | 1 | Elenco de robôs: modelos, rostos, nomes, retratos | feito |
 | 2 | Arenas, muralhas, balizas e cenário | feito |
-| 3 | Disparos, poderes, partículas e explosões | por fazer |
-| 4 | Luz, atmosfera e interface | por fazer |
+| 3 | Disparos, poderes, partículas e explosões | feito |
+| 4 | Luz, atmosfera e interface | interface feita; luz por ambiente a seguir |
 | 5 | Banda sonora | por fazer |
 
 ## Estilo
@@ -60,6 +60,25 @@ Os tijolos são caixotes blindados do kit (`brick_crate`) nas cores do robô que
 tampa na cor da equipa e o topo do robô em miniatura. Os do BIT e dos pilotos de estrada são
 baterias na cor da equipa. Os obstáculos são pilões hexagonais com faixas de perigo e uma tampa em
 estrela que gira; as balizas têm postes do kit.
+
+## Interface
+
+- **Lobby** (`scripts/lobby.gd`): perfil do piloto e progresso da campanha no topo, carteira de
+  tijolos e opções à direita; na coluna da esquerda Hangar, Poderes, História e PvP; ao centro o
+  teu piloto em 3D, virado para ti, com a câmara a balançar devagar e a arena do nível com o boss
+  ao fundo (desliza ou usa as setas para mudar de nível); em baixo a doca com a
+  dificuldade da IA, o cartão do modo (com o boss do nível) e o botão JOGAR. Tocar no cartão abre
+  a folha dos modos: Campanha, Jogo Rápido, Modo História e PvP.
+- **Kit** (`scripts/ui_kit.gd`): paleta índigo noturna, um só amarelo-sol para a ação principal,
+  menta para opções escolhidas e as cores das equipas para tudo o que pertence a um lado. Teclas
+  "de brinquedo" com lábio que afunda ao carregar. Tipos de letra livres (OFL, `art/fonts/`):
+  Lilita One nos títulos e teclas, Rubik no texto.
+- **HUD de jogo**: cartões com a borda na cor da equipa, barras de muralha com brilho,
+  marcador, contagem num mostrador, faixa de GOLO / VITÓRIA com a cor do momento, aviso de baliza
+  desprotegida a vermelho e notificação de desbloqueio com a etiqueta NOVO!.
+- **Desempenho**: as formas do HUD saem todas de um atlas gerado no arranque e o texto é desenhado
+  no fim, agrupado por tipo de letra e tamanho; os símbolos dos poderes são pintados uma vez numa
+  folha. O HUD passou de ~150 para ~30 draw calls por frame.
 
 ## Como funciona
 

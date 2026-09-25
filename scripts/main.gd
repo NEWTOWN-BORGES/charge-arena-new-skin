@@ -652,7 +652,9 @@ func fit_content_scale() -> void:
 	window.content_scale_size = Vector2i(720, 1280) if window.size.y > window.size.x else Vector2i(1280, 720)
 
 func frame_arena() -> void:
-	if hud.vertical:
+	if hud.mode == "menu":
+		arena.frame_lobby(hud.lobby_stage(), hud.size)
+	elif hud.vertical:
 		arena.frame_rect(hud.arena_rect, hud.size, hud.mode == "menu")
 	else:
 		arena.frame_landscape(-4.5 if hud.mode == "menu" else 0.0)

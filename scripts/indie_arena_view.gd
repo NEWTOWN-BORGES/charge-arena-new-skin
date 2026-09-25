@@ -862,7 +862,7 @@ func glass_material() -> ShaderMaterial:
 		materials["glass"] = glass
 	return materials["glass"]
 
-func stadium_marks() -> Array:
+func stadium_marks(wall: float = -1.0) -> Array:
 	# Everything the camera has to keep on screen: the boundary, the rails the pilots walk
 	# — which reach outside the wall line at the goal ends on some outlines — and the top of
 	# the walls, each with a hair of margin around it.
@@ -873,7 +873,7 @@ func stadium_marks() -> Array:
 			spots.append(Rules.track_position(team, lerpf(-limit, limit, step / 8.0)))
 	# The leaning view needs less room around the boundary: the rails are already among the
 	# marks, and out there a wide margin is a lot of screen.
-	var margin: float = 0.3 if leaning() else 0.72
+	var margin: float = wall if wall >= 0.0 else (0.3 if leaning() else 0.72)
 	var marks: Array = []
 	for spot in spots:
 		for corner in [Vector2(-margin, -margin), Vector2(margin, -margin), Vector2(-margin, margin), Vector2(margin, margin)]:
@@ -902,27 +902,23 @@ func measure_view_bounds() -> Rect2:
 	var basis = camera.global_transform.basis
 	var bounds = Rect2()
 	var first = true
-	if camera_home != LANDSCAPE_EYE:
-		for mark in stadium_marks():
-			var offset: Vector3 = mark - camera.global_position
-			var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
-			bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
-			first = false
-		return bounds
-	else:
-		# Menu and landscape: full stadium extent on camera plane, side beacons included.
-		for node in find_children("*", "GeometryInstance3D", true, false):
-			if not node.is_visible_in_tree() or node.layers == 0:
-				continue
-			if node.material_override is ShaderMaterial and node.material_override.shader == SOFT_DISC:
-				continue
-			var box: AABB = node.global_transform * node.get_aabb()
-			for i in range(8):
-				var offset = box.get_endpoint(i) - camera.global_position
-				var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
-				bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
-				first = false
-		return bounds
+	# The menu seat measures the field and its wall with a wider margin, never the stands and
+	# towers around it: measuring every mesh let the floodlights and skyline decide the zoom
+	# and shrank the previewed level to a stamp.
+	for mark in stadium_marks(1.1 if camera_home == LANDSCAPE_EYE else -1.0):
+		var offset: Vector3 = mark - camera.global_position
+		var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
+		bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
+		first = false
+	return bounds
+	# Menu seat: the field and its wall, not the stands and towers around it. Measuring every
+	# mesh let the floodlights and skyline decide the zoom and shrank the level to a stamp.
+	for mark in stadium_marks(1.1):
+		var offset: Vector3 = mark - camera.global_position
+		var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
+		bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
+		first = false
+	return bounds
 
 func view_aspect() -> float:
 	if view_bounds.size == Vector2.ZERO:
@@ -932,6 +928,7 @@ func view_aspect() -> float:
 const LANDSCAPE_EYE = Vector3(0, 26, 15)
 
 func frame_landscape(h_offset: float) -> void:
+	lobby_view = false
 	# Wide screens keep the original lean, which reads more like a stadium seen from a seat.
 	if camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -987,7 +984,44 @@ func frame_leaning(rect: Rect2, screen: Vector2) -> void:
 	camera.look_at(pivot)
 	camera_home = camera.position
 
+# The lobby: your pilot up close in the middle of the previewed arena, the camera swaying
+# slowly round it, the boss waiting at the far end behind.
+const LOBBY_FOV = 34.0
+const LOBBY_PILOT_HEIGHT = 2.5
+var lobby_view = false
+var lobby_rect = Rect2()
+var lobby_screen = Vector2.ZERO
+
+func frame_lobby(rect: Rect2, screen: Vector2) -> void:
+	lobby_view = true
+	lobby_rect = rect
+	lobby_screen = screen
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = LOBBY_FOV
+	view_bounds = Rect2()
+	place_lobby_camera()
+
+func lobby_yaw() -> float:
+	return sin(clock * 0.22) * 0.55
+
+func place_lobby_camera() -> void:
+	var pilot: Node3D = units[0]
+	var focus = pilot.position + Vector3(0, 1.05, 0)
+	var tan_half = tan(deg_to_rad(LOBBY_FOV) * 0.5)
+	# Far enough that the pilot fills about two thirds of the band it is shown in.
+	var distance = LOBBY_PILOT_HEIGHT / 0.64 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
+	var yaw = lobby_yaw()
+	camera.position = focus + Vector3(sin(yaw), 0.36, cos(yaw)).normalized() * distance
+	camera.look_at(focus)
+	camera_home = camera.position
+	# Slide the picture so the pilot stands in the middle of its band, a little low, with
+	# the arena and the boss rising behind its head.
+	var per_pixel = 2.0 * distance * tan_half / lobby_screen.y
+	camera.h_offset = -(lobby_rect.get_center().x - lobby_screen.x * 0.5) * per_pixel
+	camera.v_offset = (lobby_rect.get_center().y + lobby_rect.size.y * 0.1 - lobby_screen.y * 0.5) * per_pixel
+
 func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
+	lobby_view = false
 	# Fit the stadium inside the viewport band between top cards and bottom controls.
 	# In menu mode, restore the original camera seat so demo maps look as they did before.
 	# In match portrait mode, frame the arena closely without cutting off the sides.
@@ -1016,6 +1050,8 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
 	if fx != null: fx.tick(clock)
+	if lobby_view:
+		place_lobby_camera()
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt
@@ -1102,6 +1138,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		node.position = desired
 		var body: Node3D = node.get_node("Body")
 		body.rotation.y = atan2(-facing.x, -facing.y)
+		if lobby_view and team == 0:
+			# In the lobby your pilot turns to face the camera.
+			body.rotation.y = atan2(-sin(lobby_yaw()), -cos(lobby_yaw()))
 		body.position.y = sin(clock * (12.0 if speed > 0.5 else 2.2)) * (0.035 if speed > 0.5 else 0.016)
 		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else -data.aim.x * speed * 0.018, minf(dt * 10, 1))
 		spin_parts(body, clock)
