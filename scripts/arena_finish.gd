@@ -56,31 +56,3 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	mat.clearcoat_enabled = quality == 2 and kind != "graphite"
 	mat.clearcoat = 0.45
 	mat.clearcoat_roughness = 0.25
-
-static func architecture(view) -> void:
-	# Insets stay outside the playable wall; physics and all sightlines stay untouched.
-	for index in range(view.walls.size()):
-		var a: Vector2 = view.walls[index]
-		var b: Vector2 = view.walls[(index + 1) % view.walls.size()]
-		var edge = b-a
-		var outer = Vector2(edge.y, -edge.x).normalized()
-		var tone = view.CYAN if (a.y+b.y) > 0 else view.CORAL
-		var begin = a.lerp(b, 0.06) + outer*0.13
-		var end = a.lerp(b, 0.94) + outer*0.13
-		view.segment(view, Vector3(begin.x, -0.25, begin.y), Vector3(end.x, -0.25, end.y), 0.16, 0.07, tone, true)
-		var joints = maxi(1, int(edge.length()/1.5))
-		for j in range(joints):
-			var pos = a.lerp(b, (j+0.5)/joints)
-			var node = view.box(view, Vector3(pos.x, 0.405, pos.y), Vector3(0.11,0.028,0.42), Color("536b75"), false, 0.008)
-			node.rotation.y = -edge.angle()
-			for side in [-1,1]:
-				var screw = pos + outer * (0.155*side)
-				view.cylinder(view, Vector3(screw.x,0.425,screw.y), 0.035,0.012,Color("b7c5c7"),false,10)
-	# Recessed machinery and warm/cool side washes lend scale to the floating plinth.
-	for side in [-1,1]:
-		for z in [-5.2,5.2]:
-			var x = side*(view.Rules.outline_x_at(view.walls,z)+0.36)
-			var tone = view.CYAN if z > 0 else view.CORAL
-			view.box(view,Vector3(x,-0.55,z),Vector3(0.35,0.38,1.9),Color("10222e"),false,0.09)
-			for vent in range(5):
-				view.box(view,Vector3(x,-0.38,z+(vent-2)*0.29),Vector3(0.39,0.06,0.12),tone,true,0.018)

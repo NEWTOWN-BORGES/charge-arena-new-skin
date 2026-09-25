@@ -935,6 +935,59 @@ def _(p):
 
 
 # ======================================================================================
+# ARENA: caixote dos tijolos (espaço do tijolo, topo em y = 0.6), obstáculo e poste da baliza.
+# ======================================================================================
+@part("brick_crate")
+def _(p):
+    p.box("dark", (0, 0.05, 0), (0.56, 0.1, 0.3), 0.03)
+    p.box("shell", (0, 0.31, 0), (0.52, 0.44, 0.27), 0.05, segments=3)
+    for x in (-0.245, 0.245):
+        p.box("trim", (x, 0.31, 0), (0.06, 0.46, 0.3), 0.02)
+    p.box("team", (0, 0.17, 0), (0.44, 0.05, 0.285), 0.01)
+    for z in (-0.137, 0.137):
+        p.box("dark", (0, 0.37, z), (0.26, 0.14, 0.02), 0.02)
+        p.box("glow", (0, 0.37, z * 1.05), (0.2, 0.08, 0.012), 0.01)
+    # A tampa é o que a câmara de jogo vê: fica na cor da equipa, com uma moldura escura.
+    p.box("dark", (0, 0.56, 0), (0.54, 0.04, 0.3), 0.015)
+    p.box("team", (0, 0.585, 0), (0.48, 0.03, 0.25), 0.012)
+    for x in (-0.25, 0.25):
+        p.tube("metal", (x, 0.585, 0), 0.022, 0.03, detail=10)
+
+
+@part("bumper_body")
+def _(p):
+    # Pilão industrial hexagonal com faixas de perigo e anel de luz.
+    p.tube("dark", (0, 0.05, 0), 0.5, 0.1, detail=6, bevel=0.02)
+    p.tube("shell", (0, 0.3, 0), 0.44, 0.42, detail=6, bevel=0.035)
+    for i in range(6):
+        a = i * 60 + 30
+        r = math.radians(a)
+        p.box("trim" if i % 2 else "dark", (math.cos(r) * 0.39, 0.3, math.sin(r) * 0.39), (0.05, 0.3, 0.2), 0.01, rot=(0, -a, 18))
+    p.ring("glow", (0, 0.13, 0), 0.45, 0.022, detail=6, sides=4)
+    p.tube("metal", (0, 0.55, 0), 0.36, 0.08, detail=6, bevel=0.02)
+
+
+@part("bumper_core")
+def _(p):
+    # Tampa que gira: uma estrela de três braços com luz no centro.
+    p.tube("dark", (0, 0.61, 0), 0.24, 0.04, detail=18)
+    for i in range(3):
+        a = i * 120
+        r = math.radians(a)
+        p.box("trim", (math.cos(r) * 0.16, 0.64, math.sin(r) * 0.16), (0.24, 0.035, 0.08), 0.012, rot=(0, -a, 0))
+    p.tube("glow", (0, 0.645, 0), 0.08, 0.03, detail=16)
+
+
+@part("goal_post")
+def _(p):
+    p.box("dark", (0, 0.06, 0), (0.3, 0.12, 0.3), 0.03)
+    p.box("shell", (0, 0.4, 0), (0.2, 0.6, 0.2), 0.05)
+    p.box("trim", (0, 0.4, 0), (0.22, 0.12, 0.22), 0.02)
+    p.box("dark", (0, 0.73, 0), (0.24, 0.06, 0.24), 0.02)
+    p.box("team", (0, 0.8, 0), (0.16, 0.08, 0.16), 0.02)
+
+
+# ======================================================================================
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     for name, rgb in ROLES.items():

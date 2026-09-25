@@ -6,7 +6,7 @@ jogo (regras, IA, poderes, campanha, Taça, PvP). O trabalho está dividido em f
 | Fase | Conteúdo | Estado |
 |---|---|---|
 | 1 | Elenco de robôs: modelos, rostos, nomes, retratos | feito |
-| 2 | Arenas, muralhas, balizas e cenário | por fazer |
+| 2 | Arenas, muralhas, balizas e cenário | feito |
 | 3 | Disparos, poderes, partículas e explosões | por fazer |
 | 4 | Luz, atmosfera e interface | por fazer |
 | 5 | Banda sonora | por fazer |
@@ -45,6 +45,21 @@ a descrição.
 Os 50 pilotos de estrada (skins 100-149) combinam 5 cabeças, 10 topos e 5 famílias de chassis,
 todos diferentes entre si. Os saves com os nomes antigos continuam a funcionar
 (`cup_tree_data.gd`, `LEGACY_NAMES`).
+
+## Arenas
+
+Cada mapa pertence a um de seis ambientes (`scripts/arena_theme.gd`): Arena Aurora, Cidade Alta,
+Fábrica Orbital, Canyon Vermelho, Base Gelada e Floresta Mecânica. O ambiente pinta o chão de
+hexágonos (`shaders/court.gdshader`), o céu de fim de tarde com estrelas e feixes de holofote
+(`shaders/backdrop.gdshader`), a muralha exterior de blocos blindados em dois tons com uma faixa
+de néon da equipa, as bancadas com público, as torres de luz e as bandeiras
+(`scripts/arena_dressing.gd`), os aceleradores e as barreiras. Os pilotos de estrada (`posto_*`)
+percorrem os ambientes por ordem.
+
+Os tijolos são caixotes blindados do kit (`brick_crate`) nas cores do robô que os defende, com a
+tampa na cor da equipa e o topo do robô em miniatura. Os do BIT e dos pilotos de estrada são
+baterias na cor da equipa. Os obstáculos são pilões hexagonais com faixas de perigo e uma tampa em
+estrela que gira; as balizas têm postes do kit.
 
 ## Como funciona
 

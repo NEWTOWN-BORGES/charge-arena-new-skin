@@ -15,6 +15,8 @@ const Skins = preload("res://scripts/skins.gd")
 const Powers = preload("res://scripts/powers.gd")
 const SOFT_DISC = preload("res://shaders/soft_disc.gdshader")
 const Robots = preload("res://scripts/robots.gd")
+const ArenaTheme = preload("res://scripts/arena_theme.gd")
+const ArenaDressing = preload("res://scripts/arena_dressing.gd")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
 const ArenaFinish = preload("res://scripts/arena_finish.gd")
 const GLASS = preload("res://shaders/glass.gdshader")
@@ -33,6 +35,8 @@ var sentries: Dictionary = {}
 var effects: Array = []
 var presentation_environment: Environment
 var court_material: ShaderMaterial
+# The arena environment (colours of floor, sky, blocks and stadium); see arena_theme.gd.
+var theme: Dictionary = {}
 var camera: Camera3D
 var aim_line: Node3D
 var materials: Dictionary = {}
@@ -363,6 +367,7 @@ func build(new_map: Dictionary = {}) -> void:
 	prepare_fx_pool()
 	map = new_map if not new_map.is_empty() else Rules.default_map()
 	walls = Rules.map_outline(map)
+	theme = ArenaTheme.for_map(map)
 	var environment = WorldEnvironment.new()
 	environment.environment = Environment.new()
 	environment.environment.background_mode = Environment.BG_CANVAS
@@ -380,6 +385,8 @@ func build(new_map: Dictionary = {}) -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg_mat = ShaderMaterial.new()
 	bg_mat.shader = preload("res://shaders/backdrop.gdshader")
+	for key in ["sky_top", "sky_mid", "sky_low"]:
+		bg_mat.set_shader_parameter(key, theme[key])
 	background.material = bg_mat
 	background_layer.add_child(background)
 	var light = DirectionalLight3D.new()
@@ -403,60 +410,28 @@ func build(new_map: Dictionary = {}) -> void:
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
-	platform(outer, -0.28, 0.75, DARK)
+	platform(outer, -0.28, 0.75, theme.frame)
 	var under: Array = []
 	for p in outer:
 		under.append(p * 0.97)
-	platform(under, -0.98, 0.22, Color("182a35"))
-	# Floating plinth silhouette and a painted playing surface without coplanar seams.
+	platform(under, -0.98, 0.22, theme.frame.darkened(0.35))
+	# Floating plinth silhouette and a painted hexagon floor without coplanar seams.
 	var court = platform(walls, 0.0, 0.28, Color.WHITE)
 	var court_mat = ShaderMaterial.new()
 	court_mat.shader = preload("res://shaders/court.gdshader")
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
-	court_mat.set_shader_parameter("sector_tint", Color(["284551", "344653", "344b49", "414052"][absi(String(map.get("id", "")).hash()) % 4]))
+	court_mat.set_shader_parameter("floor_color", theme.floor)
+	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)
+	court_mat.set_shader_parameter("seam_color", theme.seam)
+	court_mat.set_shader_parameter("line_color", theme.line)
+	court_mat.set_shader_parameter("team_near", CYAN)
+	court_mat.set_shader_parameter("team_far", CORAL)
 	court.material_override = court_mat
 	soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
-	for i in range(walls.size()):
-		var a = Vector3(walls[i].x, 0.15, walls[i].y)
-		var b = Vector3(walls[(i + 1) % walls.size()].x, 0.15, walls[(i + 1) % walls.size()].y)
-		var color = CYAN if (a.z + b.z) > 0 else CORAL
-		segment(self, a, b, 0.56, 0.40, CREAM)
-		segment(self, a + Vector3.UP * 0.23, b + Vector3.UP * 0.23, 0.12, 0.10, DARK)
-		segment(self, a + Vector3.UP * 0.29, b + Vector3.UP * 0.29, 0.055, 0.025, Color(color, 0.85), true)
-		segment(self, a * Vector3(1.12, 0, 1.045) - Vector3.UP * 0.4, b * Vector3(1.12, 0, 1.045) - Vector3.UP * 0.4, 0.07, 0.04, GOLD)
-		var length_value = a.distance_to(b)
-		for n in range(1, int(length_value / 1.5)):
-			var point = a.lerp(b, float(n) / int(length_value / 1.5))
-			cylinder(self, point + Vector3.UP * 0.24, 0.055, 0.025, GOLD, false, 8)
-	# Team machinery, four low towers and outside ventilation grilles.
-	for sign_x in [-1, 1]:
-		for sign_z in [-1, 1]:
-			var depth = sign_z * Rules.HALF_LENGTH * 0.5
-			var pos = Vector3(sign_x * (Rules.outline_x_at(walls, depth) + 0.1), -0.1, depth)
-			box(self, pos, Vector3(1.0, 0.7, 1.65), DARK, false, 0.16)
-			box(self, pos + Vector3.UP * 0.46, Vector3(0.78, 0.34, 1.3), CREAM, false, 0.12)
-			box(self, pos + Vector3.UP * 0.66, Vector3(0.48, 0.08, 0.88), Color("536764"))
-			var color = CYAN if sign_z > 0 else CORAL
-			for j in range(4):
-				box(self, pos + Vector3(0, 0.72, (j - 1.5) * 0.18), Vector3(0.34, 0.04, 0.06), color, true)
-			soft_disc(self, pos + Vector3(0, -0.96, 0), Vector2(2.5, 2.8), Color(color, 0.2))
-		for z in [-2.3, 2.3]:
-			var grille_x = sign_x * (Rules.outline_x_at(walls, z) + 0.4)
-			box(self, Vector3(grille_x, -0.17, z), Vector3(0.62, 0.17, 1.55), Color("172f39"))
-			for j in range(8):
-				box(self, Vector3(grille_x, -0.05, z + (j - 3.5) * 0.17), Vector3(0.4, 0.05, 0.085), Color("658079"))
-	# Recessed tournament pylons: opaque, batched and outside the playable contour.
-	for side in [-1, 1]:
-		var px = side * (Rules.outline_x_at(walls, 0) + 0.8)
-		box(self, Vector3(px, -0.1, 0), Vector3(0.48, 0.55, 2.2), DARK, false, 0.1)
-		for mark in range(5):
-			box(self, Vector3(px, 0.2, (mark - 2)*0.32), Vector3(0.20, 0.035, 0.13), GOLD if mark == 2 else CREAM, false, 0.02)
-	# Center insignia, team floor numbers and perimeter print.
-	var bolt = [Vector3(0.27, 0.022, -0.87), Vector3(-0.42, 0.022, 0.05), Vector3(0.38, 0.022, 0.05), Vector3(-0.3, 0.022, 0.85)]
-	for i in range(bolt.size() - 1):
-		segment(self, bolt[i], bolt[i + 1], 0.12, 0.012, Color("a5b3a3"), true)
-	world_label("C H A R G E", Vector3(0, 0.024, 1.34), Color("8ba89e"), 30)
+	ArenaDressing.perimeter(self, theme)
+	ArenaDressing.stadium(self, theme, quality_level)
+	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
 		build_goal(team)
 		units.append(build_player(CYAN if team == 0 else CORAL, team))
@@ -476,7 +451,6 @@ func build(new_map: Dictionary = {}) -> void:
 	guide_marker = torus(aim_guide, Vector3.ZERO, 0.42, 0.024, LIME)
 	aim_guide.hide()
 	CombatFinish.prepare(self)
-	ArenaFinish.architecture(self)
 	batch_bricks()
 	batch_static_geometry()
 
@@ -501,7 +475,11 @@ func collect_static(parent: Node, groups: Dictionary) -> void:
 	for child in parent.get_children():
 		if child in units or child in brick_nodes or child in obstacle_nodes or child in power_nodes or child == aim_line or child == aim_guide:
 			continue
-		if child is MeshInstance3D and child.material_override is StandardMaterial3D and child.material_override.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+		var opaque = child is MeshInstance3D and child.material_override is StandardMaterial3D and child.material_override.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+		# Robot-painted props (goal posts) merge too; their ink outlines stay separate so the
+		# Leve profile can still hide them.
+		var painted = child is MeshInstance3D and child.material_override is ShaderMaterial and child.material_override.get_meta("robot_paint", false)
+		if opaque or painted:
 			# Separate attribute layouts so SurfaceTool never mixes UV and non-UV formats.
 			var arrays: Array = child.mesh.surface_get_arrays(0)
 			var has_uv = arrays[Mesh.ARRAY_TEX_UV] != null and arrays[Mesh.ARRAY_TEX_UV].size() > 0
@@ -623,8 +601,10 @@ func build_goal(team: int) -> void:
 	gate.material_override = shader
 	goals.append(gate)
 	for endpoint in [points.front(), points.back()]:
-		box(self, endpoint + Vector3.UP * 0.32, Vector3(0.18, 0.68, 0.18), CREAM)
-		box(self, endpoint + Vector3.UP * 0.70, Vector3(0.14, 0.08, 0.14), color, true)
+		var post = Node3D.new()
+		add_child(post)
+		post.position = endpoint
+		Robots.prop(self, post, "goal_post", ["goal_post"], {"shell": theme.block_alt, "trim": theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": color, "team": color})
 	world_label("01" if team == 0 else "02", Vector3(0, 0.05, center.y * 0.89), color, 49)
 	var track = arc_points(center, Rules.TRACK_RADIUS, Rules.track_limit_for(map), team, 0.023)
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))
@@ -638,7 +618,6 @@ func build_bricks() -> void:
 func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false) -> Node3D:
 	# Every theme keeps the same footprint, the soft shadow and three team-coloured life lights.
 	var team_color = CYAN if data.team == 0 else CORAL
-	var palette = Skins.colors(skin, team_color, tint)
 	var brick = Node3D.new()
 	parent.add_child(brick)
 	brick.position = Vector3(data.p.x, 0, data.p.y)
@@ -654,108 +633,7 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
-	match skin:
-		1:
-			# Farolim: white tower, team stripe, beacon window and brass cap.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.27, 0), Vector3(0.54, 0.34, 0.28), CREAM, false, 0.05)
-			box(brick, Vector3(0, 0.25, 0), Vector3(0.55, 0.07, 0.29), team_color, false, 0.02)
-			box(brick, Vector3(0, 0.49, 0), Vector3(0.44, 0.09, 0.2), palette.light, true, 0.02)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.5, 0.05, 0.25), GOLD, false, 0.02)
-		2:
-			# Observatório: indigo block, brass rim and a star on each face.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), palette.body.darkened(0.3), false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.36, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.52, 0), Vector3(0.56, 0.04, 0.3), GOLD, false, 0.01)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.43, 0.05, 0.21), CREAM, false, 0.02)
-			for face in [-1, 1]:
-				var star = box(brick, Vector3(0, 0.34, face * 0.15), Vector3(0.09, 0.09, 0.02), palette.light, true, 0.005)
-				star.rotation_degrees.z = 45
-		3:
-			# Estufa: glazed ceramic planter with leaves behind its life lights.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.5, 0.4, 0.26), CREAM, false, 0.07)
-			box(brick, Vector3(0, 0.26, 0), Vector3(0.51, 0.08, 0.27), palette.body, false, 0.02)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.56, 0.05, 0.3), CREAM.darkened(0.08), false, 0.02)
-			for x in [-0.21, 0.0, 0.21]:
-				sphere(brick, Vector3(x, 0.66, 0.08), Vector3(0.14, 0.18, 0.1), Color("7fbf5a"))
-		4:
-			# Veio de cristal: rough stone, steel brace and crystals breaking through.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.33, 0), Vector3(0.54, 0.4, 0.28), Color("6b6f78"), false, 0.1)
-			box(brick, Vector3(0, 0.22, 0), Vector3(0.56, 0.05, 0.3), Color("9aa1ab"), false, 0.01)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.46, 0.05, 0.22), Color("575b63"), false, 0.02)
-			for crystal_pose in [[Vector3(-0.2, 0.66, 0.08), 20.0], [Vector3(0.21, 0.63, 0.07), -25.0]]:
-				var crystal = box(brick, crystal_pose[0], Vector3(0.07, 0.2, 0.07), palette.light, true, 0.01)
-				crystal.rotation_degrees.z = crystal_pose[1]
-		5:
-			# Monólito Eclipse: obsidian on a gilded plinth, an eclipse on each face.
-			box(brick, Vector3(0, 0.09, 0), Vector3(0.54, 0.14, 0.28), GOLD, false, 0.03)
-			box(brick, Vector3(0, 0.36, 0), Vector3(0.52, 0.4, 0.27), palette.body, false, 0.04)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.46, 0.04, 0.22), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				var disc = cylinder(brick, Vector3(0, 0.36, face * 0.145), 0.07, 0.02, DARK, false, 20)
-				disc.rotation_degrees.x = 90
-				var corona = torus(brick, Vector3(0, 0.36, face * 0.14), 0.085, 0.012, palette.light)
-				corona.rotation_degrees.x = 90
-		6:
-			# Relógio de torre: bronze tower, brass cap and a clock face on each side.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.4, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.5, 0.05, 0.25), GOLD, false, 0.02)
-			for face in [-1, 1]:
-				var dial = cylinder(brick, Vector3(0, 0.34, face * 0.145), 0.1, 0.02, CREAM, false, 20)
-				dial.rotation_degrees.x = 90
-				var hand = box(brick, Vector3(0.025, 0.36, face * 0.158), Vector3(0.08, 0.02, 0.012), DARK, false, 0.003)
-				hand.rotation_degrees.z = 35
-				var rim = torus(brick, Vector3(0, 0.34, face * 0.15), 0.1, 0.012, palette.light)
-				rim.rotation_degrees.x = 90
-		7:
-			# Para-raios: slate block with a storm-yellow band, a bolt on each face and two brass rods.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.42, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.22, 0), Vector3(0.55, 0.05, 0.29), STORM_YELLOW, false, 0.01)
-			for face in [-1, 1]:
-				var bolt = box(brick, Vector3(0, 0.37, face * 0.145), Vector3(0.05, 0.22, 0.02), palette.light, true, 0.005)
-				bolt.rotation_degrees.z = 25
-			for x in [-0.21, 0.21]:
-				cylinder(brick, Vector3(x, 0.65, 0.08), 0.016, 0.18, GOLD, false, 6)
-				sphere(brick, Vector3(x, 0.76, 0.08), Vector3.ONE * 0.065, palette.light, true)
-		8:
-			# Alambique: copper still with a window of glowing potion and two bubbling flasks.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.35, 0), Vector3(0.52, 0.42, 0.27), COPPER, false, 0.1)
-			box(brick, Vector3(0, 0.55, 0), Vector3(0.53, 0.05, 0.28), palette.body, false, 0.02)
-			for face in [-1, 1]:
-				box(brick, Vector3(0, 0.34, face * 0.14), Vector3(0.3, 0.14, 0.02), palette.light, true, 0.02)
-			for x in [-0.21, 0.21]:
-				sphere(brick, Vector3(x, 0.66, 0.08), Vector3(0.1, 0.12, 0.1), palette.light, true)
-		9:
-			# Arca do tesouro: wooden chest, coloured lid, brass straps and gems peeking out.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.3, 0), Vector3(0.54, 0.32, 0.28), WOOD, false, 0.04)
-			box(brick, Vector3(0, 0.52, 0), Vector3(0.54, 0.12, 0.28), palette.body, false, 0.05)
-			for x in [-0.17, 0.17]:
-				box(brick, Vector3(x, 0.4, 0), Vector3(0.05, 0.5, 0.29), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				box(brick, Vector3(0, 0.44, face * 0.145), Vector3(0.07, 0.08, 0.02), GOLD, false, 0.01)
-			sphere(brick, Vector3(-0.21, 0.62, 0.08), Vector3.ONE * 0.08, palette.light, true)
-			sphere(brick, Vector3(0.21, 0.62, -0.07), Vector3.ONE * 0.08, palette.light, true)
-		10:
-			# Obelisco solar: royal block on a gilded plinth, a sun on each face.
-			box(brick, Vector3(0, 0.09, 0), Vector3(0.54, 0.14, 0.28), GOLD, false, 0.03)
-			box(brick, Vector3(0, 0.36, 0), Vector3(0.52, 0.4, 0.27), palette.body, false, 0.04)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.46, 0.04, 0.22), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				var sun = cylinder(brick, Vector3(0, 0.36, face * 0.145), 0.065, 0.02, palette.light, true, 16)
-				sun.rotation_degrees.x = 90
-				var rays = torus(brick, Vector3(0, 0.36, face * 0.14), 0.1, 0.014, GOLD, false)
-				rays.rotation_degrees.x = 90
-		_:
-			# Bateria Aurora: the original battery cell in the team colour.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.44, 0.28), team_color, false, 0.05)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.43, 0.05, 0.21), CREAM, false, 0.02)
+	Robots.brick(self, brick, skin, team_color, tint)
 	for i in range(3):
 		var pip = box(brick, Vector3((i - 1) * 0.13, 0.614, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
 		pip.name = "HP" + str(i)
@@ -790,11 +668,11 @@ func build_boosters() -> void:
 			curve.append(p)
 			upper.append(p + Vector3.UP * 0.32)
 			lower.append(p - Vector3.UP * 0.21)
-		arc_ribbon(root, curve, 0.15, 0.6, DARK, false)
-		arc_ribbon(root, upper, 0.075, 0.055, GOLD)
-		arc_ribbon(root, lower, 0.09, 0.07, LIME)
-		soft_disc(root, Vector3(sign_x * (side - 0.25), 0.012, 0), Vector2(1.8, 2.8), Color(GOLD, 0.32))
-		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), GOLD, 29)
+		arc_ribbon(root, curve, 0.15, 0.6, theme.frame, false)
+		arc_ribbon(root, upper, 0.075, 0.055, theme.accent)
+		arc_ribbon(root, lower, 0.09, 0.07, theme.line)
+		soft_disc(root, Vector3(sign_x * (side - 0.25), 0.012, 0), Vector2(1.8, 2.8), Color(theme.accent, 0.32))
+		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), theme.accent, 29)
 		label.rotation.y = -sign_x * PI * 0.5
 		booster_nodes.append(root)
 
@@ -830,15 +708,18 @@ func build_obstacles() -> void:
 		node.position = Vector3(pos.x, 0, pos.y)
 		var size = radius / Rules.OBSTACLE_RADIUS
 		soft_disc(node, Vector3(0.06, 0.025, 0.09), Vector2(1.9, 1.6) * size, Color(0.005, 0.018, 0.024, 0.8))
-		cylinder(node, Vector3(0, 0.31, 0), radius, 0.54, CREAM)
-		torus(node, Vector3(0, 0.43, 0), radius + 0.012, 0.027, DARK)
-		torus(node, Vector3(0, 0.12, 0), radius, 0.034, color)
-		# Fixed pillars wear a gold cap; moving bumpers keep the dark one.
-		cylinder(node, Vector3(0, 0.60, 0), radius * 0.82, 0.10, GOLD if kind == "fixed" else DARK)
-		torus(node, Vector3(0, 0.667, 0), radius * 0.68, 0.025, color)
+		# An industrial hex pylon from the kit; fixed pillars wear the accent colour, moving
+		# bumpers the theme's block colour. Its three-armed cap (Core) turns while it runs.
+		var paint = {"shell": theme.block_alt, "trim": theme.accent if kind == "fixed" else theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": theme.line, "team": theme.line}
+		var shell = Node3D.new()
+		node.add_child(shell)
+		shell.scale = Vector3(radius / 0.44, 1.0, radius / 0.44)
+		Robots.prop(self, shell, "bumper_body", ["bumper_body"], paint)
 		var core = Node3D.new()
 		core.name = "Core"
+		core.scale = shell.scale
 		node.add_child(core)
+		Robots.prop(self, core, "bumper_core", ["bumper_core"], paint.duplicate())
 		# Stars for the shock pulse, hidden until the bumper seizes up.
 		var dazed = Node3D.new()
 		dazed.name = "Stun"
@@ -849,9 +730,6 @@ func build_obstacles() -> void:
 			var star = box(dazed, Vector3(cos(angle) * radius * 0.7, 0.98, sin(angle) * radius * 0.7), Vector3(0.11, 0.11, 0.11), LIME, true)
 			star.rotation_degrees.z = 45
 		dazed.hide()
-		for sign_x in [-1, 1]:
-			var stripe = box(core, Vector3(sign_x * 0.1 * size, 0.674, 0), Vector3(0.12, 0.023, 0.28) * Vector3(size, 1, size), color, true, 0.02)
-			stripe.rotation.y = -0.5
 		obstacle_nodes.append(node)
 
 func build_barriers() -> void:
@@ -860,12 +738,12 @@ func build_barriers() -> void:
 	for barrier in map.get("barriers", []):
 		var a = Vector3(barrier.a.x, 0.0, barrier.a.y)
 		var b = Vector3(barrier.b.x, 0.0, barrier.b.y)
-		segment(self, a + Vector3.UP * 0.2, b + Vector3.UP * 0.2, thickness, 0.4, CREAM)
-		segment(self, a + Vector3.UP * 0.42, b + Vector3.UP * 0.42, thickness * 0.6, 0.05, DARK)
-		segment(self, a + Vector3.UP * 0.46, b + Vector3.UP * 0.46, 0.05, 0.02, GOLD, true)
+		segment(self, a + Vector3.UP * 0.2, b + Vector3.UP * 0.2, thickness, 0.4, theme.block)
+		segment(self, a + Vector3.UP * 0.42, b + Vector3.UP * 0.42, thickness * 0.6, 0.05, theme.frame)
+		segment(self, a + Vector3.UP * 0.46, b + Vector3.UP * 0.46, 0.05, 0.02, theme.line, true)
 		for end in [a, b]:
-			cylinder(self, end + Vector3.UP * 0.2, Rules.BARRIER_RADIUS, 0.4, CREAM, false, 16)
-			cylinder(self, end + Vector3.UP * 0.43, Rules.BARRIER_RADIUS * 0.7, 0.06, GOLD, false, 12)
+			cylinder(self, end + Vector3.UP * 0.2, Rules.BARRIER_RADIUS, 0.4, theme.block_alt, false, 16)
+			cylinder(self, end + Vector3.UP * 0.43, Rules.BARRIER_RADIUS * 0.7, 0.06, theme.accent, false, 12)
 
 func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null, tint: bool = false) -> Node3D:
 	# `parent` lets the skins viewer build the same model inside its own 3D world.
