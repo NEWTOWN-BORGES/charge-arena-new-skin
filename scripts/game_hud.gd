@@ -40,7 +40,10 @@ signal difficulty_changed(level: int)
 signal guide_changed(on: bool)
 signal sensitivity_changed(level: int)
 signal feedback_changed(camera: int, haptics: bool, automatic: bool, volume: float)
+signal effects_changed(full: bool)
+signal feel_tuning_requested
 var camera_choice: OptionButton
+var effects_choice: OptionButton
 var haptic_choice: CheckButton
 var automatic_choice: CheckButton
 var sfx_slider: HSlider
@@ -786,6 +789,11 @@ func _process(dt: float) -> void:
 		if wall_delta_time[t] > 0:
 			wall_delta_time[t] = maxf(0, wall_delta_time[t] - dt)
 			ask_redraw()
+	if ready_pulse > 0.0:
+		ready_pulse = maxf(0.0, ready_pulse - dt * 5.0)
+		ask_redraw()
+	if not auto_fire and fire_control == 0 and was_cooling:
+		ask_redraw()
 	if fire_age < 0.24 or defense_notice_time > 0:
 		fire_age += dt
 		defense_notice_time = maxf(0.0, defense_notice_time - dt)
@@ -1689,6 +1697,8 @@ func build_video_menu() -> void:
 	sensitivity_choice = video_option(list, "Sensibilidade", ["Muito lenta", "Lenta", "Normal", "Rápida", "Muito rápida"])
 	sensitivity_choice.item_selected.connect(func(index): sensitivity_changed.emit(index))
 	camera_choice = video_option(list, "Impacto da câmara", ["Desligado", "Suave", "Completo"])
+	effects_choice = video_option(list, "Intensidade dos efeitos", ["Reduzida", "Completa"])
+	effects_choice.item_selected.connect(func(index): effects_changed.emit(index == 1))
 	haptic_choice = CheckButton.new()
 	haptic_choice.text = "Vibração nos disparos e impactos"
 	haptic_choice.custom_minimum_size.y = 48
@@ -1717,6 +1727,13 @@ func build_video_menu() -> void:
 	music_choice.custom_minimum_size.y = 44
 	list.add_child(music_choice)
 	music_volume = volume_slider(list, "Volume")
+	if OS.has_feature("open_test") or OS.has_feature("editor"):
+		# The LAB build carries the game-feel tuning panel.
+		var tuning = make_button("AFINAR SENSAÇÃO (LAB)", false)
+		tuning.custom_minimum_size.y = 52
+		tuning.add_theme_font_size_override("font_size", 16)
+		tuning.pressed.connect(func(): feel_tuning_requested.emit())
+		list.add_child(tuning)
 	video_note = label("", 14, MUTED)
 	video_note.custom_minimum_size = Vector2(470, 63)
 	video_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1833,6 +1850,7 @@ func emit_feedback() -> void:
 
 func sync_game(settings) -> void:
 	camera_choice.select(settings.camera_feedback)
+	effects_choice.select(1 if settings.effects_full else 0)
 	haptic_choice.set_pressed_no_signal(settings.haptics)
 	automatic_choice.set_pressed_no_signal(settings.auto_fire)
 	sfx_slider.set_value_no_signal(settings.sfx_volume * 100.0)
@@ -2566,6 +2584,30 @@ func draw_moment() -> void:
 	if detail != "":
 		centered(detail, Vector2(c.x, c.y + 64), 12, MUTED)
 
+var ready_pulse = 0.0
+var was_cooling = false
+
+func fire_press(age: float) -> float:
+	# 100% → 94% at once → 103% → 100%, all inside a sixth of a second.
+	if age < 0.03:
+		return 0.94
+	if age < 0.09:
+		return lerpf(0.94, 1.03, (age - 0.03) / 0.06)
+	if age < 0.16:
+		return lerpf(1.03, 1.0, (age - 0.09) / 0.07)
+	return 1.0
+
+func fire_cooldown() -> float:
+	# 1 right after a shot, 0 when the gun can fire again.
+	if match_data.is_empty() or team >= match_data.players.size():
+		return 0.0
+	var left: float = float(match_data.players[team].get("cooldown", 0.0))
+	var cooling = clampf(left / Rules.FIRE_INTERVAL, 0.0, 1.0)
+	if cooling <= 0.0 and was_cooling:
+		ready_pulse = 1.0
+	was_cooling = cooling > 0.0
+	return cooling
+
 func draw_stick() -> void:
 	# The stick: grabbed anywhere in the band, it slides the pilot along its arc.
 	var stick = move_center
@@ -2586,11 +2628,21 @@ func draw_stick() -> void:
 	centered("MOVER, APONTAR E DISPARAR" if not auto_fire and fire_control == 1 else "MOVER E APONTAR", stick + Vector2(0, 86), 10, CYAN, true, 4)
 	centered("DISPARO AUTOMÁTICO  ·  MIRA ASSISTIDA" if auto_fire else "MIRA ASSISTIDA", stick + Vector2(0, 101), 9, Color(SUN, 0.85), true, 4)
 	if not auto_fire and fire_control == 0:
-		var press = 0.93 + 0.07 * clampf(fire_age / 0.16, 0.0, 1.0)
+		# TOUCH = SHOT: the key sinks the instant it fires, springs just past its size and
+		# settles, while a ring counts the gun back to ready.
+		var press = fire_press(fire_age)
 		var r = 46 * fire_size * press
+		var cooling = fire_cooldown()
 		UiKit.disc(self, fire_center + Vector2(0, 5 * press), r, UiKit.SUN_LIP)
-		UiKit.disc(self, fire_center, r, SUN)
+		UiKit.disc(self, fire_center, r, SUN.darkened(0.25 * cooling))
 		UiKit.ring(self, fire_center, r, Color(WHITE, 0.4))
+		if cooling > 0.0:
+			var arc_at = fire_center
+			var arc_r = r + 6
+			var sweep = TAU * (1.0 - cooling)
+			later(func(): draw_arc(arc_at, arc_r, -PI * 0.5, -PI * 0.5 + sweep, 40, Color(WHITE, 0.75), 4.0, smooth))
+		elif ready_pulse > 0.0:
+			UiKit.ring(self, fire_center, r + 6 + (1.0 - ready_pulse) * 10.0, Color(WHITE, ready_pulse * 0.7))
 		centered("TIRO", fire_center + Vector2(0, 7), 20, INK, true)
 
 func stun_banner_rect() -> Rect2:

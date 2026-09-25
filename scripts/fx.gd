@@ -89,9 +89,11 @@ func smoke(at: Vector3, color: Color, count: int, size: float, life: float, spre
 		var dir = cone_direction(Vector3.UP, 80.0)
 		emit("smoke", at + Vector3(rng.randf_range(-spread, spread), 0.0, rng.randf_range(-spread, spread)), dir * rng.randf_range(0.4, 1.2), Color(color, 0.55), size * 0.5, size * rng.randf_range(1.4, 2.2), life * rng.randf_range(0.7, 1.2), 0.0, 2.2, 0.0, rise, rng.randf_range(-0.6, 0.6))
 
-func debris(at: Vector3, colors: Array, count: int, speed: float, size: float, life: float) -> void:
+func debris(at: Vector3, colors: Array, count: int, speed: float, size: float, life: float, push: Vector3 = Vector3.ZERO) -> void:
+	# `push` tips the spray the way the blow was going, so a break shows where it came from.
+	var axis = (Vector3.UP + push).normalized()
 	for i in range(scale_count(count)):
-		var dir = cone_direction(Vector3.UP, 70.0)
+		var dir = cone_direction(axis, 70.0 if push == Vector3.ZERO else 50.0)
 		var tone: Color = colors[i % colors.size()]
 		emit("debris", at, dir * speed * rng.randf_range(0.5, 1.0), tone, size * rng.randf_range(0.7, 1.3), 0.0, life * rng.randf_range(0.8, 1.2), -9.0, 0.0, 0.0, 0.0, rng.randf_range(6.0, 14.0))
 
@@ -105,6 +107,74 @@ func cone_direction(direction: Vector3, cone: float) -> Vector3:
 	return (axis * cos(spread) + (side * cos(around) + up * sin(around)) * sin(spread)).normalized()
 
 # --- composed moments ----------------------------------------------------------------------
+func muzzle(at: Vector3, direction: Vector3, color: Color, duration: float, spark_count: int, size: float = 0.85) -> void:
+	# The shot leaving the barrel, with a shape and a direction: a white-hot core for a
+	# frame or two, a coloured bloom opening a little ahead of it, one bright streak down
+	# the line of fire and a few sparks in a narrow cone. Gone in about a tenth of a second.
+	var forward = direction.normalized()
+	star(at, Color(1.0, 0.97, 0.9), size, duration)
+	glow(at + forward * 0.18, color.lightened(0.2), size * 1.2, duration * 1.9, 1.4)
+	glow(at, Color(1.0, 0.95, 0.85), size * 0.5, duration * 0.9, 1.2)
+	emit("spark", at, forward * 12.0, color.lightened(0.45), size * 0.3, size * 0.06, duration * 2.4, 0.0, 5.0, 0.2)
+	for i in range(scale_count(spark_count)):
+		var dir = cone_direction(forward, 24.0)
+		emit("spark", at, dir * rng.randf_range(4.5, 8.0), color.lightened(0.25), 0.06, 0.015, rng.randf_range(0.07, 0.13), -2.0, 6.0, 0.1)
+
+func impact(at: Vector3, heading: Vector3, color: Color, material: String, amount: int, size: float = 0.7) -> void:
+	# Where a shot lands, in the language of what it hit. `heading` is the shot's direction
+	# at the moment of contact; sparks leave against it (back towards the shooter) or along
+	# it after a bounce, never in a plain round puff.
+	var back = (-heading).normalized() if heading != Vector3.ZERO else Vector3.UP
+	match material:
+		"brick":
+			# THOCK: a short flash, a puff of dust and chips flying back off the face.
+			star(at, color.lightened(0.5), size, 0.08)
+			glow(at, color, size * 1.2, 0.13, 1.3)
+			for i in range(scale_count(amount)):
+				var dir = cone_direction((back + Vector3.UP * 0.6).normalized(), 40.0)
+				emit("spark", at, dir * rng.randf_range(2.5, 5.5), color.lightened(0.2), 0.08, 0.02, rng.randf_range(0.14, 0.24), -7.0, 3.0, 0.08)
+			smoke(at + Vector3(0, -0.2, 0), Color("4a4458").lerp(color, 0.2), 1, 0.22, 0.45, 0.1, 0.25)
+		"metal":
+			# TANG: bright sparks raking off in the direction the shot bounced away.
+			star(at, Color(1.0, 0.95, 0.8), size, 0.07)
+			var along = heading.normalized() if heading != Vector3.ZERO else Vector3.UP
+			for i in range(scale_count(amount + 2)):
+				var dir = cone_direction((along + Vector3.UP * 0.25).normalized(), 30.0)
+				emit("spark", at, dir * rng.randf_range(6.0, 10.0), Color(1.0, 0.82, 0.45), 0.08, 0.015, rng.randf_range(0.12, 0.22), -9.0, 3.5, 0.14)
+		"shield":
+			# BWOM: a ripple standing up off the surface and a soft glow, no chips.
+			ring(Vector3(at.x, maxf(at.y - 0.4, 0.04), at.z), color, 0.5, 0.3)
+			glow(at, color, 0.7, 0.2, 1.8)
+			star(at, color.lightened(0.4), size * 0.8, 0.1)
+		"wall":
+			# A dry knock: a small flash and a few sparks along the new line.
+			var along = heading.normalized() if heading != Vector3.ZERO else Vector3.UP
+			star(at, color.lightened(0.3), size * 0.7, 0.06)
+			for i in range(scale_count(maxi(2, amount / 2))):
+				var dir = cone_direction(along, 28.0)
+				emit("spark", at, dir * rng.randf_range(4.0, 7.0), color.lightened(0.3), 0.06, 0.015, rng.randf_range(0.08, 0.14), -4.0, 4.0, 0.12)
+		_:
+			hit(at, color, 0.8)
+
+func break_apart(at: Vector3, heading: Vector3, colors: Array, amount: int) -> void:
+	# CRACK: bigger than a hit, smaller than a power. A flash, chunks thrown the way the
+	# shot was travelling, a ring of dust on the floor and a short lift of smoke.
+	var push = Vector3(heading.x, 0.0, heading.z).normalized() * 0.8 if heading != Vector3.ZERO else Vector3.ZERO
+	var tint: Color = colors[1] if colors.size() > 1 else Color.WHITE
+	star(at, Color(1.0, 0.96, 0.88), 1.0, 0.1)
+	glow(at, tint, 1.2, 0.22, 1.6)
+	debris(at, colors, amount, 4.2, 0.13, 1.0, push)
+	for i in range(scale_count(amount)):
+		var dir = cone_direction((Vector3.UP + push).normalized(), 55.0)
+		emit("spark", at, dir * rng.randf_range(4.0, 8.0), tint.lightened(0.3), 0.1, 0.02, rng.randf_range(0.18, 0.32), -8.0, 2.8, 0.1)
+	ring(Vector3(at.x, 0.05, at.z), tint.lightened(0.2), 0.45, 0.3)
+	smoke(Vector3(at.x, 0.25, at.z), Color("3f3a4c").lerp(tint, 0.2), 2, 0.34, 0.8, 0.22)
+
+func pulse(at: Vector3, color: Color, radius: float, life: float) -> void:
+	# A wave of energy on the floor, for the defence falling and the goal.
+	ring(Vector3(at.x, 0.06, at.z), color, radius, life)
+	glow(Vector3(at.x, 0.5, at.z), color, radius * 0.7, life * 0.6, 1.8)
+
 func hit(at: Vector3, color: Color, strength: float = 1.0) -> void:
 	# A shot landing: a hot star, a flash and a spray of sparks.
 	star(at, color.lightened(0.3), 0.55 * strength, 0.16)

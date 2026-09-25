@@ -38,7 +38,7 @@ func run() -> void:
 	for n in range(40): game.play_tone("blast")
 	check(started[0].playing and started[0].stream == stream, "Impact saturation cannot steal weapon tails")
 	game.arena.shake(0.9)
-	check(game.arena.shake_power == 0.0, "Disabled camera shake stays disabled")
+	check(game.arena.shakes.is_empty(), "Disabled camera shake stays disabled")
 	game.rules.powers[0].ultimate_windup = 0.15
 	game.update_feedback_mix(0.10)
 	check(game.arena_duck_db < -4.0, "Secondary sounds duck before ultimate release")

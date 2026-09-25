@@ -14,6 +14,7 @@ const Rules = preload("res://scripts/arena_rules.gd")
 const Skins = preload("res://scripts/skins.gd")
 const Powers = preload("res://scripts/powers.gd")
 const SOFT_DISC = preload("res://shaders/soft_disc.gdshader")
+const GameFeel = preload("res://scripts/game_feel.gd")
 const Robots = preload("res://scripts/robots.gd")
 const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const ArenaDressing = preload("res://scripts/arena_dressing.gd")
@@ -103,14 +104,23 @@ var secondary_light: DirectionalLight3D
 var quality_level = 0
 # Camera shake: a strength that decays, added to the camera's resting place.
 var camera_home = Vector3(0, 26, 15)
-var shake_power = 0.0
+# Shared tuning for everything the player feels; main.gd hands in the same object.
+var feel = GameFeel.new()
+# Layered, directional camera shakes: {strength, age, life, hz, dir, seed}.
+var shakes: Array = []
+# Visual hit-stop and time dilation: the effects' own clock, which can hold still or slow
+# down for a beat while the match itself runs on untouched.
+var fx_clock = 0.0
+var hitstop_left = 0.0
+var dilation_left = 0.0
+var dilation_rate = 1.0
+var unstable_timer = 0.0
 var shake_scale = 0.55
 var shot_age = [1.0, 1.0]
 var feedback_pool: Array[Node3D] = []
 var feedback_allocated = 0
 const FEEDBACK_POOL_LIMIT = 80
 var brick_reactions: Dictionary = {}
-var shake_seed = 0.0
 # Effects waiting for their moment: {"time": seconds, "call": Callable}.
 var pending: Array = []
 # Reuse lamps instead of creating/destroying them during ultimates; particles live in the
@@ -1127,7 +1137,8 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
-	if fx != null: fx.tick(clock)
+	advance_fx_clock(dt)
+	if fx != null: fx.tick(fx_clock)
 	if lobby_view:
 		place_lobby_camera()
 		animate_showroom(dt)
@@ -1145,18 +1156,18 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	for callback in ready:
 		callback.call()
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
-	if shake_power > 0.0:
-		shake_power *= exp(-dt * 17.0)
-		if shake_power < 0.0005: shake_power = 0.0
-		shake_seed += dt * 46.0
-		camera.position = camera_home + Vector3(sin(shake_seed) * 0.6, cos(shake_seed * 1.37) * 0.35, sin(shake_seed * 0.8) * 0.3) * shake_power
+	var offset = shake_offset(dt)
+	if offset != Vector3.ZERO:
+		camera.position = camera_home + offset
 	elif camera.position != camera_home:
 		camera.position = camera_home
 	for id in brick_reactions.keys():
 		brick_reactions[id] -= dt
 		if id < brick_nodes.size():
 			var brick: Node3D = brick_nodes[id]
-			brick.position.y = sin(maxf(0.0, brick_reactions[id]) / 0.14 * PI) * 0.065
+			# A brick near the end jumps harder: its lives are read from how it takes a hit.
+			var worn = clampf(3.0 - float(brick.get_meta("hp", 3)), 0.0, 2.0)
+			brick.position.y = sin(maxf(0.0, brick_reactions[id]) / 0.14 * PI) * 0.065 * (1.0 + worn * 0.45)
 			update_brick_batch(id)
 		if brick_reactions[id] <= 0.0:
 			brick_reactions.erase(id)
@@ -1256,11 +1267,16 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var gun: Node3D = body.get_node("Gun")
 		shot_age[team] += dt
 		var age: float = shot_age[team]
-		# Only the weapon moves: 60 ms impulse, 150 ms recovery. Simulation is untouched.
-		var recoil = sin(clampf(age / 0.06, 0.0, 1.0) * PI * 0.5) if age < 0.06 else pow(maxf(0.0, 1.0 - (age - 0.06) / 0.15), 2.0)
-		gun.position.z = recoil * 0.17
-		gun.rotation.x = recoil * 0.045
-		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / 0.055))
+		# Visual recoil only, the simulation never moves: the gun snaps back in a frame,
+		# holds a hair, returns with a small overshoot; the body takes a little of the kick.
+		var recoil = recoil_curve(age)
+		gun.position.z = recoil * feel.get_value("fire_recoil_strength")
+		gun.rotation.x = recoil * 0.06
+		var kick = recoil * feel.get_value("fire_body_kick")
+		body.position.x = body.basis.z.x * kick
+		body.position.z = body.basis.z.z * kick
+		body.rotation.x = -recoil * 0.05
+		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
 		goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
 	for i in range(rules.bricks.size()):
 		var data: Dictionary = rules.bricks[i]
@@ -1275,6 +1291,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		for n in range(3):
 			brick.get_node("HP" + str(n)).visible = n < data.hp
 		update_brick_batch(i)
+	flicker_unstable(rules, dt)
 	var active: Array = []
 	for ball in rules.balls:
 		active.append(ball.id)
@@ -1312,7 +1329,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
 			var stride = Vector3(ball.v.x, 0, ball.v.y) * dt
 			for k in range(2 if quality_level > 0 else 1):
-				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, 0.24 if quality_level > 0 else 0.14)
+				# trail_length stretches the tail by how long each glow lives: short and legible,
+				# never a line across the arena that hides the bricks behind it.
+				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length"))
 			if charged and quality_level > 0:
 				fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
 	if trail_timer > trail_interval:
@@ -1331,6 +1350,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	aim_line.position = units[local_team].position + Vector3.UP * 0.032
 	aim_line.rotation.y = units[local_team].get_node("Body").rotation.y
 	if rules.phase != phase_before and (rules.phase == "goal" or rules.phase == "finished"):
+		var end_z = -(Rules.HALF_LENGTH - 1.03) if rules.winner == 0 else Rules.HALF_LENGTH - 1.03
+		goal_scored(rules.winner, Vector3(0, 0.1, end_z))
 		for i in range(5):
 			burst(Vector2((i - 2) * 0.45, -(Rules.HALF_LENGTH - 1.03) if rules.winner == 0 else Rules.HALF_LENGTH - 1.03), CYAN if rules.winner == 0 else CORAL, true)
 	phase_before = rules.phase
@@ -1502,6 +1523,9 @@ func light_cap() -> int:
 	# the rest.
 	if light_override >= 0:
 		return light_override
+	# Reduced effects: no light flashes at all.
+	if feel.intensity < 1.0:
+		return 0
 	return mini([0, 1, 1][quality_level], 1) if OS.has_feature("mobile") else [2, 4, 6][quality_level]
 
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:
@@ -1529,7 +1553,75 @@ func schedule(seconds: float, call: Callable) -> void:
 	pending.append({"time": seconds, "call": call})
 
 func shake(power: float) -> void:
-	shake_power = maxf(shake_power, power * shake_scale)
+	# The older call: a plain shake without a direction, at a mid frequency.
+	shake_event(power, 0.22, 22.0)
+
+func shake_event(strength: float, life: float, hz: float, direction: Vector3 = Vector3.ZERO) -> void:
+	# Each shake has its own strength, length, frequency and falloff, and, when the event
+	# has one, a direction: the first swing goes the way the blow went.
+	strength *= shake_scale
+	if strength <= 0.0005:
+		return
+	if shakes.size() >= 6:
+		shakes.remove_at(0)
+	shakes.append({"strength": strength, "age": 0.0, "life": life, "hz": hz, "dir": direction.normalized() if direction != Vector3.ZERO else Vector3.ZERO, "seed": randf() * 10.0})
+
+func shake_level(level: int, direction: Vector3 = Vector3.ZERO, scale: float = 1.0) -> void:
+	var spec: Dictionary = GameFeel.LEVELS.get(level, {})
+	if spec.is_empty():
+		return
+	shake_event(feel.get_value(spec.camera) * scale, spec.shake_time, spec.shake_hz, direction)
+
+func shake_offset(dt: float) -> Vector3:
+	var total = Vector3.ZERO
+	for index in range(shakes.size() - 1, -1, -1):
+		var item: Dictionary = shakes[index]
+		item.age += dt
+		var k: float = item.age / item.life
+		if k >= 1.0:
+			shakes.remove_at(index)
+			continue
+		var falloff = (1.0 - k) * (1.0 - k)
+		var wave = cos(TAU * item.hz * item.age)
+		var push: Vector3 = item.dir * wave * item.strength * falloff
+		# Around the main swing, a smaller wobble on the other axes so it never reads as a
+		# mechanical back-and-forth.
+		var wobble = Vector3(sin(TAU * item.hz * 1.37 * item.age + item.seed), cos(TAU * item.hz * 0.83 * item.age + item.seed * 1.7) * 0.6, sin(TAU * item.hz * 1.11 * item.age + item.seed * 0.6) * 0.5)
+		total += push + wobble * item.strength * falloff * (0.35 if item.dir != Vector3.ZERO else 0.8)
+	return total
+
+func recoil_curve(age: float) -> float:
+	var peak = feel.get_value("fire_recoil_peak")
+	var back = feel.get_value("fire_return_duration")
+	if age < 0.016:
+		return age / 0.016
+	if age < peak:
+		return 1.0
+	var x = (age - peak) / back
+	if x >= 1.4:
+		return 0.0
+	if x >= 1.0:
+		# Settle: the overshoot eases back to rest.
+		return -0.08 * (1.0 - (x - 1.0) / 0.4)
+	return pow(1.0 - x, 3.0) - 0.08 * smoothstep(0.55, 1.0, x)
+
+func advance_fx_clock(dt: float) -> void:
+	if hitstop_left > 0.0:
+		hitstop_left -= dt
+		return
+	var rate = 1.0
+	if dilation_left > 0.0:
+		dilation_left -= dt
+		rate = dilation_rate
+	fx_clock += dt * rate
+
+func hitstop(seconds: float) -> void:
+	# Effects hold still for a beat; projectiles, pilots and the rules never do.
+	hitstop_left = maxf(hitstop_left, seconds)
+
+func dilate(rate: float, seconds: float) -> void:
+	dilation_rate = rate
+	dilation_left = maxf(dilation_left, seconds)
 
 func scorch(at: Vector2, size: float, color: Color, life: float) -> void:
 	# A soft mark left on the floor, using the same decal shader as the shadows.
@@ -2434,42 +2526,99 @@ func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, siz
 	else:
 		fx.emit("spark", at, velocity, tint, size.x * 1.8, size.x * 0.3, life * 1.8, -2.0, 2.0, 0.08)
 
-func shot_feedback(team: int) -> void:
+func shot_feedback(team: int, local: bool = false) -> void:
+	# FIRE: the gun snaps back, the barrel flashes with a shape and a direction, and the
+	# arena answers for a moment. Everything starts on the frame the shot is made.
 	shot_age[team] = 0.0
 	var gun: Node3D = units[team].get_node("Body/Gun")
-	gun.position.z = 0.055
 	gun.get_node("Flash").scale = Vector3.ONE * 0.42
 	var origin = muzzle_of(team)
 	var direction = -units[team].get_node("Body").global_basis.z
-	for i in range(2 if quality_level == 0 else 4):
-		feedback_chip(origin, direction * (2.5 + i) + Vector3((i % 2 - 0.5) * 1.1, 0.3, 0), shot_colors[team], 0.09, Vector3.ONE * 0.06)
+	if fx != null:
+		var spark_count = int(feel.get_value("muzzle_spark_amount") * (1.0 if local else 0.6))
+		fx.muzzle(origin, direction, shot_colors[team], feel.get_value("muzzle_flash_duration"), spark_count, feel.get_value("muzzle_flash_size") * (1.0 if local else 0.8))
+	# A lamp for a few frames, where the budget allows (never on a phone's lighter profiles).
+	if local and light_cap() >= 2:
+		flash(origin, shot_colors[team], 1.1, 0.05, 3.0)
+	if local:
+		shake_level(GameFeel.Level.SHOT, -direction)
 
 func impact_feedback(event: Dictionary) -> void:
+	# IMPACT: exactly where the shot met something, in that thing's own language.
 	var kind = String(event.kind)
 	var broken = kind == "brick"
 	var shield = kind in ["mirror", "player_hit"] or event.get("soaked", false)
 	var tint: Color = shot_colors[int(event.get("team", 0))] if shield or kind.begins_with("brick") else GOLD
 	var at: Vector2 = event.p
-	var heading: Vector2 = event.get("heading", Vector2.ZERO)
-	var direction = Vector3(heading.x, 0, heading.y)
-	var origin = Vector3(at.x, 0.55, at.y)
-	feedback_chip(origin, Vector3.ZERO, Color("fff3d5"), 0.055, Vector3.ONE * (0.28 if broken else 0.16))
-	var count = (5 if quality_level == 0 else 8) if broken else (2 if quality_level == 0 else 4)
-	for i in range(count):
-		var angle = i * 2.399
-		var velocity = direction * (1.5 if broken else -0.65) + Vector3(cos(angle), 0.8 + (i % 3) * 0.35, sin(angle)) * (1.7 if broken else 0.7)
-		feedback_chip(origin, velocity, CREAM if broken and i % 2 == 0 else tint, 0.38 if broken else 0.13, Vector3(0.13, 0.08, 0.16) if broken else Vector3.ONE * 0.055, broken)
-	if shield and effects.size() < effect_limit:
-		var ring = torus(self, origin, 0.32, 0.025, tint, true)
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.18, "life": 0.18, "gravity": false, "base": Vector3.ONE * 1.7, "grow": true, "tint": tint})
+	var heading2: Vector2 = event.get("heading", Vector2.ZERO)
+	var heading = Vector3(heading2.x, 0, heading2.y)
+	var origin = Vector3(at.x, 0.5, at.y)
+	var material = "shield" if shield else ("brick" if kind.begins_with("brick") else ("metal" if event.get("surface", "") == "obstacle" else "wall"))
+	if fx != null:
+		fx.impact(origin, heading, tint, material, feel.count("impact_particle_amount", quality_level), feel.get_value("impact_flash_size"))
+		if broken:
+			var brick_color: Color = tint
+			fx.break_apart(origin, heading, [theme.get("block_alt", CREAM), brick_color, brick_color.darkened(0.35)], feel.count("destruction_particle_amount", quality_level))
 	if kind == "brick_hit" and event.has("brick_id"):
+		# The hit is confirmed on the brick itself: it jumps, and a little harder the closer
+		# it is to falling.
 		brick_reactions[int(event.brick_id)] = 0.14
+	if broken:
+		hitstop(feel.get_value("hitstop_destroy"))
+		shake_level(GameFeel.Level.DESTROY, heading)
+	elif material != "wall":
+		shake_level(GameFeel.Level.IMPACT, heading, 0.6)
 	if event.get("defense_open", false):
-		var team = int(event.team)
-		var spot = Vector3(goals[team].global_position.x, 0.1, goals[team].global_position.z)
+		defense_falls(int(event.team), tint)
+
+func defense_falls(team: int, tint: Color) -> void:
+	# The last brick: CRACK, a beat of stillness, then the goal's shield gives way in a
+	# pulse and the goal itself lights up. The match should feel different from here on.
+	hitstop(feel.get_value("hitstop_last_brick"))
+	shake_level(GameFeel.Level.DESTROY, Vector3.ZERO, feel.get_value("camera_last_brick_strength") / maxf(feel.get_value("camera_destroy_strength"), 0.001))
+	var centre: Vector2 = Rules.goal_center(team)
+	var spot = Vector3(centre.x, 0.1, centre.y)
+	schedule(feel.get_value("hitstop_last_brick"), func():
+		if fx != null:
+			fx.pulse(spot, tint.lightened(0.2), 1.6, 0.5)
+			fx.sparks(spot + Vector3(0, 0.4, 0), tint.lightened(0.3), 14, 6.0, 0.12, 0.4, Vector3.UP, 70.0)
 		if effects.size() < effect_limit:
 			var ring = torus(self, spot, 1.1, 0.045, tint, true)
-			effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.35, "life": 0.35, "gravity": false, "base": Vector3.ONE * 2.0, "grow": true, "tint": tint})
+			effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE * 2.2, "grow": true, "tint": tint}))
+
+func flicker_unstable(rules, dt: float) -> void:
+	# One life left: the brick is visibly failing, sparking now and then from the top, so a
+	# glance says "one more shot and this goes". A couple of sparks every so often, never
+	# a steady stream.
+	if fx == null or rules.brick_lives < 2 or rules.phase != "play":
+		return
+	unstable_timer -= dt
+	if unstable_timer > 0.0:
+		return
+	unstable_timer = [0.5, 0.3, 0.22][quality_level]
+	var start = randi() % maxi(rules.bricks.size(), 1)
+	for step in range(rules.bricks.size()):
+		var data: Dictionary = rules.bricks[(start + step) % rules.bricks.size()]
+		if data.alive and data.hp == 1:
+			var top = Vector3(data.p.x + randf_range(-0.2, 0.2), 0.42, data.p.y)
+			var tint: Color = shot_colors[1 - int(data.team)].lightened(0.2)
+			fx.emit("spark", top, Vector3(randf_range(-0.6, 0.6), randf_range(1.2, 2.2), randf_range(-0.4, 0.4)), tint, 0.07, 0.01, 0.35, -6.0, 1.5, 0.08)
+			fx.glow(top, Color(1.0, 0.6, 0.3), 0.18, 0.18)
+			return
+
+func goal_scored(team_scoring: int, spot: Vector3) -> void:
+	# The biggest normal payoff of a match: a longer hold, the effects slowed for a beat,
+	# the strongest shake, and the goal erupting.
+	hitstop(feel.get_value("hitstop_goal"))
+	dilate(0.45, 0.55)
+	shake_level(GameFeel.Level.DECISIVE, Vector3(0, 0, -1 if team_scoring == 0 else 1))
+	var color = CYAN if team_scoring == 0 else CORAL
+	if fx != null:
+		fx.pulse(spot, color, 2.6, 0.7)
+		fx.star(spot + Vector3(0, 0.6, 0), Color(1, 0.97, 0.9), 1.6, 0.25)
+		fx.sparks(spot + Vector3(0, 0.4, 0), color.lightened(0.3), 26, 9.0, 0.16, 0.6, Vector3.UP, 80.0)
+		fx.embers(spot, color, 16, 3.0, 0.2, 0.9, Vector3.UP, 60.0, -1.5)
+	flash(spot + Vector3(0, 1.0, 0), color, 3.0, 0.3, 7.0)
 
 func ultimate_accent(at: Vector2, id: String) -> void:
 	# Small silhouette accents augment, rather than replace, each themed main effect.

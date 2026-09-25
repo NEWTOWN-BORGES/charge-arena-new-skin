@@ -58,6 +58,13 @@ def read_mono(path, t):
         return np.interp(t, np.arange(len(frames)) / source.getframerate(), frames, right=0)
 
 
+def soften(signal, corner=5200):
+    """Tames the very top of a layer: impressive once, tiring after five hundred shots."""
+    frequencies = np.fft.rfftfreq(len(signal), 1 / RATE)
+    response = 1 / np.sqrt(1 + (frequencies / corner) ** 4)
+    return np.fft.irfft(np.fft.rfft(signal) * response, n=len(signal))
+
+
 def room(dry, wet=.12, tail=.10):
     """Short asymmetric early reflections; mono remains strong and in phase."""
     padded = np.pad(dry, (0, round(tail * RATE)))
@@ -94,20 +101,37 @@ def weapons():
             source = read_mono(ROOT / f"audio/sfx/feedback/shot_{skin}_{variant}.wav", t)
             identity = read_mono(ROOT / f"audio/sfx/shot_{skin}.wav", t)
             pitch = pitches[skin] * (1 + (variant - 1) * .013)
-            dry = source * .92 + identity * .36
-            dry += body(t, pitch * 1.55, pitch, 23) * .13
-            dry += noise(t, skin * 73 + variant, 1200, 5200) * envelope(t, 120, .0007) * .08
-            write(f"shot_{skin}_{variant}", dry, .085, .72, .10)
+            # Four layers, one weapon: A KRAK (a few milliseconds of bright attack), B WHUMP
+            # (the body that gives it mass, with an octave for phone speakers), C the energy
+            # (the skin's own recorded identity, its harsh top softened) and D a short tail
+            # from the arena's walls, added by room() below.
+            krak = noise(t, skin * 73 + variant, 1500, 7000) * envelope(t, 170, .0004) * .17
+            whump = body(t, pitch * 1.25, pitch * .72, 16) * .2
+            energy = soften(source * .86 + identity * .34)
+            write(f"shot_{skin}_{variant}", krak + whump + energy, .085, .72, .11)
     for name in ["metal", "ricochet", "shield", "defense"] + [f"{kind}_{i}" for kind in ["hit", "break"] for i in range(3)]:
         t = timeline(.54 if name == "defense" else .34)
         dry = read_mono(ROOT / f"audio/sfx/feedback/{name}.wav", t)
+        dry = soften(dry, 6200)
         if name.startswith("break"):
+            # CRACK: a split-second snap on top of the collapsing body and falling grit.
+            dry += noise(t, 820 + int(name[-1]), 1800, 7400) * envelope(t, 95, .0005) * .2
             dry += body(t, 132, 72, 14) * .23
             dry += noise(t, 814 + int(name[-1]), 480, 4400) * envelope(t, 18) * .12
         elif name.startswith("hit"):
-            dry += body(t, 188, 112, 35) * .15
+            # THOCK: dense and short, a low knock with a dry click, no ring.
+            dry += body(t, 150, 92, 30) * .22
+            dry += noise(t, 830 + int(name[-1]), 700, 3000) * envelope(t, 150, .0005) * .1
         elif name == "shield":
+            # BWOM: a soft swell dropping away, the energy taking the blow.
             dry += chirp(t, 910, 230, 19) * envelope(t, 24) * .13
+            dry += body(t, 120, 70, 9) * .12
+        elif name == "metal":
+            # TANG: a few inharmonic partials, the bumper's steel ringing briefly.
+            dry += sum(np.sin(TAU * f * t) * a for f, a in [(540, .06), (1370, .045), (2210, .03)]) * envelope(t, 17, .0006)
+        elif name == "ricochet":
+            # TZZIP: a quick falling glint that draws the new line, and gets out of the way.
+            dry += chirp(t, 2600, 1650, 30) * envelope(t, 42, .0006) * .1
         write(name, dry, .10, .69 if name in ["metal", "ricochet"] else .76)
 
 
