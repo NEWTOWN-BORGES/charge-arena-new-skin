@@ -218,22 +218,18 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	face.set_shader_parameter("mouth", 1.0 if plan.mouth else 0.0)
 
 static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> void:
-	# A wall brick in the owner's colours: an armoured crate whose stripe, windows and life
-	# lights stay in the team colour, crowned with a small copy of the robot's own crest.
+	# A wall brick themed on the robot that defends it (ammo crates for SALVO, planters for
+	# BROTO, anvils for BIGORNA...) in that robot's colours, with the team colour on its base,
+	# its lid or its lights so whose wall it is reads at a glance.
 	var paint = colors(skin, team, tint)
 	paint["glow"] = team.lightened(0.35)
 	paint["wear"] = 0.35
-	if skin == 0 or skin >= STATION_SKIN:
+	var model = String(cast()[skin].get("brick", "brick_crate")) if skin >= 0 and skin < cast().size() else "brick_crate"
+	if model == "brick_crate":
 		# The standard crate is a battery in the team colour, like the robot it serves.
 		paint["shell"] = team
 		paint["trim"] = team.darkened(0.35)
-	var placed: Array = [["brick_crate", Transform3D.IDENTITY]]
-	var crest = String(cast()[skin].get("brick_top", "")) if skin >= 0 and skin < cast().size() else ""
-	if crest != "":
-		# The low-detail copy: up to eighty bricks share the screen.
-		var s = 0.3
-		placed.append(["lo_" + crest, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), Vector3(0, 0.6 - HEAD_TOP * s, 0))])
-	_mount(view, node, "brick:%d:%s" % [skin, crest], placed, paint, false)
+	_mount(view, node, "brick:%d:%s" % [skin, model], [[model, Transform3D.IDENTITY]], paint, false)
 
 static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionary) -> Array:
 	# Arena furniture from the same kit (bumpers, goal posts), painted like the robots.

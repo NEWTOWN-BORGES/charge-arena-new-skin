@@ -56,37 +56,13 @@ de néon da equipa, as bancadas com público, as torres de luz e as bandeiras
 (`scripts/arena_dressing.gd`), os aceleradores e as barreiras. Os pilotos de estrada (`posto_*`)
 percorrem os ambientes por ordem.
 
-Os tijolos são caixotes blindados do kit (`brick_crate`) nas cores do robô que os defende, com a
-tampa na cor da equipa e o topo do robô em miniatura. Os do BIT e dos pilotos de estrada são
-baterias na cor da equipa. Os obstáculos são pilões hexagonais com faixas de perigo e uma tampa em
-estrela que gira; as balizas têm postes do kit.
-
-## Interface
-
-- **Lobby** (`scripts/lobby.gd`): perfil do piloto e progresso da campanha no topo, carteira de
-  tijolos e opções à direita; na coluna da esquerda Hangar, Poderes, História e PvP; ao centro o
-  teu piloto em 3D num pedestal, virado para ti (arrasta para o rodar), com o boss do nível num
-  pedestal mais pequeno ao fundo; na doca a faixa do nível (‹ ›), em baixo a doca com a
-  dificuldade da IA, o cartão do modo (com o boss do nível) e o botão JOGAR. Tocar no cartão abre
-  a folha dos modos: Campanha, Jogo Rápido, Modo História e PvP.
-- **Kit** (`scripts/ui_kit.gd`): paleta índigo noturna, um só amarelo-sol para a ação principal,
-  menta para opções escolhidas e as cores das equipas para tudo o que pertence a um lado. Teclas
-  "de brinquedo" com lábio que afunda ao carregar. Tipos de letra livres (OFL, `art/fonts/`):
-  Lilita One nos títulos e teclas, Rubik no texto.
-- **HUD de jogo**: cartões com a borda na cor da equipa, barras de muralha com brilho,
-  marcador, contagem num mostrador, faixa de GOLO / VITÓRIA com a cor do momento, aviso de baliza
-  desprotegida a vermelho e notificação de desbloqueio com a etiqueta NOVO!.
-- **Desempenho**: as formas do HUD saem todas de um atlas gerado no arranque e o texto é desenhado
-  no fim, agrupado por tipo de letra e tamanho; os símbolos dos poderes são pintados uma vez numa
-  folha. O HUD passou de ~150 para ~30 draw calls por frame.
-
-## Como funciona
-
-- `tools/blender/robot_kit.py` modela 68 peças em Blender e escreve `art/robots/kit.glb`. Cada
-  peça tem uma malha por papel de cor: `shell`, `trim`, `dark`, `metal`, `glow`, `team` e
-  `screen`.
-- `art/robots/roster.json` diz que peças e que cores tem cada robô. As cores vazias seguem a cor
-  da equipa.
+Os tijolos seguem o tema do robô que defende a muralha (`brick` em `art/robots/roster.json`,
+peças `brick_*` do kit): baterias do BIT, caixas de munição do SALVO, observatórios da ÓRBITA,
+canteiros do BROTO, bigornas da BIGORNA, monólitos do ECLIPSE, engrenagens do ROSCA, bobinas de
+Tesla da FAÍSCA, colunas de som da BATIDA, arcas do GANCHO, obeliscos solares do HÉLIO e emblemas
+do MAGNUS. Usam as cores do robô, mas a faixa da base, a tampa ou as luzes ficam sempre na cor da
+equipa, para se ler de relance de quem é cada muralha. Os pilotos de estrada defendem baterias na
+cor da equipa.
 - `scripts/robots.gd` monta o robô no Godot: junta as peças por papel em cada grupo que se mexe
   (corpo, pernas, arma, crista giratória), cria o contorno e liga o ecrã do rosto.
 - `shaders/robot_face.gdshader` desenha os olhos (12 estilos), o piscar e as expressões: calmo,

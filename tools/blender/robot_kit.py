@@ -45,11 +45,10 @@ HEAD_TOP = 1.80
 HEAD_CENTER = 1.44
 
 CONVERT = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # Godot -> Blender
-# Detalhe das primitivas: 1 no kit normal; as variantes "lo_" (topos em miniatura nos tijolos)
-# são geradas com metade, porque ali cada peça ocupa poucos píxeis.
+# Detalhe das primitivas: 1 no kit normal. LOW_DETAIL lista peças a gerar também com metade
+# do detalhe, com o prefixo "lo_" (hoje nenhuma: os tijolos têm peças temáticas próprias).
 DETAIL = 1.0
-LOW_DETAIL = ["top_antenna", "top_handle", "top_dish", "top_leaves", "top_beacon", "top_horns", "top_rods",
-              "top_bolts", "top_mohawk", "top_crest", "top_fins"]
+LOW_DETAIL = []
 
 
 def seg(n, least=1):
@@ -960,6 +959,161 @@ def _(p):
     # A tampa é o que a câmara de jogo vê: fica na cor da equipa, com uma moldura escura.
     p.box("dark", (0, 0.56, 0), (0.54, 0.04, 0.3), 0.01, segments=1)
     p.box("team", (0, 0.585, 0), (0.48, 0.03, 0.25), 0.008, segments=1)
+
+
+def brick_base(p, height=0.1):
+    """Soco comum dos tijolos temáticos: base escura e faixa na cor da equipa."""
+    p.box("dark", (0, height / 2, 0), (0.56, height, 0.3), 0.02, segments=1)
+    p.box("team", (0, height + 0.02, 0), (0.54, 0.04, 0.29), 0.0)
+
+
+# Tijolos temáticos: um por robô, no mesmo espaço do caixote (0,56 x 0,3, topo perto de 0,6).
+# A cor da equipa fica sempre à vista de cima (faixa, tampa ou luzes), para as muralhas se
+# lerem de relance; o resto usa as cores do robô que as defende.
+@part("brick_ammo")
+def _(p):
+    # SALVO: caixa de munições com três obuses de pé.
+    brick_base(p)
+    p.box("shell", (0, 0.3, 0), (0.52, 0.36, 0.27), 0.03, segments=1)
+    for x in (-0.2, 0.2):
+        p.box("trim", (x, 0.3, 0), (0.06, 0.38, 0.29), 0.01, segments=1)
+    p.box("team", (0, 0.49, 0), (0.46, 0.03, 0.24), 0.0)
+    for x in (-0.13, 0.0, 0.13):
+        p.tube("metal", (x, 0.56, 0), 0.05, 0.12, detail=8)
+        p.tube("trim", (x, 0.66, 0), 0.05, 0.08, detail=8, radius2=0.0)
+    p.box("glow", (0, 0.3, 0.137), (0.18, 0.05, 0.01), 0.0)
+
+
+@part("brick_observatory")
+def _(p):
+    # ÓRBITA: casinha com cúpula rasgada e luneta.
+    brick_base(p)
+    p.box("shell", (0, 0.24, 0), (0.5, 0.24, 0.27), 0.03, segments=1)
+    p.box("team", (0, 0.37, 0), (0.46, 0.03, 0.25), 0.0)
+    p.ball("trim", (0, 0.4, 0), (0.3, 0.3, 0.24), detail=10)
+    p.box("dark", (0.0, 0.5, 0), (0.05, 0.12, 0.25), 0.0)
+    p.strut("metal", (0.02, 0.48, 0), (0.2, 0.62, 0.02), 0.035, detail=8)
+    p.ring("glow", (0, 0.37, 0), 0.26, 0.012, detail=10, sides=3)
+
+
+@part("brick_planter")
+def _(p):
+    # BROTO: canteiro com rebentos.
+    brick_base(p)
+    p.box("trim", (0, 0.27, 0), (0.54, 0.3, 0.29), 0.03, segments=1)
+    p.box("dark", (0, 0.43, 0), (0.48, 0.03, 0.23), 0.0)
+    p.box("team", (0, 0.43, 0.13), (0.54, 0.04, 0.03), 0.0)
+    p.box("team", (0, 0.43, -0.13), (0.54, 0.04, 0.03), 0.0)
+    for x, h, lean in ((-0.16, 0.2, -20), (0.0, 0.26, 8), (0.16, 0.18, 24)):
+        p.strut("metal", (x, 0.44, 0), (x, 0.44 + h, 0), 0.015, detail=5)
+        p.wedge("shell", (x - 0.05, 0.44 + h, 0), (0.12, 0.05, 0.08), rot=(0, 0, 30 + lean), taper=0.2)
+        p.wedge("shell", (x + 0.05, 0.42 + h, 0), (0.12, 0.05, 0.08), rot=(0, 0, -30 + lean), taper=0.2)
+    p.box("glow", (0, 0.27, 0.147), (0.2, 0.05, 0.005), 0.0)
+
+
+@part("brick_anvil")
+def _(p):
+    # BIGORNA: uma bigorna de ferreiro.
+    brick_base(p)
+    p.box("dark", (0, 0.2, 0), (0.36, 0.1, 0.24), 0.02, segments=1)
+    p.box("metal", (0, 0.32, 0), (0.18, 0.16, 0.16), 0.02, segments=1)
+    p.box("shell", (-0.03, 0.47, 0), (0.44, 0.14, 0.24), 0.03, segments=1)
+    p.wedge("shell", (0.27, 0.47, 0), (0.14, 0.14, 0.2), rot=(0, 0, -90), taper=0.15)
+    p.box("team", (-0.03, 0.55, 0), (0.4, 0.025, 0.2), 0.0)
+    p.box("glow", (0.0, 0.47, 0.123), (0.16, 0.04, 0.005), 0.0)
+
+
+@part("brick_monolith")
+def _(p):
+    # ECLIPSE: laje negra com um crescente de luz e estilhaços.
+    brick_base(p)
+    p.box("dark", (0, 0.38, 0), (0.4, 0.56, 0.18), 0.02, segments=1)
+    p.ring("glow", (0, 0.42, 0.095), 0.1, 0.018, rot=(90, 0, 0), detail=12, sides=3)
+    p.ball("dark", (0.035, 0.44, 0.1), (0.17, 0.17, 0.02), detail=10)
+    for x, h in ((-0.24, 0.3), (0.24, 0.24)):
+        p.wedge("shell", (x, 0.12 + h / 2, 0), (0.1, h, 0.12), taper=0.0)
+    p.box("team", (0, 0.67, 0), (0.42, 0.03, 0.19), 0.0)
+
+
+@part("brick_gear")
+def _(p):
+    # ROSCA: engrenagem de pé sobre um soco.
+    brick_base(p)
+    p.box("trim", (0, 0.17, 0), (0.4, 0.1, 0.2), 0.02, segments=1)
+    p.box("team", (0, 0.23, 0), (0.36, 0.02, 0.18), 0.0)
+    p.ring("shell", (0, 0.43, 0), 0.17, 0.045, rot=(90, 0, 0), detail=14, sides=4)
+    for i in range(8):
+        a = i * 45
+        r = math.radians(a)
+        p.box("shell", (math.cos(r) * 0.225, 0.43 + math.sin(r) * 0.225, 0), (0.06, 0.06, 0.09), 0.01, rot=(0, 0, a), segments=1)
+    p.tube("metal", (0, 0.43, 0), 0.06, 0.12, rot=(90, 0, 0), detail=10)
+    p.tube("glow", (0, 0.43, 0), 0.025, 0.14, rot=(90, 0, 0), detail=8)
+
+
+@part("brick_coil")
+def _(p):
+    # FAÍSCA: condensador com bobina de Tesla e uma bola de luz.
+    brick_base(p)
+    p.box("shell", (0, 0.24, 0), (0.5, 0.24, 0.27), 0.03, segments=1)
+    p.box("team", (0, 0.37, 0), (0.46, 0.03, 0.25), 0.0)
+    p.tube("metal", (0, 0.47, 0), 0.07, 0.18, detail=10)
+    for y in (0.41, 0.47, 0.53):
+        p.ring("trim", (0, y, 0), 0.08, 0.014, detail=10, sides=3)
+    p.ball("glow", (0, 0.62, 0), (0.13, 0.13, 0.13), detail=10)
+    for x in (-0.19, 0.19):
+        p.tube("dark", (x, 0.42, 0), 0.03, 0.08, detail=6)
+
+
+@part("brick_speaker")
+def _(p):
+    # BATIDA: coluna de som com cones à frente e atrás.
+    brick_base(p)
+    p.box("shell", (0, 0.35, 0), (0.52, 0.46, 0.27), 0.04, segments=1)
+    for z in (-0.137, 0.137):
+        for x, r in ((-0.12, 0.09), (0.14, 0.06)):
+            p.tube("dark", (x, 0.34, z), r, 0.02, rot=(90, 0, 0), detail=10)
+            p.tube("metal", (x, 0.34, z * 1.05), r * 0.45, 0.02, rot=(90, 0, 0), detail=8)
+        p.box("glow", (0, 0.52, z), (0.36, 0.03, 0.01), 0.0)
+    p.box("team", (0, 0.59, 0), (0.48, 0.03, 0.24), 0.01, segments=1)
+
+
+@part("brick_chest")
+def _(p):
+    # GANCHO: arca do tesouro com cintas de metal e brilho de ouro.
+    brick_base(p)
+    p.box("shell", (0, 0.29, 0), (0.52, 0.34, 0.27), 0.02, segments=1)
+    p.tube("shell", (0, 0.47, 0), 0.135, 0.52, rot=(0, 0, 90), detail=10)
+    p.box("glow", (0, 0.465, 0), (0.48, 0.02, 0.27), 0.0)
+    for x in (-0.19, 0.19):
+        p.box("metal", (x, 0.34, 0), (0.05, 0.46, 0.29), 0.01, segments=1)
+    p.tube("metal", (-0.19, 0.47, 0), 0.142, 0.05, rot=(0, 0, 90), detail=10)
+    p.tube("metal", (0.19, 0.47, 0), 0.142, 0.05, rot=(0, 0, 90), detail=10)
+    p.box("team", (0, 0.6, 0), (0.1, 0.03, 0.2), 0.0)
+    p.box("trim", (0, 0.4, 0.14), (0.08, 0.1, 0.02), 0.01, segments=1)
+
+
+@part("brick_obelisk")
+def _(p):
+    # HÉLIO: obelisco curto sobre degraus, com um disco solar.
+    brick_base(p)
+    p.box("trim", (0, 0.16, 0), (0.46, 0.08, 0.26), 0.02, segments=1)
+    p.box("team", (0, 0.21, 0), (0.42, 0.02, 0.24), 0.0)
+    p.wedge("shell", (0, 0.43, 0), (0.2, 0.44, 0.18), taper=0.35)
+    p.wedge("trim", (0, 0.69, 0), (0.08, 0.08, 0.07), taper=0.0)
+    p.ring("glow", (0, 0.42, 0.1), 0.08, 0.018, rot=(90, 0, 0), detail=12, sides=3)
+    p.tube("glow", (0, 0.42, 0.095), 0.045, 0.01, rot=(90, 0, 0), detail=10)
+
+
+@part("brick_emblem")
+def _(p):
+    # MAGNUS: escudo de campeão com coroa de louros e estrela.
+    brick_base(p)
+    p.box("trim", (0, 0.17, 0), (0.44, 0.1, 0.24), 0.02, segments=1)
+    p.box("team", (0, 0.23, 0), (0.4, 0.02, 0.22), 0.0)
+    p.wedge("shell", (0, 0.42, 0), (0.36, 0.36, 0.1), rot=(0, 0, 180), taper=0.55)
+    p.ring("metal", (0, 0.44, 0.06), 0.13, 0.02, rot=(90, 0, 0), detail=12, sides=3)
+    p.wedge("glow", (0, 0.47, 0.065), (0.1, 0.1, 0.02), taper=0.0)
+    p.wedge("glow", (0, 0.43, 0.065), (0.1, 0.07, 0.02), rot=(0, 0, 180), taper=0.0)
 
 
 @part("bumper_body")
