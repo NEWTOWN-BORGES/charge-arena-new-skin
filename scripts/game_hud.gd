@@ -42,6 +42,8 @@ signal sensitivity_changed(level: int)
 signal feedback_changed(camera: int, haptics: bool, automatic: bool, volume: float)
 signal effects_changed(full: bool)
 signal feel_tuning_requested
+# JOGAR in the story mode: straight to the next round's versus card.
+signal story_play_requested
 var camera_choice: OptionButton
 var effects_choice: OptionButton
 var haptic_choice: CheckButton
@@ -943,7 +945,7 @@ func play_chosen_mode() -> void:
 		"quick":
 			play_requested.emit()
 		"story":
-			cup_requested.emit()
+			story_play_requested.emit()
 		"pvp":
 			open_pvp()
 		_:

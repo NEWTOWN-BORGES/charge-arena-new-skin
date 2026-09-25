@@ -28,7 +28,7 @@ func run() -> void:
 	game.open_cup()
 	check(game.cup_screen.visible and not game.arena.visible, "Cup remains accessible")
 	game.cup_action("menu")
-	check(game.arena.visible and not game.cup_screen.visible, "Return to map demonstrations")
+	check(game.arena.visible and not game.cup_screen.visible, "Back to the lobby")
 	for path in [game.skins.config_path, game.power_shop.config_path]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	game.queue_free()
