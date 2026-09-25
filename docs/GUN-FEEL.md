@@ -141,3 +141,19 @@ GUARDAR grava em `user://game_feel.cfg` e REPOR volta aos valores de origem.
 - **Vibração:** as durações variam muito entre telemóveis.
 - **Som:** repetir 3 minutos de tiro e confirmar que não cansa.
 - **Teste cego:** perguntar "Como sentiste o disparo?" e "Qual foi o momento mais satisfatório?".
+
+## 11. Revisão 3.2.1: tijolos mais leves (desempenho no telemóvel)
+
+Depois de testar num Galaxy S23 ainda havia quedas de FPS. A destruição de tijolos, o evento
+mais frequente de uma partida, passou a um efeito simples:
+
+- **Tijolo atingido:** um clarão curto.
+- **Tijolo destruído:** um clarão e um anel no chão (duas partículas). Saem os pedaços, as
+  faíscas, o fumo e os cartões transparentes, que eram uma draw call por tijolo.
+- **Tijolos com uma vida:** deixam de soltar faíscas.
+- **Rasto dos projéteis:** um brilho por frame no Leve e no Equilibrado (dois só no Refinado).
+- **Luzes de impacto:** nenhuma no telemóvel. A primeira luz a tocar num material obrigava o
+  renderizador GL a compilar essa variante a meio da partida.
+- **Aquecimento de shaders:** durante a contagem de cada partida desenham-se amostras invisíveis
+  dos materiais dos efeitos e de um projétil, para nada compilar a meio do jogo (adaptado do
+  repositório 3.1).

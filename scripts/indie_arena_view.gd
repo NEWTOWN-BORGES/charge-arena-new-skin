@@ -111,10 +111,13 @@ var shakes: Array = []
 # Visual hit-stop and time dilation: the effects' own clock, which can hold still or slow
 # down for a beat while the match itself runs on untouched.
 var fx_clock = 0.0
+# Shader warm-up: invisible samples of every kind of effect material, drawn for a few frames
+# while nothing is happening yet, so no effect compiles its shader in the middle of a match.
+var warm_root: Node3D
+var warm_frames = 0
 var hitstop_left = 0.0
 var dilation_left = 0.0
 var dilation_rate = 1.0
-var unstable_timer = 0.0
 var shake_scale = 0.55
 var shot_age = [1.0, 1.0]
 var feedback_pool: Array[Node3D] = []
@@ -1181,6 +1184,11 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			job_index += 1
 	for callback in ready:
 		callback.call()
+	if warm_frames > 0:
+		warm_frames -= 1
+		if warm_frames == 0 and is_instance_valid(warm_root):
+			warm_root.queue_free()
+			warm_root = null
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
 	var offset = shake_offset(dt)
 	if offset != Vector3.ZERO:
@@ -1317,7 +1325,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		for n in range(3):
 			brick.get_node("HP" + str(n)).visible = n < data.hp
 		update_brick_batch(i)
-	flicker_unstable(rules, dt)
 	var active: Array = []
 	for ball in rules.balls:
 		active.append(ball.id)
@@ -1354,7 +1361,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			# reads as one continuous streak rather than a string of beads.
 			var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
 			var stride = Vector3(ball.v.x, 0, ball.v.y) * dt
-			for k in range(2 if quality_level > 0 else 1):
+			# Two glows a frame only on Refinado: every glow is transparent overdraw, and a
+			# phone on the lighter profiles reads the comet just as well from one.
+			for k in range(2 if quality_level > 1 else 1):
 				# trail_length stretches the tail by how long each glow lives: short and legible,
 				# never a line across the arena that hides the bricks behind it.
 				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length"))
@@ -1425,6 +1434,31 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 				effect.node.queue_free()
 			effects.remove_at(effect_index)
 
+
+func warm_shaders() -> void:
+	if not is_instance_valid(camera):
+		return
+	if is_instance_valid(warm_root):
+		warm_root.queue_free()
+	warm_root = Node3D.new()
+	warm_root.name = "ShaderWarmup"
+	add_child(warm_root)
+	# Just in front of the camera and far too small to cover a pixel, but inside the view,
+	# so every sample is really drawn.
+	warm_root.global_position = camera.global_position - camera.global_basis.z * 4.0
+	var tiny = Vector3.ONE * 0.004
+	for sample in [[Color(1, 1, 1, 1), true], [Color(1, 1, 1, 0.5), true], [Color(0.5, 0.5, 0.5, 1), false], [Color(0.05, 0.05, 0.08, 0.45), false]]:
+		sphere(warm_root, Vector3.ZERO, tiny, sample[0], sample[1])
+		torus(warm_root, Vector3.ZERO, 0.002, 0.001, sample[0], sample[1])
+	box(warm_root, Vector3.ZERO, tiny, Color(0.9, 0.9, 0.9), false, 0.001)
+	soft_disc(warm_root, Vector3.ZERO, Vector2(0.004, 0.004), Color(0, 0, 0, 0.5)).visible = true
+	# A projectile, the one effect every match draws within its first second.
+	var orb = take_orb(0)
+	orb.reparent(warm_root, false)
+	orb.position = Vector3.ZERO
+	orb.scale = Vector3.ONE * 0.004
+	orb.show()
+	warm_frames = 4
 
 func take_orb(owner: int) -> Node3D:
 	# One camera-facing card with the orb shader and a team-coloured glow on the floor.
@@ -1552,7 +1586,10 @@ func light_cap() -> int:
 	# Reduced effects: no light flashes at all.
 	if feel.intensity < 1.0:
 		return 0
-	return mini([0, 1, 1][quality_level], 1) if OS.has_feature("mobile") else [2, 4, 6][quality_level]
+	# On a phone: none. The first lamp to touch a material makes the GL renderer compile its
+	# lit variant on the spot - the stall of the first blast - and the particles' own glow
+	# carries the impact anyway.
+	return 0 if OS.has_feature("mobile") else [2, 4, 6][quality_level]
 
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:
 	# A short-lived lamp: what sells an impact is the light it throws on the ceramic.
@@ -2611,26 +2648,6 @@ func defense_falls(team: int, tint: Color) -> void:
 		if effects.size() < effect_limit:
 			var ring = torus(self, spot, 1.1, 0.045, tint, true)
 			effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE * 2.2, "grow": true, "tint": tint}))
-
-func flicker_unstable(rules, dt: float) -> void:
-	# One life left: the brick is visibly failing, sparking now and then from the top, so a
-	# glance says "one more shot and this goes". A couple of sparks every so often, never
-	# a steady stream.
-	if fx == null or rules.brick_lives < 2 or rules.phase != "play":
-		return
-	unstable_timer -= dt
-	if unstable_timer > 0.0:
-		return
-	unstable_timer = [0.5, 0.3, 0.22][quality_level]
-	var start = randi() % maxi(rules.bricks.size(), 1)
-	for step in range(rules.bricks.size()):
-		var data: Dictionary = rules.bricks[(start + step) % rules.bricks.size()]
-		if data.alive and data.hp == 1:
-			var top = Vector3(data.p.x + randf_range(-0.2, 0.2), 0.42, data.p.y)
-			var tint: Color = shot_colors[1 - int(data.team)].lightened(0.2)
-			fx.emit("spark", top, Vector3(randf_range(-0.6, 0.6), randf_range(1.2, 2.2), randf_range(-0.4, 0.4)), tint, 0.07, 0.01, 0.35, -6.0, 1.5, 0.08)
-			fx.glow(top, Color(1.0, 0.6, 0.3), 0.18, 0.18)
-			return
 
 func goal_scored(team_scoring: int, spot: Vector3) -> void:
 	# The biggest normal payoff of a match: a longer hold, the effects slowed for a beat,

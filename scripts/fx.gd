@@ -127,13 +127,9 @@ func impact(at: Vector3, heading: Vector3, color: Color, material: String, amoun
 	var back = (-heading).normalized() if heading != Vector3.ZERO else Vector3.UP
 	match material:
 		"brick":
-			# THOCK: a short flash, a puff of dust and chips flying back off the face.
-			star(at, color.lightened(0.5), size, 0.08)
-			glow(at, color, size * 1.2, 0.13, 1.3)
-			for i in range(scale_count(amount)):
-				var dir = cone_direction((back + Vector3.UP * 0.6).normalized(), 40.0)
-				emit("spark", at, dir * rng.randf_range(2.5, 5.5), color.lightened(0.2), 0.08, 0.02, rng.randf_range(0.14, 0.24), -7.0, 3.0, 0.08)
-			smoke(at + Vector3(0, -0.2, 0), Color("4a4458").lerp(color, 0.2), 1, 0.22, 0.45, 0.1, 0.25)
+			# THOCK: one short flash on the face. Nothing else - bricks are hit constantly and
+			# a phone pays for every transparent pixel.
+			star(at, color.lightened(0.5), size, 0.07)
 		"metal":
 			# TANG: bright sparks raking off in the direction the shot bounced away.
 			star(at, Color(1.0, 0.95, 0.8), size, 0.07)
@@ -157,18 +153,12 @@ func impact(at: Vector3, heading: Vector3, color: Color, material: String, amoun
 			hit(at, color, 0.8)
 
 func break_apart(at: Vector3, heading: Vector3, colors: Array, amount: int) -> void:
-	# CRACK: bigger than a hit, smaller than a power. A flash, chunks thrown the way the
-	# shot was travelling, a ring of dust on the floor and a short lift of smoke.
-	var push = Vector3(heading.x, 0.0, heading.z).normalized() * 0.8 if heading != Vector3.ZERO else Vector3.ZERO
+	# CRACK, kept light on purpose: a white flash and a ring on the floor, two particles in
+	# all. No chunks, sparks or smoke - breaking bricks is the most frequent event of a
+	# match and those were costing frames on phones.
 	var tint: Color = colors[1] if colors.size() > 1 else Color.WHITE
-	star(at, Color(1.0, 0.96, 0.88), 1.0, 0.1)
-	glow(at, tint, 1.2, 0.22, 1.6)
-	debris(at, colors, amount, 4.2, 0.13, 1.0, push)
-	for i in range(scale_count(amount)):
-		var dir = cone_direction((Vector3.UP + push).normalized(), 55.0)
-		emit("spark", at, dir * rng.randf_range(4.0, 8.0), tint.lightened(0.3), 0.1, 0.02, rng.randf_range(0.18, 0.32), -8.0, 2.8, 0.1)
-	ring(Vector3(at.x, 0.05, at.z), tint.lightened(0.2), 0.45, 0.3)
-	smoke(Vector3(at.x, 0.25, at.z), Color("3f3a4c").lerp(tint, 0.2), 2, 0.34, 0.8, 0.22)
+	star(at, Color(1.0, 0.96, 0.88), 0.9, 0.09)
+	ring(Vector3(at.x, 0.05, at.z), tint.lightened(0.2), 0.42, 0.26)
 
 func pulse(at: Vector3, color: Color, radius: float, life: float) -> void:
 	# A wave of energy on the floor, for the defence falling and the goal.

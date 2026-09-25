@@ -262,6 +262,8 @@ func start_pve(layout: Dictionary = {}) -> void:
 	use_loadouts(["blast", "rapid"])
 	rules.reset_match()
 	dress_pilots(local_team)
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
 	sync_assist()
 	music.play_skin(skins.selected)
@@ -297,6 +299,8 @@ func start_level(index: int) -> void:
 	hud.level_info = {"number": Campaign.menu_levels().find(Campaign.menu_level(index)) + 1, "name": level.name, "challenge": level.challenge, "boss_name": rival_name, "has_next": index + 1 < Campaign.LEVELS.size()}
 	hud.level_result = ""
 	hud.level_skin = ""
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
 	sync_assist()
 	# The theme follows whoever is on the other side, station pilot or boss, so ten matches
@@ -1473,6 +1477,8 @@ func start_cup() -> void:
 	hud.level_info = {"number": cup.step(), "cup": true, "round": cup.round_name().to_upper(), "name": level.name, "challenge": level.get("challenge", ""), "boss_name": cup.opponent().to_upper(), "has_next": false}
 	hud.level_result = ""
 	hud.level_skin = ""
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, 0)
 	sync_assist()
 	cup_screen.hide()
