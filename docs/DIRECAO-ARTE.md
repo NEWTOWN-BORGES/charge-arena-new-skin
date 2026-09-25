@@ -65,8 +65,8 @@ estrela que gira; as balizas têm postes do kit.
 
 - **Lobby** (`scripts/lobby.gd`): perfil do piloto e progresso da campanha no topo, carteira de
   tijolos e opções à direita; na coluna da esquerda Hangar, Poderes, História e PvP; ao centro o
-  teu piloto em 3D, virado para ti, com a câmara a balançar devagar e a arena do nível com o boss
-  ao fundo (desliza ou usa as setas para mudar de nível); em baixo a doca com a
+  teu piloto em 3D num pedestal, virado para ti (arrasta para o rodar), com o boss do nível num
+  pedestal mais pequeno ao fundo; na doca a faixa do nível (‹ ›), em baixo a doca com a
   dificuldade da IA, o cartão do modo (com o boss do nível) e o botão JOGAR. Tocar no cartão abre
   a folha dos modos: Campanha, Jogo Rápido, Modo História e PvP.
 - **Kit** (`scripts/ui_kit.gd`): paleta índigo noturna, um só amarelo-sol para a ação principal,

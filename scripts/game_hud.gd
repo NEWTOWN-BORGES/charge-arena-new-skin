@@ -67,6 +67,8 @@ signal levels_requested
 signal power_bought(id: String)
 signal power_equipped(slot: int, id: String)
 signal menu_level_changed(step: int)
+# Dragging across the lobby's stage turns the pilot on its pedestal.
+signal showroom_spun(amount: float)
 const UiKit = preload("res://scripts/ui_kit.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
@@ -80,6 +82,8 @@ const SUN = UiKit.SUN
 var menu: PanelContainer
 var menu_status: Label
 var lobby
+var level_strip: HBoxContainer
+var level_label: Control
 var ip: LineEdit
 var back: Button
 var host_ai_button: Button
@@ -630,6 +634,9 @@ func refresh_news() -> void:
 	# The rail keys carry the counts, and a red dot while something waits behind them.
 	if lobby != null:
 		lobby.refresh()
+	if is_instance_valid(level_strip):
+		level_strip.visible = lobby.mode_id == "campaign"
+		level_label.queue_redraw()
 
 func viewer_palette() -> Dictionary:
 	return Skins.colors(viewer_skin, CORAL, true) if viewer_locked else Skins.colors(viewer_skin, CYAN)
@@ -842,6 +849,23 @@ func build_menu() -> void:
 	menu_status.clip_text = true
 	menu_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	list.add_child(menu_status)
+	# The level strip: which level the campaign plays, stepped with the two round keys.
+	level_strip = HBoxContainer.new()
+	level_strip.add_theme_constant_override("separation", 8)
+	list.add_child(level_strip)
+	for step in [-1, 1]:
+		var arrow = make_button("‹" if step < 0 else "›", false)
+		arrow.custom_minimum_size = Vector2(56, 52)
+		arrow.focus_mode = Control.FOCUS_NONE
+		arrow.add_theme_font_size_override("font_size", 30)
+		arrow.pressed.connect(func(): menu_level_changed.emit(step))
+		level_strip.add_child(arrow)
+		if step < 0:
+			level_label = Control.new()
+			level_label.custom_minimum_size = Vector2(0, 52)
+			level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			level_label.draw.connect(draw_level_strip)
+			level_strip.add_child(level_label)
 	var level_row = HBoxContainer.new()
 	level_row.add_theme_constant_override("separation", 6)
 	list.add_child(level_row)
@@ -880,6 +904,22 @@ func build_menu() -> void:
 	skins_button = lobby.rail_keys.hangar
 	powers_button = lobby.rail_keys.powers
 	quick_button = lobby.sheet_cards.quick
+
+func draw_level_strip() -> void:
+	if campaign_state == null:
+		return
+	var c: Control = level_label
+	var level: Dictionary = Campaign.LEVELS[menu_level]
+	var visible_levels = Campaign.menu_levels()
+	var open = campaign_state.is_unlocked(menu_level)
+	var done = campaign_state.is_completed(menu_level)
+	UiKit.box(c, Rect2(Vector2.ZERO, c.size), UiKit.FIELD, UiKit.CARD_EDGE)
+	var tag = "NÍVEL %02d / %02d" % [visible_levels.find(menu_level) + 1, visible_levels.size()]
+	c.draw_string(font_bold, Vector2(14, 21), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, SUN if done else (CYAN if open else CORAL))
+	var name = String(level.name).to_upper() + ("" if open else "  ·  BLOQUEADO")
+	c.draw_string(font_title, Vector2(14, 42), name, HORIZONTAL_ALIGNMENT_LEFT, c.size.x - 28, 18, WHITE if open else MUTED)
+	if done:
+		c.draw_string(font_bold, Vector2(c.size.x - 70, 21), "✓ VENCIDO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, SUN)
 
 func play_chosen_mode() -> void:
 	match lobby.mode_id:
@@ -1538,9 +1578,9 @@ func lobby_stage() -> Rect2:
 	# Where the lobby shows your pilot: the band between the level's name and the dock on a
 	# phone, the room right of the dock on a wide screen.
 	if vertical:
-		return Rect2(arena_rect.position.x, arena_rect.position.y, arena_rect.size.x, arena_rect.size.y - 70)
+		return Rect2(arena_rect.position.x, arena_rect.position.y, arena_rect.size.x, arena_rect.size.y - 96)
 	var left = menu.get_rect().end.x + 20
-	return Rect2(left, 90, size.x - left - 20, size.y - 150)
+	return Rect2(left, 70, size.x - left - 20, size.y - 190)
 
 func swipe_area() -> Rect2:
 	# Portrait: the stadium band above the menu. Landscape: everything right of the panel.
@@ -1552,6 +1592,10 @@ func swipe_area() -> Rect2:
 func menu_swipe(event: InputEvent) -> void:
 	if menu_overlay_open():
 		swipe_start = Vector2.INF
+		return
+	# A finger or the mouse dragged across the stage turns the pilot as it goes.
+	if swipe_start != Vector2.INF and (event is InputEventScreenDrag and event.index == 0 or event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION):
+		showroom_spun.emit(event.relative.x * 0.012)
 		return
 	var pressed: bool
 	var at: Vector2
@@ -1566,62 +1610,19 @@ func menu_swipe(event: InputEvent) -> void:
 		return
 	if pressed:
 		swipe_start = at if swipe_area().has_point(at) else Vector2.INF
-	elif swipe_start != Vector2.INF:
-		var travel = at - swipe_start
+	else:
 		swipe_start = Vector2.INF
-		# Mostly sideways and long enough: a tap or a vertical scroll never changes level.
-		if absf(travel.x) >= SWIPE_DISTANCE and absf(travel.x) > absf(travel.y) * 1.5:
-			menu_level_changed.emit(1 if travel.x < 0 else -1)
 
 func draw_menu_level() -> void:
-	if campaign_state == null:
-		return
-	var level: Dictionary = Campaign.LEVELS[menu_level]
-	var visible = Campaign.menu_levels()
-	var total = visible.size()
-	var page = visible.find(menu_level)
-	var open = campaign_state.is_unlocked(menu_level)
-	var done = campaign_state.is_completed(menu_level)
-	var area = swipe_area()
-	var center_x = area.get_center().x
-	var top = (safe_top + 94) if vertical else 26.0
-	var beaten: bool = skins_progress != null and int(level.boss) < Skins.CATALOG.size() and skins_progress.is_unlocked(level.boss)
-	# The level's name over its stadium, outlined so it holds over any sky.
-	var tag = "NÍVEL %02d / %02d" % [page + 1, total]
-	var tag_width = font_bold.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 26
-	UiKit.box(self, Rect2(center_x - tag_width * 0.5, top, tag_width, 22), Color(SUN if done else CYAN, 0.95), Color.TRANSPARENT, true)
-	centered(tag, Vector2(center_x, top + 16), 12, INK, true)
-	centered(level.name.to_upper(), Vector2(center_x, top + 54), 30, WHITE, true, 8, Color(UiKit.NIGHT, 0.85))
-	var line = level.challenge if open else "BLOQUEADO · vence o nível anterior"
-	centered(("✓  " if done else "") + line, Vector2(center_x, top + 78), 13, SUN if done else Color(WHITE, 0.85), false, 5, Color(UiKit.NIGHT, 0.8))
-	# The boss now sits on the mode card in the dock, which leaves the stadium the room.
-	var dots_y = (menu.position.y - 24) if vertical else size.y - 24.0
-	# Your pilot's name under it, big: the lobby is about who you are taking in.
+	# The lobby's stage is your pilot; the words under it say who it is.
 	var stage = lobby_stage()
 	var pilot_skin: int = skins_progress.selected if skins_progress != null else 0
-	var pilot_name = String(Skins.CATALOG[clampi(pilot_skin, 0, Skins.CATALOG.size() - 1)].name)
-	centered(pilot_name, Vector2(stage.get_center().x, stage.end.y + 36), 38, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
-	centered("PILOTO EQUIPADO  ·  TOCA NO HANGAR PARA MUDAR", Vector2(stage.get_center().x, stage.end.y + 58), 11, CYAN, true, 5, Color(UiKit.NIGHT, 0.85))
-	# Page dots: the current level is a long sun pill.
-	for i in range(total):
-		var dot = Vector2(center_x + (i - (total - 1) * 0.5) * 18, dots_y)
-		if i == page:
-			UiKit.box(self, Rect2(dot - Vector2(11, 4), Vector2(22, 8)), SUN, Color.TRANSPARENT, true)
-		else:
-			UiKit.disc(self, dot, 3.5, Color(WHITE, 0.55) if campaign_state.is_unlocked(visible[i]) else Color(WHITE, 0.18))
-	# Round keys at the sides say the stadium can be swiped.
-	var hint_y = area.get_center().y + (20 if vertical else 0)
-	var reach = minf(area.size.x * 0.5 - 26, 330) if vertical else area.size.x * 0.5 - 30
-	for step in [-1, 1]:
-		var target = page + step
-		if target < 0 or target >= total:
-			continue
-		var tip = Vector2(center_x + step * reach, hint_y)
-		UiKit.disc(self, tip + Vector2(0, 4), 22, Color(UiKit.LIP, 0.7))
-		UiKit.disc(self, tip, 22, Color(UiKit.PANEL, 0.88))
-		UiKit.ring(self, tip, 22, Color(WHITE, 0.25))
-		var chevron = PackedVector2Array([tip + Vector2(-step * 3 - step * 5, -9), tip + Vector2(step * 5, 0), tip + Vector2(-step * 3 - step * 5, 9)])
-		later(func(): draw_polyline(chevron, WHITE, 3.5, smooth))
+	var entry: Dictionary = Skins.CATALOG[clampi(pilot_skin, 0, Skins.CATALOG.size() - 1)]
+	var x = stage.get_center().x
+	centered(String(entry.name), Vector2(x, stage.end.y + 38), 42, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
+	var tagline = String(entry.get("weapon", "")).to_upper()
+	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 12, SUN, true, 5, Color(UiKit.NIGHT, 0.85))
+	centered("arrasta para rodar  ·  toca no HANGAR para mudar", Vector2(x, stage.end.y + 80), 11, Color(WHITE, 0.6), false, 4, Color(UiKit.NIGHT, 0.8))
 
 func open_levels() -> void:
 	reset_touch()
@@ -2011,7 +2012,7 @@ func layout_vertical(menu_height: float) -> void:
 	if mode == "menu":
 		# The previewed level's name sits under the top bar, the rail of shortcuts down the
 		# left, and the stadium takes all the rest down to the page dots over the dock.
-		var top = safe_top + 190
+		var top = safe_top + 96
 		var left = 16.0 + lobby.RAIL_KEY.x + 8.0
 		arena_rect = Rect2(left, top, size.x - left - 10, maxf(menu.position.y - 44 - top, 120))
 	else:

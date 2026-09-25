@@ -105,6 +105,7 @@ func _ready() -> void:
 	layer.add_child(hud)
 	hud.arena_aspect = arena.view_aspect()
 	hud.layout_changed.connect(frame_arena)
+	hud.showroom_spun.connect(func(amount): arena.turn_showroom(amount))
 	get_window().size_changed.connect(fit_content_scale)
 	fit_content_scale()
 	hud.play_requested.connect(start_pve)
@@ -308,6 +309,15 @@ func show_menu_preview() -> void:
 	use_map(level.map)
 	dress_pilots(0)
 	show_menu_boss()
+	refresh_showroom()
+
+func refresh_showroom() -> void:
+	# The lobby's stage: your pilot on the pedestal, the chosen level's boss behind, in its
+	# team colour alone until it has been beaten.
+	var level: Dictionary = Campaign.LEVELS[menu_level]
+	var boss: int = int(level.boss)
+	var beaten: bool = boss < Skins.CATALOG.size() and skins.is_unlocked(boss)
+	arena.show_showroom(skins.selected, boss, not beaten)
 
 func show_menu_boss() -> void:
 	# The previewed rival is shown in its own colours, like it fights: a boss in its skin's
@@ -406,6 +416,7 @@ func return_to_menu(message: String = "") -> void:
 	save_powers()
 	dress_pilots(0)
 	show_menu_boss()
+	refresh_showroom()
 	hud.sync_skins(skins)
 	hud.show_menu(message)
 	music.play("menu")
@@ -589,6 +600,7 @@ func select_skin(index: int) -> void:
 	hud.sync_skins(skins)
 	if mode == "menu":
 		arena.set_skin(0, index)
+		refresh_showroom()
 
 func bank_bricks() -> void:
 	# Bricks destroyed in any mode are the shop currency; they are banked as they fall.

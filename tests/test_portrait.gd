@@ -66,8 +66,8 @@ func run() -> void:
 	var arena: Rect2
 	# The lobby shows your pilot up close: it stands inside its band, above the dock.
 	var stage: Rect2 = hud.lobby_stage()
-	var feet: Vector2 = game.arena.camera.unproject_position(game.arena.units[0].global_position)
-	var head: Vector2 = game.arena.camera.unproject_position(game.arena.units[0].global_position + Vector3(0, 2.2, 0))
+	var feet: Vector2 = game.arena.camera.unproject_position(game.arena.showroom_pilot.global_position)
+	var head: Vector2 = game.arena.camera.unproject_position(game.arena.showroom_pilot.global_position + Vector3(0, 2.2, 0))
 	var scale_to_hud: float = hud.size.y / float(root.size.y)
 	check(game.arena.lobby_view and stage.grow(4).has_point(feet * scale_to_hud) and stage.grow(4).has_point(head * scale_to_hud), "Lobby: the pilot stands inside its band")
 	check(screen.encloses(hud.menu.get_rect()), "Menu: the panel fits on screen")

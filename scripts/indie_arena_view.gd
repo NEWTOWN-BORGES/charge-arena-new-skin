@@ -984,13 +984,96 @@ func frame_leaning(rect: Rect2, screen: Vector2) -> void:
 	camera.look_at(pivot)
 	camera_home = camera.position
 
-# The lobby: your pilot up close in the middle of the previewed arena, the camera swaying
-# slowly round it, the boss waiting at the far end behind.
-const LOBBY_FOV = 34.0
-const LOBBY_PILOT_HEIGHT = 2.5
+# The lobby: your pilot alone on a pedestal, far below the arena under the same sky, turning
+# slowly while the camera sways; the boss of the chosen level waits on a smaller plinth
+# behind, in its fighting colours until it has been beaten.
+const LOBBY_FOV = 30.0
+const LOBBY_PILOT_HEIGHT = 2.6
+const SHOWROOM = Vector3(0, -400, 0)
+const PEDESTAL_TOP = 0.42
+const BOSS_SPOT = Vector3(1.55, 0, -5.2)
 var lobby_view = false
 var lobby_rect = Rect2()
 var lobby_screen = Vector2.ZERO
+var showroom: Node3D
+var showroom_pilot: Node3D
+var showroom_boss: Node3D
+var showroom_skins = [-1, -1, false]
+var showroom_turn = 0.0
+# Dragging on the stage turns the pilot; it eases back to turning on its own.
+var showroom_drag = 0.0
+
+func build_showroom() -> void:
+	showroom = Node3D.new()
+	showroom.name = "Showroom"
+	showroom.position = SHOWROOM
+	add_child(showroom)
+	var floor_node = MeshInstance3D.new()
+	var disc = PlaneMesh.new()
+	disc.size = Vector2(20, 20)
+	floor_node.mesh = disc
+	var floor_mat = ShaderMaterial.new()
+	floor_mat.shader = preload("res://shaders/showroom_floor.gdshader")
+	floor_node.material_override = floor_mat
+	floor_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	showroom.add_child(floor_node)
+	# Two steps of the pedestal, a neon lip on each, and a warm pool of light on top.
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("0f1130"))
+	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.025, Color(CYAN, 0.7))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("161942"))
+	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.028, Color("ffd23f"))
+	# The boss's plinth, lower and darker.
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("1c1f48"))
+	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.03, Color(CORAL, 0.85))
+	var key = OmniLight3D.new()
+	key.position = Vector3(1.6, 3.6, 3.2)
+	key.light_color = Color("fff1dc")
+	key.light_energy = 0.7
+	key.omni_range = 9.0
+	showroom.add_child(key)
+	var rim = OmniLight3D.new()
+	rim.position = Vector3(-2.2, 2.6, -2.4)
+	rim.light_color = Color("7fe0ff")
+	rim.light_energy = 1.4
+	rim.omni_range = 7.0
+	showroom.add_child(rim)
+
+func show_showroom(skin: int, boss: int, boss_dark: bool) -> void:
+	# Rebuilt only when the pilot or the boss changes.
+	if not is_instance_valid(showroom):
+		build_showroom()
+		showroom_skins = [-1, -1, false]
+	if showroom_skins[0] != skin:
+		if is_instance_valid(showroom_pilot):
+			showroom_pilot.queue_free()
+		showroom_pilot = build_player(CYAN, 0, skin, showroom)
+		showroom_pilot.position = Vector3(0, PEDESTAL_TOP, 0)
+	if showroom_skins[1] != boss or showroom_skins[2] != boss_dark:
+		if is_instance_valid(showroom_boss):
+			showroom_boss.queue_free()
+		showroom_boss = build_player(CORAL, 1, boss, showroom, boss_dark)
+		showroom_boss.position = BOSS_SPOT + Vector3(0, 0.24, 0)
+		showroom_boss.scale = Vector3.ONE * 0.9
+		showroom_boss.rotation.y = PI - 0.45
+	showroom_skins = [skin, boss, boss_dark]
+
+func animate_showroom(dt: float) -> void:
+	if not is_instance_valid(showroom_pilot):
+		return
+	showroom_drag = move_toward(showroom_drag, 0.0, dt * 1.5)
+	showroom_turn += dt * (0.32 + showroom_drag)
+	# A pilot faces down -z; turned round to face the camera, swaying either side of it.
+	showroom_pilot.rotation.y = PI + sin(showroom_turn * 0.8) * 0.65
+	for pilot in [showroom_pilot, showroom_boss]:
+		if not is_instance_valid(pilot):
+			continue
+		var body: Node3D = pilot.get_node("Body")
+		body.position.y = sin(clock * 2.2 + (0.0 if pilot == showroom_pilot else 1.3)) * 0.02
+		spin_parts(body, clock)
+
+func turn_showroom(amount: float) -> void:
+	showroom_turn += amount
+	showroom_drag = 0.0
 
 func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	lobby_view = true
@@ -1001,24 +1084,19 @@ func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	view_bounds = Rect2()
 	place_lobby_camera()
 
-func lobby_yaw() -> float:
-	return sin(clock * 0.22) * 0.55
-
 func place_lobby_camera() -> void:
-	var pilot: Node3D = units[0]
-	var focus = pilot.position + Vector3(0, 1.05, 0)
+	var focus = SHOWROOM + Vector3(0, PEDESTAL_TOP + 0.95, 0)
 	var tan_half = tan(deg_to_rad(LOBBY_FOV) * 0.5)
 	# Far enough that the pilot fills about two thirds of the band it is shown in.
-	var distance = LOBBY_PILOT_HEIGHT / 0.64 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
-	var yaw = lobby_yaw()
-	camera.position = focus + Vector3(sin(yaw), 0.36, cos(yaw)).normalized() * distance
+	var distance = LOBBY_PILOT_HEIGHT / 0.62 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
+	var yaw = sin(clock * 0.2) * 0.12 - 0.12
+	camera.position = focus + Vector3(sin(yaw), 0.34, cos(yaw)).normalized() * distance
 	camera.look_at(focus)
 	camera_home = camera.position
-	# Slide the picture so the pilot stands in the middle of its band, a little low, with
-	# the arena and the boss rising behind its head.
+	# Slide the picture so the pilot stands in the middle of its band.
 	var per_pixel = 2.0 * distance * tan_half / lobby_screen.y
 	camera.h_offset = -(lobby_rect.get_center().x - lobby_screen.x * 0.5) * per_pixel
-	camera.v_offset = (lobby_rect.get_center().y + lobby_rect.size.y * 0.1 - lobby_screen.y * 0.5) * per_pixel
+	camera.v_offset = (lobby_rect.get_center().y + lobby_rect.size.y * 0.04 - lobby_screen.y * 0.5) * per_pixel
 
 func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 	lobby_view = false
@@ -1052,6 +1130,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	if fx != null: fx.tick(clock)
 	if lobby_view:
 		place_lobby_camera()
+		animate_showroom(dt)
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt
@@ -1138,9 +1217,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		node.position = desired
 		var body: Node3D = node.get_node("Body")
 		body.rotation.y = atan2(-facing.x, -facing.y)
-		if lobby_view and team == 0:
-			# In the lobby your pilot turns to face the camera.
-			body.rotation.y = atan2(-sin(lobby_yaw()), -cos(lobby_yaw()))
 		body.position.y = sin(clock * (12.0 if speed > 0.5 else 2.2)) * (0.035 if speed > 0.5 else 0.016)
 		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else -data.aim.x * speed * 0.018, minf(dt * 10, 1))
 		spin_parts(body, clock)

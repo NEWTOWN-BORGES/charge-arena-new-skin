@@ -198,31 +198,38 @@ func run() -> void:
 	check(hud.campaign_button.get_global_rect().end.y > hud.size.y - 110, "In portrait the main action sits in the bottom thumb zone")
 	check(hud.lobby.mode_id == "campaign" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick"), "The lobby starts on the campaign, with quick play one tap away in the mode sheet")
 
-	# Carousel: swipe the stadium sideways to browse levels; the arena follows once settled.
-	var area: Rect2 = hud.swipe_area()
-	var swipe = func(from: Vector2, to: Vector2):
-		for pressed in [true, false]:
-			var touch = InputEventScreenTouch.new()
-			touch.index = 0
-			touch.pressed = pressed
-			touch.position = from if pressed else to
-			hud._input(touch)
-	var middle = area.get_center()
-	swipe.call(middle + Vector2(120, 0), middle - Vector2(120, 0))
-	check(game.menu_level == 1 and hud.menu_level == 1 and game.arena.map.id == "treino", "Swiping left selects the next level at once, before rebuilding")
+	# The level strip in the dock steps through the levels; the arena follows once settled.
+	var arrows: Array = hud.level_strip.get_children().filter(func(child): return child is Button)
+	check(hud.level_strip.visible and arrows.size() == 2, "The dock carries the level strip with its two arrows")
+	arrows[1].pressed.emit()
+	check(game.menu_level == 1 and hud.menu_level == 1 and game.arena.map.id == "treino", "The next arrow selects the next level at once, before rebuilding")
 	game._process(0.1)
 	game._process(0.1)
 	await process_frame
 	check(game.arena.map.id == "farol" and game.arena.unit_skins[1] == 1 and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The stadium then shows level 2's arena, boss and bricks")
-	swipe.call(middle, middle + Vector2(30, 4))
-	check(game.menu_level == 1, "A tap or short drag does not change level")
-	swipe.call(middle + Vector2(0, -100), middle + Vector2(90, 120))
-	check(game.menu_level == 1, "A mostly vertical drag does not change level")
-	swipe.call(Vector2(hud.size.x * 0.5, hud.menu.get_rect().get_center().y), Vector2(hud.size.x * 0.5 - 200, hud.menu.get_rect().get_center().y))
-	check(game.menu_level == 1, "Swipes over the menu buttons are ignored")
-	swipe.call(middle - Vector2(120, 0), middle + Vector2(120, 0))
-	swipe.call(middle - Vector2(120, 0), middle + Vector2(120, 0))
-	check(game.menu_level == 0, "Swiping right goes back and stops at level 1")
+	check(game.arena.showroom_skins[1] == 1, "The lobby's stage puts level 2's boss behind your pilot")
+	# Dragging across the stage turns your pilot and never changes level.
+	var area: Rect2 = hud.swipe_area()
+	var turn_before: float = game.arena.showroom_turn
+	var press = InputEventScreenTouch.new()
+	press.index = 0
+	press.pressed = true
+	press.position = area.get_center()
+	hud._input(press)
+	var drag = InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = area.get_center() + Vector2(-80, 0)
+	drag.relative = Vector2(-80, 0)
+	hud._input(drag)
+	var lift = InputEventScreenTouch.new()
+	lift.index = 0
+	lift.pressed = false
+	lift.position = drag.position
+	hud._input(lift)
+	check(game.menu_level == 1 and not is_equal_approx(game.arena.showroom_turn, turn_before), "Dragging the stage turns the pilot and leaves the level alone")
+	arrows[0].pressed.emit()
+	arrows[0].pressed.emit()
+	check(game.menu_level == 0, "The back arrow goes back and stops at level 1")
 	for i in range(Campaign.LEVELS.size() + 3):
 		game.step_menu_level(1)
 	check(game.menu_level == Campaign.LEVELS.size() - 1, "Browsing stops at the last level")

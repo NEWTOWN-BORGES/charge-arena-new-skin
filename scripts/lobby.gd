@@ -293,8 +293,8 @@ func draw_mode_card() -> void:
 	var room = mode_card.size.x - 84
 	if entry.id == "campaign" and hud.campaign_state != null:
 		var level: Dictionary = Campaign.LEVELS[hud.menu_level]
-		name = "NÍVEL %02d" % (Campaign.menu_levels().find(hud.menu_level) + 1)
-		about = String(level.name)
+		var rival = String(level.name).to_upper() if int(level.boss) >= 100 else String(Skins.CATALOG[int(level.boss)].name)
+		about = ("Posto · " if int(level.boss) >= 100 else "Boss · ") + rival
 		# The boss of the level waits at the right of the card.
 		var station: bool = int(level.boss) >= 100
 		var skins = hud.skins_progress
