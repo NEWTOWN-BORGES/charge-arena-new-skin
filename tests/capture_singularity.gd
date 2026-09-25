@@ -1,5 +1,5 @@
 extends SceneTree
-# The Sentinela's singularity, caught at three moments: the hole opening, the collapse at
+# The Eclipse's singularity, caught at three moments: the hole opening, the collapse at
 # its tightest with the shots crawling in, and the release (needs a GPU; omit --headless).
 const TMP = "res://tests/singularity-fx.tmp"
 

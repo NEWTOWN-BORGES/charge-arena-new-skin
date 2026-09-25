@@ -29,7 +29,7 @@ func run() -> void:
 			var round_data = c.rounds.back()
 			check(round_data.winners.size() == 1024 >> ((step + 1) * 2), "Bracket halves")
 			check(round_data.fixtures.size() == round_data.winners.size(), "Every advancement has a result")
-	check(c.rounds.back().winners[0].name == "Faroleiro", "Boss earned the regional final")
+	check(c.rounds.back().winners[0].name == "Salvo", "Boss earned the regional final")
 	check(c.confirmed_match().round == 7, "Sector victory opens the next stage")
 	check(c.headlines.any(func(h): return "Vértice elimina Lira" in h.title), "Upset is backed by a fixture")
 	check(c.save() == OK, "Save succeeds")

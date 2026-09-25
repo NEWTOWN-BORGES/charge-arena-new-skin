@@ -13,7 +13,7 @@ func run() -> void:
 			assert(News.SCENES.has(story.cenario))
 			assert(story.personagemPrincipal != "Nadir" or story.prioridade == 10)
 		if n == 4: assert(stories[0].personagemSecundario == "Lira")
-		if n == 5: assert(stories[0].personagemPrincipal == "Faroleiro")
+		if n == 5: assert(stories[0].personagemPrincipal == "Salvo")
 		if n < 11: cup.complete([2, n % 2])
 	var earlier = News.edition(cup, 3)
 	assert(earlier[0].personagemPrincipal == "Lira")

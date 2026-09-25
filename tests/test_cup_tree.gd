@@ -4,7 +4,7 @@ func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var cup = preload("res://scripts/cup.gd").new()
 	cup.complete([2, 0]) # Fixture starts after admission.
-	assert(Data.profile(cup, "Faroleiro").wins == 0)
+	assert(Data.profile(cup, "Salvo").wins == 0)
 	for i in range(4): cup.complete([2, 1])
 	var lira = Data.profile(cup, "Lira")
 	assert(lira.state == "ELIMINATED" and lira.eliminated_by == "Vértice")
@@ -12,7 +12,7 @@ func run() -> void:
 	var rival = Data.profile(cup, "Vértice")
 	assert(rival.wins == 8 and rival.history.any(func(h): return h.loser == "Lira"))
 	assert(Data.profile(cup, "Tu").wins == 4)
-	assert(Data.profile(cup, "Aurel").state == "CHAMPION")
+	assert(Data.profile(cup, "Magnus").state == "CHAMPION")
 	var screen = preload("res://scripts/cup_screen.gd").new()
 	screen.cup = cup
 	root.add_child(screen)
@@ -58,10 +58,10 @@ func run() -> void:
 	await process_frame
 	assert(screen.tab == 1 and is_instance_valid(screen.tree_view.detail))
 	for i in range(1): cup.complete([2, 0])
-	assert(Data.profile(cup, "Vértice").eliminated_by == "Faroleiro")
-	assert(Data.profile(cup, "Faroleiro").wins == 10)
+	assert(Data.profile(cup, "Vértice").eliminated_by == "Salvo")
+	assert(Data.profile(cup, "Salvo").wins == 10)
 	cup.complete([2, 1])
-	assert(Data.profile(cup, "Faroleiro").eliminated_by == "Tu")
+	assert(Data.profile(cup, "Salvo").eliminated_by == "Tu")
 	screen.free()
 	print("PASS TREE: public states, upset, trajectories, locate, zoom, pages, journal deep link, final")
 	quit()

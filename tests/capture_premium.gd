@@ -61,7 +61,7 @@ func run():
 	var sheet=Image.create(1536,640,false,shots[0].get_format())
 	for i in range(3): sheet.blit_rect(shots[i],Rect2i(0,0,512,640),Vector2i(i*512,0))
 	sheet.save_png(OUT+"skins.png")
-	# Full collection proof, including the differently shaped Aurel helmet.
+	# Full collection proof, including the differently shaped Magnus helmet.
 	var catalog=Image.create(2048,1920,false,shots[0].get_format())
 	for skin in range(12):
 		game.arena.set_skin(0,skin)

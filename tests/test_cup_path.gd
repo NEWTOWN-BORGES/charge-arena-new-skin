@@ -26,14 +26,14 @@ func run() -> void:
 		screen.refresh()
 		var copy = labels(screen.content).to_upper()
 		check("TU ESTÁS AQUI" in copy, "Protagonist remains the focus at %d" % step)
-		check(not "NADIR" in copy and not "AUREL" in copy and not "VÉRTICE" in copy and not "LIRA" in copy, "Other storylines stay outside the path")
+		check(not "NADIR" in copy and not "MAGNUS" in copy and not "VÉRTICE" in copy and not "LIRA" in copy, "Other storylines stay outside the path")
 		for future in range(step + 1, Cup.NAMES.size()):
 			check(not Cup.NAMES[future].to_upper() in copy, "No future qualifier at %d" % step)
 		if step < Cup.QUALIFIERS:
-			check(not "FAROLEIRO" in copy, "Sector winner is not predicted")
+			check(not "SALVO" in copy, "Sector winner is not predicted")
 			check(cup.confirmed_match().name == Cup.NAMES[step], "Only the current scheduled qualifier is confirmed")
 		elif step == Cup.QUALIFIERS:
-			check("FAROLEIRO" in copy and "FINAL DO SETOR · CONFIRMADA" in copy, "Actual bracket winner becomes the opponent")
+			check("SALVO" in copy and "FINAL DO SETOR · CONFIRMADA" in copy, "Actual bracket winner becomes the opponent")
 		elif step == Cup.FULL_MATCHES:
 			check(screen.play.disabled and not "SE VENCER" in copy and not "PRÓXIMO CONFRONTO" in copy, "Completion has no invented future")
 		var last_position = copy.find("TU ESTÁS AQUI")
@@ -51,13 +51,13 @@ func run() -> void:
 	cup.wins = 5
 	screen.refresh()
 	check(cup.confirmed_match().is_empty() and screen.play.disabled, "Pending bracket blocks play")
-	check("ADVERSÁRIO A DEFINIR" in labels(screen.content) and not "FAROLEIRO" in labels(screen.content), "Pending bracket does not leak seeded winner")
+	check("ADVERSÁRIO A DEFINIR" in labels(screen.content) and not "SALVO" in labels(screen.content), "Pending bracket does not leak seeded winner")
 	cup.wins = 4
 	cup.complete([2, 1])
 	var fixture = cup.rounds.back().fixtures[0]
 	fixture.winner = "Not the recorded winner"
 	check(cup.confirmed_match().is_empty(), "Winner must be backed by the final fixture")
-	fixture.winner = "Faroleiro"
+	fixture.winner = "Salvo"
 	cup.path = "user://path-test.cfg"
 	check(cup.save() == OK, "Save path progress")
 	var restored = Cup.new()
@@ -66,7 +66,7 @@ func run() -> void:
 	check(restored.history == cup.history and restored.confirmed_match() == cup.confirmed_match(), "Restoration preserves history and confirmed match")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(cup.path))
 	screen.cup = restored
-	screen.result = "Derrota · 1–2 contra FAROLEIRO"
+	screen.result = "Derrota · 1–2 contra SALVO"
 	screen.refresh()
 	check(restored.wins == 5 and not screen.play.disabled, "Defeat allows retry without advancing")
 	screen.free()

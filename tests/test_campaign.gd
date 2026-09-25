@@ -64,13 +64,13 @@ func run() -> void:
 	var levels: Array = Campaign.LEVELS
 	var ids = levels.map(func(l): return l.map.id)
 	# Eleven bosses, and between the last two runs of them the station pilots: five before
-	# the Sentinela and five before the Arconte.
+	# the Eclipse and five before the Hélio.
 	var bosses_only: Array = range(levels.size()).filter(func(i): return not Campaign.is_minor(i))
 	var minors: Array = range(levels.size()).filter(func(i): return Campaign.is_minor(i))
 	check(levels.size() == 21 and ids.all(func(id): return ids.count(id) == 1), "Twenty-one levels, each on its own arena (%d)" % levels.size())
 	check(bosses_only.size() == 11 and minors.size() == 10, "Eleven of them are bosses and ten are station pilots")
 	check(minors.all(func(i): return not levels[i].has("minor") or levels[i].minor), "Every station level says so")
-	check(levels[0].boss == 0 and levels[1].boss == 1 and levels[bosses_only[9]].boss == 5 and levels[bosses_only[10]].boss == 10, "Level 1 trains against a copy of the standard pilot, level 2 meets the Faroleiro, the Sentinela is the one before last and the Arconte closes the campaign")
+	check(levels[0].boss == 0 and levels[1].boss == 1 and levels[bosses_only[9]].boss == 5 and levels[bosses_only[10]].boss == 10, "Level 1 trains against a copy of the standard pilot, level 2 meets the Salvo, the Eclipse is the one before last and the Hélio closes the campaign")
 	check(minors.all(func(i): return levels[i].has("ultimate") and levels[i].has("kit") and levels[i].has("hue")), "A station pilot brings a plain ultimate, a bought kit and a colour of its own")
 	var hues: Array = minors.map(func(i): return String(levels[i].hue))
 	check(range(1, hues.size()).all(func(i): return not hues.slice(0, i).has(hues[i])), "No two station pilots share a colour")
@@ -255,8 +255,8 @@ func run() -> void:
 	hud.next_button.pressed.emit()
 	await process_frame
 	check(game.level_index == 1 and game.arena.map.id == "farol" and game.rules.obstacles.size() == 6, "Next level rebuilds the arena with the lighthouse bay")
-	check(game.arena.unit_skins == [game.skins.selected, 1] and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The Faroleiro boss arrives with its own bricks")
-	check(game.rules.obstacles.size() == 6 and game.arena.obstacle_nodes.size() == 6 and hud.level_info.name == "Baía do Farol" and hud.level_info.boss_name == "FAROLEIRO", "Its lighthouses, name and boss name come with it")
+	check(game.arena.unit_skins == [game.skins.selected, 1] and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The Salvo boss arrives with its own bricks")
+	check(game.rules.obstacles.size() == 6 and game.arena.obstacle_nodes.size() == 6 and hud.level_info.name == "Baía do Farol" and hud.level_info.boss_name == "SALVO", "Its lighthouses, name and boss name come with it")
 	check(game.rules.ai_profile == Campaign.ai_profile(1, game.game_settings.difficulty), "The boss uses its level's pace")
 
 	game._process(0.02)

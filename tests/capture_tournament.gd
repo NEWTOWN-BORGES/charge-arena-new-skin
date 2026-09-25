@@ -19,7 +19,7 @@ func run() -> void:
 	await shot("opening")
 	game.cup_screen.tab = 1
 	game.cup_screen.refresh()
-	game.cup_screen.tree_view.open_person("Aurel")
+	game.cup_screen.tree_view.open_person("Magnus")
 	await shot("favorite")
 	game.cup_screen.tab = 0
 	game.cup_screen.refresh()

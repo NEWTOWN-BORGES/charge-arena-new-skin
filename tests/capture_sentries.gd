@@ -1,5 +1,5 @@
 extends SceneTree
-# The Relojoeiro's sentries, once posted and firing (needs a GPU; omit --headless).
+# The Rosca's sentries, once posted and firing (needs a GPU; omit --headless).
 const TMP = "res://tests/sentries-fx.tmp"
 
 func _initialize() -> void:

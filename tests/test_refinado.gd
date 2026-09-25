@@ -24,8 +24,8 @@ func run() -> void:
 	view.free()
 	var cup = Cup.new()
 	cup.path = "user://refinado-admission-test.cfg"
-	assert(cup.opponent() == "Aurora" and cup.level().boss == 0)
-	assert(News.edition(cup, 0)[0].personagemPrincipal == "Aurora")
+	assert(cup.opponent() == "Bit" and cup.level().boss == 0)
+	assert(News.edition(cup, 0)[0].personagemPrincipal == "Bit")
 	assert(cup.complete([2, 1]) and cup.wins == 0 and cup.rounds.is_empty())
 	assert(cup.opponent() == "Téo" and cup.entrance_score == [2, 1])
 	assert(cup.save() == OK)

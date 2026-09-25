@@ -38,7 +38,7 @@ func run() -> void:
 	# A boss falls: the skin is news until the panel is opened.
 	game.skins.defeat(6)
 	hud.sync_skins(game.skins)
-	check(hud.news_text != "" and hud.news_text.contains("RELOJOEIRO") and hud.news_text.contains("SKINS"), "A won skin is named, and points at the panel that holds it")
+	check(hud.news_text != "" and hud.news_text.contains("ROSCA") and hud.news_text.contains("SKINS"), "A won skin is named, and points at the panel that holds it")
 	check(hud.skins_button.text.ends_with("•"), "The SKINS button carries the dot")
 	hud.open_skins()
 	hud.close_skins()

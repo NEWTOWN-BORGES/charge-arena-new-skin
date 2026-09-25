@@ -78,8 +78,8 @@ func run() -> void:
 	check(String(Skins.CATALOG[0].ultimate) == "", "The standard pilot is the one without: it is the training opponent, not a boss")
 	var ids: Array = carriers.map(func(s): return String(s.ultimate))
 	ids.sort()
-	check(Powers.ULTIMATES.all(func(u): return ids.count(u.id) == 1) and ids.count("b_forge") == 1 and range(1, ids.size()).all(func(i): return ids[i] != ids[i - 1]), "Each boss has its ultimate and Aurel carries Forge")
-	check(Skins.CATALOG[10].ultimate == "sun_ray" and Skins.CATALOG[2].ultimate == "meteors" and Skins.CATALOG[7].ultimate == "thunder" and Skins.CATALOG[3].ultimate == "bloom" and Skins.CATALOG[9].ultimate == "plunder", "Arconte, Astrónomo, Caça-Trovões, Jardineiro and Corsário, each with its own")
+	check(Powers.ULTIMATES.all(func(u): return ids.count(u.id) == 1) and ids.count("b_forge") == 1 and range(1, ids.size()).all(func(i): return ids[i] != ids[i - 1]), "Each boss has its ultimate and Magnus carries Forge")
+	check(Skins.CATALOG[10].ultimate == "sun_ray" and Skins.CATALOG[2].ultimate == "meteors" and Skins.CATALOG[7].ultimate == "thunder" and Skins.CATALOG[3].ultimate == "bloom" and Skins.CATALOG[9].ultimate == "plunder", "Hélio, Órbita, Faísca, Broto and Gancho, each with its own")
 
 	# ---------------------------------------------------------------- every ultimate glows first
 	var r = playing("sun_ray")
@@ -330,14 +330,14 @@ func run() -> void:
 	clockwork.elapsed = float(clockwork.ai_profile.ultimate_wait) + 1.0
 	for slot in range(3):
 		clockwork.powers[1].charge[slot] = Powers.ULTIMATE_CHARGE
-	check(clockwork.ai_ultimate(clockwork.ai_profile, false) == 2, "The Relojoeiro reaches for its sentries as soon as it may")
+	check(clockwork.ai_ultimate(clockwork.ai_profile, false) == 2, "The Rosca reaches for its sentries as soon as it may")
 	var corsair = playing("plunder")
 	corsair.loadouts = [["blast", "air", ""], ["blast", "air", "plunder"]]
 	corsair.ai_profile = Campaign.ai_profile(9, 1)
 	corsair.elapsed = float(corsair.ai_profile.ultimate_wait) + 1.0
 	for slot in range(3):
 		corsair.powers[1].charge[slot] = Powers.ULTIMATE_CHARGE
-	check(corsair.ai_ultimate(corsair.ai_profile, false) < 0, "The Corsário does not trade a wall that is already the better one")
+	check(corsair.ai_ultimate(corsair.ai_profile, false) < 0, "The Gancho does not trade a wall that is already the better one")
 	var knocked = 0
 	for brick in corsair.bricks:
 		if brick.team == 1 and knocked < 22:
@@ -357,7 +357,7 @@ func run() -> void:
 	check(is_equal_approx(spent.powers[0].cool[2], Powers.ULTIMATE_WAIT) and not spent.can_activate_power(0, 2), "And then it sits out %d seconds before it can be called again" % Powers.ULTIMATE_WAIT)
 
 	# --------------------------------------- the three that open the campaign
-	# Sobrecarga, now the Alquimista's: turbocharged rounds, twice as fast, while it lasts.
+	# Sobrecarga, now the Batida's: turbocharged rounds, twice as fast, while it lasts.
 	var surge = playing("surge")
 	aim_at_bricks(surge)
 	var plain_health: int = team_health(surge, 1)

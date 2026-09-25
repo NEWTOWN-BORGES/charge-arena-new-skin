@@ -22,8 +22,8 @@ func floor_glow(projectile: Node3D) -> Color:
 	return Color.BLACK
 
 func run() -> void:
-	check(Skins.CATALOG.size() == 12, "Catalog has ten bosses, Aurora and the Aurel prize")
-	check(Skins.CATALOG[0].level == 0 and Skins.CATALOG[0].name == "PILOTO AURORA", "First skin is the default Aurora pilot")
+	check(Skins.CATALOG.size() == 12, "Catalog has ten bosses, Bit and the Magnus prize")
+	check(Skins.CATALOG[0].level == 0 and Skins.CATALOG[0].name == "BIT", "First skin is the default robot, Bit")
 	check(Skins.boss_skin(1) == -1, "Level 1 trains against the standard pilot, so it carries no skin")
 	check(range(2, 12).all(func(lvl): return Skins.boss_skin(lvl) > 0), "Every campaign level from 2 to 11 has a boss skin of its own")
 	check(Skins.CATALOG.all(func(e): return e.bricks != "" and e.weapon != "" and e.about != ""), "Every skin names its weapon, brick theme and description")
@@ -31,8 +31,8 @@ func run() -> void:
 	var cyan = Color("72ddc6")
 	var coral = Color("ef947e")
 	check(Skins.colors(0, cyan) == {"body": cyan, "light": cyan.lightened(0.3), "shot": cyan}, "Default pilot keeps the team colours")
-	check(Skins.colors(1, cyan).body == cyan and Skins.colors(1, cyan).shot == Color("9cc2ff"), "Faroleiro keeps the team coat and fires beacon-blue shots")
-	check(Skins.colors(2, cyan).body == Color("444f8f") and Skins.colors(2, cyan).shot == Color("b99cff"), "Astrónomo has its own indigo body and violet shots")
+	check(Skins.colors(0, cyan).body == cyan and Skins.colors(1, cyan).shot == Color("ffb35c"), "Bit keeps the team coat; Salvo fires its own orange shots")
+	check(Skins.colors(2, cyan).body == Color("444f8f") and Skins.colors(2, cyan).shot == Color("b99cff"), "Órbita has its own indigo body and violet shots")
 	check(Skins.colors(1, coral, true).body == coral.darkened(0.3), "Boss tint forces red team colours before being defeated")
 
 	# These checks use the real progression, not the testing build's open collection.
@@ -105,7 +105,7 @@ func run() -> void:
 	var orbit: Node3D = arena.units[0].get_node("Body/OrbitTilt/Orbit")
 	var turn = orbit.rotation.y
 	arena.update_state(game.rules, 0, 0.5)
-	check(not is_equal_approx(orbit.rotation.y, turn), "Astrónomo's orbit rings spin during play")
+	check(not is_equal_approx(orbit.rotation.y, turn), "Órbita's orbit rings spin during play")
 
 	# Shot colours: aura follows skin, floor glow keeps team, boosts stay gold.
 	arena.set_skin(0, 2)
@@ -116,7 +116,7 @@ func run() -> void:
 	game.rules.balls.append({"id": 902, "owner": 0, "p": Vector2(1, 2), "v": Vector2.UP, "bounces": 0, "ttl": 4.0, "damage": 2, "boosted": true})
 	arena.update_state(game.rules, 0, 1.0 / 60)
 	var aura = func(id): return arena.projectiles[id].get_node("Aura").material_override.albedo_color
-	check(aura.call(900) == Color(Color("b99cff"), 0.28), "Astrónomo shots glow violet")
+	check(aura.call(900) == Color(Color("b99cff"), 0.28), "Órbita shots glow violet")
 	check(aura.call(901) == Color(cyan.lerp(coral, 1.0), 0.28), "Default rival keeps coral shots")
 	check(floor_glow(arena.projectiles[900]) == Color(cyan, 0.42) and floor_glow(arena.projectiles[901]) == Color(coral, 0.42), "Floor glow shows team")
 	check(aura.call(902) == Color(arena.GOLD, 0.45), "Boosted shots stay gold")
@@ -129,7 +129,7 @@ func run() -> void:
 	check(hud.preview_index == 0 and hud.viewer_skin == 0 and is_instance_valid(hud.viewer_pilot), "Viewer opens on equipped pilot")
 	hud.preview_skin(2)
 	await process_frame
-	check(hud.viewer_skin == 2 and hud.viewer_pilot.has_node("Body/OrbitTilt/Orbit") and hud.skin_name.text == "ASTRÓNOMO", "Previewing Astrónomo updates 3D model and name")
+	check(hud.viewer_skin == 2 and hud.viewer_pilot.has_node("Body/OrbitTilt/Orbit") and hud.skin_name.text == "ASTRÓNOMO", "Previewing Órbita updates 3D model and name")
 	check(hud.skin_thumbs.size() == Skins.CATALOG.size() and hud.viewer_bricks.size() == 2, "Shows all eleven skins and two exhibition bricks")
 	check(hud.skin_action.disabled and hud.skin_action.text == "VENCE ESTE PILOTO" and hud.skin_state.text.begins_with("BLOQUEADA"), "Locked skin displays victory requirement and disabled action")
 	check(hud.skins_button.text == "SKINS  1/12", "Menu counts one unlocked skin")
@@ -143,17 +143,17 @@ func run() -> void:
 	check(is_equal_approx(hud.viewer_yaw, yaw_before + 0.6), "Dragging rotates the preview turntable")
 	hud.close_skins()
 
-	# Campaign unlock flow: the Relojoeiro now guards level 5, and level 1 only trains.
+	# Campaign unlock flow: the Rosca now guards level 5, and level 1 only trains.
 	game.campaign.unlock_all = true
 	game.start_level(0)
 	check(game.arena.unit_skins[1] == 0, "Level 1 is a bout against a copy of the standard pilot")
-	game.start_level(4) # Level 5 (index 4) has boss 6 (Relojoeiro)
+	game.start_level(4) # Level 5 (index 4) has boss 6 (Rosca)
 	check(game.arena.unit_skins[1] == 6 and game.arena.unit_tints[1] == false, "The level 5 boss fights in the colours its own skin was drawn in")
 	game.rules.phase = "finished"
 	game.rules.winner = 0 # Player wins
 	game.finish_level()
 	check(game.skins.is_unlocked(6), "Winning the level unlocks the boss skin")
-	check(hud.level_skin == "RELOJOEIRO", "HUD announces the unlocked boss skin")
+	check(hud.level_skin == "ROSCA", "HUD announces the unlocked boss skin")
 	check(game.arena.unit_tints[1] == false, "After victory the boss drops the red tint and displays true colours")
 	check(hud.skins_button.text.begins_with("SKINS  2/12"), "Skins button updates count to 2/12")
 

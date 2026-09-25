@@ -23,7 +23,7 @@ func run() -> void:
 	game.dress_pilots(0)
 	await create_timer(0.5).timeout
 	game.hud.open_skins()
-	for view in [[1, 0.5, "faroleiro"], [3, -0.6, "jardineiro"], [5, 2.4, "sentinela"]]:
+	for view in [[1, 0.5, "salvo"], [3, -0.6, "broto"], [5, 2.4, "eclipse"]]:
 		game.hud.preview_skin(view[0])
 		game.hud.viewer_yaw = view[1]
 		await create_timer(1.3).timeout
