@@ -42,7 +42,9 @@ func run() -> void:
 	view.update_state(rules, 0, 0.06)
 	check(view.units[0].get_node("Body/Gun").position.z > 0.15, "Recoil reaches peak at 60 ms")
 	view.update_state(rules, 0, 0.16)
-	check(view.units[0].get_node("Body/Gun").position.z == 0.0, "Recoil settles after 210 ms")
+	check(view.units[0].get_node("Body/Gun").position.z < 0.0, "The return overshoots a hair past rest")
+	view.update_state(rules, 0, 0.08)
+	check(view.units[0].get_node("Body/Gun").position.z == 0.0, "Recoil settles by 300 ms")
 	check(rules.players == positions, "Recoil never changes player or aiming physics")
 	for quality in range(3):
 		view.set_quality(quality)
