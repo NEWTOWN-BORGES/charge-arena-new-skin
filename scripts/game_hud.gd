@@ -59,7 +59,16 @@ var fire_x = 0.95
 var fire_y = 0.99
 var auto_fire = true
 var fire_id = -1
-var fire_tap = false
+# Taps on the fire key since the match last read them: every one is a shot.
+var fire_taps = 0
+var fire_tap: bool:
+	set(value):
+		if value:
+			fire_taps += 1
+		else:
+			fire_taps = 0
+	get:
+		return fire_taps > 0
 var fire_age = 1.0
 var fire_center = Vector2.ZERO
 var defense_notice = ""

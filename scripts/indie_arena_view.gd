@@ -465,6 +465,8 @@ func build(new_map: Dictionary = {}) -> void:
 	CombatFinish.prepare(self)
 	batch_bricks()
 	batch_static_geometry()
+	# A rebuilt arena brings its floor words back facing the first player.
+	orient_labels()
 
 func batch_static_geometry() -> void:
 	# Merge opaque architecture by material, leaving animated models independent.
@@ -937,6 +939,30 @@ func view_aspect() -> float:
 
 const LANDSCAPE_EYE = Vector3(0, 26, 15)
 
+# Whose side of the arena the camera sits on. Each player sees their own goal at the bottom:
+# in PvP the second pilot's camera is turned half round, and their stick with it.
+var view_team = 0
+
+func turned(point: Vector3) -> Vector3:
+	return Basis(Vector3.UP, PI) * point if view_team == 1 else point
+
+func set_view_team(team: int) -> void:
+	if view_team == team:
+		return
+	view_team = team
+	# Force every framing to take its seat again from the new side.
+	camera_home = Vector3.ZERO
+	view_bounds = Rect2()
+	orient_labels()
+
+func orient_labels() -> void:
+	# The words painted on the floor turn to face whoever is looking.
+	for label in find_children("*", "Label3D", true, false):
+		var facing = PI if view_team == 1 else 0.0
+		if not label.has_meta("base_yaw"):
+			label.set_meta("base_yaw", label.rotation.y)
+		label.rotation.y = float(label.get_meta("base_yaw")) + facing
+
 func frame_landscape(h_offset: float) -> void:
 	lobby_view = false
 	# Wide screens keep the original lean, which reads more like a stadium seen from a seat.
@@ -944,8 +970,8 @@ func frame_landscape(h_offset: float) -> void:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		camera_home = Vector3.ZERO
 		view_bounds = Rect2()
-	if camera_home != LANDSCAPE_EYE:
-		camera_home = LANDSCAPE_EYE
+	if camera_home != turned(LANDSCAPE_EYE):
+		camera_home = turned(LANDSCAPE_EYE)
 		camera.position = camera_home
 		camera.look_at(Vector3(0, -0.15, 0))
 		view_bounds = Rect2()
@@ -975,7 +1001,7 @@ func frame_leaning(rect: Rect2, screen: Vector2) -> void:
 	camera.fov = LEAN_FOV
 	camera.h_offset = 0.0
 	camera.v_offset = 0.0
-	var direction: Vector3 = LEAN_DIR.normalized()
+	var direction: Vector3 = turned(LEAN_DIR).normalized()
 	var pivot := Vector3(0, 0.3, 0)
 	var distance := 34.0
 	for step in range(6):
@@ -1121,7 +1147,7 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		camera_home = Vector3.ZERO
 		view_bounds = Rect2()
-	var target_eye = LANDSCAPE_EYE if is_menu else PORTRAIT_EYE
+	var target_eye = LANDSCAPE_EYE if is_menu else turned(PORTRAIT_EYE)
 	if camera_home != target_eye:
 		camera_home = target_eye
 		camera.position = camera_home

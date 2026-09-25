@@ -27,7 +27,14 @@ var remote_id = 0
 var remote_command = {"move": Vector2.ZERO, "fire": false}
 # Powers arrive on their own reliable channel, so a tap is never lost in the input stream.
 var remote_power = -1
-var remote_fire_tap = false
+# One shot per tap. Taps made while the gun reloads wait their turn and leave at the gun's
+# own cadence, so ten quick taps are ten shots; holding the finger down does not keep
+# firing. Per team: the host keeps the guest's taps the same way it keeps its own.
+const FIRE_BUFFER_MS = 900
+const MAX_QUEUED_SHOTS = 10
+var queued_shots: Array = [0, 0]
+var queued_until: Array = [0, 0]
+var pending_clicks = 0
 var pending_events: Array = []
 var remote_power_until = 0
 var remote_age = 0.0
@@ -244,6 +251,7 @@ func start_pve(layout: Dictionary = {}) -> void:
 	close_network()
 	mode = "pve"
 	local_team = 0
+	arena.set_view_team(local_team)
 	network_status = ""
 	leave_campaign(layout)
 	use_loadouts(["blast", "rapid"])
@@ -265,6 +273,7 @@ func start_level(index: int) -> void:
 	close_network()
 	mode = "pve"
 	local_team = 0
+	arena.set_view_team(local_team)
 	network_status = ""
 	level_index = index
 	menu_level = Campaign.menu_level(index)
@@ -395,7 +404,7 @@ func show_levels() -> void:
 	hud.open_levels()
 
 func close_network() -> void:
-	remote_fire_tap = false
+	clear_shots()
 	mouse_firing = false
 	connected = false
 	remote_id = 0
@@ -444,6 +453,7 @@ func pause_pve() -> void:
 		return
 	pve_paused = true
 	mouse_firing = false
+	clear_shots()
 	hud.show_pause(true)
 
 func resume_pve() -> void:
@@ -451,6 +461,7 @@ func resume_pve() -> void:
 		return
 	hud.show_pause(false)
 	mouse_firing = false
+	clear_shots()
 	pve_paused = false
 	arena.capture_motion(rules)
 
@@ -468,6 +479,7 @@ func host_game() -> void:
 	close_network()
 	mode = "host"
 	local_team = 0
+	arena.set_view_team(local_team)
 	leave_campaign(Rules.pvp_map())
 	use_loadouts(PowerShop.STARTER_KIT.duplicate())
 	rules.reset_match()
@@ -505,6 +517,7 @@ func join_game(address: String) -> void:
 	multiplayer.multiplayer_peer = peer
 	mode = "client"
 	local_team = 1
+	arena.set_view_team(local_team)
 	connection_timer = 10.0
 	network_status = "A ligar ao rival…"
 	leave_campaign(Rules.pvp_map())
@@ -566,6 +579,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
 			return
 		mouse_firing = event.pressed and mode != "menu"
+		if mouse_firing:
+			pending_clicks += 1
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_pressed() and event is InputEventKey and mode == "menu" and not hud.menu_overlay_open():
@@ -573,6 +588,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			step_menu_level(-1 if event.keycode == KEY_LEFT else 1)
 			return
 	if event.is_pressed() and not event.is_echo() and event is InputEventKey and mode != "menu":
+		if event.keycode == KEY_SPACE:
+			pending_clicks += 1
+			return
 		# On a PC the three powers are on the number keys; phones use the HUD buttons.
 		var slot = [KEY_1, KEY_2, KEY_3].find(event.keycode)
 		if slot < 0:
@@ -713,6 +731,7 @@ func change_feedback(camera: int, haptics: bool, automatic: bool, volume: float)
 	arena.shake_scale = [0.0, 0.45, 1.0][camera]
 	if camera == 0: arena.shakes.clear()
 	mouse_firing = false
+	clear_shots()
 	save_game_settings()
 
 func change_effects(full: bool) -> void:
@@ -994,16 +1013,50 @@ func local_command() -> Dictionary:
 	else:
 		# Thumb still: let the magnetism settle the pilot on the target it is beside.
 		response = magnet_pull()
+	# The second PvP pilot looks at the arena from the other end, so right on their screen
+	# is left in the world. The magnet already speaks world directions and is left alone.
+	var screen_side = -1.0 if arena.view_team == 1 else 1.0
+	if absf(stick) > STICK_DEADZONE:
+		response *= screen_side
 	var move = Vector2(response, 0)
 	if DisplayServer.get_name() != "headless":
 		var keys = Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)), float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-		move += keys
-	# Manual fire is optional; a short mobile tap survives until this simulation tick.
-	var tap: bool = hud.fire_tap and not game_settings.auto_fire
-	var fire = game_settings.auto_fire or hud.fire_id >= 0 or (game_settings.fire_control == 1 and hud.move_id >= 0) or tap or mouse_firing
-	hud.fire_tap = false
-	if DisplayServer.get_name() != "headless": fire = fire or Input.is_physical_key_pressed(KEY_SPACE)
-	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": tap, "power": read_power()}
+		move += keys * screen_side
+	# Manual fire: every tap is one shot, from the button, the joystick, the mouse or the
+	# space bar.
+	pending_clicks += hud.fire_taps
+	hud.fire_taps = 0
+	var clicks: int = 0 if game_settings.auto_fire else mini(pending_clicks, MAX_QUEUED_SHOTS)
+	pending_clicks = 0
+	var fire: bool = game_settings.auto_fire
+	if mode != "client":
+		for click in range(clicks):
+			queue_shot(local_team)
+		fire = fire or take_queued_shot(local_team)
+	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": clicks > 0, "clicks": clicks, "power": read_power()}
+
+func queue_shot(team: int) -> void:
+	queued_shots[team] = mini(int(queued_shots[team]) + 1, MAX_QUEUED_SHOTS)
+	queued_until[team] = Time.get_ticks_msec() + FIRE_BUFFER_MS
+
+func take_queued_shot(team: int) -> bool:
+	if int(queued_shots[team]) <= 0:
+		return false
+	if Time.get_ticks_msec() > int(queued_until[team]):
+		# Taps from long ago are not fired late: that would feel like the gun going off by itself.
+		queued_shots[team] = 0
+		return false
+	if not rules.can_fire(team, 1.0 / Engine.physics_ticks_per_second):
+		return false
+	queued_shots[team] = int(queued_shots[team]) - 1
+	# The next tap in the queue gets its own window from here.
+	queued_until[team] = Time.get_ticks_msec() + FIRE_BUFFER_MS
+	return true
+
+func clear_shots() -> void:
+	queued_shots = [0, 0]
+	queued_until = [0, 0]
+	pending_clicks = 0
 
 func read_power() -> int:
 	# A key pressed a moment too early — during the countdown, or while another power is
@@ -1056,13 +1109,14 @@ func _physics_process(dt: float) -> void:
 		return
 	var command = local_command()
 	if mode == "client":
-		if command.get("tap", false): submit_fire_tap.rpc_id(1)
+		for click in range(int(command.get("clicks", 0))):
+			submit_fire_tap.rpc_id(1)
 		if command.power >= 0:
 			submit_power.rpc_id(1, command.power)
 		network_tick += dt
 		if network_tick >= 1.0 / 30:
 			network_tick = 0
-			submit_input.rpc_id(1, command.move, command.fire and not command.get("tap", false))
+			submit_input.rpc_id(1, command.move, command.fire)
 		return
 	var other: Dictionary
 	if mode == "pve":
@@ -1080,8 +1134,7 @@ func _physics_process(dt: float) -> void:
 			elif rules.can_activate_power(1 - local_team, remote_power):
 				remote_slot = remote_power
 				remote_power = -1
-		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or remote_fire_tap, "power": remote_slot}
-		remote_fire_tap = false
+		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or take_queued_shot(1 - local_team), "power": remote_slot}
 	arena.capture_motion(rules)
 	rules.step(dt, [command, other])
 	bank_bricks()
@@ -1113,7 +1166,7 @@ func submit_input(move: Vector2, firing: bool) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func submit_fire_tap() -> void:
 	if mode == "host" and multiplayer.get_remote_sender_id() == remote_id:
-		remote_fire_tap = true
+		queue_shot(1 - local_team)
 
 @rpc("any_peer", "call_remote", "reliable")
 func submit_power(power: int) -> void:
@@ -1395,6 +1448,7 @@ func start_cup() -> void:
 	pve_paused = false
 	mode = "pve"
 	local_team = 0
+	arena.set_view_team(local_team)
 	network_status = ""
 	level_index = -1
 	var entry = cup.level()
