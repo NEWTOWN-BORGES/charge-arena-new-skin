@@ -14,9 +14,12 @@ jogo (regras, IA, poderes, campanha, Taça, PvP). O trabalho está dividido em f
 ## Estilo
 
 Robôs *chibi* de cabeça-ecrã: uma cabeça grande em forma de televisor com o rosto desenhado num
-ecrã escuro, corpo pequeno em placas, articulações escuras e pés mecânicos. As placas usam
-sombreado *toon* suave, um brilho de contorno frio e uma linha de tinta à volta. Cada robô tem
-uma cor principal forte, uma cor de acento e luzes da sua cor. As peças na cor da equipa (faixas
+ecrã escuro, cantos e painéis laterais na cor de acento, corpo em placas, punhos e pés grandes de
+brinquedo. As placas usam sombreado *toon* suave, um brilho de contorno frio, uma linha de tinta
+à volta e pintura gasta nas arestas vivas (calculada no shader a partir da curvatura). Cada robô
+tem dois tons fortes, luzes da sua cor, uma silhueta própria no topo da cabeça (antena, folhas,
+chifres, orelhas de gato, capuz, espigões...) e um tipo de corpo e de pernas (normais, pesadas,
+de pássaro, rodas, lagartas ou propulsor). As peças na cor da equipa (faixas
 nos ombros, no cinto e no braço) mostram de que lado está cada um.
 
 ## Elenco
@@ -26,18 +29,18 @@ a descrição.
 
 | # | Nome | Antes | Ultimate | Assinatura |
 |---|---|---|---|---|
-| 0 | BIT | Piloto Aurora | — | antena, olhos em cápsula e sorriso, canhão de braço |
-| 1 | SALVO | Faroleiro | volley | pega de transporte, casulo de mísseis, cano duplo |
-| 2 | ÓRBITA | Astrónomo | meteors | parabólica, anel planetário a girar, luneta |
-| 3 | BROTO | Jardineiro | bloom | rebento, vaso às costas, rodas, semeador |
-| 4 | BIGORNA | Mineiro | plating | cabeça larga, ombreiras em bloco, faixas de perigo, broca |
-| 5 | ECLIPSE | Sentinela | singularity | chifres, halo de eclipse a girar, lança de anel |
-| 6 | ROSCA | Relojoeiro | sentries | olho de lupa, caixa de ferramentas, rebitadora |
-| 7 | FAÍSCA | Caça-Trovões | thunder | para-raios, bobina, visor de varrimento |
-| 8 | BATIDA | Alquimista | surge | crista de néon, colunas nos ombros, megafone |
-| 9 | GANCHO | Corsário | plunder | capuz, capa, olho único, bacamarte |
-| 10 | HÉLIO | Arconte Solar | sun_ray | coroa de raios a girar, cetro solar |
-| 11 | MAGNUS | Aurel | b_forge | louros a girar, capa de campeão, manopla imperial |
+| 0 | BIT | Piloto Aurora | — | creme e cor da equipa, antena, sorriso, canhão de braço |
+| 1 | SALVO | Faroleiro | volley | azul-marinho e laranja, cabeça larga com pega, lança-mísseis, cano duplo |
+| 2 | ÓRBITA | Astrónomo | meteors | roxo, parabólica, anel planetário, asas, flutua num propulsor |
+| 3 | BROTO | Jardineiro | bloom | verde, folhas como orelhas, corpo redondo, rodas, semeador |
+| 4 | BIGORNA | Mineiro | plating | amarelo e preto, cabeça-visor, pirilampo, lagartas de tanque, broca |
+| 5 | ECLIPSE | Sentinela | singularity | preto e vermelho, chifres, espigões, pernas de pássaro, garra, halo |
+| 6 | ROSCA | Relojoeiro | sentries | cobre, óculos de soldador, olho de lupa, garra, rodas |
+| 7 | FAÍSCA | Caça-Trovões | thunder | branco e azul, espigões de raio, pernas de pássaro, bobina |
+| 8 | BATIDA | Alquimista | surge | rosa, orelhas de gato, auscultadores gigantes, megafone |
+| 9 | GANCHO | Corsário | plunder | capuz, capa rasgada, olho único, bacamarte com gancho |
+| 10 | HÉLIO | Arconte Solar | sun_ray | marfim e ouro, coroa de raios, asas, núcleo solar, cetro |
+| 11 | MAGNUS | Aurel | b_forge | azul-real e ouro, louros, capa de campeão, maior que todos |
 
 Os 50 pilotos de estrada (skins 100-149) combinam 5 cabeças, 10 topos e 5 famílias de chassis,
 todos diferentes entre si. Os saves com os nomes antigos continuam a funcionar
@@ -45,7 +48,7 @@ todos diferentes entre si. Os saves com os nomes antigos continuam a funcionar
 
 ## Como funciona
 
-- `tools/blender/robot_kit.py` modela 50 peças em Blender e escreve `art/robots/kit.glb`. Cada
+- `tools/blender/robot_kit.py` modela 68 peças em Blender e escreve `art/robots/kit.glb`. Cada
   peça tem uma malha por papel de cor: `shell`, `trim`, `dark`, `metal`, `glow`, `team` e
   `screen`.
 - `art/robots/roster.json` diz que peças e que cores tem cada robô. As cores vazias seguem a cor

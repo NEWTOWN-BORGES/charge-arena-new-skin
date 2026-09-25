@@ -13,9 +13,13 @@ const LEG_PIVOT = Vector3(0.19, 0.40, 0.0)
 const MUZZLE = Vector3(0.29, 0.70, -0.86)
 const STATION_SKIN = 100
 const EYES = ["capsule", "dots", "bars", "square", "slant", "monocle", "visor", "equalizer", "single", "rings", "stars", "arcs"]
-const SCREEN_ASPECT = {"head_box": 1.46, "head_wide": 2.05, "head_tall": 1.0, "head_round": 1.5, "head_slant": 1.65}
+# Tops and crests are modelled for a head whose top is at HEAD_TOP and centre at HEAD_CENTER;
+# the roster's "heads" table says where each real head sits, and the parts follow it.
+const HEAD_TOP = 1.8
+const HEAD_CENTER = 1.44
 # Crests that turn in their own plane, behind the head, pivot about these centres.
-const DISC_SPINS = {"spin_rays": Vector3(0, 1.45, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
+const DISC_SPINS = {"spin_rays": Vector3(0, 1.44, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
+const CENTRED_SPINS = ["spin_rays", "spin_halo", "spin_orbit"]
 const GLOSS = {"shell": 0.6, "trim": 0.55, "dark": 0.25, "metal": 0.8, "team": 0.55, "glow": 0.0}
 const OUTLINE_GROUP = "robot_outline"
 
@@ -37,9 +41,15 @@ static func recipe(skin: int) -> Dictionary:
 		parts["head"] = station.heads[kind % 5]
 		parts["top"] = station.tops[kind]
 		parts["spin"] = ""
-		return {"parts": parts, "palette": station.palette, "eye_style": station.eyes[kind], "key": "road%d" % variant}
-	var entry: Dictionary = data.cast[clampi(skin, 0, data.cast.size() - 1)]
-	return {"parts": entry.parts, "palette": entry.palette, "eye_style": entry.eye_style, "key": "cast%d" % clampi(skin, 0, data.cast.size() - 1)}
+		return {"parts": parts, "palette": station.palette, "eye_style": station.eyes[kind], "key": "road%d" % variant,
+			"scale": [1.0, 1.0, 1.0], "wear": station.get("wear", 0.4), "mouth": false}
+	var index = clampi(skin, 0, data.cast.size() - 1)
+	var entry: Dictionary = data.cast[index]
+	return {"parts": entry.parts, "palette": entry.palette, "eye_style": entry.eye_style, "key": "cast%d" % index,
+		"scale": entry.get("scale", [1.0, 1.0, 1.0]), "wear": entry.get("wear", 0.4), "mouth": entry.get("mouth", false)}
+
+static func head(name: String) -> Dictionary:
+	return ROSTER.data.heads.get(name, {"top": HEAD_TOP, "center": HEAD_CENTER, "aspect": 1.45})
 
 static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	# Every role resolved to a colour. Empty entries in the roster follow the team colour.
@@ -74,17 +84,18 @@ static func part(name: String) -> Array:
 		scene.free()
 	return _parts.get(name, [])
 
-static func merged(key: String, names: Array) -> Dictionary:
-	# role -> one mesh with every part of that role, plus "outline": the whole group with
-	# smooth normals, so the inflated ink hull has no cracks along hard edges.
+static func merged(key: String, placed: Array) -> Dictionary:
+	# `placed`: [part name, Transform3D] pairs. Returns role -> one mesh with every part of
+	# that role, plus "outline": the whole group with smooth normals, so the inflated ink hull
+	# has no cracks along hard edges.
 	if _merged.has(key):
 		return _merged[key]
 	var by_role: Dictionary = {}
-	for part_name in names:
-		for item in part(part_name):
+	for entry in placed:
+		for item in part(entry[0]):
 			if not by_role.has(item[1]):
 				by_role[item[1]] = []
-			by_role[item[1]].append(item[0])
+			by_role[item[1]].append([item[0], entry[1]])
 	var out: Dictionary = {}
 	var hull = SurfaceTool.new()
 	hull.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -92,17 +103,18 @@ static func merged(key: String, names: Array) -> Dictionary:
 		var tool = SurfaceTool.new()
 		tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 		for piece in by_role[role]:
-			tool.append_from(piece, 0, Transform3D.IDENTITY)
+			var at: Transform3D = piece[1]
+			tool.append_from(piece[0], 0, at)
 			if role != "screen" and role != "glow":
-				var arrays: Array = piece.surface_get_arrays(0)
+				var arrays: Array = piece[0].surface_get_arrays(0)
 				var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 				var index = arrays[Mesh.ARRAY_INDEX]
 				if index == null or index.is_empty():
 					for point in points:
-						hull.add_vertex(point)
+						hull.add_vertex(at * point)
 				else:
 					for i in index:
-						hull.add_vertex(points[i])
+						hull.add_vertex(at * points[i])
 		out[role] = tool.commit()
 	hull.index()
 	hull.generate_normals()
@@ -114,50 +126,59 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	var plan = recipe(skin)
 	var parts: Dictionary = plan.parts
 	var paint = colors(skin, team, tint)
+	paint["wear"] = float(plan.wear)
 	body.set_meta("design_signature", plan.key)
 	body.set_meta("robot_skin", skin)
+	var size: Array = plan.scale
+	body.scale = Vector3(size[0], size[1], size[2])
+	var shape = head(String(parts.head))
+	var lift = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.top) - HEAD_TOP, 0))
+	var centre = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.center) - HEAD_CENTER, 0))
 	var core: Array = []
-	for slot in ["head", "top", "torso", "shoulders", "back", "arm"]:
+	for slot in ["head", "torso", "shoulders", "back", "arm"]:
 		if String(parts.get(slot, "")) != "":
-			core.append(parts[slot])
+			core.append([parts[slot], Transform3D.IDENTITY])
+	if String(parts.get("top", "")) != "":
+		core.append([parts.top, lift])
 	_mount(view, body, plan.key + ":body", core, paint)
 	for side in [-1, 1]:
 		var leg = Node3D.new()
 		leg.name = "LegL" if side == -1 else "LegR"
 		leg.position = Vector3(side * LEG_PIVOT.x, LEG_PIVOT.y, LEG_PIVOT.z)
 		body.add_child(leg)
-		_mount(view, leg, "leg:" + String(parts.legs), [parts.legs], paint)
+		_mount(view, leg, plan.key + ":leg", [[parts.legs, Transform3D.IDENTITY]], paint)
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	body.add_child(gun)
-	_mount(view, gun, "gun:" + String(parts.gun), [parts.gun], paint)
+	_mount(view, gun, plan.key + ":gun", [[parts.gun, Transform3D.IDENTITY]], paint)
 	var flash = view.sphere(gun, MUZZLE, Vector3.ONE * 0.01, Color("fff1c7"), true)
 	flash.name = "Flash"
 	var crest = String(parts.get("spin", ""))
 	if crest != "":
 		var holder: Node3D = body
 		var inverse = Transform3D.IDENTITY
+		var offset: Transform3D = centre if crest in CENTRED_SPINS else lift
 		if DISC_SPINS.has(crest):
 			# Turn in the disc's own plane: a mount tipped onto its side, the Spin inside it.
 			holder = Node3D.new()
 			holder.name = "KeyMount"
-			holder.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), DISC_SPINS[crest])
+			holder.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), offset * DISC_SPINS[crest])
 			body.add_child(holder)
 			inverse = holder.transform.affine_inverse()
 		var spin = Node3D.new()
 		spin.name = "Spin"
 		holder.add_child(spin)
-		for node in _mount(view, spin, "spin:" + crest, [crest], paint):
+		for node in _mount(view, spin, plan.key + ":spin", [[crest, offset]], paint):
 			node.transform = inverse
 	var face: ShaderMaterial = _face(body)
 	face.set_shader_parameter("eye_color", paint.eyes)
 	face.set_shader_parameter("style", maxi(EYES.find(String(plan.eye_style)), 0))
-	face.set_shader_parameter("aspect", SCREEN_ASPECT.get(String(parts.head), 1.45))
+	face.set_shader_parameter("aspect", float(shape.aspect))
 	face.set_shader_parameter("seed", float(hash(plan.key) % 997) * 0.01 + randf() * 3.0)
-	face.set_shader_parameter("mouth", 1.0 if skin == 0 else 0.0)
+	face.set_shader_parameter("mouth", 1.0 if plan.mouth else 0.0)
 
-static func _mount(view, parent: Node3D, key: String, names: Array, paint: Dictionary) -> Array:
-	var meshes = merged(key, names)
+static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary) -> Array:
+	var meshes = merged(key, placed)
 	var nodes: Array = []
 	for role in meshes:
 		var node = MeshInstance3D.new()
@@ -173,7 +194,7 @@ static func _mount(view, parent: Node3D, key: String, names: Array, paint: Dicti
 			face.shader = FACE
 			node.material_override = face
 		else:
-			node.material_override = paint_material(view, role, paint.get(role, Color.WHITE))
+			node.material_override = paint_material(view, role, paint.get(role, Color.WHITE), paint.wear)
 		parent.add_child(node)
 		nodes.append(node)
 	return nodes
@@ -189,8 +210,9 @@ static func set_mood(body: Node3D, mood: int) -> void:
 	body.set_meta("robot_mood", mood)
 	_face(body).set_shader_parameter("mood", mood)
 
-static func paint_material(view, role: String, color: Color) -> ShaderMaterial:
-	var key = "robot:%s:%s" % [role, color.to_html()]
+static func paint_material(view, role: String, color: Color, wear: float = 0.4) -> ShaderMaterial:
+	var worn = 0.0 if role in ["glow", "metal"] else wear
+	var key = "robot:%s:%s:%.2f" % [role, color.to_html(), worn]
 	if view.materials.has(key):
 		return view.materials[key]
 	var mat = ShaderMaterial.new()
@@ -200,6 +222,7 @@ static func paint_material(view, role: String, color: Color) -> ShaderMaterial:
 	mat.set_shader_parameter("gloss", GLOSS.get(role, 0.5))
 	mat.set_shader_parameter("glow", 1.4 if role == "glow" else 0.0)
 	mat.set_shader_parameter("rim", 0.0 if role == "glow" else (0.1 if role == "dark" else 0.16))
+	mat.set_shader_parameter("wear", worn)
 	mat.shader = PAINT_LOW if view.quality_level == 0 else PAINT
 	view.materials[key] = mat
 	return mat

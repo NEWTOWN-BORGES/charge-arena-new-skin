@@ -9,6 +9,7 @@ uniform float gloss : hint_range(0.0, 1.0) = 0.5;
 uniform float glow : hint_range(0.0, 4.0) = 0.0;
 uniform vec4 rim_color : source_color = vec4(0.75, 0.9, 1.0, 1.0);
 uniform float rim : hint_range(0.0, 1.0) = 0.22;
+uniform float wear : hint_range(0.0, 1.0) = 0.4;
 varying vec3 world_normal;
 
 void vertex() {

@@ -1221,9 +1221,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		body.rotation.y = atan2(-facing.x, -facing.y)
 		body.position.y = sin(clock * (12.0 if speed > 0.5 else 2.2)) * (0.035 if speed > 0.5 else 0.016)
 		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else -data.aim.x * speed * 0.018, minf(dt * 10, 1))
-		var orbit: Node3D = body.get_node_or_null("OrbitTilt/Orbit")
-		if orbit != null:
-			orbit.rotation.y = clock * 1.1
 		spin_parts(body, clock)
 		body.get_node("LegL").rotation.x = sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
 		body.get_node("LegR").rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.48

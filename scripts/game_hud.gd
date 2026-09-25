@@ -547,9 +547,6 @@ func animate_viewer(dt: float) -> void:
 	viewer_turntable.rotation.y = viewer_yaw
 	var body: Node3D = viewer_pilot.get_node("Body")
 	body.position.y = sin(viewer_clock * 2.2) * 0.02
-	var orbit: Node3D = body.get_node_or_null("OrbitTilt/Orbit")
-	if orbit != null:
-		orbit.rotation.y = viewer_clock * 1.1
 	arena_view.spin_parts(body, viewer_clock)
 	var gun: Node3D = body.get_node("Gun")
 	var flash: Node3D = gun.get_node("Flash")
