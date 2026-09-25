@@ -196,7 +196,9 @@ func run() -> void:
 	var lowest = menu_buttons.all(func(b): return b.get_global_rect().end.y <= hud.campaign_button.get_global_rect().end.y + 0.5)
 	check(lowest and hud.campaign_button.size.y >= 60, "JOGAR is the largest button and sits on the lowest row")
 	check(hud.campaign_button.get_global_rect().end.y > hud.size.y - 110, "In portrait the main action sits in the bottom thumb zone")
-	check(hud.lobby.mode_id == "campaign" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick"), "The lobby starts on the campaign, with quick play one tap away in the mode sheet")
+	check(hud.lobby.mode_id == "story" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick") and hud.lobby.sheet_cards.has("campaign"), "The lobby starts on the story, with quick play and the arenas one tap away in the mode sheet")
+	# The arenas already won are played from ARENAS, level by level.
+	hud.lobby.choose_mode("campaign")
 
 	# The level strip in the dock steps through the levels; the arena follows once settled.
 	var arrows: Array = hud.level_strip.get_children().filter(func(child): return child is Button)

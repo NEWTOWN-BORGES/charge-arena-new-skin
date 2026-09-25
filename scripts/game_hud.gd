@@ -1588,6 +1588,10 @@ func refresh_menu_level() -> void:
 	campaign_button.add_theme_font_size_override("font_size", 22 if locked else 32)
 	campaign_button.disabled = locked
 	lobby.refresh()
+	# The level strip belongs to ARENAS; the story picks its own arena, round by round.
+	if is_instance_valid(level_strip):
+		level_strip.visible = lobby.mode_id == "campaign"
+		level_label.queue_redraw()
 	queue_redraw()
 
 func menu_overlay_open() -> bool:
