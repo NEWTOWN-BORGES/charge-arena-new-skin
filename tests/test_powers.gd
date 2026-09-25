@@ -351,11 +351,12 @@ func run() -> void:
 
 	hud.update_match(game.rules, "")
 	check(hud.match_data.has("powers") and hud.match_data.powers[0].cool[1] > 0 and hud.match_loadout(0, 1) == "air", "The HUD reads the clocks and the kit from the match")
+	var rings_before = game.arena.fx.heads["ring"]
 	game.arena.explosion(Vector2(0.2, 0.4), Rules.EXPLOSION_RADIUS)
-	check(game.arena.effects.any(func(e): return e.get("grow", false)), "The blast draws an expanding ring")
+	check(game.arena.fx.heads["ring"] != rings_before, "The blast draws an expanding ring")
 	game.arena.update_state(game.rules, 0, 1.0 / 60)
 	var pellet = game.arena.projectiles[game.rules.balls[0].id]
-	check(pellet.get_node("Core").scale.x < 0.26 and pellet.get_node("Aura").scale.x < 0.39, "Air pellets are drawn smaller than a normal shot")
+	check(pellet.get_node("Orb").scale.x < 0.78, "Air pellets are drawn smaller than a normal shot")
 	game.return_to_menu()
 	print("POWERS_RESULT failures=", failures)
 	quit(failures)

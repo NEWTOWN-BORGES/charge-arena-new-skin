@@ -17,6 +17,8 @@ const SOFT_DISC = preload("res://shaders/soft_disc.gdshader")
 const Robots = preload("res://scripts/robots.gd")
 const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const ArenaDressing = preload("res://scripts/arena_dressing.gd")
+const Fx = preload("res://scripts/fx.gd")
+const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
 const ArenaFinish = preload("res://scripts/arena_finish.gd")
 const GLASS = preload("res://shaders/glass.gdshader")
@@ -37,6 +39,10 @@ var presentation_environment: Environment
 var court_material: ShaderMaterial
 # The arena environment (colours of floor, sky, blocks and stadium); see arena_theme.gd.
 var theme: Dictionary = {}
+# GPU particle batches (sparks, glows, smoke, rings, debris); see fx.gd.
+var fx: Node3D
+# Projectile nodes waiting to be reused.
+var orb_pool: Array[Node3D] = []
 var camera: Camera3D
 var aim_line: Node3D
 var materials: Dictionary = {}
@@ -102,44 +108,24 @@ var shake_scale = 0.55
 var shot_age = [1.0, 1.0]
 var feedback_pool: Array[Node3D] = []
 var feedback_allocated = 0
-var chip_batch: MultiMeshInstance3D
 const FEEDBACK_POOL_LIMIT = 80
 var brick_reactions: Dictionary = {}
 var shake_seed = 0.0
 # Effects waiting for their moment: {"time": seconds, "call": Callable}.
 var pending: Array = []
-# Reuse render resources instead of creating/destroying emitters during ultimates.
-const PARTICLE_POOL_LIMIT = 48
+# Reuse lamps instead of creating/destroying them during ultimates; particles live in the
+# fixed GPU batches of fx.gd.
 const LIGHT_POOL_LIMIT = 8
-var particle_pool: Array[CPUParticles3D] = []
 var light_pool: Array[OmniLight3D] = []
-var active_particles = 0
 var active_lights = 0
 
 func prepare_fx_pool() -> void:
-	for i in range(PARTICLE_POOL_LIMIT):
-		var puff = CPUParticles3D.new()
-		puff.emitting = false
-		puff.hide()
-		add_child(puff)
-		particle_pool.append(puff)
 	for i in range(LIGHT_POOL_LIMIT):
 		var lamp = OmniLight3D.new()
 		lamp.shadow_enabled = false
 		lamp.hide()
 		add_child(lamp)
 		light_pool.append(lamp)
-
-func take_particle() -> CPUParticles3D:
-	if effects.size() >= effect_limit or active_particles >= [16, 32, 48][quality_level] or particle_pool.is_empty():
-		return null
-	var puff = particle_pool.pop_back()
-	active_particles += 1
-	puff.emitting = false
-	puff.transform = Transform3D.IDENTITY
-	puff.show()
-	return puff
-
 
 func material(color: Color, luminous: bool = false) -> StandardMaterial3D:
 	var key = str(color) + str(luminous)
@@ -309,22 +295,26 @@ func soft_disc(parent: Node3D, pos: Vector3, size_value: Vector2, color: Color) 
 		shape.size = size_value
 		shapes[shape_key] = shape
 	var node = mesh(parent, shapes[shape_key], pos, color, true)
+	node.material_override = soft_disc_material(color)
+	soft_disc_nodes.append(node)
+	node.visible = quality_level > 0
+	return node
+
+func soft_disc_material(color: Color) -> ShaderMaterial:
 	var key = "disc" + str(color)
 	if not materials.has(key):
 		var mat = ShaderMaterial.new()
 		mat.shader = SOFT_DISC
 		mat.set_shader_parameter("tint", color)
 		materials[key] = mat
-	node.material_override = materials[key]
-	soft_disc_nodes.append(node)
-	node.visible = quality_level > 0
-	return node
+	return materials[key]
 
 func set_quality(level: int) -> void:
 	quality_level = clampi(level, 0, 2)
 	if presentation_environment != null: ArenaFinish.environment(presentation_environment, quality_level)
 	if court_material != null: court_material.set_shader_parameter("finish_quality", float(quality_level))
 	Robots.set_quality(self, quality_level)
+	if fx != null: fx.quality = quality_level
 	# Transparent contact decals are the largest group of separate draw calls.
 	# Keep them in the two prettier profiles and remove them entirely on Leve.
 	for node in soft_disc_nodes:
@@ -458,6 +448,10 @@ func build(new_map: Dictionary = {}) -> void:
 	guide_dots.multimesh.visible_instance_count = 0
 	guide_marker = torus(aim_guide, Vector3.ZERO, 0.42, 0.024, LIME)
 	aim_guide.hide()
+	fx = Fx.new()
+	fx.name = "Fx"
+	fx.quality = quality_level
+	add_child(fx)
 	CombatFinish.prepare(self)
 	batch_bricks()
 	batch_static_geometry()
@@ -1021,6 +1015,7 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	if fx != null: fx.tick(clock)
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt
@@ -1179,16 +1174,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if ball.get("ghost", false):
 			color = Rules.power_color("ghost")
 		if not projectiles.has(ball.id):
-			var root = Node3D.new()
-			add_child(root)
-			var core = sphere(root, Vector3.ZERO, Vector3.ONE * 0.26, Color("fff3d5"), true)
-			core.name = "Core"
-			var tail = sphere(root, Vector3.ZERO, Vector3.ONE, Color(color, 0.55), true)
-			tail.name = "Tail"
-			var aura = sphere(root, Vector3.ZERO, Vector3.ONE * 0.39, Color(color, 0.28), true)
-			aura.name = "Aura"
-			soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN if ball.owner == 0 else CORAL, 0.42))
-			projectiles[ball.id] = root
+			projectiles[ball.id] = take_orb(ball.owner)
 		var node: Node3D = projectiles[ball.id]
 		node.position = Vector3(ball.p.x, 0.58, ball.p.y)
 		if interpolate and previous_motion.balls.has(ball.id):
@@ -1197,23 +1183,30 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			if old.bounces == ball.bounces:
 				var pos: Vector2 = old.p.lerp(ball.p, motion_alpha)
 				node.position = Vector3(pos.x, 0.58, pos.y)
-		node.get_node("Aura").material_override = material(Color(color, 0.45 if ball.get("boosted", false) else 0.28), true)
 		# A heavy explosive round, a lean burst round: size alone says which is which.
 		var swell: float = POWER_BALL_SCALE[clampi(kind, 0, POWER_BALL_SCALE.size() - 1)]
-		node.get_node("Aura").scale = Vector3.ONE * (0.52 if ball.get("boosted", false) else 0.39) * swell
-		node.get_node("Core").scale = Vector3.ONE * 0.26 * swell
-		# One attached, short tail per ball: no trail nodes allocated every frame.
-		var tail: MeshInstance3D = node.get_node("Tail")
-		var direction: Vector2 = ball.v.normalized()
-		tail.position = Vector3(-direction.x * 0.31, 0, -direction.y * 0.31)
-		tail.rotation.y = atan2(direction.x, direction.y)
-		tail.scale = Vector3(0.105, 0.105, 0.48 if quality_level == 0 else 0.72) * swell
-		tail.material_override = material(Color(color, 0.55), true)
+		var charged = ball.get("boosted", false) or ball.get("amplified", false)
+		var orb: MeshInstance3D = node.get_node("Orb")
+		orb.scale = Vector3.ONE * (1.04 if charged else 0.78) * swell
+		orb.material_override.set_shader_parameter("tint", color)
+		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
+		# The comet tail: short-lived glows left behind every frame by the GPU batch.
+		if fx != null:
+			# Two glows per frame, one halfway back along this frame's travel, so the tail
+			# reads as one continuous streak rather than a string of beads.
+			var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
+			var stride = Vector3(ball.v.x, 0, ball.v.y) * dt
+			for k in range(2 if quality_level > 0 else 1):
+				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, 0.24 if quality_level > 0 else 0.14)
+			if charged and quality_level > 0:
+				fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
 	if trail_timer > trail_interval:
 		trail_timer = 0
 	for id in projectiles.keys():
 		if not active.has(id):
-			projectiles[id].queue_free()
+			# Projectiles go back to a pool instead of being freed: no churn per shot.
+			projectiles[id].hide()
+			orb_pool.append(projectiles[id])
 			projectiles.erase(id)
 			ball_previous.erase(id)
 	update_sentries(rules, dt)
@@ -1259,11 +1252,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if effect.ttl <= 0:
 			if effect.get("combat_finish", false):
 				CombatFinish.recycle(self, effect.node)
-			elif effect.get("particle_pool", false):
-				effect.node.emitting = false
-				effect.node.hide()
-				particle_pool.append(effect.node)
-				active_particles -= 1
 			elif effect.get("light_pool", false):
 				effect.node.hide()
 				light_pool.append(effect.node)
@@ -1271,18 +1259,34 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			elif effect.get("pooled", false):
 				effect.node.hide()
 				feedback_pool.append(effect.node)
-				chip_batch.multimesh.set_instance_transform(int(effect.node.get_meta("slot")), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.000001), effect.node.position))
 			else:
 				effect.node.queue_free()
 			effects.remove_at(effect_index)
-	sync_chips()
 
-func sync_chips() -> void:
-	if chip_batch == null:
-		return
-	for effect in effects:
-		if effect.get("pooled", false):
-			chip_batch.multimesh.set_instance_transform(int(effect.node.get_meta("slot")), effect.node.transform)
+
+func take_orb(owner: int) -> Node3D:
+	# One camera-facing card with the orb shader and a team-coloured glow on the floor.
+	var root: Node3D
+	if not orb_pool.is_empty():
+		root = orb_pool.pop_back()
+	else:
+		root = Node3D.new()
+		add_child(root)
+		var orb = MeshInstance3D.new()
+		orb.name = "Orb"
+		var card = QuadMesh.new()
+		card.size = Vector2.ONE
+		orb.mesh = card
+		var mat = ShaderMaterial.new()
+		mat.shader = ORB
+		orb.material_override = mat
+		orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(orb)
+		var glow = soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN, 0.42))
+		glow.name = "FloorGlow"
+	root.get_node("FloorGlow").material_override = soft_disc_material(Color(CYAN if owner == 0 else CORAL, 0.42))
+	root.show()
+	return root
 
 func dot_batch(parent: Node3D, count: int, radius: float) -> MultiMeshInstance3D:
 	var disc = CylinderMesh.new()
@@ -1360,167 +1364,19 @@ func update_aim_guide(rules, local_team: int, dt: float) -> void:
 		_:
 			guide_marker.hide()
 
-func particle_mesh(size: float, color: Color) -> Mesh:
-	# One flat card per particle, unshaded and always facing the camera.
-	var key = "particle" + str(size) + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var card = QuadMesh.new()
-	card.size = Vector2(size, size)
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.albedo_texture = spark_texture()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.vertex_color_use_as_albedo = true
-	mat.set_meta("always_unshaded", true)
-	card.material = mat
-	shapes[key] = card
-	return card
-
-func spark_texture() -> Texture2D:
-	# A soft round dot, so embers read as light and not as little squares.
-	if not shapes.has("spark"):
-		var gradient = Gradient.new()
-		gradient.set_color(0, Color(1, 1, 1, 1))
-		gradient.set_color(1, Color(1, 1, 1, 0))
-		gradient.add_point(0.45, Color(1, 1, 1, 0.75))
-		var texture = GradientTexture2D.new()
-		texture.gradient = gradient
-		texture.fill = GradientTexture2D.FILL_RADIAL
-		texture.fill_from = Vector2(0.5, 0.5)
-		texture.fill_to = Vector2(1.0, 0.5)
-		texture.width = 48
-		texture.height = 48
-		shapes["spark"] = texture
-	return shapes["spark"]
-
-func ember_ramp(color: Color) -> GradientTexture1D:
-	# Embers are born white-hot, take the power's colour, then cool and fade out.
-	var key = "ramp" + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var gradient = Gradient.new()
-	gradient.set_color(0, Color(color.lightened(0.75), 1.0))
-	gradient.set_color(1, Color(color.darkened(0.35), 0.0))
-	gradient.add_point(0.22, color)
-	gradient.add_point(0.7, Color(color, 0.55))
-	var ramp = GradientTexture1D.new()
-	ramp.gradient = gradient
-	ramp.width = 64
-	shapes[key] = ramp
-	return ramp
-
 func emitter(at: Vector3, color: Color, amount: int, life: float, speed: float, spread: float, size: float, gravity: float = -7.0, direction: Vector3 = Vector3.UP) -> CPUParticles3D:
-	# A one-shot puff of embers. CPU particles keep the GL compatibility renderer happy
-	# on phones, and the counts here stay small on purpose.
-	var count = maxi(4, int(amount * (0.45 if quality_level == 0 else (0.75 if quality_level == 1 else 1.0))))
-	var puff = take_particle()
-	if puff == null: return null
-	puff.mesh = particle_mesh(size, color)
-	puff.amount = count
-	puff.lifetime = life
-	puff.lifetime_randomness = 0.35
-	puff.one_shot = true
-	puff.explosiveness = 0.88
-	puff.randomness = 0.4
-	puff.direction = direction
-	puff.spread = spread
-	puff.initial_velocity_min = speed * 0.35
-	puff.initial_velocity_max = speed
-	puff.gravity = Vector3(0, gravity, 0)
-	# Air resistance, a little spin and a size that swells then dies.
-	puff.damping_min = speed * 0.25
-	puff.damping_max = speed * 0.7
-	puff.angle_min = -180.0
-	puff.angle_max = 180.0
-	puff.angular_velocity_min = -220.0
-	puff.angular_velocity_max = 220.0
-	puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	puff.emission_sphere_radius = maxf(size * 0.9, 0.12)
-	puff.scale_amount_min = 0.55
-	puff.scale_amount_max = 1.35
-	puff.scale_amount_curve = fade_curve()
-	puff.color = color
-	puff.color_ramp = ember_ramp(color)
-	puff.position = at
-	puff.restart()
-	puff.emitting = true
-	effects.append({"node": puff, "particle_pool": true, "v": Vector3.ZERO, "ttl": life + 0.35, "life": life + 0.35, "gravity": false, "base": Vector3.ONE, "keep": true})
-	return puff
+	# A one-shot spray of embers and sparks from the GPU batches: no node, no per-frame cost.
+	if fx == null:
+		return null
+	var cone = clampf(spread, 5.0, 180.0)
+	fx.embers(at, color, amount, speed, size * 1.4, life, direction, cone, gravity * 0.5)
+	fx.sparks(at, color.lightened(0.3), maxi(2, amount / 2), speed * 1.4, size * 1.1, life * 0.7, direction, cone, gravity)
+	return null
 
 func dust(at: Vector3, color: Color, amount: int, life: float, speed: float, size: float) -> void:
 	# Heavy, slow and unlit: the smoke that hangs after an impact, not a spark.
-	if effects.size() >= effect_limit:
-		return
-	var count = maxi(3, int(amount * [0.45, 0.7, 1.0][quality_level]))
-	var cloud = take_particle()
-	if cloud == null: return
-	cloud.mesh = particle_mesh(size, Color(color, 0.5))
-	cloud.amount = count
-	cloud.lifetime = life
-	cloud.lifetime_randomness = 0.5
-	cloud.one_shot = true
-	cloud.explosiveness = 0.7
-	cloud.randomness = 0.6
-	cloud.direction = Vector3.UP
-	cloud.spread = 65.0
-	cloud.initial_velocity_min = speed * 0.2
-	cloud.initial_velocity_max = speed
-	cloud.gravity = Vector3(0, 0.6, 0)
-	cloud.damping_min = speed * 0.8
-	cloud.damping_max = speed * 1.6
-	cloud.angle_min = -180.0
-	cloud.angle_max = 180.0
-	cloud.angular_velocity_min = -40.0
-	cloud.angular_velocity_max = 40.0
-	cloud.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	cloud.emission_sphere_radius = size
-	cloud.scale_amount_min = 1.0
-	cloud.scale_amount_max = 2.4
-	cloud.scale_amount_curve = swell_curve()
-	cloud.color = Color(color, 0.45)
-	cloud.color_ramp = smoke_ramp(color)
-	cloud.position = at
-	cloud.restart()
-	cloud.emitting = true
-	effects.append({"node": cloud, "particle_pool": true, "v": Vector3.ZERO, "ttl": life + 0.4, "life": life + 0.4, "gravity": false, "base": Vector3.ONE, "keep": true})
-
-func swell_curve() -> Curve:
-	if not shapes.has("swell_curve"):
-		var curve = Curve.new()
-		curve.add_point(Vector2(0, 0.5))
-		curve.add_point(Vector2(0.6, 1.0))
-		curve.add_point(Vector2(1, 0.75))
-		shapes["swell_curve"] = curve
-	return shapes["swell_curve"]
-
-func smoke_ramp(color: Color) -> GradientTexture1D:
-	var key = "smoke" + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var gradient = Gradient.new()
-	gradient.set_color(0, Color(color, 0.0))
-	gradient.set_color(1, Color(color.darkened(0.55), 0.0))
-	gradient.add_point(0.18, Color(color, 0.42))
-	gradient.add_point(0.55, Color(color.darkened(0.3), 0.22))
-	var ramp = GradientTexture1D.new()
-	ramp.gradient = gradient
-	ramp.width = 64
-	shapes[key] = ramp
-	return ramp
-
-func fade_curve() -> Curve:
-	# Particles swell a little, then shrink away instead of popping out of existence.
-	if not shapes.has("fade_curve"):
-		var curve = Curve.new()
-		curve.add_point(Vector2(0, 0.35))
-		curve.add_point(Vector2(0.25, 1.0))
-		curve.add_point(Vector2(1, 0.0))
-		shapes["fade_curve"] = curve
-	return shapes["fade_curve"]
+	if fx != null:
+		fx.smoke(at, color, amount, size, life * 1.3, size, 0.3 + speed * 0.1)
 
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:
 	# A short-lived lamp: what sells an impact is the light it throws on the ceramic.
@@ -1530,6 +1386,8 @@ func flash(at: Vector3, color: Color, energy: float, life: float, reach: float =
 	if quality_level == 0:
 		energy *= 0.6
 		life *= 0.7
+	if fx != null:
+		fx.glow(at, color, clampf(reach * 0.14, 0.4, 1.6), life * 0.8)
 	if light_pool.is_empty() or active_lights >= [2, 4, 8][quality_level]: return
 	var lamp = light_pool.pop_back()
 	active_lights += 1
@@ -1556,38 +1414,39 @@ func scorch(at: Vector2, size: float, color: Color, life: float) -> void:
 	effects.append({"node": mark, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 func burst(pos: Vector2, color: Color, debris: bool = true) -> void:
-	if effects.size() >= effect_limit:
+	# A hit: a hot star and a spray of sparks; when something breaks, chunks of it tumble
+	# out in the arena's block colours and the colour that was struck.
+	if fx == null:
 		return
+	var at = Vector3(pos.x, 0.45, pos.y)
 	if debris:
-		for i in range(3 if quality_level == 0 else 5):
-			if effects.size() >= effect_limit:
-				break
-			var node = box(self, Vector3(pos.x, 0.45, pos.y), Vector3(0.13, 0.065, 0.20), CREAM if i % 2 == 0 else color, false, 0.018)
-			var angle = float(i) * 2.399
-			var life = 0.48
-			effects.append({"node": node, "v": Vector3(cos(angle)*1.7, 1.5, sin(angle)*1.7), "ttl": life, "life": life, "gravity": true, "base": Vector3.ONE})
-	if effects.size() < effect_limit:
-		emitter(Vector3(pos.x, 0.48, pos.y), color, 9 if debris else 5, 0.28, 2.8, 72, 0.105, -4.0)
+		fx.debris(at, [theme.get("block_alt", CREAM), color, color.darkened(0.35)], 6, 3.4, 0.12, 0.95)
+		fx.smoke(Vector3(pos.x, 0.25, pos.y), theme.get("frame", DARK).lerp(color, 0.25), 2, 0.35, 0.7, 0.2)
+	fx.hit(at, color, 1.0 if debris else 0.8)
 
 func explosion(pos: Vector2, radius: float) -> void:
-	# The blast radius has to be readable at a glance: a ring that opens to its real size.
+	# The blast radius has to be readable at a glance: a floor ring that opens to its real
+	# size under a fireball, sparks, embers, tumbling chunks and a hanging cloud.
 	var tint: Color = Rules.power_color("blast")
-	if effects.size() < effect_limit:
-		var ring = torus(self, Vector3(pos.x, 0.34, pos.y), radius, 0.09, Color(tint, 0.9), true)
-		ring.scale = Vector3.ONE * 0.25
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.42, "life": 0.42, "gravity": false, "base": Vector3.ONE, "grow": true, "tint": tint})
-	burst(pos, tint, true)
-	if effects.size() + 2 < effect_limit:
-		emitter(Vector3(pos.x, 0.32, pos.y), Color("fff1d4"), 18, 0.35, 5.0, 85.0, 0.13, -7.0)
-		scorch(pos, radius * 1.4, tint, 0.65)
+	if fx != null:
+		fx.blast(Vector3(pos.x, 0.4, pos.y), tint, radius)
+		fx.debris(Vector3(pos.x, 0.4, pos.y), [theme.get("block_alt", CREAM), tint, DARK], 8, 5.0, 0.13, 1.1)
+	flash(Vector3(pos.x, 0.9, pos.y), tint, 4.0, 0.25, 6.0)
+	scorch(pos, radius * 1.4, tint, 0.65)
 	shake(0.12)
 
 func power_flash(pos: Vector2, id: String) -> void:
+	# A power going off: a floor ring in its colour; defensive powers lift a column of
+	# embers, attacks throw sparks outwards.
 	var color = Rules.power_color(id)
-	if effects.size() + 2 < effect_limit:
+	if fx != null:
 		var defense = id in ["weld", "rebuild", "mirror", "walls", "bloom", "plating"]
-		var ring = torus(self, Vector3(pos.x, 0.08, pos.y), 0.72, 0.035, Color(color, 0.85), true)
-		effects.append({"node": ring, "v": Vector3.UP * (1.6 if defense else 0.0), "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE, "grow": true, "tint": color})
+		fx.ring(Vector3(pos.x, 0.06, pos.y), color, 0.8, 0.45)
+		fx.glow(Vector3(pos.x, 0.5, pos.y), color, 0.9, 0.3)
+		if defense:
+			fx.embers(Vector3(pos.x, 0.2, pos.y), color, 10, 1.2, 0.18, 0.7, Vector3.UP, 25.0, 1.5)
+		else:
+			fx.sparks(Vector3(pos.x, 0.45, pos.y), color, 10, 6.0, 0.14, 0.35, Vector3.UP, 100.0)
 	burst(pos, color, false)
 
 func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
@@ -2440,43 +2299,14 @@ func world_at(screen: Vector2) -> Vector2:
 
 # Basic feedback uses a bounded reusable pool, separate from the elaborate ultimate VFX.
 func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, size: Vector3, debris: bool = false) -> void:
-	if effects.size() >= effect_limit:
+	# Muzzle sparks and impact chips come from the GPU batches: a chip is written once and
+	# animated by its shader, so a volley costs no nodes and no per-frame work.
+	if fx == null:
 		return
-	# Chips are plain nodes animated like any effect; one MultiMesh draws them all (see
-	# sync_chips), so a volley of sparks costs a single draw.
-	var chip: Node3D
-	if not feedback_pool.is_empty():
-		chip = feedback_pool.pop_back()
-	elif feedback_allocated < FEEDBACK_POOL_LIMIT:
-		if chip_batch == null:
-			chip_batch = MultiMeshInstance3D.new()
-			var cube = BoxMesh.new()
-			cube.size = Vector3.ONE
-			chip_batch.multimesh = MultiMesh.new()
-			chip_batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-			chip_batch.multimesh.use_colors = true
-			chip_batch.multimesh.mesh = cube
-			chip_batch.multimesh.instance_count = FEEDBACK_POOL_LIMIT
-			for i in range(FEEDBACK_POOL_LIMIT):
-				chip_batch.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.000001), Vector3.ZERO))
-			var mat = StandardMaterial3D.new()
-			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			mat.vertex_color_use_as_albedo = true
-			chip_batch.material_override = mat
-			chip_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(chip_batch)
-		chip = Node3D.new()
-		chip.set_meta("slot", feedback_allocated)
-		add_child(chip)
-		feedback_allocated += 1
+	if debris:
+		fx.emit("debris", at, velocity, tint.darkened(0.15), size.x, 0.0, life * 2.2, -9.0, 0.0, 0.0, 0.0, 10.0)
 	else:
-		return
-	chip.position = at
-	chip.rotation = Vector3.ZERO
-	chip.scale = size
-	chip.show()
-	chip_batch.multimesh.set_instance_color(int(chip.get_meta("slot")), tint if not debris else tint.darkened(0.25))
-	effects.append({"node": chip, "v": velocity, "ttl": life, "life": life, "gravity": debris, "base": size, "pooled": true})
+		fx.emit("spark", at, velocity, tint, size.x * 1.8, size.x * 0.3, life * 1.8, -2.0, 2.0, 0.08)
 
 func shot_feedback(team: int) -> void:
 	shot_age[team] = 0.0

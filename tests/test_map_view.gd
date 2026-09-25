@@ -28,7 +28,7 @@ func run() -> void:
 	check(not game.arena.brick_nodes[0].get_node("HP2").visible and not game.arena.brick_nodes[1].get_node("HP1").visible, "Visible health marks disappear with each lost life")
 	game.rules.balls.append({"id": 999, "owner": 0, "p": Vector2.ZERO, "v": Vector2.RIGHT * 25.575, "boosted": true, "damage": 2, "bounces": 1, "ttl": 2.0})
 	game.arena.update_state(game.rules, 0, 1.0 / 60)
-	check(is_equal_approx(game.arena.projectiles[999].get_node("Aura").scale.x, 0.52), "Boosted projectile displays the larger golden aura")
+	check(is_equal_approx(game.arena.projectiles[999].get_node("Orb").scale.x, 1.04), "Boosted projectile displays the larger golden orb")
 	for brick in game.rules.bricks:
 		if brick.team == 1:
 			brick.hp = 0

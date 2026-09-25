@@ -16,10 +16,7 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func floor_glow(projectile: Node3D) -> Color:
-	for child in projectile.get_children():
-		if child.material_override is ShaderMaterial:
-			return child.material_override.get_shader_parameter("tint")
-	return Color.BLACK
+	return projectile.get_node("FloorGlow").material_override.get_shader_parameter("tint")
 
 func run() -> void:
 	check(Skins.CATALOG.size() == 12, "Catalog has ten bosses, Bit and the Magnus prize")
@@ -114,11 +111,11 @@ func run() -> void:
 	game.rules.balls.append({"id": 901, "owner": 1, "p": Vector2(0, -2), "v": Vector2.DOWN, "bounces": 0, "ttl": 4.0, "damage": 1, "boosted": false})
 	game.rules.balls.append({"id": 902, "owner": 0, "p": Vector2(1, 2), "v": Vector2.UP, "bounces": 0, "ttl": 4.0, "damage": 2, "boosted": true})
 	arena.update_state(game.rules, 0, 1.0 / 60)
-	var aura = func(id): return arena.projectiles[id].get_node("Aura").material_override.albedo_color
-	check(aura.call(900) == Color(Color("c6a8ff"), 0.28), "Órbita shots glow violet")
-	check(aura.call(901) == Color(cyan.lerp(coral, 1.0), 0.28), "Default rival keeps coral shots")
+	var aura = func(id): return arena.projectiles[id].get_node("Orb").material_override.get_shader_parameter("tint")
+	check(aura.call(900) == Color("c6a8ff"), "Órbita shots glow violet")
+	check(aura.call(901) == cyan.lerp(coral, 1.0), "Default rival keeps coral shots")
 	check(floor_glow(arena.projectiles[900]) == Color(cyan, 0.42) and floor_glow(arena.projectiles[901]) == Color(coral, 0.42), "Floor glow shows team")
-	check(aura.call(902) == Color(arena.GOLD, 0.45), "Boosted shots stay gold")
+	check(aura.call(902) == arena.GOLD and arena.projectiles[902].get_node("Orb").material_override.get_shader_parameter("charged") == 1.0, "Boosted shots stay gold, with their charge ring")
 	game.rules.balls.clear()
 	arena.update_state(game.rules, 0, 1.0 / 60)
 	arena.set_skin(0, 0)
