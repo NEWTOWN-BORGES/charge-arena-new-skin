@@ -12,7 +12,7 @@ const DEMO_MATCHES = FULL_MATCHES # Compatibility with the tournament desk.
 const NAMES = ["Téo", "Mavi", "Bento", "Suri", "Orion", "Nila", "Dário", "Íris", "Zeno", "Vésper"]
 const COLORS = ["73cabb", "e6b87b", "b39ae1", "8ac5eb", "d59b82", "a8c778", "d5a3c3", "e4ca88", "83b6cc", "de8d79"]
 const SEEDS = ["Aro", "Bora", "Ciro", "Duna", "Elo", "Faro", "Gala", "Hélio", "Ivo", "Juno", "Kito", "Lume", "Miro", "Nexo", "Ola", "Pico", "Quim", "Runa", "Salo", "Tila", "Umi", "Vela", "Wilo", "Xara", "Yuna", "Zuri", "Ária", "Bruma", "Cora", "Domo", "Eco", "Fio"]
-const BOSS_NAMES = {1: "Faroleiro", 2: "Astrónomo", 3: "Jardineiro", 4: "Mineiro", 5: "Sentinela", 6: "Relojoeiro", 7: "Caça-Trovões", 8: "Alquimista", 9: "Corsário", 10: "Arconte Solar"}
+const BOSS_NAMES = {1: "Salvo", 2: "Órbita", 3: "Broto", 4: "Bigorna", 5: "Eclipse", 6: "Rosca", 7: "Faísca", 8: "Batida", 9: "Gancho", 10: "Hélio"}
 var path = SAVE_PATH
 var wins = 0
 var entrance_passed = false
@@ -38,7 +38,7 @@ func reset() -> void:
 	entrance_passed = false
 	entrance_score = []
 	boss_order = STORY_BOSSES.duplicate()
-	headlines = [{"round": 0, "title": "Uma taça. Mil percursos.", "body": "Cada vitória tua faz avançar a competição."}, {"round": 0, "title": "Aurel procura o penta", "body": "O tetracampeão domina as capas. Sentinela e Arconte Solar entram na luta pelo título."}]
+	headlines = [{"round": 0, "title": "Uma taça. Mil percursos.", "body": "Cada vitória tua faz avançar a competição."}, {"round": 0, "title": "Magnus procura o penta", "body": "O tetracampeão domina as capas. Eclipse e Hélio entram na luta pelo título."}]
 	prepare_entrants()
 
 func stage_index(at: int = -1) -> int:
@@ -69,19 +69,19 @@ func prepare_entrants() -> void:
 		entrants[512] = {"id": 512, "name": "Lira", "rating": 98}
 		entrants[576] = {"id": 576, "name": "Vértice", "rating": 99}
 	elif stage == 9:
-		entrants[512] = {"id": 512, "name": "Aurel", "rating": 99}
+		entrants[512] = {"id": 512, "name": "Magnus", "rating": 99}
 
 func stage_rounds(stage: int = -1) -> Array:
 	var index = stage_index() if stage < 0 else stage
 	return rounds.filter(func(r): return r.stage == index)
 
 func opponent() -> String:
-	if not entrance_passed: return "Aurora"
+	if not entrance_passed: return "Bit"
 	return BOSS_NAMES[boss_id()] if local_wins() >= QUALIFIERS else normal_name(stage_index(), local_wins())
 
 func confirmed_match() -> Dictionary:
 	if not entrance_passed:
-		return {"name": "Aurora", "round": 0, "is_final": false, "grand_final": false, "boss": 0, "hue": "", "entrance": true}
+		return {"name": "Bit", "round": 0, "is_final": false, "grand_final": false, "boss": 0, "hue": "", "entrance": true}
 	if wins >= FULL_MATCHES: return {}
 	var name_value = opponent()
 	if local_wins() == QUALIFIERS:
@@ -101,8 +101,8 @@ func level() -> Dictionary:
 		entry.map.id = "cup_entrance"
 		entry.boss = 0
 		entry.hue = ""
-		entry.name = "Aurora · Teste de entrada"
-		entry.challenge = "Vence Aurora para entrar na competição. Move-te para apontar, abre a defesa e marca na baliza."
+		entry.name = "Bit · Teste de entrada"
+		entry.challenge = "Vence Bit para entrar na competição. Move-te para apontar, abre a defesa e marca na baliza."
 		return entry
 	var sources = [0, 2, 3, 4, 8]
 	var result: Dictionary = Campaign.LEVELS[sources[mini(local_wins(), QUALIFIERS - 1)]].duplicate(true)
@@ -181,13 +181,13 @@ func complete(score: Array) -> bool:
 				fixtures.append(record)
 				winners.append(victor)
 				if loser.name == "Lira": headlines.append({"round": wins, "title": "A favorita caiu: Vértice elimina Lira", "body": "A promessa sai da Taça. Vértice conquistou o lugar em campo."})
-				if loser.name == "Vértice": headlines.append({"round": wins, "title": "Faroleiro vence a revelação Vértice", "body": "Ele também teve de chegar até aqui. O confronto contigo está confirmado."})
-				if loser.name == "Aurel": headlines.append({"round": wins, "title": "O penta caiu: Arconte Solar elimina Aurel", "body": "A semifinal terminou. O tetracampeão está fora; Arconte Solar conquistou a outra vaga na grande final."})
+				if loser.name == "Vértice": headlines.append({"round": wins, "title": "Salvo vence a revelação Vértice", "body": "Ele também teve de chegar até aqui. O confronto contigo está confirmado."})
+				if loser.name == "Magnus": headlines.append({"round": wins, "title": "O penta caiu: Hélio elimina Magnus", "body": "A semifinal terminou. O tetracampeão está fora; Hélio conquistou a outra vaga na grande final."})
 			rounds.append({"winners": winners, "fixtures": fixtures, "stage": stage, "round": wins})
 		# Distant results are explicit published fixtures, never inferred from a cover.
 		if stage < 9:
-			for who in ["Aurel", "Sentinela", "Arconte Solar"]:
-				if who == "Sentinela" and defeated_bosses().has(5): continue
+			for who in ["Magnus", "Eclipse", "Hélio"]:
+				if who == "Eclipse" and defeated_bosses().has(5): continue
 				if who == BOSS_NAMES[boss_order[stage]]: continue
 				world_results.append({"winner": who, "loser": "Piloto %s-%03d" % [who, wins], "score": "2–%d" % (wins % 2), "round": wins, "stage": stage})
 		headlines.append({"round": wins, "title": BOSS_NAMES[boss_order[stage]] + " avança", "body": "%d participantes continuam na chave do setor." % stage_rounds(stage).back().winners.size()})

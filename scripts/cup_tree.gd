@@ -91,7 +91,7 @@ func person(who: String, pos: Vector2) -> void:
 	var p = Data.profile(cup, who)
 	var status: String = "EM PROVA" if p.state != "ELIMINATED" else "ELIMINADO POR " + p.eliminated_by.to_upper()
 	if who == "Tu": status = p.meeting.to_upper()
-	add_node(who, who.to_upper(), pos, "%d vitórias%s" % [p.wins, " publicadas" if p.confirmed_only else ""], status, MINT if who == "Tu" else (GOLD if who == "Aurel" else Color("547986")), Vector2(420, 210) if who == "Tu" else Vector2(380, 184))
+	add_node(who, who.to_upper(), pos, "%d vitórias%s" % [p.wins, " publicadas" if p.confirmed_only else ""], status, MINT if who == "Tu" else (GOLD if who == "Magnus" else Color("547986")), Vector2(420, 210) if who == "Tu" else Vector2(380, 184))
 	map.nodes.back().person = who
 	map.nodes.back().tag = p.tag
 	map.nodes.back().out = p.state == "ELIMINATED"
@@ -133,7 +133,7 @@ func overview() -> void:
 	if not cup.entrance_passed:
 		map.nodes.back().title = "TESTE DE ENTRADA · AURORA"
 		map.nodes.back().sub = "Primeiro conquista o teu lugar na competição"
-		map.nodes.back().status = "ADMISSÃO → CINCO BATALHAS → FAROLEIRO"
+		map.nodes.back().status = "ADMISSÃO → CINCO BATALHAS → SALVO"
 	person("Tu", Vector2(40, 225))
 	var next_match: Dictionary = cup.confirmed_match()
 	if not next_match.is_empty():
@@ -158,7 +158,7 @@ func sector() -> void:
 	add_node("matches", "%s · %d EM PROVA" % [cup.sector_label(), pool.size()], Vector2(40, 0), "Resultados da chave paralela", "TOCAR PARA TODOS OS CONFRONTOS", GOLD, Vector2(920, 150))
 	var important: Array = [cup.entrants[0].name]
 	if cup.stage_index() == 0: important.append_array(["Lira", "Vértice"])
-	elif cup.stage_index() == cup.FULL_STAGES - 1: important.append("Aurel")
+	elif cup.stage_index() == cup.FULL_STAGES - 1: important.append("Magnus")
 	for candidate in pool:
 		if important.size() >= 6: break
 		if not important.has(candidate.name): important.append(candidate.name)
@@ -195,7 +195,7 @@ func locate_player() -> void:
 func select_node(key: String) -> void:
 	if map.nodes.any(func(node): return node.key == key and node.has("person")): open_person(key)
 	elif key in ["sector", "entrants"]: show_level(1)
-	elif key == "distant": map.locate("Aurel")
+	elif key == "distant": map.locate("Magnus")
 	elif key == "matches": round_index = maxi(0, cup.rounds.size() - 1); page = 0; show_level(2)
 	elif key == "upset": open_person("Vértice")
 	elif key == "round_prev": round_index -= 1; page = 0; show_level(2)

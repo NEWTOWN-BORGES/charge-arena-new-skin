@@ -1,17 +1,22 @@
 extends RefCounted
 ## Only actual completed results are public; seed ratings are never exposed.
 const CAST = {
-	"Aurora": [0, "81d9c4", "Teste de entrada"],
-	"Tu": [0, "81d9c4", "Taça Aurora"], "Faroleiro": [1, "81d9c4", "Farol"],
+	"Bit": [0, "81d9c4", "Teste de entrada"],
+	"Tu": [0, "81d9c4", "Taça Aurora"], "Salvo": [1, "81d9c4", "Farol"],
 	"Lira": [103, "bd9ee0", "Farol"], "Vértice": [108, "d28263", "Farol"],
-	"Aurel": [11, "e8bd78", "Coroa"], "Mineiro": [4, "b99668", "Pedreira"],
-	"Astrónomo": [2, "aaa7ed", "Órbita"], "Sentinela": [5, "8dbbd7", "Bastião"],
-	"Jardineiro": [3, "9ecb86", "Jardim"], "Relojoeiro": [6, "d2b990", "Pêndulo"],
-	"Caça-Trovões": [7, "7fe6ff", "Tempestade"], "Alquimista": [8, "c6ff4d", "Cristal"],
-	"Corsário": [9, "ff5c8a", "Recife"], "Arconte Solar": [10, "ffe45c", "Solar"]
+	"Magnus": [11, "e8bd78", "Coroa"], "Bigorna": [4, "b99668", "Pedreira"],
+	"Órbita": [2, "aaa7ed", "Órbita"], "Eclipse": [5, "8dbbd7", "Bastião"],
+	"Broto": [3, "9ecb86", "Jardim"], "Rosca": [6, "d2b990", "Pêndulo"],
+	"Faísca": [7, "7fe6ff", "Tempestade"], "Batida": [8, "c6ff4d", "Cristal"],
+	"Gancho": [9, "ff5c8a", "Recife"], "Hélio": [10, "ffe45c", "Solar"]
 }
+# The cast was renamed with the new robots; results saved under the old names still resolve.
+const LEGACY_NAMES = {"FAROLEIRO": "Salvo", "ASTRÓNOMO": "Órbita", "JARDINEIRO": "Broto", "MINEIRO": "Bigorna",
+	"SENTINELA": "Eclipse", "RELOJOEIRO": "Rosca", "CAÇA-TROVÕES": "Faísca", "ALQUIMISTA": "Batida",
+	"CORSÁRIO": "Gancho", "ARCONTE SOLAR": "Hélio", "AUREL": "Magnus", "AURORA": "Bit"}
 static func public_name(value: String) -> String:
-	return "Faroleiro" if value.to_upper() == "FAROLEIRO" else value
+	if value.to_upper() == "SALVO": return "Salvo"
+	return LEGACY_NAMES.get(value.to_upper(), value)
 static func portrait_spec(cup, who: String) -> Array:
 	if CAST.has(who): return CAST[who]
 	for stage in range(cup.FULL_STAGES):
@@ -42,8 +47,8 @@ static func profile(cup, who: String) -> Dictionary:
 		else:
 			p.state = "ELIMINATED"
 			p.eliminated_by = public_name(record.winner)
-	p.tag = "4× CAMPEÃO · RUMO AO PENTA" if who == "Aurel" else ("PROMESSA" if who == "Lira" else ("REVELAÇÃO" if who == "Vértice" and cup.wins >= 4 else "PARTICIPANTE"))
-	if who == "Aurel" and p.state != "ELIMINATED": p.state = "CHAMPION"
+	p.tag = "4× CAMPEÃO · RUMO AO PENTA" if who == "Magnus" else ("PROMESSA" if who == "Lira" else ("REVELAÇÃO" if who == "Vértice" and cup.wins >= 4 else "PARTICIPANTE"))
+	if who == "Magnus" and p.state != "ELIMINATED": p.state = "CHAMPION"
 	if p.state == "ELIMINATED": p.meeting = "Fora da Taça · resultado confirmado"
 	else:
 		var current: Dictionary = cup.confirmed_match()

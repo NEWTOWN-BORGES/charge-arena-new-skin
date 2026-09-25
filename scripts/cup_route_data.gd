@@ -6,8 +6,8 @@ static func snapshot(cup) -> Dictionary:
 	var route = {"state": "COMPLETE" if done else ("WAITING" if match_record.is_empty() else "CONFIRMED"), "wins": cup.wins, "round": cup.wins + 1, "opponent": match_record.get("name", ""), "stage": "Ronda %02d" % (cup.wins + 1), "consequence": "Avanças para a próxima ronda.", "history": cup.history.duplicate(true), "large_encounter": match_record.get("is_final", false), "grand_final": match_record.get("grand_final", false), "sector": cup.sector_label()}
 	route.history.reverse()
 	if not cup.entrance_passed:
-		route.stage = "Teste de entrada · Aurora"
-		route.consequence = "Conquistas a entrada na competição. Seguem-se cinco batalhas e o Faroleiro."
+		route.stage = "Teste de entrada · Bit"
+		route.consequence = "Conquistas a entrada na competição. Seguem-se cinco batalhas e o Salvo."
 	elif done:
 		route.stage = "Taça conquistada"
 		route.consequence = "Campeão da Taça Aurora. Este é o caminho que construíste."

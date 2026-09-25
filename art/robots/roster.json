@@ -3,7 +3,7 @@
 	"cast": [
 		{"name": "BIT", "eye_style": "capsule",
 			"parts": {"head": "head_box", "top": "top_antenna", "spin": "", "torso": "torso_std", "shoulders": "shoulders_round", "back": "back_pack", "arm": "arm_std", "legs": "leg_std", "gun": "gun_cannon"},
-			"palette": {"shell": "f1ebdc", "trim": "", "dark": "2a2f3a", "metal": "9aa7b5", "glow": "", "team": "", "eyes": ""}},
+			"palette": {"shell": "e6dcc6", "trim": "", "dark": "2a2f3a", "metal": "9aa7b5", "glow": "", "team": "", "eyes": ""}},
 		{"name": "SALVO", "eye_style": "bars",
 			"parts": {"head": "head_wide", "top": "top_handle", "spin": "", "torso": "torso_std", "shoulders": "shoulders_pod", "back": "back_thruster", "arm": "arm_std", "legs": "leg_std", "gun": "gun_twin"},
 			"palette": {"shell": "ebe5d8", "trim": "f07a2e", "dark": "2b3550", "metal": "8d99a8", "glow": "ffb35c", "team": "", "eyes": "ffa04a"}},

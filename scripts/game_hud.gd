@@ -2,6 +2,7 @@ extends Control
 var cup_difficulty: OptionButton
 var options_scroll: ScrollContainer
 const Skins = preload("res://scripts/skins.gd")
+const Robots = preload("res://scripts/robots.gd")
 const GameSettings = preload("res://scripts/game_settings.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
@@ -2238,268 +2239,25 @@ func pilot_hue(team: int, fallback: Color) -> Color:
 
 func portrait(center: Vector2, color: Color, stunned: bool, skin: int = 0, canvas: CanvasItem = null, tint: bool = false) -> void:
 	# `canvas` lets the skins panel draw the same avatar inside its own preview controls.
+	# The robots are rendered from their real models by tools/render_portraits.gd; a boss not
+	# yet beaten shows as a silhouette in its team colour.
 	var c: CanvasItem = canvas if canvas != null else self
 	c.draw_circle(center, 46, Color(color, 0.055), true, -1, smooth)
 	c.draw_arc(center, 45, 0.2, TAU - 0.2, 64, Color(color, 0.28), 1.2, smooth)
-	c.draw_style_box(style(color.darkened(0.3), Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	var palette = Skins.colors(skin, color, tint)
-	match skin:
-		6:
-			clockmaker_portrait(c, center, palette, stunned)
-			return
-		7:
-			storm_portrait(c, center, palette, stunned)
-			return
-		8:
-			alchemist_portrait(c, center, palette, stunned)
-			return
-		9:
-			corsair_portrait(c, center, palette, stunned)
-			return
-		10:
-			archon_portrait(c, center, palette, stunned)
-			return
-	if skin == 1:
-		lighthouse_portrait(c, center, palette.light, stunned)
+	var picture: Texture2D = robot_portrait(skin, stunned)
+	if picture == null:
 		return
-	if skin == 2:
-		astronomer_portrait(c, center, color, palette, stunned)
-		return
-	if skin == 3:
-		gardener_portrait(c, center, palette, stunned)
-		return
-	if skin == 4:
-		miner_portrait(c, center, palette, stunned)
-		return
-	if skin == 5:
-		sentinel_portrait(c, center, palette, stunned)
-		return
-	c.draw_circle(center + Vector2(-31, -2), 9, Color("bda579"), true, -1, smooth)
-	c.draw_circle(center + Vector2(31, -2), 9, Color("bda579"), true, -1, smooth)
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 22), Rect2(center + Vector2(-32, -29), Vector2(64, 55)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 12), Rect2(center + Vector2(-27, -10), Vector2(54, 24)))
-	c.draw_style_box(style(color, Color.TRANSPARENT, 3), Rect2(center + Vector2(-4, -29), Vector2(8, 13)))
-	for side in [-1, 1]:
-		var p = center + Vector2(side * 12, 1)
-		if stunned:
-			c.draw_line(p - Vector2(3, 3), p + Vector2(3, 3), LIME, 2, smooth)
-			c.draw_line(p - Vector2(-3, 3), p + Vector2(-3, 3), LIME, 2, smooth)
-		else:
-			c.draw_style_box(style(color.lightened(0.2), Color.TRANSPARENT, 2), Rect2(p - Vector2(2, 4), Vector2(4, 8)))
+	var tone = Color(color.darkened(0.55), 1.0) if tint else Color.WHITE
+	c.draw_texture_rect(picture, Rect2(center - Vector2(52, 58), Vector2(104, 104)), false, tone)
 
-func lighthouse_portrait(c: CanvasItem, center: Vector2, glow: Color, stunned: bool) -> void:
-	# Faroleiro: beacon gem on a brass mast, side lamps, tall dome, brass band and one visor slit.
-	var brass = Color("d2ad73")
-	c.draw_line(center + Vector2(0, -31), center + Vector2(0, -41), brass, 3, smooth)
-	c.draw_colored_polygon(PackedVector2Array([center + Vector2(0, -50), center + Vector2(6, -43), center + Vector2(0, -36), center + Vector2(-6, -43)]), brass.lightened(0.15))
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, brass, true, -1, smooth)
-		c.draw_circle(center + Vector2(side * 32, -2), 4.5, glow, true, -1, smooth)
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 28), Rect2(center + Vector2(-30, -35), Vector2(60, 61)))
-	c.draw_style_box(style(brass, Color.TRANSPARENT, 2), Rect2(center + Vector2(-31, 13), Vector2(62, 5)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 9), Rect2(center + Vector2(-26, -9), Vector2(52, 19)))
-	if stunned:
-		for side in [-1, 1]:
-			var p = center + Vector2(side * 12, 0)
-			c.draw_line(p - Vector2(3, 3), p + Vector2(3, 3), LIME, 2, smooth)
-			c.draw_line(p - Vector2(-3, 3), p + Vector2(-3, 3), LIME, 2, smooth)
-	else:
-		c.draw_style_box(style(glow, Color.TRANSPARENT, 2), Rect2(center + Vector2(-17, -2), Vector2(34, 4)))
+var portrait_cache: Dictionary = {}
 
-func orbit_points(center: Vector2, from_angle: float, to_angle: float) -> PackedVector2Array:
-	var points = PackedVector2Array()
-	for i in range(25):
-		var t = lerpf(from_angle, to_angle, i / 24.0)
-		points.append(center + Vector2(cos(t) * 45, sin(t) * 11).rotated(-0.28))
-	return points
-
-func astronomer_portrait(c: CanvasItem, center: Vector2, team_color: Color, palette: Dictionary, stunned: bool) -> void:
-	# Astrónomo: indigo collar, tilted orbit passing behind and in front of the helmet, monocle.
-	var brass = Color("d2ad73")
-	var glow: Color = palette.light
-	var orbit_center = center + Vector2(0, -8)
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_polyline(orbit_points(orbit_center, PI, TAU), brass, 2, smooth)
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, palette.body.lightened(0.1), true, -1, smooth)
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 22), Rect2(center + Vector2(-32, -29), Vector2(64, 55)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 12), Rect2(center + Vector2(-27, -10), Vector2(54, 24)))
-	c.draw_circle(center + Vector2(13, 1), 8, brass, true, -1, smooth)
-	if stunned:
-		for p in [center + Vector2(-12, 1), center + Vector2(13, 1)]:
-			c.draw_line(p - Vector2(3, 3), p + Vector2(3, 3), LIME, 2, smooth)
-			c.draw_line(p - Vector2(-3, 3), p + Vector2(-3, 3), LIME, 2, smooth)
-	else:
-		c.draw_style_box(style(glow, Color.TRANSPARENT, 2), Rect2(center + Vector2(-14, -3), Vector2(4, 8)))
-		c.draw_circle(center + Vector2(13, 1), 4, glow, true, -1, smooth)
-	c.draw_polyline(orbit_points(orbit_center, 0, PI), brass, 2, smooth)
-	c.draw_circle(orbit_points(orbit_center, 0.55, 0.55)[0], 5, glow, true, -1, smooth)
-	c.draw_circle(orbit_points(orbit_center, 2.5, 2.5)[0], 3.5, team_color, true, -1, smooth)
-
-func avatar_eyes(c: CanvasItem, center: Vector2, glow: Color, stunned: bool, spread: float = 12) -> void:
-	for side in [-1, 1]:
-		var p = center + Vector2(side * spread, 1)
-		if stunned:
-			c.draw_line(p - Vector2(3, 3), p + Vector2(3, 3), LIME, 2, smooth)
-			c.draw_line(p - Vector2(-3, 3), p + Vector2(-3, 3), LIME, 2, smooth)
-		else:
-			c.draw_style_box(style(glow, Color.TRANSPARENT, 2), Rect2(p - Vector2(2, 4), Vector2(4, 8)))
-
-func gardener_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Jardineiro: small head under a glass dome, a sprout on top, brass neck ring.
-	var leaf = Color("7fbf5a")
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_style_box(style(Color("d2ad73"), Color.TRANSPARENT, 2), Rect2(center + Vector2(-22, 13), Vector2(44, 5)))
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 18), Rect2(center + Vector2(-26, -22), Vector2(52, 44)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 9), Rect2(center + Vector2(-21, -8), Vector2(42, 18)))
-	avatar_eyes(c, center, palette.light, stunned, 10)
-	c.draw_line(center + Vector2(0, -22), center + Vector2(0, -32), leaf.darkened(0.2), 2, smooth)
-	c.draw_circle(center + Vector2(-5, -33), 4.5, leaf, true, -1, smooth)
-	c.draw_circle(center + Vector2(5, -35), 4.5, leaf, true, -1, smooth)
-	c.draw_circle(center + Vector2(0, -6), 40, Color(0.82, 0.96, 0.92, 0.16), true, -1, smooth)
-	c.draw_arc(center + Vector2(0, -6), 40, 0, TAU, 64, Color(0.82, 0.96, 0.92, 0.85), 2.0, smooth)
-	c.draw_arc(center + Vector2(0, -6), 33, PI * 1.1, PI * 1.45, 16, Color(WHITE, 0.6), 2.5, smooth)
-
-func miner_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Mineiro: hard hat with brim and headlamp over the classic helmet.
-	var steel = Color("9aa1ab")
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, steel, true, -1, smooth)
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 22), Rect2(center + Vector2(-32, -29), Vector2(64, 55)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 12), Rect2(center + Vector2(-27, -10), Vector2(54, 24)))
-	avatar_eyes(c, center, palette.light, stunned)
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 16), Rect2(center + Vector2(-34, -44), Vector2(68, 30)))
-	c.draw_style_box(style(palette.body.darkened(0.15), Color.TRANSPARENT, 3), Rect2(center + Vector2(-40, -18), Vector2(80, 6)))
-	c.draw_circle(center + Vector2(0, -30), 7, Color("d2ad73"), true, -1, smooth)
-	c.draw_circle(center + Vector2(0, -30), 4, palette.light, true, -1, smooth)
-
-func sentinel_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Sentinela: eclipse halo behind the helmet, gold crest and a stern pair of eye slits.
-	var brass = Color("d2ad73")
-	c.draw_arc(center + Vector2(0, -6), 41, 0, TAU, 72, brass, 3, smooth)
-	c.draw_arc(center + Vector2(0, -6), 36, 0, TAU, 72, Color(palette.light, 0.8), 1.5, smooth)
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_style_box(style(brass, Color.TRANSPARENT, 2), Rect2(center + Vector2(-24, 15), Vector2(48, 4)))
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, brass, true, -1, smooth)
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 22), Rect2(center + Vector2(-32, -29), Vector2(64, 55)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 12), Rect2(center + Vector2(-27, -10), Vector2(54, 24)))
-	c.draw_style_box(style(brass, Color.TRANSPARENT, 2), Rect2(center + Vector2(-3, -33), Vector2(6, 12)))
-	if stunned:
-		avatar_eyes(c, center, palette.light, true)
-	else:
-		for side in [-1, 1]:
-			c.draw_line(center + Vector2(side * 19, -2), center + Vector2(side * 8, 2), palette.light, 3, smooth)
-
-func stun_cross(c: CanvasItem, p: Vector2) -> void:
-	c.draw_line(p - Vector2(3, 3), p + Vector2(3, 3), LIME, 2, smooth)
-	c.draw_line(p - Vector2(-3, 3), p + Vector2(-3, 3), LIME, 2, smooth)
-
-func helmet(c: CanvasItem, center: Vector2) -> void:
-	c.draw_style_box(style(WHITE, Color.TRANSPARENT, 22), Rect2(center + Vector2(-32, -29), Vector2(64, 55)))
-	c.draw_style_box(style(INK, Color.TRANSPARENT, 12), Rect2(center + Vector2(-27, -10), Vector2(54, 24)))
-
-func clockmaker_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Relojoeiro: gear cap, brass ear gears and a loupe monocle over one eye.
-	var brass = Color("d2ad73")
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	var gear = center + Vector2(0, -33)
-	for i in range(8):
-		var angle = i * TAU / 8
-		c.draw_circle(gear + Vector2(cos(angle), sin(angle)) * 13, 4, brass, true, -1, smooth)
-	c.draw_circle(gear, 13, palette.body, true, -1, smooth)
-	c.draw_circle(gear + Vector2(0, -5), 4, palette.light, true, -1, smooth)
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, brass, true, -1, smooth)
-		c.draw_circle(center + Vector2(side * 31, -2), 3, palette.body, true, -1, smooth)
-	helmet(c, center)
-	c.draw_circle(center + Vector2(13, 1), 10, brass, true, -1, smooth)
-	if stunned:
-		stun_cross(c, center + Vector2(-12, 1))
-		stun_cross(c, center + Vector2(13, 1))
-	else:
-		c.draw_style_box(style(palette.light, Color.TRANSPARENT, 2), Rect2(center + Vector2(-14, -3), Vector2(4, 8)))
-		c.draw_circle(center + Vector2(13, 1), 6, palette.light, true, -1, smooth)
-
-func storm_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Caça-Trovões: lightning rod with a glowing tip and a bolt, rain-yellow collar, wide eye bars.
-	var brass = Color("d2ad73")
-	var yellow = Color("e0b84a")
-	c.draw_style_box(style(yellow, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_line(center + Vector2(0, -27), center + Vector2(0, -42), brass, 3, smooth)
-	c.draw_circle(center + Vector2(0, -46), 5, palette.light, true, -1, smooth)
-	c.draw_polyline(PackedVector2Array([center + Vector2(9, -52), center + Vector2(15, -43), center + Vector2(10, -42), center + Vector2(17, -33)]), palette.light, 2, smooth)
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, Color("9aa1ab"), true, -1, smooth)
-	helmet(c, center)
-	for side in [-1, 1]:
-		if stunned:
-			stun_cross(c, center + Vector2(side * 12, 1))
-		else:
-			c.draw_style_box(style(palette.light, Color.TRANSPARENT, 2), Rect2(center + Vector2(side * 12 - 6, -1), Vector2(12, 4)))
-
-func alchemist_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Alquimista: hood, brass goggles on a strap and potion bubbles rising.
-	var brass = Color("d2ad73")
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_style_box(style(palette.body.darkened(0.1), Color.TRANSPARENT, 26), Rect2(center + Vector2(-37, -36), Vector2(74, 60)))
-	helmet(c, center)
-	c.draw_line(center + Vector2(-32, 1), center + Vector2(32, 1), Color("3a2a20"), 4, smooth)
-	for side in [-1, 1]:
-		var p = center + Vector2(side * 12, 1)
-		c.draw_circle(p, 9, brass, true, -1, smooth)
-		c.draw_circle(p, 6, INK if stunned else palette.light, true, -1, smooth)
-		if stunned:
-			stun_cross(c, p)
-	for bubble in [[Vector2(-6, -40), 4.0], [Vector2(5, -47), 3.0], [Vector2(-2, -54), 2.2]]:
-		c.draw_circle(center + bubble[0], bubble[1], Color(palette.light, 0.85), true, -1, smooth)
-
-func corsair_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Corsário: tricorn with a gem, gold ear rings, an eye patch and one glowing eye.
-	var brass = Color("d2ad73")
-	var patch = Color("141e24")
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, brass, true, -1, smooth)
-	helmet(c, center)
-	c.draw_line(center + Vector2(-30, 9), center + Vector2(20, -22), patch, 3, smooth)
-	c.draw_circle(center + Vector2(-12, 1), 7, patch, true, -1, smooth)
-	c.draw_arc(center + Vector2(-12, 1), 7.5, 0, TAU, 24, brass, 1.2, smooth)
-	if stunned:
-		stun_cross(c, center + Vector2(12, 1))
-	else:
-		c.draw_style_box(style(palette.light, Color.TRANSPARENT, 2), Rect2(center + Vector2(10, -3), Vector2(4, 8)))
-	var brim = [Vector2(-44, -18), Vector2(-28, -40), Vector2(0, -47), Vector2(28, -40), Vector2(44, -18)]
-	var hat = PackedVector2Array()
-	for point in brim:
-		hat.append(center + point)
-	hat.append(center + Vector2(0, -25))
-	c.draw_colored_polygon(hat, palette.body)
-	var trim = PackedVector2Array()
-	for point in brim:
-		trim.append(center + point)
-	c.draw_polyline(trim, brass, 2, smooth)
-	c.draw_circle(center + Vector2(0, -36), 3.5, palette.light, true, -1, smooth)
-
-func archon_portrait(c: CanvasItem, center: Vector2, palette: Dictionary, stunned: bool) -> void:
-	# Arconte Solar: a crown of sun rays, gold band and ear discs over a royal collar.
-	var brass = Color("d2ad73")
-	var crown = center + Vector2(0, -12)
-	for i in range(9):
-		var angle = lerpf(PI * 1.12, PI * 1.88, i / 8.0)
-		var direction = Vector2(cos(angle), sin(angle))
-		var side = Vector2(-direction.y, direction.x) * (4.5 if i % 2 == 0 else 3.0)
-		var tip = crown + direction * (46 if i % 2 == 0 else 39)
-		c.draw_colored_polygon(PackedVector2Array([crown + direction * 22 + side, tip, crown + direction * 22 - side]), palette.light if i % 2 == 0 else brass)
-	c.draw_style_box(style(palette.body, Color.TRANSPARENT, 14), Rect2(center + Vector2(-24, 15), Vector2(48, 24)))
-	c.draw_style_box(style(brass, Color.TRANSPARENT, 2), Rect2(center + Vector2(-24, 15), Vector2(48, 4)))
-	for side in [-1, 1]:
-		c.draw_circle(center + Vector2(side * 31, -2), 9, brass, true, -1, smooth)
-	helmet(c, center)
-	c.draw_style_box(style(brass, Color.TRANSPARENT, 3), Rect2(center + Vector2(-27, -31), Vector2(54, 7)))
-	c.draw_circle(center + Vector2(0, -27), 4, palette.light, true, -1, smooth)
-	avatar_eyes(c, center, palette.light, stunned)
+func robot_portrait(skin: int, stunned: bool) -> Texture2D:
+	var name = ("road_%d" % posmod(skin - Robots.STATION_SKIN, 10)) if skin >= Robots.STATION_SKIN else ("cast_%d" % clampi(skin, 0, Robots.cast().size() - 1))
+	var path = "res://art/robots/portraits/%s%s.png" % [name, "_dizzy" if stunned else ""]
+	if not portrait_cache.has(path):
+		portrait_cache[path] = load(path) if ResourceLoader.exists(path) else null
+	return portrait_cache[path]
 
 func player_card(rect: Rect2, side: int, t: int) -> void:
 	# Tall side cards in landscape; wide strips beside each goal in portrait.

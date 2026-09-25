@@ -74,7 +74,7 @@ func setup(story: Dictionary) -> void:
 			block(pos + Vector3.UP * 0.3, Vector3(0.35, 0.55, 0.25), "3f656c")
 		block(Vector3(0, 0.55, 2.2), Vector3(13, 0.08, 0.08), "e8bd78", true)
 	if press:
-		pilot("Mineiro", Vector3(2.4, 0, -1.6), -1.0)
+		pilot("Bigorna", Vector3(2.4, 0, -1.6), -1.0)
 		for i in range(3):
 			var x = -1.4 + i * 0.8
 			model.cylinder(stage, Vector3(x, 0.6, -1.25), 0.035, 1.2, Color("aeb7b6"), false, 12)

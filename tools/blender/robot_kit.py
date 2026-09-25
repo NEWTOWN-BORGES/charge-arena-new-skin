@@ -212,7 +212,8 @@ def head_common(p, center, size, radius, screen_size, ear=0.15, ear_y=0.0, screw
     # Grelha de ventilação no topo e uma placa na nuca.
     for i in range(vents):
         p.box("dark", (cx - (vents - 1) * 0.06 + i * 0.12, cy + h / 2 + 0.004, cz + 0.05), (0.07, 0.02, 0.2), 0.008)
-    p.box("trim", (cx, cy + 0.02, cz + d / 2 + 0.004), (w * 0.5, h * 0.4, 0.03), 0.012)
+    p.box("dark", (cx, cy + 0.02, cz + d / 2 + 0.004), (w * 0.44, h * 0.34, 0.03), 0.012)
+    p.box("trim", (cx, cy + 0.02 + h * 0.12, cz + d / 2 + 0.022), (w * 0.3, 0.035, 0.012), 0.005)
 
 
 @part("head_box")
@@ -348,8 +349,8 @@ def _(p):
 @part("spin_halo")
 def _(p):
     # Anel de eclipse atrás da cabeça.
-    p.ring("dark", (0, 1.5, 0.44), 0.46, 0.05, rot=(90, 0, 0), detail=40)
-    p.ring("glow", (0, 1.5, 0.47), 0.46, 0.02, rot=(90, 0, 0), detail=40)
+    p.ring("dark", (0, 1.5, 0.44), 0.38, 0.045, rot=(90, 0, 0), detail=40)
+    p.ring("glow", (0, 1.5, 0.47), 0.38, 0.018, rot=(90, 0, 0), detail=40)
 
 
 # ======================================================================================

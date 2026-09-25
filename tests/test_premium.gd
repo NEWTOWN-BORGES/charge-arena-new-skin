@@ -25,17 +25,16 @@ func run():
 		var pilot = view.build_player(View.CYAN, 0, skin)
 		var body = pilot.get_node("Body")
 		var valid = true
-		for part in ["Finish", "LegL/Finish", "LegR/Finish", "Gun/Finish", "Gun/Flash"]:
+		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Robot_screen", "Robot_outline"]:
 			valid = valid and body.has_node(part)
-		check(valid, "Skin %d keeps animated body, legs, weapon and muzzle" % skin)
+		check(valid, "Skin %d keeps animated body, legs, weapon, muzzle and face" % skin)
 		var batch_ok = true
-		for part in ["Finish", "LegL/Finish", "LegR/Finish", "Gun/Finish"]:
-			var mount = body.get_node(part)
-			batch_ok = batch_ok and mount.get_child_count() <= 8
-			batch_ok = batch_ok and mount.get_meta("authored_pieces", 0) > mount.get_child_count()
-			for child in mount.get_children():
+		for group in [body, body.get_node("LegL"), body.get_node("LegR"), body.get_node("Gun")]:
+			var meshes = group.get_children().filter(func(n): return n is MeshInstance3D)
+			batch_ok = batch_ok and meshes.size() <= 9
+			for child in meshes:
 				batch_ok = batch_ok and child.mesh.get_aabb().position.is_finite() and child.mesh.get_aabb().size.is_finite()
-		check(batch_ok, "Skin %d merges its fittings into bounded, finite meshes" % skin)
+		check(batch_ok, "Skin %d merges its parts into bounded, finite meshes" % skin)
 		pilot.free()
 	# Switching profiles must be reversible, including glow, normal maps and MSAA.
 	var ivory = view.material(View.CREAM)
@@ -44,9 +43,10 @@ func run():
 		video.apply(root, view)
 		check(ivory.normal_enabled == (quality == 2) and (ivory.albedo_texture != null) == (quality > 0), "Profile %d uses the intended texture budget" % quality)
 		check(view.presentation_environment.glow_enabled == (quality == 2) and root.msaa_3d == Video.AA_LEVELS[quality], "Profile %d applies glow and anti-aliasing" % quality)
-		var finish = view.units[0].get_node("Body/Finish/Surface0").material_override
-		var paint = finish.get_shader_parameter("paint_color")
-		check(finish.shader.resource_path.ends_with("pilot_enamel_low.gdshader") == (quality == 0) and paint != null, "Profile %d preserves armour colours with the intended shader" % quality)
+		var shell = view.units[0].get_node("Body/Robot_shell").material_override
+		var paint = shell.get_shader_parameter("paint")
+		check(shell.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and paint != null, "Profile %d preserves armour colours with the intended shader" % quality)
+		check(view.units[0].get_node("Body/Robot_outline").visible == (quality > 0), "Profile %d shows ink outlines only when it can afford them" % quality)
 		var new_paint = view.material(Color(0.43, 0.38, 0.49 + quality * 0.03))
 		check((new_paint.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED) == (quality == 0), "Newly created materials respect the current profile")
 		for tick in range(120): view.update_state(rules, 0, 1.0 / 60.0)

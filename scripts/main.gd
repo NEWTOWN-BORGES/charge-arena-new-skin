@@ -1387,7 +1387,7 @@ func finish_cup() -> void:
 	if won and reward_skin > 0:
 		cup_screen.result += " · SKIN DESBLOQUEADA: " + Skins.CATALOG[reward_skin].name
 	if won and cup.wins == Cup.FULL_MATCHES:
-		cup_screen.result += " · PRÉMIO DA TAÇA: AUREL"
+		cup_screen.result += " · PRÉMIO DA TAÇA: MAGNUS"
 	return_to_menu()
 	open_cup()
 	cup_screen.tab = 2 if won else 0

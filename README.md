@@ -1,3 +1,5 @@
+> **Charge Arena · New Skin:** este repositório refaz toda a direção de arte sobre o mesmo código e lógica. Fase 1: doze robôs novos de cabeça-ecrã modelados no Blender (BIT, SALVO, ÓRBITA, BROTO, BIGORNA, ECLIPSE, ROSCA, FAÍSCA, BATIDA, GANCHO, HÉLIO e MAGNUS), com rostos animados e retratos renderizados. [Direção de arte](docs/DIRECAO-ARTE.md). As notas abaixo descrevem o jogo original.
+
 > **2.9.5 — Controlos e efeitos:** três modos de disparo no início das Opções, tamanho/posição do botão e reutilização de partículas/luzes para reduzir picos nas habilidades. [Validação](docs/CONTROLOS-FX-2.9.5.md).
 
 > **2.9.4 — Muralhas:** colisões sólidas, Corsário corrigido, vida dos tijolos com barras grandes animadas e músicas exclusivas dos bots. [Alterações](docs/MURALHAS-2.9.4.md).
