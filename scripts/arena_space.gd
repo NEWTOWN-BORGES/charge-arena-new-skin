@@ -21,20 +21,21 @@ static func build(view, theme: Dictionary) -> void:
 	var reach = ArenaSky.reach_of(hull)
 	var far = Rules.HALF_LENGTH
 	# The deck, its dark lip, the indigo working area; the stepped hull underneath.
-	view.platform(ArenaSky.offset(hull, 3.4), -0.03, 0.3, theme.deck)
-	view.platform(ArenaSky.offset(hull, 3.5), -0.33, 0.22, ArenaSky.GRAPHITE)
-	view.platform(ArenaSky.offset(hull, 2.6), -0.026, 0.02, theme.deck_panel)
-	view.platform(ArenaSky.offset(hull, 1.0), -0.022, 0.02, theme.deck)
-	view.platform(ArenaSky.offset(hull, 3.0), -0.55, 0.75, theme.hull)
-	view.platform(ArenaSky.offset(hull, 2.0), -1.3, 0.8, ArenaSky.GRAPHITE.lightened(0.15))
-	view.platform(ArenaSky.offset(hull, 0.8), -2.1, 0.7, theme.hull)
+	# Rings, not slabs: the field is glass (arena_theme "glass_floor") and the stars show
+	# through it, so nothing may sit underneath.
+	var rim_in = ArenaSky.offset(hull, 0.02)
+	ArenaSky.ring(view, rim_in, ArenaSky.offset(hull, 3.4), -0.03, 0.3, theme.deck)
+	ArenaSky.ring(view, ArenaSky.offset(hull, 3.0), ArenaSky.offset(hull, 3.5), -0.33, 0.22, ArenaSky.GRAPHITE)
+	ArenaSky.ring(view, ArenaSky.offset(hull, 1.0), ArenaSky.offset(hull, 2.6), -0.026, 0.02, theme.deck_panel)
+	ArenaSky.ring(view, ArenaSky.offset(hull, 1.2), ArenaSky.offset(hull, 3.0), -0.55, 0.75, theme.hull)
+	ArenaSky.ring(view, ArenaSky.offset(hull, 1.4), ArenaSky.offset(hull, 2.0), -1.3, 0.8, ArenaSky.GRAPHITE.lightened(0.15))
 	var rim = ArenaSky.offset(hull, 3.5)
 	for i in range(rim.size()):
 		var a: Vector2 = rim[i]
 		var b: Vector2 = rim[(i + 1) % rim.size()]
 		view.segment(view, Vector3(a.x, -0.44, a.y), Vector3(b.x, -0.44, b.y), 0.05, 0.04, CYAN, true)
 	ArenaSky.hazard_band(view, ArenaSky.offset(hull, 3.1), -0.02)
-	ArenaSky.walls_and_towers(view, walls, {"trim": ORANGE, "glow": CYAN})
+	ArenaSky.walls_and_towers(view, walls, {"glow": CYAN})
 	station(view, theme, reach, far)
 	drifting(view, rng, reach, far)
 
@@ -96,6 +97,9 @@ static func drifting(view, rng: RandomNumberGenerator, reach: float, far: float)
 		if absf(at.x) < reach + 13.0 and at.z > -(far + 11.0) and at.y > -9.0:
 			continue
 		if absf(at.x) < reach + 4.0 and at.z > -far:
+			continue
+		# Never under the field: its floor is glass and a rock there would cover the stars.
+		if absf(at.x) < reach + 7.0 and absf(at.z) < far + 8.0:
 			continue
 		var clear = true
 		for other in placed:

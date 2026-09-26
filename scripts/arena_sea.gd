@@ -31,7 +31,7 @@ static func build(view, theme: Dictionary) -> void:
 		var a: Vector2 = rim[i]
 		var b: Vector2 = rim[(i + 1) % rim.size()]
 		view.segment(view, Vector3(a.x, -0.2, a.y), Vector3(b.x, -0.2, b.y), 0.05, 0.05, ArenaSky.LIGHT, true)
-	ArenaSky.walls_and_towers(view, walls, {"trim": YELLOW})
+	ArenaSky.walls_and_towers(view, walls)
 	# Reef shelves.
 	var tiers: Array = []
 	var below = Ground.FLOOR

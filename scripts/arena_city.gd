@@ -35,7 +35,7 @@ static func build(view, theme: Dictionary) -> void:
 		var b: Vector2 = parapet[(i + 1) % parapet.size()]
 		view.segment(view, Vector3(a.x, 0.2, a.y), Vector3(b.x, 0.2, b.y), 0.24, 0.46, WHITE)
 		view.segment(view, Vector3(a.x, 0.44, a.y), Vector3(b.x, 0.44, b.y), 0.1, 0.03, CYAN, true)
-	ArenaSky.walls_and_towers(view, walls, {"trim": CYAN})
+	ArenaSky.walls_and_towers(view, walls)
 	tower(view, edge, rng)
 	var neighbours = city(view, rng, reach, far)
 	roof_plant(view, rng, reach, far, neighbours)

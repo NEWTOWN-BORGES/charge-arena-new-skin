@@ -61,7 +61,7 @@ static func build(view, theme: Dictionary) -> void:
 	view.platform(ArenaSky.offset(hull, 1.8), -0.026, 0.02, theme.pad_panel)
 	view.platform(ArenaSky.offset(hull, 1.0), -0.022, 0.02, theme.pad)
 	ArenaSky.hazard_band(view, ArenaSky.offset(hull, 2.2), -0.02)
-	ArenaSky.walls_and_towers(view, walls, {"trim": ORANGE})
+	ArenaSky.walls_and_towers(view, walls)
 	# Three terraces: sandstone cliffs with the grass lipping over the top.
 	var tiers: Array = []
 	var below = FLOOR

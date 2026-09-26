@@ -14,8 +14,12 @@ static func material() -> ShaderMaterial:
 		baked_material.shader = preload("res://shaders/baked_world.gdshader")
 	return baked_material
 
-static func build(view, _theme: Dictionary) -> void:
-	var scene: PackedScene = load(WORLD)
+static func baked_path(map_id: String) -> String:
+	# The worlds baked for a map, by its id ("torre", "torre_terra"…).
+	return "res://art/worlds/%s.glb" % map_id
+
+static func build(view, _theme: Dictionary, path: String = WORLD) -> void:
+	var scene: PackedScene = load(path)
 	if scene == null:
 		return
 	var world: Node3D = scene.instantiate()

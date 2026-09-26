@@ -9,9 +9,9 @@ static var studio_sky: Sky
 
 # The game's lights reach every surface in full (no shadows or occlusion as in Cycles), so
 # the frame is exposed down to sit where the Blender renders sit.
-const EXPOSURE = 0.78
-const VIVID_SATURATION = 1.35
-const VIVID_CONTRAST = 1.1
+const EXPOSURE = 1.0
+const VIVID_SATURATION = 1.3
+const VIVID_CONTRAST = 1.12
 static var blender_lut: ImageTexture3D
 
 static func blender_colors() -> ImageTexture3D:
@@ -49,12 +49,9 @@ static func environment(env: Environment, quality: int) -> void:
 	# colour table in place the old 0.85 washed every map out.
 	env.ambient_light_energy = 0.42
 	env.ambient_light_color = Color("c3c9cf")
-	# The colours of the Blender renders (AgX, Medium High Contrast), measured, not tuned by
-	# eye. Godot's own AgX closes the darks far more than Blender's (a light of 0.12 came out
-	# 21 against Blender's 92) and crushes saturated colours, so the game uses a gentle
-	# Reinhard that keeps every colour apart, and a colour table built from one test chart
-	# rendered in both (tools/color/) turns it into what Blender shows. HDR 2D is on in the
-	# project so the table sees the light above 1 instead of a clipped buffer.
+	# Vivid, never garish: a gentle Reinhard keeps the darks open and every colour apart, and
+	# the adjustments below push the colour up. (The Blender transform, tools/color/, made
+	# everything pale; it stays available in blender_colors() but is not used.)
 	env.tonemap_mode = Environment.TONE_MAPPER_REINHARDT
 	env.tonemap_exposure = EXPOSURE
 	env.tonemap_white = 16.0
@@ -73,7 +70,7 @@ static func environment(env: Environment, quality: int) -> void:
 	env.adjustment_contrast = VIVID_CONTRAST
 	env.adjustment_saturation = VIVID_SATURATION
 	env.adjustment_brightness = 1.0
-	env.adjustment_color_correction = blender_colors()
+	env.adjustment_color_correction = null
 
 static func fog(env: Environment, spec: Dictionary) -> void:
 	# Distance haze in the world's own colour: the far terraces, the seabed and the street

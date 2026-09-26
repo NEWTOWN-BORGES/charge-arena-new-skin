@@ -43,6 +43,9 @@ var projectiles: Dictionary = {}
 var sentries: Dictionary = {}
 var effects: Array = []
 var presentation_environment: Environment
+# The scenery the dressing built (exported to be baked), and whether this build is for that.
+var world_nodes: Array = []
+var bake_export = false
 var court_material: ShaderMaterial
 # The arena environment (colours of floor, sky, blocks and stadium); see arena_theme.gd.
 var theme: Dictionary = {}
@@ -363,10 +366,16 @@ func world_label(text: String, pos: Vector3, color: Color, font_size: int = 48, 
 func platform(outline: Array, height: float, depth: float, color: Color) -> MeshInstance3D:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# The cap fans from the outline's own middle: a pad off to the side fanned from the world
+	# origin ran its triangles under the field (seen through the glass floor in space).
+	var middle := Vector2.ZERO
+	for p in outline:
+		middle += p
+	middle /= maxf(outline.size(), 1)
 	for i in range(outline.size()):
 		var a = Vector3(outline[i].x, height, outline[i].y)
 		var b = Vector3(outline[(i + 1) % outline.size()].x, height, outline[(i + 1) % outline.size()].y)
-		triangle(st, Vector3(0, height, 0), a, b)
+		triangle(st, Vector3(middle.x, height, middle.y), a, b)
 		triangle(st, a, a - Vector3.UP * depth, b - Vector3.UP * depth)
 		triangle(st, a, b - Vector3.UP * depth, b)
 	return mesh(self, st.commit(), Vector3.ZERO, color)
@@ -438,18 +447,33 @@ func build(new_map: Dictionary = {}) -> void:
 	var court = platform(walls, 0.0, 0.28, Color.WHITE)
 	var court_mat = ShaderMaterial.new()
 	court_mat.shader = preload("res://shaders/court.gdshader")
+	if theme.get("glass_floor", false):
+		# Space: plates of glass, seams and paint solid, the stars showing through.
+		var glass = Shader.new()
+		# Only the faces towards the camera: seen through the top, the slab's own underside
+		# and inner sides made a pale band across the field.
+		glass.code = court_mat.shader.code.replace("	SPECULAR = 0.45;", "	SPECULAR = 0.45;\n	ALPHA = mix(0.28, 1.0, max(seam, paint));").replace("cull_disabled", "cull_back")
+		court_mat.shader = glass
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
-	# The field takes the full sun here (the baked island has its shade): the tones go in a
-	# third darker so they come out rich instead of washed to pastel.
-	court_mat.set_shader_parameter("floor_color", theme.floor.darkened(0.32))
-	court_mat.set_shader_parameter("floor_alt", theme.floor_alt.darkened(0.32))
+	# The field takes the full sun: the tones go in a little darker so they come out rich.
+	court_mat.set_shader_parameter("floor_color", theme.floor.darkened(0.12))
+	court_mat.set_shader_parameter("floor_alt", theme.floor_alt.darkened(0.12))
 	court_mat.set_shader_parameter("seam_color", theme.seam)
 	court_mat.set_shader_parameter("line_color", theme.line)
 	court_mat.set_shader_parameter("team_near", CYAN)
 	court_mat.set_shader_parameter("team_far", CORAL)
 	court.material_override = court_mat
+	# A world whose light was baked in Blender for this map (tools/export_world.gd, then
+	# tools/blender/bake_scene.py) replaces the lit dressing; the pieces the dressing adds are
+	# kept in `world_nodes` so they can be exported to be baked.
+	var first_world_node = get_child_count()
+	var baked_world = ArenaDiorama.baked_path(String(map.get("id", "")))
+	if dressing != "" and dressing != "diorama" and not bake_export and ResourceLoader.exists(baked_world):
+		dressing = "baked"
 	match dressing:
+		"baked":
+			ArenaDiorama.build(self, theme, baked_world)
 		"sky":
 			# The floating sky arena: deck, hull, armoured walls and deck furniture from the kit.
 			ArenaSky.build(self, theme)
@@ -469,6 +493,7 @@ func build(new_map: Dictionary = {}) -> void:
 			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
 			ArenaDressing.perimeter(self, theme)
 			ArenaDressing.stadium(self, theme, quality_level)
+	world_nodes = get_children().slice(first_world_node)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
 		build_goal(team)
@@ -660,7 +685,7 @@ func build_goal(team: int) -> void:
 	arch.position = Vector3(center.x, 0.0, center.y + signf(center.y) * 0.1)
 	arch.rotation.y = 0.0 if team == 0 else PI
 	var gate_key = "goal_arch_01" if team == 0 else "goal_arch_02"
-	Robots.prop(self, arch, gate_key, [gate_key], {"shell": Color("fff4e2"), "trim": Color("ff7a3c"), "glow": color, "team": color, "dark": Color("2a3140")})
+	Robots.prop(self, arch, gate_key, [gate_key], {"shell": theme.get("armour", Color("fff4e2")), "trim": theme.get("armour_trim", Color("ff7a3c")), "glow": color, "team": color, "dark": Color("2a3140")})
 	world_label("01" if team == 0 else "02", Vector3(0, 0.05, center.y * 0.89), color, 49)
 	var track = arc_points(center, Rules.TRACK_RADIUS, Rules.track_limit_for(map), team, 0.023)
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))

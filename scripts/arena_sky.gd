@@ -86,6 +86,32 @@ static func circle(radius: float, sides: int = 32, center: Vector2 = Vector2.ZER
 		points.append(center + Vector2(cos(a), sin(a)) * radius)
 	return points
 
+static func ring(view, inner: Array, outer: Array, top: float, depth: float, color: Color) -> void:
+	# A band between two outlines with the same corners (offsets of one hull): its top and
+	# both sides, open in the middle.
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n = inner.size()
+	var center = Vector3.ZERO
+	for i in range(n):
+		var a: Vector2 = inner[i]
+		var b: Vector2 = inner[(i + 1) % n]
+		var c: Vector2 = outer[(i + 1) % n]
+		var d: Vector2 = outer[i]
+		var ta = Vector3(a.x, top, a.y)
+		var tb = Vector3(b.x, top, b.y)
+		var tc = Vector3(c.x, top, c.y)
+		var td = Vector3(d.x, top, d.y)
+		face(st, ta, tb, tc, Vector3.UP)
+		face(st, ta, tc, td, Vector3.UP)
+		var down = Vector3.DOWN * depth
+		var out_dir = Vector3((c + d).x, 0, (c + d).y).normalized()
+		face(st, td, tc, tc + down, out_dir)
+		face(st, td, tc + down, td + down, out_dir)
+		face(st, ta, tb, tb + down, -out_dir)
+		face(st, ta, tb + down, ta + down, -out_dir)
+	view.mesh(view, st.commit(), center, color)
+
 static func face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, want: Vector3) -> void:
 	# One flat triangle, wound so that it faces along `want`.
 	var normal = (c - a).cross(b - a)
@@ -203,8 +229,9 @@ static func build(view, theme: Dictionary) -> void:
 static func walls_and_towers(view, walls: Array, look: Dictionary = {}) -> void:
 	# `look` recolours the armour for a world: "shell" (the plates), "trim" (the tower domes)
 	# and "glow" (the edge lights).
-	var shell: Color = look.get("shell", Color("fff4e2"))
-	var trim: Color = look.get("trim", Color("ff7a3c"))
+	# The world's own armour colour first (arena_theme "armour"), cream only on the island.
+	var shell: Color = look.get("shell", view.theme.get("armour", Color("fff4e2")))
+	var trim: Color = look.get("trim", view.theme.get("armour_trim", Color("ff7a3c")))
 	var glow: Color = look.get("glow", LIGHT)
 	for i in range(walls.size()):
 		var a2: Vector2 = walls[i]
