@@ -38,15 +38,15 @@ func run() -> void:
 	check(restored.fps == 60, "A setting of 120 saved by an older build lands on 60")
 	restored.configure(90, 2, false, false)
 	restored.apply(root, game.arena)
-	for i in range(18):
+	for i in range(6):
 		restored.adapt(root, 45, true)
-	check(restored.runtime_fps == 90 and is_equal_approx(root.scaling_3d_scale, Settings.QUALITY_MIN_SCALES[2]) and root.msaa_3d == Settings.AA_LEVELS[2], "Refinado first gives up a little 3D resolution, keeping 90 FPS and its antialiasing")
+	check(restored.runtime_fps == 90 and root.msaa_3d == Viewport.MSAA_DISABLED and is_equal_approx(root.scaling_3d_scale, 1.0), "Refinado first gives up its multisampling, keeping 90 FPS and the full-size picture")
 	for i in range(3):
 		restored.adapt(root, 45, true)
 	check(restored.runtime_fps == 90, "A short heavy moment, like a power, gives nothing away")
 	for i in range(3):
 		restored.adapt(root, 45, true)
-	check(restored.runtime_fps == 60 and is_equal_approx(root.scaling_3d_scale, Settings.QUALITY_MIN_SCALES[2]), "Then falls from 90 to 60 FPS")
+	check(restored.runtime_fps == 60 and is_equal_approx(root.scaling_3d_scale, 1.0), "Then falls from 90 to 60 FPS, never shrinking the 3D")
 	for i in range(6):
 		restored.adapt(root, 45, true)
 	check(restored.runtime_fps == 60, "A phone in the forties keeps 60 instead of dropping to 30")
@@ -55,7 +55,7 @@ func run() -> void:
 	check(restored.runtime_fps == 90, "Once the phone keeps up again it wins the frame rate back")
 	for i in range(Settings.RECOVER_WINDOWS):
 		restored.adapt(root, 90, true)
-	check(is_equal_approx(root.scaling_3d_scale, Settings.QUALITY_MIN_SCALES[2] + 0.06), "And then its resolution, a step at a time")
+	check(root.msaa_3d == Settings.AA_LEVELS[2], "And then its antialiasing")
 	for i in range(6):
 		restored.adapt(root, 45, true)
 	check(restored.recover_after == Settings.RECOVER_WINDOWS * 2, "A step up that does not hold makes the next one wait longer")
@@ -66,9 +66,9 @@ func run() -> void:
 	check(restored.runtime_fps == 30, "Only a phone that cannot reach the forties drops to 30")
 	restored.configure(60, 0, false, false)
 	restored.apply(root, game.arena)
-	for i in range(3):
+	for i in range(6):
 		restored.adapt(root, 20, true)
-	check(root.scaling_3d_scale < Settings.RENDER_SCALES[0], "Leve reduces its 3D resolution on a weak phone")
+	check(restored.runtime_fps < 60 and is_equal_approx(root.scaling_3d_scale, 1.0), "Leve lowers its frame rate on a weak phone, never the size of the 3D")
 	settings.configure(90, 2, true, true)
 	game.hud.sync_video(settings)
 	check(game.hud.fps_choice.selected == Settings.FPS_OPTIONS.find(90) and game.hud.quality_choice.selected == 2 and game.hud.fps_label.visible, "Settings menu and real FPS counter reflect selected preferences")

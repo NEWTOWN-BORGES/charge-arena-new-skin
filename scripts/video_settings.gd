@@ -8,13 +8,10 @@ const QUALITY_NAMES = ["Leve", "Equilibrado", "Refinado"]
 const AA_LEVELS = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X]
 const SCREEN_AA = [Viewport.SCREEN_SPACE_AA_DISABLED, Viewport.SCREEN_SPACE_AA_DISABLED, Viewport.SCREEN_SPACE_AA_DISABLED]
 const EFFECT_LIMITS = [20, 48, 96]
-# Leve targets budget phones (Galaxy A15): 0.72x keeps text readable while
-# halving pixel throughput vs native.  Refinado stays at 1.0 for flagship feel.
-const RENDER_SCALES = [0.72, 0.88, 1.0]
-const MIN_RENDER_SCALES = [0.50, 0.62, 0.72]
-# Equilibrado and Refinado may trade this much of their 3D resolution for frames before they
-# lower the frame rate, and win it back once the phone keeps up again.
-const QUALITY_MIN_SCALES = [0.50, 0.66, 0.72]
+# The 3D always renders at full resolution. On Android the Compatibility renderer draws the
+# root viewport straight to the screen, so a 3D scale below 1 did not upscale: the arena came
+# out smaller, and shrank again every time the automatic adjustment stepped down mid-match.
+const RENDER_SCALES = [1.0, 1.0, 1.0]
 # Half-second windows of steady frames before stepping back up; doubled every time a step up
 # had to be undone, so a phone that cannot hold it does not see-saw.
 const RECOVER_WINDOWS = 12
@@ -109,9 +106,8 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 				runtime_fps = mini(fps, 60 if runtime_fps < 60 else fps)
 				Engine.max_fps = runtime_fps
 				return true
-			if runtime_scale < RENDER_SCALES[quality] - 0.01:
-				runtime_scale = minf(RENDER_SCALES[quality], runtime_scale + 0.06)
-				viewport.scaling_3d_scale = runtime_scale
+			if viewport.msaa_3d != AA_LEVELS[quality]:
+				viewport.msaa_3d = AA_LEVELS[quality]
 				return true
 		return false
 	low_windows = 0
@@ -123,11 +119,10 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	# instead: 90 -> 60 -> 30. With 120 gone from the options, the ladder reaches all the
 	# way down rather than stopping at 60 on a phone that cannot hold it.
 	if quality > 0:
-		# A little resolution first: it is hardly visible on a phone screen and costs far
-		# less than halving the frame rate.
-		if runtime_scale > QUALITY_MIN_SCALES[quality] + 0.01:
-			runtime_scale = maxf(QUALITY_MIN_SCALES[quality], runtime_scale - 0.1)
-			viewport.scaling_3d_scale = runtime_scale
+		# Smoother edges first: dropping the multisampling is hardly visible on a phone screen
+		# and costs far less than halving the frame rate. The picture keeps its size.
+		if viewport.msaa_3d != Viewport.MSAA_DISABLED:
+			viewport.msaa_3d = Viewport.MSAA_DISABLED
 			return true
 		if runtime_fps > 60:
 			runtime_fps = 60
@@ -139,13 +134,7 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 			return false
 		Engine.max_fps = runtime_fps
 		return true
-	# Leve is the performance profile for weaker phones and may lower its 3D
-	# resolution before using a stable 45/30 FPS fallback.
-	var minimum = MIN_RENDER_SCALES[quality]
-	if runtime_scale > minimum + 0.01:
-		runtime_scale = maxf(minimum, runtime_scale - 0.08)
-		viewport.scaling_3d_scale = runtime_scale
-		return true
+	# Leve is the performance profile for weaker phones: a stable 45/30 FPS fallback.
 	if runtime_fps > 45:
 		# 45 divides a 90 Hz display evenly. On a 60 Hz panel it causes uneven
 		# pacing, so go straight to the stable 30 FPS fallback.
