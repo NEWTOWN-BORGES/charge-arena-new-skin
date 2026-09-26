@@ -1907,6 +1907,162 @@ def eclipse_leg(p, out):
 
 
 # ======================================================================================
+# HÉLIO: senhor do circuito. Alto e nobre: cabeça em ogiva com a coroa de raios num anel
+# com rolamento, tronco em ânfora com o núcleo solar num disco de raios, asas de penas de
+# latão nos ombros, cetro com um sol na ponta e pernas esguias.
+# ======================================================================================
+HELIO = {
+    "hip": Vector((0.2, 0.7, 0.0)),
+    "shoulder_y": 1.34,
+    "elbow_l": Vector((-0.48, 1.06, 0.02)),
+    "wrist_l": Vector((-0.51, 0.79, -0.1)),
+    "elbow_r": Vector((0.48, 1.06, -0.02)),
+    "muzzle": Vector((0.44, 0.92, -1.08)),
+}
+H_CHEST = Vector((0.0, 1.2, 0.02))
+H_TORSO = [(-0.24, 0.12), (-0.18, 0.17), (-0.08, 0.215), (0.04, 0.24), (0.12, 0.235), (0.18, 0.2), (0.23, 0.13)]
+H_HEAD = Vector((0.0, 1.8, 0.0))
+H_HEAD_RADII = (0.16, 0.2, 0.16)
+H_SCREEN = (0.16, 0.11)
+
+
+def sun_disc(p, m, radius, rays=12, ray_len=0.08, core_role="glow"):
+    """Sol: disco com moldura e raios em cunha à volta, no plano XZ local de `m`."""
+    mtube(p, "dark", m, radius, 0.03, 26)
+    mring(p, "metal", m, radius, radius * 0.16, 30, 6)
+    mtube(p, core_role, sub(m, 0, 0.012, 0), radius * 0.72, 0.012, 24)
+    for i in range(rays):
+        a = i * 360.0 / rays
+        ray = sub(m, 0, 0, 0, rot=(0, -a, 0))
+        lathe(p, "trim" if i % 2 else "metal", sub(ray, radius * 1.05 + ray_len * 0.5, 0, 0, rot=(0, 0, -90)),
+              [(0.0, -ray_len * 0.5), (radius * 0.14, -ray_len * 0.5), (0.0, ray_len * (0.5 if i % 2 else 0.9))], 4)
+
+
+def helio_head(p):
+    c = H_HEAD
+    ex, ey, ez = H_HEAD_RADII
+    mk.HEADS["helio2_head"] = {"top": round(c.y + ey + 0.1, 3), "center": round(c.y, 3), "aspect": round(H_SCREEN[0] / H_SCREEN[1], 3)}
+    hs = scaled(c, ex, ey, ez)
+    lathe(p, "dark", scaled(c, ex - 0.03, ey - 0.03, ez - 0.03), [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 22)
+    sphere_panel(p, "shell", hs, 1.0, (30, 88), (-180, 180), 0.2, (24, 6), gap=0.0)
+    sphere_panel(p, "shell", hs, 1.0, (-62, 26), (-24, 204), 0.2, (16, 6), gap=0.05)
+    sphere_panel(p, "trim", hs, 1.0, (-68, -26), (-150, -30), 0.2, (10, 4), gap=0.05)
+    screen_well(p, (c.x, c.y + 0.0, c.z - ez + 0.02), H_SCREEN, 0.05, 0.03)
+    # Coroa de raios num anel com rolamento sobre a testa (a coroa gira no ultimate).
+    ring_y = c.y + ey * 0.62
+    rr = ex * 0.8
+    mring(p, "metal", T(c.x, ring_y, c.z), rr, 0.016, 32, 6)
+    mring(p, "dark", T(c.x, ring_y - 0.02, c.z), rr - 0.01, 0.01, 32, 4)
+    for i in range(9):
+        a = math.radians(-90 + (i - 4) * 26)
+        base = Vector((c.x + math.cos(a) * rr, ring_y + 0.01, c.z + math.sin(a) * rr))
+        d = Vector((math.cos(a) * 0.35, 1.0, math.sin(a) * 0.35)).normalized()
+        h = 0.14 if i == 4 else 0.1 - abs(i - 4) * 0.008
+        lathe(p, "trim", frame(base, d), [(0.0, 0.0), (0.024, 0.0), (0.012, h * 0.6), (0.0, h)], 5)
+    ball(p, "glow", (c.x, ring_y + 0.02, c.z - rr - 0.02), 0.02, 10)
+    for side in (-1, 1):
+        mtube(p, "metal", axis_frame((side * (ex - 0.005), c.y + 0.0, c.z), "x" if side > 0 else "-x"), 0.03, 0.02, 14)
+        mbox(p, "glow", T(side * (ex - 0.01), c.y - 0.05, c.z - 0.04), (0.01, 0.02, 0.03), 0.003, 1)
+    serial(p, plane((0.0, c.y - 0.03, c.z + ez * 1.0 + 0.004), (0, 0, 1), (1, 0, 0)), "11", 0.03)
+    mbox(p, "team", T(0, c.y + ey - 0.005, c.z + 0.02), (0.03, 0.012, 0.1), 0.004, 1)
+
+
+def helio_torso(p):
+    c = H_CHEST
+    top, bottom = H_TORSO[-1][0], H_TORSO[0][0]
+    neck(p, c.y + top - 0.005, H_HEAD.y - H_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.84, 1.0))
+    lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in H_TORSO] + [(0.0, top)], 26)
+    for lo, yr in (((-150, -110), (-0.22, 0.21)), ((-70, -30), (-0.22, 0.21)), ((-26, 26), (-0.22, -0.01)),
+                   ((154, 206), (-0.22, -0.01)), ((30, 150), (-0.22, 0.21))):
+        rev_panel(p, "shell", flat, H_TORSO, yr, lo, 0.034, (10, 8), gap=0.012)
+    mring(p, "trim", sub(flat, 0, bottom + 0.03, 0), profile_radius(H_TORSO, bottom + 0.03) + 0.004, 0.016, 26, 5)
+    mring(p, "trim", sub(flat, 0, top - 0.03, 0), profile_radius(H_TORSO, top - 0.03) + 0.004, 0.014, 26, 5)
+    # Núcleo solar: um sol recuado na fenda larga do peito.
+    sun_disc(p, axis_frame((0, c.y + 0.04, c.z - 0.24 * 0.84 + 0.01), "-z"), 0.065, 12, 0.045)
+    q, n = rev_point(c, H_TORSO, 0.84, -50, 0.13)
+    serial(p, plane(q, n, (math.sin(math.radians(-50)), 0, -math.cos(math.radians(-50)))), "11", 0.028)
+    q, n = rev_point(c, H_TORSO, 0.84, 180, -0.1)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.042, 0.026)
+    q, n = rev_point(c, H_TORSO, 0.84, 90, -0.12)
+    warning(p, plane(q, n, (1, 0, 0)), 0.04)
+    waist(p, 0.8, c.y + bottom + 0.02, 0.12)
+    pelvis(p, (0, 0.72, 0.0), (0.26, 0.15, 0.25), HELIO["hip"].x, HELIO["hip"].y, 0.084)
+
+
+def helio_shoulders(p):
+    y = HELIO["shoulder_y"]
+    for side in (-1, 1):
+        pin, drum = shoulder(p, side, 0.26, y, 0.01, 0.1, 0.08, 0.08)
+        mbox(p, "dark", T(drum.x, y + 0.1, 0.01), (0.05, 0.06, 0.08), 0.01, 1)
+        m = T(drum.x + side * 0.012, y + 0.02, 0.01)
+        a0, a1 = (-90, 90) if side > 0 else (90, 270)
+        sphere_panel(p, "shell", m, 0.15, (22, 88), (a0 - 25, a1 + 25), 0.028, (12, 5), gap=0.008)
+        sphere_panel(p, "trim", m, 0.155, (8, 20), (a0 - 20, a1 + 20), 0.026, (12, 2), gap=0.006)
+        # Asa de penas de latão: charneira atrás do ombro e cinco penas em leque.
+        root = at(m, side * 0.02, 0.1, 0.1)
+        mtube(p, "metal", axis_frame(root, "z"), 0.026, 0.05, 12)
+        for i in range(5):
+            ang = 20 + i * 14
+            fe = sub(T(*root), rot=(-20, 0, -side * ang))
+            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, 0.19 - i * 0.015, 0.02) @ Matrix.Diagonal((1.0, 1.0, 0.35, 1.0)), 0.04, 0.38 - i * 0.035, 10)
+        mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
+        upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
+
+
+def helio_forearm_left(p):
+    e, wr = HELIO["elbow_l"], HELIO["wrist_l"]
+    m = frame(e, wr - e, front=(0.3, 0, -1))
+    length = (wr - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.07, 0.07, 0.08), 0.012, 1)
+    capsule(p, "dark", sub(m, 0, length * 0.55, 0), 0.08, length * 0.8, 18)
+    for lo in ((-75, 75), (105, 255)):
+        cyl_panel(p, "shell", sub(m, 0, length * 0.45, 0), 0.105, length * 0.55, lo, 0.03, (10, 2), gap=0.012, radius_top=0.1)
+    cuff = sub(m, 0, length * 0.74, 0)
+    lathe(p, "trim", cuff, [(0.09, 0.0), (0.108, 0.0), (0.13, 0.07), (0.125, 0.08), (0.075, 0.08), (0.09, 0.0)], 22)
+    mbox(p, "glow", sub(m, 0, length * 0.45, 0.106), (0.04, 0.012, 0.01), 0.003, 1)
+    connector(p, sub(m, 0.106, length * 0.4, 0.0, rot=(0, 0, -90)), 0.014)
+    wrist(p, m, length)
+    hand(p, sub(m, 0, length + 0.14, 0.0, rot=(0, -90, 180)), fingers=4, scale=1.3, curl=0.9)
+
+
+def helio_forearm_right(p):
+    e, muzzle = HELIO["elbow_r"], HELIO["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.07, 0.08, 0.08), 0.012, 1)
+    lathe(p, "shell", m, [(0.0, 0.07), (0.07, 0.08), (0.105, 0.14), (0.112, 0.3), (0.1, 0.42), (0.0, 0.44)], 24)
+    for v in (0.15, 0.37):
+        mring(p, "trim", sub(m, 0, v, 0), 0.11, 0.013, 24, 5)
+    for i in range(3):
+        mbox(p, "glow", sub(m, -0.03 + i * 0.03, 0.26, 0.108), (0.016, 0.05, 0.008), 0.003, 1)
+    ring = sub(m, 0, 0.47, 0)
+    mtube(p, "metal", ring, 0.085, 0.03, 20, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), 0.07, 6, size=0.009)
+
+
+def helio_gun(p):
+    """Cetro solar: haste de latão com anéis e um sol de raios na ponta; recua."""
+    e, muzzle = HELIO["elbow_r"], HELIO["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    length = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.52, 0), 0.055, 0.08, 16)
+    lathe(p, "metal", m, [(0.035, 0.56), (0.03, 0.7), (0.034, length - 0.2), (0.05, length - 0.14)], 16)
+    for v in (0.62, 0.78):
+        mring(p, "trim", sub(m, 0, v, 0), 0.04, 0.012, 16, 5)
+    sun = frame(at(m, 0, length - 0.07, 0), at(m, 0, 1, 0) - at(m), front=at(m, 0, 0, 1) - at(m))
+    sun_disc(p, sun, 0.06, 10, 0.05)
+    ball(p, "glow", at(m, 0, length - 0.05, 0), 0.04, 14)
+
+
+def helio_leg(p, out):
+    def sandals(q, m, o, ankle):
+        foot(q, m, length=0.42, width=0.25, out=o, toes=2, armor="shell", heel="trim")
+    leg(p, out, HELIO["hip"].y, knee_y=-0.27, ankle_up=0.17, width=0.92, knee_w=0.108, knee_r=0.058, foot_fn=sandals,
+        thigh_fn=round_thigh(k=0.92), shin_fn=round_shin(k=0.92, r_bottom=0.085, r_top=0.112), thigh_top=0.03, guard=False,
+        shin_top=-0.22)
+
+
+# ======================================================================================
 def define(part):
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
@@ -2078,3 +2234,22 @@ def define(part):
     @part("eclipse2_leg_r")
     def _(p):
         eclipse_leg(p, 1)
+
+    part("helio2_head")(helio_head)
+    part("helio2_torso")(helio_torso)
+    part("helio2_shoulders")(helio_shoulders)
+
+    @part("helio2_arm")
+    def _(p):
+        helio_forearm_left(p)
+        helio_forearm_right(p)
+
+    part("helio2_gun")(helio_gun)
+
+    @part("helio2_leg_l")
+    def _(p):
+        helio_leg(p, -1)
+
+    @part("helio2_leg_r")
+    def _(p):
+        helio_leg(p, 1)
