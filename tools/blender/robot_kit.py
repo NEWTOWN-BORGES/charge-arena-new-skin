@@ -1210,6 +1210,25 @@ def export():
             tris += len(obj.data.loop_triangles)
     print("ROBOT_KIT", OUTPUT.relative_to(ROOT), len(PARTS), "peças", tris, "triângulos", OUTPUT.stat().st_size, "bytes")
     print("HEADS", json.dumps(HEADS))
+    sync_heads()
+
+
+def sync_heads():
+    """Escreve as cabeças v2 (`*2_head`) na tabela "heads" do roster: o jogo lê dali a proporção
+    do ecrã do rosto e onde fica a cabeça. As cabeças v1 ficam como estão (foram afinadas à
+    mão) e o resto do ficheiro, formatado à mão, não é tocado."""
+    text = ROSTER.read_text()
+    start = text.index('"heads": {')
+    end = text.index("\n\t},", start)
+    old = json.loads("{" + text[start:end] + "\n\t}}")["heads"]
+    heads = {name: value for name, value in old.items() if not name.endswith("2_head")}
+    heads.update({name: value for name, value in sorted(HEADS.items()) if name.endswith("2_head")})
+    lines = ",\n".join('\t\t"%s": %s' % (name, json.dumps(value)) for name, value in heads.items())
+    new = text[:start] + '"heads": {\n' + lines + text[end:]
+    if new != text:
+        json.loads(new)
+        ROSTER.write_text(new)
+        print("ROSTER heads atualizadas:", ", ".join(n for n in heads if n.endswith("2_head")))
 
 
 # ======================================================================================
