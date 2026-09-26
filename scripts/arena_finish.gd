@@ -7,10 +7,9 @@ const SURFACES = {
 }
 static var studio_sky: Sky
 
-# The game's lights reach every surface in full (no shadows or occlusion as in Cycles), so
-# the frame is exposed down to sit where the Blender renders sit.
-const EXPOSURE = 1.0
-const VIVID_SATURATION = 1.3
+# The exposure and the colour push of version 3.8, the light the player chose.
+const EXPOSURE = 1.05
+const VIVID_SATURATION = 1.18
 const VIVID_CONTRAST = 1.12
 static var blender_lut: ImageTexture3D
 
@@ -45,28 +44,21 @@ static func environment(env: Environment, quality: int) -> void:
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 1.0
-	# The sky light of the Blender renders (a background of 0.8 over a pale sky): with the
-	# colour table in place the old 0.85 washed every map out.
-	env.ambient_light_energy = 0.42
+	# The light of version 3.8, the one the game is tuned to: a bright studio dome, AgX with
+	# a little more exposure, and a touch more contrast and colour than the raw transform.
+	# (Reinhard and the measured Blender transform, tools/color/, both came out darker.)
+	env.ambient_light_energy = 0.85
 	env.ambient_light_color = Color("c3c9cf")
-	# Vivid, never garish: a gentle Reinhard keeps the darks open and every colour apart, and
-	# the adjustments below push the colour up. (The Blender transform, tools/color/, made
-	# everything pale; it stays available in blender_colors() but is not used.)
-	env.tonemap_mode = Environment.TONE_MAPPER_REINHARDT
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = EXPOSURE
-	env.tonemap_white = 16.0
 	# Glow is several full-screen passes: kept on a computer, left off on a phone, where the
 	# particles' own additive glow already carries the light.
 	env.glow_enabled = quality == 2 and not OS.has_feature("mobile")
 	env.glow_intensity = 0.45
 	env.glow_bloom = 0.02
-	# Only real lights bloom: with the HDR buffer every sunlit white passed 1.2 and the whole
-	# frame went milky.
-	env.glow_hdr_threshold = 3.0
+	env.glow_hdr_threshold = 1.2
 	env.glow_hdr_scale = 1.1
 	env.adjustment_enabled = true
-	# Blender's look, then pushed to vivid: more colour and a little more punch, the way the
-	# game wants to read on a phone (almost saturated, never garish).
 	env.adjustment_contrast = VIVID_CONTRAST
 	env.adjustment_saturation = VIVID_SATURATION
 	env.adjustment_brightness = 1.0

@@ -413,8 +413,7 @@ func build(new_map: Dictionary = {}) -> void:
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
 	light.light_color = theme.get("sun", Color("fff3e6"))
-	# A Blender sun of 3.2 is about 1.0 here (Cycles divides by pi, Godot does not).
-	light.light_energy = 1.02
+	light.light_energy = 1.1
 	light.shadow_enabled = false
 	add_child(light)
 	secondary_light = DirectionalLight3D.new()
