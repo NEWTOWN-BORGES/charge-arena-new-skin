@@ -47,6 +47,10 @@ def materials(palette):
         value = palette.get(role) or ""
         if role == "rubber" and not value:
             value = "15161a"
+        if role == "hazard" and not value:
+            value = "f2c230"
+        if role == "label" and not value:
+            value = "f4f1e8"
         color = rk.hex_rgb(value or TEAM) if role != "screen" else (0.015, 0.02, 0.035)
         bsdf.inputs["Base Color"].default_value = (*color, 1)
         bsdf.inputs["Roughness"].default_value = {"metal": 0.32, "rubber": 0.85, "dark": 0.55, "screen": 0.15}.get(role, 0.42)

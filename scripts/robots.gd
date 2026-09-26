@@ -75,6 +75,9 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	# Seals, sleeves and cables: near-black polymer unless the recipe says otherwise.
 	var rubber = String(palette.get("rubber", ""))
 	out["rubber"] = Color(rubber) if rubber != "" else Color(out.dark).darkened(0.45)
+	# Warning yellow and the paper of inspection labels: the same on every machine.
+	out["hazard"] = Color(String(palette.get("hazard", "f2c230")))
+	out["label"] = Color(String(palette.get("label", "f4f1e8")))
 	if String(palette.get("glow", "")) == "":
 		out.glow = team.lightened(0.3)
 	if String(palette.get("eyes", "")) == "":
@@ -261,7 +264,7 @@ static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionar
 
 static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Array:
 	var signature = ""
-	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber"]:
+	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label"]:
 		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
 	var meshes = merged(key + ":" + signature, placed, paint, outline and INK)
 	var nodes: Array = []
