@@ -8,7 +8,7 @@ const SURFACES = {
 static var studio_sky: Sky
 
 # The exposure and the colour push of version 3.8, the light the player chose.
-const EXPOSURE = 1.05
+const EXPOSURE = 1.12
 const VIVID_SATURATION = 1.18
 const VIVID_CONTRAST = 1.12
 static var blender_lut: ImageTexture3D

@@ -455,9 +455,8 @@ func build(new_map: Dictionary = {}) -> void:
 		court_mat.shader = glass
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
-	# The field takes the full sun: the tones go in a little darker so they come out rich.
-	court_mat.set_shader_parameter("floor_color", theme.floor.darkened(0.12))
-	court_mat.set_shader_parameter("floor_alt", theme.floor_alt.darkened(0.12))
+	court_mat.set_shader_parameter("floor_color", theme.floor)
+	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)
 	court_mat.set_shader_parameter("seam_color", theme.seam)
 	court_mat.set_shader_parameter("line_color", theme.line)
 	court_mat.set_shader_parameter("team_near", CYAN)
