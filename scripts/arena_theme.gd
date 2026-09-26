@@ -1,69 +1,76 @@
 extends RefCounted
-## Environments for the arenas. Every map belongs to one: it colours the floor, the sky behind
-## the platform, the perimeter blocks and the stadium around them. Rules never read this.
-# The toy-diorama look: a warm white floor with crisp seams under a coloured sky, graphite
-# frames with bright caps, and saturated blocks, so every environment reads at a glance.
+## Environments for the arenas. Every map belongs to one of five: the floating sky deck, the
+## countryside outpost, the seabed base, the orbital station and the city rooftop. Each colours
+## the field and names the dressing that builds the world around it (scripts/arena_sky.gd,
+## arena_ground.gd, arena_sea.gd, arena_space.gd, arena_city.gd). Rules never read this.
+# A light field with crisp seams under saturated scenery, so every environment reads at a
+# glance and the robots always stand out from the floor.
 const THEMES = {
 	"aurora": {
 		"name": "Arena Aurora",
-		# The floating sky arena (scripts/arena_sky.gd): a steel deck in the clouds.
+		# The floating sky arena: a steel deck in the clouds.
 		"dressing": "sky", "deck": Color("c9d6e2"), "deck_panel": Color("5d7fa3"), "hull": Color("e9edf1"),
 		"floor": Color("eef3f7"), "floor_alt": Color("d4e5f2"), "seam": Color("3a4656"), "line": Color("ffffff"),
 		"sky_top": Color("2f7fd0"), "sky_mid": Color("5fa8e6"), "sky_low": Color("d6eef6"),
 		"block": Color("f6f2e8"), "block_alt": Color("2fc4a5"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
-		"stand": Color("4f6f8a"), "crowd": [Color("2fc4a5"), Color("ff7a5c"), Color("ffc53d"), Color("f6f2e8"), Color("8f7cf0")],
-		"flag": Color("ff7a5c"),
+		"stand": Color("4f6f8a"), "crowd": [Color("2fc4a5"), Color("ff7a5c"), Color("ffc53d"), Color("f6f2e8")],
+	},
+	"terra": {
+		"name": "Posto Terrestre",
+		# A concrete pad in a green valley, with sandstone terraces, pines, wind turbines,
+		# solar farms, silos and a hangar.
+		"dressing": "ground", "grass": Color("86d65a"), "grass_high": Color("78cb4e"), "cliff": Color("eaa566"),
+		"dirt": Color("f1d08e"), "pad": Color("ebe8e1"), "pad_panel": Color("6d93a6"),
+		"floor": Color("f3f7ee"), "floor_alt": Color("dfecd2"), "seam": Color("3b4a3a"), "line": Color("ffffff"),
+		"sky_top": Color("3f95e0"), "sky_mid": Color("7cc0ee"), "sky_low": Color("dff2f7"),
+		"block": Color("f6f2e8"), "block_alt": Color("ff8a3d"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
+		"stand": Color("5d7f4f"), "crowd": [Color("ff8a3d"), Color("2fc4a5"), Color("ffc53d"), Color("f6f2e8")],
+		"fog": {"color": Color("cfe9f5"), "begin": 34.0, "end": 110.0},
+	},
+	"oceano": {
+		"name": "Base Submarina",
+		# A lit steel deck on the sandy seabed: reef shelves, kelp and coral, habitat domes, a
+		# yellow submarine, sonar masts and sunken cargo, in blue-green water.
+		"dressing": "sea", "sand": Color("f3c979"), "sand_high": Color("edbd68"), "shelf": Color("2ea6c4"),
+		"deck": Color("d3e0e6"), "deck_panel": Color("2f9fb3"), "sun": Color("d2f5ff"),
+		"floor": Color("eef8f8"), "floor_alt": Color("d3eef0"), "seam": Color("2c4a55"), "line": Color("ffffff"),
+		"sky_top": Color("0f5f8c"), "sky_mid": Color("1f8fb3"), "sky_low": Color("5cc9d6"),
+		"block": Color("f4f8fa"), "block_alt": Color("ffb03d"), "frame": Color("233845"), "accent": Color("ff6f91"),
+		"stand": Color("2f7f95"), "crowd": [Color("ffb03d"), Color("ff6f91"), Color("5cc9d6"), Color("f4f8fa")],
+		"fog": {"color": Color("1b86b3"), "begin": 30.0, "end": 100.0},
+	},
+	"orbita": {
+		"name": "Estação Orbital",
+		# A white station deck in orbit: trusses, solar wings, modules, a docked shuttle and a
+		# ringed planet below, against a violet starfield.
+		"dressing": "space", "deck": Color("dfe3ea"), "deck_panel": Color("4a5fc4"), "hull": Color("eef0f5"),
+		"floor": Color("f0f1f8"), "floor_alt": Color("dcdff2"), "seam": Color("343a58"), "line": Color("ffffff"),
+		"sky_top": Color("171a4a"), "sky_mid": Color("3b2a86"), "sky_low": Color("a35bbd"), "stars": 1.0,
+		"block": Color("f4f5fa"), "block_alt": Color("ff8a3d"), "frame": Color("262b45"), "accent": Color("7fe6ff"),
+		"stand": Color("4a4f7a"), "crowd": [Color("ff8a3d"), Color("7fe6ff"), Color("ffd84a"), Color("f4f5fa")],
 	},
 	"cidade": {
 		"name": "Cidade Alta",
-		"floor": Color("f2eff9"), "floor_alt": Color("e8e4f5"), "seam": Color("b3aad6"), "line": Color("ffffff"),
-		"sky_top": Color("5e4fc0"), "sky_mid": Color("9d8fe0"), "sky_low": Color("e4dff7"),
-		"block": Color("7d6cf0"), "block_alt": Color("f6f4fc"), "frame": Color("2b2742"), "accent": Color("3fd9e6"),
+		# The top of a skyscraper: rooftop plant, a billboard and a helipad, with the towers of
+		# the city around it and the streets far below.
+		"dressing": "city", "roof": Color("dcd8e6"), "roof_panel": Color("6f63c9"), "street": Color("4a4d6b"),
+		"floor": Color("f3f0f9"), "floor_alt": Color("e2dcf2"), "seam": Color("3a3556"), "line": Color("ffffff"),
+		"sky_top": Color("5e4fc0"), "sky_mid": Color("9d8fe0"), "sky_low": Color("f2c9e0"),
+		"block": Color("f6f4fc"), "block_alt": Color("7d6cf0"), "frame": Color("2b2742"), "accent": Color("3fd9e6"),
 		"stand": Color("5d549a"), "crowd": [Color("ff7fd4"), Color("3fd9e6"), Color("ffe066"), Color("f6f4fc")],
-		"flag": Color("3fd9e6"),
-	},
-	"fabrica": {
-		"name": "Fábrica Orbital",
-		"floor": Color("f7f0e7"), "floor_alt": Color("eee4d6"), "seam": Color("c9b098"), "line": Color("ffffff"),
-		"sky_top": Color("d9743a"), "sky_mid": Color("efb07e"), "sky_low": Color("f9e5d2"),
-		"block": Color("f07d3e"), "block_alt": Color("faf3ea"), "frame": Color("3b2f28"), "accent": Color("ffcc33"),
-		"stand": Color("98694b"), "crowd": [Color("ffb03d"), Color("f0663e"), Color("faf3ea"), Color("3fb4f0")],
-		"flag": Color("ffcc33"),
-	},
-	"canyon": {
-		"name": "Canyon Vermelho",
-		"floor": Color("f8eee4"), "floor_alt": Color("efdfcf"), "seam": Color("cda587"), "line": Color("ffffff"),
-		"sky_top": Color("c44a36"), "sky_mid": Color("e8916c"), "sky_low": Color("f8dccb"),
-		"block": Color("e89a30"), "block_alt": Color("fbf1e4"), "frame": Color("45302a"), "accent": Color("2fb2e0"),
-		"stand": Color("8e5646"), "crowd": [Color("ffc05c"), Color("2fb2e0"), Color("ef6a4a"), Color("fbf1e4")],
-		"flag": Color("2fb2e0"),
-	},
-	"gelada": {
-		"name": "Base Gelada",
-		"floor": Color("f1f7fc"), "floor_alt": Color("e4eef7"), "seam": Color("a4c2dc"), "line": Color("ffffff"),
-		"sky_top": Color("347bd0"), "sky_mid": Color("86b8e8"), "sky_low": Color("e0edfa"),
-		"block": Color("4f93e8"), "block_alt": Color("f6fbff"), "frame": Color("24364e"), "accent": Color("ff7d95"),
-		"stand": Color("50779f"), "crowd": [Color("c9ecff"), Color("4f93e8"), Color("ff7d95"), Color("ffffff")],
-		"flag": Color("ff7d95"),
-	},
-	"floresta": {
-		"name": "Floresta Mecânica",
-		"floor": Color("f1f6ec"), "floor_alt": Color("e5eedd"), "seam": Color("a9c49f"), "line": Color("ffffff"),
-		"sky_top": Color("3f9150"), "sky_mid": Color("8fcb84"), "sky_low": Color("e2f2da"),
-		"block": Color("6fbf4a"), "block_alt": Color("f6f9ee"), "frame": Color("2a3829"), "accent": Color("ffcf3d"),
-		"stand": Color("557f4d"), "crowd": [Color("a8e36a"), Color("ffcf3d"), Color("3fd1a8"), Color("f6f9ee")],
-		"flag": Color("ffcf3d"),
+		"fog": {"color": Color("c9bfe8"), "begin": 30.0, "end": 90.0},
 	},
 }
 const BY_MAP = {
-	"aurora": "aurora", "treino": "aurora", "torre": "aurora", "colosseum": "aurora", "santuario": "aurora",
-	"farol": "cidade", "tempestade": "cidade",
-	"mina": "fabrica", "oficina": "fabrica",
-	"recife": "canyon",
-	"laboratorio": "gelada", "observatorio": "gelada",
-	"estufa": "floresta",
+	"aurora": "aurora", "torre": "aurora", "treino": "aurora",
+	"mina": "terra", "estufa": "terra", "colosseum": "terra",
+	"farol": "oceano", "laboratorio": "oceano", "recife": "oceano",
+	"oficina": "cidade", "tempestade": "cidade",
+	"observatorio": "orbita", "santuario": "orbita", "coroa": "orbita",
 }
-const ROAD_CYCLE = ["cidade", "fabrica", "canyon", "gelada", "floresta"]
+# The road stations between the bosses take the four ground-level worlds in turn; the sky
+# deck stays the home arena.
+const ROAD_CYCLE = ["terra", "cidade", "oceano", "orbita"]
 
 static func id_for(map: Dictionary) -> String:
 	var id = String(map.get("id", "aurora"))

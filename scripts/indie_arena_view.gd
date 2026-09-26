@@ -19,6 +19,10 @@ const Robots = preload("res://scripts/robots.gd")
 const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const ArenaDressing = preload("res://scripts/arena_dressing.gd")
 const ArenaSky = preload("res://scripts/arena_sky.gd")
+const ArenaGround = preload("res://scripts/arena_ground.gd")
+const ArenaSea = preload("res://scripts/arena_sea.gd")
+const ArenaSpace = preload("res://scripts/arena_space.gd")
+const ArenaCity = preload("res://scripts/arena_city.gd")
 const Fx = preload("res://scripts/fx.gd")
 const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
@@ -379,6 +383,7 @@ func build(new_map: Dictionary = {}) -> void:
 	environment.environment.ambient_light_color = Color("b0c6c5")
 	presentation_environment = environment.environment
 	ArenaFinish.environment(presentation_environment, quality_level)
+	ArenaFinish.fog(presentation_environment, theme.get("fog", {}))
 	add_child(environment)
 	var background_layer = CanvasLayer.new()
 	background_layer.layer = -1
@@ -390,13 +395,14 @@ func build(new_map: Dictionary = {}) -> void:
 	bg_mat.shader = preload("res://shaders/backdrop.gdshader")
 	for key in ["sky_top", "sky_mid", "sky_low"]:
 		bg_mat.set_shader_parameter(key, theme[key])
+	bg_mat.set_shader_parameter("stars", theme.get("stars", 0.0))
 	background.material = bg_mat
 	background_layer.add_child(background)
 	# Studio light: a large warm key from the upper left and a cool, gentle fill from behind
 	# on the right. The grey dome of the environment does the rest.
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
-	light.light_color = Color("fff3e6")
+	light.light_color = theme.get("sun", Color("fff3e6"))
 	light.light_energy = 1.1
 	light.shadow_enabled = false
 	add_child(light)
@@ -412,13 +418,15 @@ func build(new_map: Dictionary = {}) -> void:
 	add_child(camera)
 	camera.look_at(Vector3(0, -0.15, 0))
 	camera.current = true
-	var sky_arena = String(theme.get("dressing", "")) == "sky"
+	# Each world builds its own ground around the field (arena_theme.gd names it); a theme
+	# without one falls back to the studio plinth and stands.
+	var dressing = String(theme.get("dressing", ""))
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
 	# The plinth the arena floats on: a mid grey of the theme's frame, so the platform reads as
 	# a soft studio object and not a dark hole around the field.
-	if not sky_arena:
+	if dressing == "":
 		platform(outer, -0.28, 0.75, theme.frame.lerp(theme.stand, 0.55))
 		var under: Array = []
 		for p in outer:
@@ -437,13 +445,22 @@ func build(new_map: Dictionary = {}) -> void:
 	court_mat.set_shader_parameter("team_near", CYAN)
 	court_mat.set_shader_parameter("team_far", CORAL)
 	court.material_override = court_mat
-	if sky_arena:
-		# The floating sky arena: deck, hull, armoured walls and deck furniture from the kit.
-		ArenaSky.build(self, theme)
-	else:
-		soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
-		ArenaDressing.perimeter(self, theme)
-		ArenaDressing.stadium(self, theme, quality_level)
+	match dressing:
+		"sky":
+			# The floating sky arena: deck, hull, armoured walls and deck furniture from the kit.
+			ArenaSky.build(self, theme)
+		"ground":
+			ArenaGround.build(self, theme)
+		"sea":
+			ArenaSea.build(self, theme)
+		"space":
+			ArenaSpace.build(self, theme)
+		"city":
+			ArenaCity.build(self, theme)
+		_:
+			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
+			ArenaDressing.perimeter(self, theme)
+			ArenaDressing.stadium(self, theme, quality_level)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
 		build_goal(team)

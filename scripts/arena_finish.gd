@@ -41,6 +41,23 @@ static func environment(env: Environment, quality: int) -> void:
 	env.adjustment_saturation = 1.18
 	env.adjustment_brightness = 1.0
 
+static func fog(env: Environment, spec: Dictionary) -> void:
+	# Distance haze in the world's own colour: the far terraces, the seabed and the street
+	# below fade into it, which gives the depth. Depth fog, not height fog: the lobby far
+	# below the arena is seen from close up, well inside `begin`, so it stays clear.
+	env.fog_enabled = not spec.is_empty()
+	if spec.is_empty():
+		return
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = spec.color
+	env.fog_light_energy = 1.0
+	env.fog_sun_scatter = 0.0
+	env.fog_density = spec.get("density", 1.0)
+	env.fog_depth_begin = spec.begin
+	env.fog_depth_end = spec.end
+	env.fog_depth_curve = spec.get("curve", 1.0)
+	env.fog_sky_affect = 0.0
+
 static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	# The studio finish: clean semi-matte paint with soft highlights, no grain or grime. Leve
 	# lights per vertex, which keeps the soft volume for almost nothing.

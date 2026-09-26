@@ -833,6 +833,8 @@ def define_parts():
     mech_cast.define(part)
     import arena_parts
     arena_parts.define(part)
+    import env_parts
+    env_parts.define(part)
     part("bit2_head")(bit_head)
     part("bit2_torso")(bit_torso)
 
