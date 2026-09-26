@@ -1747,6 +1747,166 @@ def orbita_leg(p, out):
 
 
 # ======================================================================================
+# ECLIPSE: guarda de elite. Alto e sombrio: elmo alto com visor em crescente, chifres curvos
+# em pinos, halo de eclipse numa haste às costas, ombros com espigões, núcleo de sol negro,
+# garra à esquerda, lança de anel à direita e pernas de ave com esporões.
+# ======================================================================================
+ECLIPSE = {
+    "hip": Vector((0.19, 0.74, 0.0)),
+    "shoulder_y": 1.34,
+    "elbow_l": Vector((-0.5, 1.06, 0.02)),
+    "wrist_l": Vector((-0.53, 0.78, -0.1)),
+    "elbow_r": Vector((0.5, 1.06, -0.02)),
+    "muzzle": Vector((0.44, 0.92, -1.12)),
+}
+E_CHEST = Vector((0.0, 1.2, 0.02))
+E_TORSO = [(-0.24, 0.11), (-0.18, 0.16), (-0.08, 0.2), (0.04, 0.235), (0.13, 0.245), (0.19, 0.22), (0.23, 0.14)]
+E_HEAD = Vector((0.0, 1.8, 0.0))
+E_HEAD_RADII = (0.15, 0.19, 0.16)
+E_SCREEN = (0.19, 0.08)
+
+
+def eclipse_head(p):
+    c = E_HEAD
+    ex, ey, ez = E_HEAD_RADII
+    mk.HEADS["eclipse2_head"] = {"top": round(c.y + ey + 0.03, 3), "center": round(c.y, 3), "aspect": round(E_SCREEN[0] / E_SCREEN[1], 3)}
+    hs = scaled(c, ex, ey, ez)
+    lathe(p, "dark", scaled(c, ex - 0.03, ey - 0.03, ez - 0.03), [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 22)
+    # Elmo alto: crista, faces, nuca e queixo, com a fenda do visor em crescente à frente.
+    sphere_panel(p, "shell", hs, 1.0, (26, 88), (-88, 88), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (26, 88), (92, 268), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (-60, 24), (-26, 206), 0.2, (16, 6), gap=0.05)
+    sphere_panel(p, "trim", hs, 1.0, (-66, -20), (-150, -30), 0.2, (10, 4), gap=0.05)
+    p.screen((c.x, c.y + 0.0, c.z - ez + 0.035), E_SCREEN, bulge=0.012)
+    for dy in (-1, 1):
+        mbox(p, "metal", T(c.x, c.y + dy * 0.047, c.z - ez + 0.032), (0.19, 0.012, 0.014), 0.004, 1)
+    # Chifres curvos em pinos com rolamento, a subir para trás.
+    for side in (-1, 1):
+        pivot = Vector((side * (ex - 0.01), c.y + 0.08, c.z + 0.01))
+        mtube(p, "metal", axis_frame(pivot, "x" if side > 0 else "-x"), 0.035, 0.03, 16)
+        bolts(p, sub(axis_frame(pivot, "x" if side > 0 else "-x"), 0, 0.016, 0), 0.024, 4, size=0.006)
+        horn = sub(T(*(pivot + Vector((side * 0.02, 0, 0)))), rot=(0, 0, 0))
+        for i in range(6):
+            t = i / 5.0
+            a = math.radians(10 + 70 * t)
+            q = pivot + Vector((side * (0.03 + 0.11 * math.sin(a * 0.9)), 0.2 * math.sin(a), 0.12 * (1 - math.cos(a))))
+            if i in (0, 5):
+                ball(p, "trim" if i < 5 else "metal", q, 0.034 * (1.0 - 0.7 * t) + 0.006, 12)
+            if i:
+                rod(p, "trim", prev, q, 0.03 * (1.0 - 0.7 * t) + 0.006, 10)
+            prev = q
+    mbox(p, "glow", T(0, c.y + 0.12, c.z - ez + 0.02), (0.02, 0.05, 0.01), 0.004, 1)
+    serial(p, plane((0.0, c.y - 0.02, c.z + ez * 1.0 + 0.004), (0, 0, 1), (1, 0, 0)), "10", 0.032)
+    mbox(p, "team", T(0, c.y + ey - 0.004, c.z), (0.03, 0.012, 0.12), 0.004, 1)
+
+
+def eclipse_torso(p):
+    c = E_CHEST
+    top, bottom = E_TORSO[-1][0], E_TORSO[0][0]
+    neck(p, c.y + top - 0.005, E_HEAD.y - E_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.82, 1.0))
+    lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in E_TORSO] + [(0.0, top)], 26)
+    for lo, yr in (((-150, -102), (-0.22, 0.2)), ((-78, -30), (-0.22, 0.2)), ((-26, 26), (-0.22, -0.01)),
+                   ((154, 206), (-0.22, -0.01)), ((30, 84), (-0.22, 0.2)), ((96, 150), (-0.22, 0.2))):
+        rev_panel(p, "shell", flat, E_TORSO, yr, lo, 0.034, (8, 8), gap=0.012)
+    for lo in ((-150, -102), (-78, -30)):
+        rev_panel(p, "trim", flat, [(y, r + 0.006) for y, r in E_TORSO], (-0.22, -0.16), lo, 0.02, (8, 2), gap=0.012)
+    # Núcleo de sol negro: disco escuro com a coroa de luz à volta, recuado na fenda.
+    core = axis_frame((0, c.y + 0.06, c.z - 0.235 * 0.82 + 0.012), "-z")
+    mring(p, "metal", sub(core, 0, -0.004, 0), 0.07, 0.014, 26, 6)
+    mring(p, "glow", sub(core, 0, -0.012, 0), 0.056, 0.01, 26, 5)
+    mtube(p, "dark", sub(core, 0, -0.012, 0), 0.05, 0.02, 22)
+    mtube(p, "dark", sub(core, 0, -0.04, 0), 0.08, 0.05, 22)
+    bolts(p, sub(core, 0, 0.004, 0), 0.07, 6, size=0.008)
+    q, n = rev_point(c, E_TORSO, 0.82, -52, 0.12)
+    serial(p, plane(q, n, (math.sin(math.radians(-52)), 0, -math.cos(math.radians(-52)))), "10", 0.028)
+    q, n = rev_point(c, E_TORSO, 0.82, 180, -0.1)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.042, 0.026)
+    # Halo de eclipse: haste pela fenda de trás, disco escuro com anel vermelho e coroa.
+    mbox(p, "dark", T(0, c.y + 0.12, 0.25), (0.06, 0.07, 0.14), 0.012)
+    rod(p, "dark", (0, c.y + 0.12, 0.3), (0, E_HEAD.y + 0.02, 0.32), 0.022, 12)
+    halo = axis_frame((0, E_HEAD.y + 0.1, 0.34), "z")
+    mtube(p, "dark", halo, 0.15, 0.02, 32)
+    mring(p, "trim", halo, 0.165, 0.016, 40, 8)
+    mring(p, "glow", sub(halo, 0, -0.012, 0), 0.185, 0.007, 40, 5)
+    bolts(p, sub(halo, 0, -0.012, 0), 0.05, 4, size=0.01)
+    warning(p, plane((0.0, E_HEAD.y - 0.08, 0.331), (0, 0, 1), (1, 0, 0)), 0.04)
+    waist(p, 0.84, c.y + bottom + 0.02, 0.115)
+    pelvis(p, (0, 0.76, 0.0), (0.25, 0.15, 0.24), ECLIPSE["hip"].x, ECLIPSE["hip"].y, 0.08)
+
+
+def eclipse_shoulders(p):
+    y = ECLIPSE["shoulder_y"]
+    for side in (-1, 1):
+        pin, drum = shoulder(p, side, 0.27, y, 0.01, 0.1, 0.08, 0.08)
+        mbox(p, "dark", T(drum.x, y + 0.11, 0.01), (0.05, 0.08, 0.08), 0.01, 1)
+        m = T(drum.x + side * 0.012, y + 0.02, 0.01)
+        a0, a1 = (-90, 90) if side > 0 else (90, 270)
+        sphere_panel(p, "shell", m, 0.17, (18, 88), (a0 - 25, a1 + 25), 0.03, (12, 6), gap=0.008)
+        sphere_panel(p, "trim", m, 0.176, (4, 16), (a0 - 20, a1 + 20), 0.028, (12, 2), gap=0.006)
+        # Espigões aparafusados: três cones a sair da ombreira em leque.
+        for i, (la, lo) in enumerate(((58, 0), (38, -35), (38, 35))):
+            lat, lon = math.radians(la), math.radians((0 if side > 0 else 180) + lo * side)
+            d = Vector((math.cos(lat) * math.cos(lon), math.sin(lat), math.cos(lat) * math.sin(lon)))
+            q = at(m, *(d * 0.165))
+            mtube(p, "dark", frame(q, d), 0.034, 0.02, 12)
+            lathe(p, "metal", frame(q + d * 0.01, d), [(0.0, -0.01), (0.03, 0.0), (0.02, 0.06), (0.0, 0.13 - i * 0.02)], 12)
+        mbox(p, "team", T(drum.x - side * 0.05, y + 0.16, 0.01), (0.05, 0.01, 0.08), 0.004, 1)
+        upper_arm(p, side, pin, ECLIPSE["elbow_l"] if side < 0 else ECLIPSE["elbow_r"], bone_r=0.036, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
+
+
+def eclipse_forearm_left(p):
+    e, wr = ECLIPSE["elbow_l"], ECLIPSE["wrist_l"]
+    m = frame(e, wr - e, front=(0.3, 0, -1))
+    length = (wr - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.07, 0.07, 0.08), 0.012, 1)
+    lathe(p, "dark", sub(m, 0, 0.05, 0), [(0.07, 0.0), (0.105, 0.04), (0.11, length * 0.6), (0.085, length - 0.05)], 18, True, True)
+    for lo in ((-70, 70), (90, 250)):
+        cyl_panel(p, "shell", sub(m, 0, 0.05 + length * 0.42, 0), 0.124, length * 0.5, lo, 0.03, (8, 2), gap=0.012, radius_top=0.112)
+    mring(p, "trim", sub(m, 0, length * 0.82, 0), 0.113, 0.014, 20, 5)
+    connector(p, sub(m, 0.125, length * 0.45, 0.0, rot=(0, 0, -90)), 0.014)
+    mbox(p, "glow", sub(m, 0, length * 0.5, 0.125), (0.04, 0.012, 0.01), 0.003, 1)
+    wrist(p, m, length)
+    claw(p, sub(m, 0, length + 0.13, 0.0, rot=(0, -90, 180)), scale=1.55, curl=1.2)
+
+
+def eclipse_forearm_right(p):
+    e, muzzle = ECLIPSE["elbow_r"], ECLIPSE["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.07, 0.08, 0.08), 0.012, 1)
+    lathe(p, "shell", m, [(0.0, 0.07), (0.07, 0.08), (0.11, 0.13), (0.115, 0.3), (0.095, 0.43), (0.0, 0.44)], 22)
+    for v in (0.16, 0.36):
+        mring(p, "trim", sub(m, 0, v, 0), 0.113, 0.012, 22, 5)
+    vents(p, sub(m, 0, 0.25, 0.112), 3, 0.05, depth=0.014, spacing=0.024, height=0.01)
+    ring = sub(m, 0, 0.47, 0)
+    mtube(p, "metal", ring, 0.085, 0.03, 20, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), 0.07, 6, size=0.009)
+
+
+def eclipse_gun(p):
+    """Lança de anel: haste comprida, anel de eclipse a meio e ponta em lâmina; recua."""
+    e, muzzle = ECLIPSE["elbow_r"], ECLIPSE["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    length = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.52, 0), 0.055, 0.08, 16)
+    rod(p, "dark", at(m, 0, 0.55, 0), at(m, 0, length - 0.12, 0), 0.03, 12)
+    ring = sub(m, 0, length - 0.28, 0)
+    mring(p, "trim", ring, 0.11, 0.02, 32, 8)
+    mring(p, "glow", ring, 0.09, 0.008, 32, 5)
+    for k in range(3):
+        a = math.radians(90 + k * 120)
+        rod(p, "dark", at(ring, 0, 0, 0), at(ring, 0.1 * math.cos(a), 0, 0.1 * math.sin(a)), 0.01, 6)
+    lathe(p, "metal", sub(m, 0, length - 0.13, 0), [(0.0, 0.0), (0.045, 0.02), (0.035, 0.08), (0.0, 0.14)], 4)
+    ball(p, "glow", at(m, 0, length - 0.1, 0), 0.02, 8)
+
+
+def eclipse_leg(p, out):
+    def talons(q, m, o, ankle):
+        claw_foot(q, m, o, ankle, toe_len=0.11, tip_len=0.08, spread=28, width=0.066)
+    bird_leg(p, out, ECLIPSE["hip"].y, knee=(-0.2, -0.13), heel=(-0.45, 0.13), ankle_up=0.11, foot_fn=talons, k=1.05)
+
+
+# ======================================================================================
 def define(part):
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
@@ -1899,3 +2059,22 @@ def define(part):
     @part("orbita2_leg_r")
     def _(p):
         orbita_leg(p, 1)
+
+    part("eclipse2_head")(eclipse_head)
+    part("eclipse2_torso")(eclipse_torso)
+    part("eclipse2_shoulders")(eclipse_shoulders)
+
+    @part("eclipse2_arm")
+    def _(p):
+        eclipse_forearm_left(p)
+        eclipse_forearm_right(p)
+
+    part("eclipse2_gun")(eclipse_gun)
+
+    @part("eclipse2_leg_l")
+    def _(p):
+        eclipse_leg(p, -1)
+
+    @part("eclipse2_leg_r")
+    def _(p):
+        eclipse_leg(p, 1)
