@@ -1791,16 +1791,26 @@ def eclipse_head(p):
         pivot = Vector((side * (ex - 0.01), c.y + 0.08, c.z + 0.01))
         mtube(p, "metal", axis_frame(pivot, "x" if side > 0 else "-x"), 0.035, 0.03, 16)
         bolts(p, sub(axis_frame(pivot, "x" if side > 0 else "-x"), 0, 0.016, 0), 0.024, 4, size=0.006)
-        horn = sub(T(*(pivot + Vector((side * 0.02, 0, 0)))), rot=(0, 0, 0))
-        for i in range(6):
-            t = i / 5.0
-            a = math.radians(10 + 70 * t)
-            q = pivot + Vector((side * (0.03 + 0.11 * math.sin(a * 0.9)), 0.2 * math.sin(a), 0.12 * (1 - math.cos(a))))
-            if i in (0, 5):
-                ball(p, "trim" if i < 5 else "metal", q, 0.034 * (1.0 - 0.7 * t) + 0.006, 12)
-            if i:
-                rod(p, "trim", prev, q, 0.03 * (1.0 - 0.7 * t) + 0.006, 10)
+        # Chifre liso e comprido: sobe e abre para fora, recua e volta a apontar em frente,
+        # com um colar de metal na base e a ponta em brasa.
+        mring(p, "metal", axis_frame(pivot + Vector((side * 0.03, 0, 0)), "x"), 0.04, 0.012, 16, 5)
+        prev = None
+        steps = 14
+        for i in range(steps + 1):
+            t = i / steps
+            q = pivot + Vector((side * (0.03 + 0.15 * math.sin(t * 1.4)), 0.38 * math.sin(t * 1.35), 0.11 * math.sin(t * 2.6) - 0.09 * t))
+            r = 0.044 * (1.0 - t) + 0.007
+            ball(p, "trim", q, r, 12)
+            if prev is not None:
+                rod(p, "trim", prev, q, r, 12)
             prev = q
+        ball(p, "glow", prev, 0.013, 8)
+    # Sobrancelha em V sobre o visor: duas lâminas que descem para o centro (cara de poucos
+    # amigos), aparafusadas à testa.
+    for side in (-1, 1):
+        brow = sub(T(side * 0.058, c.y + 0.072, c.z - ez + 0.018), rot=(-12, 0, side * 20))
+        mbox(p, "trim", brow, (0.12, 0.03, 0.034), 0.01)
+        screw(p, sub(brow, side * 0.035, 0.0, -0.018, rot=(-90, 0, 0)), 0, 0, 0.006)
     mbox(p, "glow", T(0, c.y + 0.12, c.z - ez + 0.02), (0.02, 0.05, 0.01), 0.004, 1)
     serial(p, plane((0.0, c.y - 0.02, c.z + ez * 1.0 + 0.004), (0, 0, 1), (1, 0, 0)), "10", 0.032)
     mbox(p, "team", T(0, c.y + ey - 0.004, c.z), (0.03, 0.012, 0.12), 0.004, 1)
@@ -1817,6 +1827,11 @@ def eclipse_torso(p):
         rev_panel(p, "shell", flat, E_TORSO, yr, lo, 0.034, (8, 8), gap=0.012)
     for lo in ((-150, -102), (-78, -30)):
         rev_panel(p, "trim", flat, [(y, r + 0.006) for y, r in E_TORSO], (-0.22, -0.16), lo, 0.02, (8, 2), gap=0.012)
+    # Frisos de luz vermelha nas juntas da frente, a descer do peito.
+    for lon in (-106, -74):
+        for y in (0.12, 0.0, -0.12):
+            q, n = rev_point(c, E_TORSO, 0.82, lon, y, 0.0)
+            mbox(p, "glow", frame(q, n), (0.012, 0.01, 0.07), 0.003, 1)
     # Núcleo de sol negro: disco escuro com a coroa de luz à volta, recuado na fenda.
     core = axis_frame((0, c.y + 0.06, c.z - 0.235 * 0.82 + 0.012), "-z")
     mring(p, "metal", sub(core, 0, -0.004, 0), 0.07, 0.014, 26, 6)
@@ -1832,9 +1847,15 @@ def eclipse_torso(p):
     mbox(p, "dark", T(0, c.y + 0.12, 0.25), (0.06, 0.07, 0.14), 0.012)
     rod(p, "dark", (0, c.y + 0.12, 0.3), (0, E_HEAD.y + 0.02, 0.32), 0.022, 12)
     halo = axis_frame((0, E_HEAD.y + 0.1, 0.34), "z")
-    mtube(p, "dark", halo, 0.15, 0.02, 32)
-    mring(p, "trim", halo, 0.165, 0.016, 40, 8)
-    mring(p, "glow", sub(halo, 0, -0.012, 0), 0.185, 0.007, 40, 5)
+    mtube(p, "dark", halo, 0.19, 0.02, 32)
+    mring(p, "trim", halo, 0.205, 0.018, 40, 8)
+    mring(p, "glow", sub(halo, 0, -0.012, 0), 0.228, 0.008, 40, 5)
+    # Coroa de espinhos à volta do eclipse, alternando compridos e curtos.
+    for i in range(14):
+        a = math.radians(i * 360 / 14 + 90)
+        d = at(halo, math.cos(a), 0, math.sin(a)) - at(halo)
+        base = at(halo, 0.23 * math.cos(a), 0, 0.23 * math.sin(a))
+        lathe(p, "trim" if i % 2 else "dark", frame(base, d), [(0.0, 0.0), (0.024, 0.0), (0.0, 0.16 if i % 2 == 0 else 0.09)], 6)
     bolts(p, sub(halo, 0, -0.012, 0), 0.05, 4, size=0.01)
     warning(p, plane((0.0, E_HEAD.y - 0.08, 0.331), (0, 0, 1), (1, 0, 0)), 0.04)
     waist(p, 0.84, c.y + bottom + 0.02, 0.115)
@@ -1851,12 +1872,12 @@ def eclipse_shoulders(p):
         sphere_panel(p, "shell", m, 0.17, (18, 88), (a0 - 25, a1 + 25), 0.03, (12, 6), gap=0.008)
         sphere_panel(p, "trim", m, 0.176, (4, 16), (a0 - 20, a1 + 20), 0.028, (12, 2), gap=0.006)
         # Espigões aparafusados: três cones a sair da ombreira em leque.
-        for i, (la, lo) in enumerate(((58, 0), (38, -35), (38, 35))):
+        for i, (la, lo) in enumerate(((62, 0), (40, -38), (40, 38), (22, -70), (22, 70))):
             lat, lon = math.radians(la), math.radians((0 if side > 0 else 180) + lo * side)
             d = Vector((math.cos(lat) * math.cos(lon), math.sin(lat), math.cos(lat) * math.sin(lon)))
             q = at(m, *(d * 0.165))
             mtube(p, "dark", frame(q, d), 0.034, 0.02, 12)
-            lathe(p, "metal", frame(q + d * 0.01, d), [(0.0, -0.01), (0.03, 0.0), (0.02, 0.06), (0.0, 0.13 - i * 0.02)], 12)
+            lathe(p, "metal", frame(q + d * 0.01, d), [(0.0, -0.01), (0.034, 0.0), (0.022, 0.07), (0.0, (0.2, 0.15, 0.15, 0.1, 0.1)[i])], 12)
         mbox(p, "team", T(drum.x - side * 0.05, y + 0.16, 0.01), (0.05, 0.01, 0.08), 0.004, 1)
         upper_arm(p, side, pin, ECLIPSE["elbow_l"] if side < 0 else ECLIPSE["elbow_r"], bone_r=0.036, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
@@ -2018,7 +2039,7 @@ def helio_shoulders(p):
             ang = 20 + i * 14
             fe = sub(T(*root), rot=(-20, 0, -side * ang))
             # Pás largas em leque (o design que ficou): elipsoides finas a abrir do ombro.
-            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, 0.13 - i * 0.012, 0.02) @ Matrix.Diagonal((0.03, 0.7, 0.28, 1.0)), 1.0, 0.26 - i * 0.025, 12)
+            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, -0.02 - i * 0.012, 0.02) @ Matrix.Diagonal((0.03, 0.85, 0.32, 1.0)), 1.0, 0.26 - i * 0.025, 12)
         mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
         upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
