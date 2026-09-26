@@ -125,6 +125,8 @@ func _ready() -> void:
 	hud.map_previewed.connect(preview_world)
 	hud.map_chosen.connect(func(world): start_pve(Rules.quick_map(world)))
 	hud.map_picker_closed.connect(frame_arena)
+	hud.map_orbited.connect(func(dx, dy): arena.orbit_tour(dx, dy))
+	hud.map_zoomed.connect(func(factor): arena.zoom_tour(factor))
 	hud.host_requested.connect(host_game)
 	hud.join_requested.connect(join_game)
 	hud.pvp_ai_requested.connect(start_pvp_ai)

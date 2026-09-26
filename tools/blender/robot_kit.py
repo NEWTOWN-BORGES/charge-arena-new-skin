@@ -968,8 +968,11 @@ def _(p):
 def _(p):
     # Tijolo de borracha, como no diorama de relva: bloco muito arredondado na cor da equipa
     # com uma almofada creme por cima. Pouco detalhe: há até oitenta no ecrã.
-    p.box("team", (0, 0.23, 0), (0.54, 0.46, 0.29), 0.1, segments=3)
-    p.box("shell", (0, 0.5, 0), (0.48, 0.14, 0.25), 0.065, segments=3)
+    # As in the Blender island: a cube of rubber in the team colour under a thick cream lid
+    # almost its own size, both very round. Deeper than the collider (rows sit 0.42 apart) and
+    # squeezed to a cube by the tall maps' narrowing.
+    p.box("team", (0, 0.17, 0), (0.52, 0.34, 0.36), 0.075, segments=3)
+    p.box("shell", (0, 0.37, 0), (0.46, 0.09, 0.3), 0.045, segments=3)
 
 
 def brick_base(p, height=0.1):

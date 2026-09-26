@@ -404,7 +404,8 @@ func build(new_map: Dictionary = {}) -> void:
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
 	light.light_color = theme.get("sun", Color("fff3e6"))
-	light.light_energy = 1.1
+	# A Blender sun of 3.2 is about 1.0 here (Cycles divides by pi, Godot does not).
+	light.light_energy = 1.02
 	light.shadow_enabled = false
 	add_child(light)
 	secondary_light = DirectionalLight3D.new()
@@ -459,6 +460,8 @@ func build(new_map: Dictionary = {}) -> void:
 		"city":
 			ArenaCity.build(self, theme)
 		"diorama":
+			# The baked island brings its own tiled floor: the court would show in its seams.
+			court.hide()
 			ArenaDiorama.build(self, theme)
 		_:
 			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
@@ -683,7 +686,7 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
 	Robots.brick(self, brick, skin, team_color, tint)
 	for i in range(3):
-		var pip = box(brick, Vector3((i - 1) * 0.13, 0.614, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
+		var pip = box(brick, Vector3((i - 1) * 0.13, 0.426, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
 		pip.name = "HP" + str(i)
 	return brick
 
@@ -1155,9 +1158,14 @@ func turn_showroom(amount: float) -> void:
 	showroom_drag = 0.0
 	showroom_idle = 0.0
 
-# The map picker: behind it the camera flies slowly round the chosen world, low and close,
-# drifting in and out and from side to side so every part of the scenery comes past.
+# The map picker: behind it the camera orbits the chosen world, always looking at its middle.
+# A finger turns and tilts it and two fingers zoom, like the hangar; left alone it goes on
+# turning slowly.
 var tour_view = false
+var tour_yaw = 0.5
+var tour_pitch = 0.62
+var tour_distance = 24.0
+var tour_idle = 9.0
 
 func start_tour() -> void:
 	lobby_view = false
@@ -1168,13 +1176,30 @@ func start_tour() -> void:
 	camera.v_offset = 0.0
 	place_tour_camera()
 
+func orbit_tour(dx: float, dy: float) -> void:
+	tour_yaw -= dx * 0.01
+	tour_pitch = clampf(tour_pitch + dy * 0.006, 0.18, 1.45)
+	tour_idle = 0.0
+	place_tour_camera()
+
+func zoom_tour(factor: float) -> void:
+	tour_distance = clampf(tour_distance * factor, 9.0, 45.0)
+	tour_idle = 0.0
+	place_tour_camera()
+
+func advance_tour(dt: float) -> void:
+	tour_idle += dt
+	if tour_idle > 2.5:
+		tour_yaw += dt * 0.12
+	place_tour_camera()
+
 func place_tour_camera() -> void:
-	var t = clock
-	var angle = t * 0.15
-	var radius = 12.5 + sin(t * 0.23) * 2.5
-	var height = 7.5 + sin(t * 0.31) * 2.5
-	camera.position = Vector3(sin(angle) * radius, height, cos(angle) * radius)
-	camera.look_at(Vector3(sin(t * 0.19) * 3.5, 0.4, cos(t * 0.13) * 4.5))
+	var toward = Vector3(sin(tour_yaw) * cos(tour_pitch), sin(tour_pitch), cos(tour_yaw) * cos(tour_pitch))
+	camera.position = toward * tour_distance
+	camera.look_at(Vector3(0, 0.3, 0))
+	# The seat the shake settles back to each frame: without it the camera snapped back to the
+	# lobby's and the picker showed nothing but sky.
+	camera_home = camera.position
 
 func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	lobby_view = true
@@ -1236,7 +1261,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		place_lobby_camera()
 		animate_showroom(dt)
 	elif tour_view:
-		place_tour_camera()
+		advance_tour(dt)
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt

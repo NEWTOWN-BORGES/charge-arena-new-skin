@@ -7,6 +7,25 @@ const SURFACES = {
 }
 static var studio_sky: Sky
 
+# The game's lights reach every surface in full (no shadows or occlusion as in Cycles), so
+# the frame is exposed down to sit where the Blender renders sit.
+const EXPOSURE = 0.85
+static var blender_lut: ImageTexture3D
+
+static func blender_colors() -> ImageTexture3D:
+	# The table is a strip of 33 slices of 33 x 33 (red across, green down, blue slice by
+	# slice), imported without compression so every entry stays exact.
+	if blender_lut == null:
+		var strip: Image = load("res://art/color/blender_lut.png").get_image()
+		strip.convert(Image.FORMAT_RGB8)
+		var size = strip.get_height()
+		var slices: Array[Image] = []
+		for z in range(size):
+			slices.append(strip.get_region(Rect2i(z * size, 0, size, size)))
+		blender_lut = ImageTexture3D.new()
+		blender_lut.create(Image.FORMAT_RGB8, size, size, size, false, slices)
+	return blender_lut
+
 static func environment(env: Environment, quality: int) -> void:
 	# The studio: a neutral grey dome that lights every side softly and gives the paint and the
 	# metal something quiet to reflect, as in the Blender renders the look was designed in.
@@ -24,22 +43,33 @@ static func environment(env: Environment, quality: int) -> void:
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 1.0
-	env.ambient_light_energy = 0.85
+	# The sky light of the Blender renders (a background of 0.8 over a pale sky): with the
+	# colour table in place the old 0.85 washed every map out.
+	env.ambient_light_energy = 0.42
 	env.ambient_light_color = Color("c3c9cf")
-	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.05
+	# The colours of the Blender renders (AgX, Medium High Contrast), measured, not tuned by
+	# eye. Godot's own AgX closes the darks far more than Blender's (a light of 0.12 came out
+	# 21 against Blender's 92) and crushes saturated colours, so the game uses a gentle
+	# Reinhard that keeps every colour apart, and a colour table built from one test chart
+	# rendered in both (tools/color/) turns it into what Blender shows. HDR 2D is on in the
+	# project so the table sees the light above 1 instead of a clipped buffer.
+	env.tonemap_mode = Environment.TONE_MAPPER_REINHARDT
+	env.tonemap_exposure = EXPOSURE
+	env.tonemap_white = 16.0
 	# Glow is several full-screen passes: kept on a computer, left off on a phone, where the
 	# particles' own additive glow already carries the light.
 	env.glow_enabled = quality == 2 and not OS.has_feature("mobile")
 	env.glow_intensity = 0.45
 	env.glow_bloom = 0.02
-	env.glow_hdr_threshold = 1.2
+	# Only real lights bloom: with the HDR buffer every sunlit white passed 1.2 and the whole
+	# frame went milky.
+	env.glow_hdr_threshold = 3.0
 	env.glow_hdr_scale = 1.1
-	# A touch more contrast and colour than the raw AgX, like the tuned Blender renders.
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.12
-	env.adjustment_saturation = 1.18
+	env.adjustment_contrast = 1.0
+	env.adjustment_saturation = 1.0
 	env.adjustment_brightness = 1.0
+	env.adjustment_color_correction = blender_colors()
 
 static func fog(env: Environment, spec: Dictionary) -> void:
 	# Distance haze in the world's own colour: the far terraces, the seabed and the street

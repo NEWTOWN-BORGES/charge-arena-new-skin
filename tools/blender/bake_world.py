@@ -25,7 +25,9 @@ OUTPUT = ROOT / "art" / "worlds" / "jardim.glb"
 BROAD = ("grass", "grass_dark", "cliff", "cliff_dark", "track", "track_edge", "check1", "check2", "dark")
 # Triangles the world may keep once the light is in the colours (the simplification keeps the
 # colours, so the look survives).
-BUDGET = 110000
+BUDGET = 170000
+# The brightest baked light kept (see encode()); must match shaders/baked_world.gdshader.
+BAKE_RANGE = 2.0
 TOWER = [(-3.4, -8.5932), (3.4, -8.5932), (5.3, -6.3932), (5.3, 6.3932), (3.4, 8.5932), (-3.4, 8.5932), (-5.3, 6.3932), (-5.3, -6.3932)]
 
 
@@ -128,20 +130,76 @@ def bake(objects, samples):
     bpy.ops.object.bake(type="COMBINED", target="VERTEX_COLORS")
 
 
+def light_seams(objects):
+    """The orange track runs under the floor tiles and shows in the gaps between them, lit.
+    Baked into vertices, its points under the tiles came out in shadow and the gaps went dark:
+    inside the field it takes the track's own lit colour instead."""
+    for obj in objects:
+        if "track" not in obj.name:
+            continue
+        me = obj.data
+        attr = me.color_attributes["bake"]
+        values = [0.0] * (len(attr.data) * 4)
+        attr.data.foreach_get("color", values)
+        inside, outside = [], []
+        for loop in me.loops:
+            co = me.vertices[loop.vertex_index].co
+            # Blender (x, y) is Godot (x, -z).
+            (inside if ak.inside((co.x, -co.y), TOWER, 0.0) else outside).append(loop.index)
+        if not outside:
+            continue
+        lit = [sum(values[i * 4 + c] for i in outside) / len(outside) for c in range(3)]
+        for i in inside:
+            values[i * 4:i * 4 + 3] = lit
+        attr.data.foreach_set("color", values)
+
+
+def encode(objects):
+    """Godot keeps vertex colours in 8 bits, which in linear light loses the shade and clips
+    the sunlit tops above 1: store the light halved and sRGB-encoded, and the world's shader
+    (shaders/baked_world.gdshader) undoes it."""
+    for obj in objects:
+        attr = obj.data.color_attributes["bake"]
+        values = [0.0] * (len(attr.data) * 4)
+        attr.data.foreach_get("color", values)
+        for i in range(0, len(values), 4):
+            for c in range(3):
+                x = min(max(values[i + c] / BAKE_RANGE, 0.0), 1.0)
+                values[i + c] = 12.92 * x if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
+        attr.data.foreach_set("color", values)
+
+
 def export(objects):
     # Um só objeto, sem materiais: no jogo é uma malha com a luz nas cores.
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = objects[0]
+    # Simplify the scenery, never the floor: collapsing across the gaps between tiles pulled
+    # the dark slab's shade up onto them in smudges.
+    counts = {}
+    for obj in objects:
+        obj.data.calc_loop_triangles()
+        counts[obj.name] = len(obj.data.loop_triangles)
+    keep = [o for o in objects if o.name.startswith("jardim_floor") or "track" in o.name]
+    fixed = sum(counts[o.name] for o in keep)
+    rest = sum(counts.values()) - fixed
+    if fixed + rest > BUDGET and rest > 0:
+        ratio = max(0.1, (BUDGET - fixed) / rest)
+        for obj in objects:
+            if obj in keep:
+                continue
+            decimate = obj.modifiers.new("Decimate", "DECIMATE")
+            decimate.ratio = ratio
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.object.modifier_apply(modifier=decimate.name)
+    print("FLOOR", fixed, "SCENERY", rest)
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
     bpy.ops.object.join()
     joined = bpy.context.view_layer.objects.active
-    joined.data.calc_loop_triangles()
-    total = len(joined.data.loop_triangles)
-    if total > BUDGET:
-        decimate = joined.modifiers.new("Decimate", "DECIMATE")
-        decimate.ratio = BUDGET / total
-        bpy.ops.object.modifier_apply(modifier=decimate.name)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=str(OUTPUT), export_yup=True, export_materials="NONE", export_apply=True,
                               export_vertex_color="ACTIVE", export_texcoords=False, use_selection=True)
@@ -155,4 +213,6 @@ if __name__ == "__main__":
     objs = build()
     light()
     bake(objs, int(args[0]) if args else 48)
+    light_seams(objs)
+    encode(objs)
     export(objs)

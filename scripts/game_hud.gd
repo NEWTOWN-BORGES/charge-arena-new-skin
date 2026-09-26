@@ -87,6 +87,8 @@ signal showroom_spun(amount: float)
 signal map_previewed(world: String)
 signal map_chosen(world: String)
 signal map_picker_closed
+signal map_orbited(dx: float, dy: float)
+signal map_zoomed(factor: float)
 const UiKit = preload("res://scripts/ui_kit.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
@@ -256,6 +258,8 @@ var map_panel: PanelContainer
 var map_title: Label
 var map_tiles: Dictionary = {}
 var chosen_world = "jardim"
+var map_touches: Dictionary = {}
+var map_pinch = 0.0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1010,7 +1014,14 @@ func build_map_picker() -> void:
 	map_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(map_overlay)
 	map_overlay.hide()
+	# The stage over the map: drag to turn and tilt, pinch to zoom.
+	var stage = Control.new()
+	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.mouse_filter = Control.MOUSE_FILTER_STOP
+	stage.gui_input.connect(map_stage_input)
+	map_overlay.add_child(stage)
 	map_title = label("", 34, WHITE, true)
+	map_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	map_title.add_theme_color_override("font_outline_color", UiKit.NIGHT)
 	map_title.add_theme_constant_override("outline_size", 10)
@@ -1064,6 +1075,37 @@ func build_map_picker() -> void:
 	play_button.custom_minimum_size.y = 58
 	play_button.pressed.connect(func(): map_chosen.emit(chosen_world))
 	buttons.add_child(play_button)
+
+func map_stage_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP: map_zoomed.emit(0.9)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN: map_zoomed.emit(1.1)
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			map_touches[event.index] = event.position
+		else:
+			map_touches.erase(event.index)
+		map_pinch = touch_span(map_touches)
+		return
+	if event is InputEventScreenDrag:
+		map_touches[event.index] = event.position
+		if map_touches.size() >= 2:
+			var span = touch_span(map_touches)
+			if map_pinch > 1.0 and span > 1.0:
+				map_zoomed.emit(map_pinch / span)
+			map_pinch = span
+		return
+	if event is InputEventMagnifyGesture:
+		map_zoomed.emit(1.0 / event.factor)
+		return
+	if event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT and map_touches.size() < 2:
+		map_orbited.emit(event.relative.x, event.relative.y)
+
+func touch_span(touches: Dictionary) -> float:
+	if touches.size() < 2:
+		return 0.0
+	var points = touches.values()
+	return (points[0] as Vector2).distance_to(points[1])
 
 func open_map_picker() -> void:
 	reset_touch()

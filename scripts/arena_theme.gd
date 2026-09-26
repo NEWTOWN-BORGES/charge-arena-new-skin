@@ -25,7 +25,6 @@ const THEMES = {
 		"sky_top": Color("3f95e0"), "sky_mid": Color("7cc0ee"), "sky_low": Color("dff2f7"),
 		"block": Color("f6f2e8"), "block_alt": Color("ff8a3d"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("5d7f4f"), "crowd": [Color("ff8a3d"), Color("2fc4a5"), Color("ffc53d"), Color("f6f2e8")],
-		"fog": {"color": Color("cfe9f5"), "begin": 34.0, "end": 110.0},
 	},
 	"oceano": {
 		"name": "Base Submarina",
@@ -37,7 +36,7 @@ const THEMES = {
 		"sky_top": Color("0f5f8c"), "sky_mid": Color("1f8fb3"), "sky_low": Color("5cc9d6"),
 		"block": Color("f4f8fa"), "block_alt": Color("ffb03d"), "frame": Color("233845"), "accent": Color("ff6f91"),
 		"stand": Color("2f7f95"), "crowd": [Color("ffb03d"), Color("ff6f91"), Color("5cc9d6"), Color("f4f8fa")],
-		"fog": {"color": Color("1b86b3"), "begin": 30.0, "end": 100.0},
+		"fog": {"color": Color("1b86b3"), "begin": 40.0, "end": 140.0},
 	},
 	"orbita": {
 		"name": "Estação Orbital",
@@ -55,7 +54,7 @@ const THEMES = {
 		# (arena_diorama.gd): teal checker floor, rubbery cream and orange walls, round trees.
 		"dressing": "diorama",
 		"floor": Color("3fbfa0"), "floor_alt": Color("37ad91"), "seam": Color("ff9a3c"), "line": Color("fff1d8"),
-		"sky_top": Color("7fa9c4"), "sky_mid": Color("9dbfd2"), "sky_low": Color("c9dde8"),
+		"sky_top": Color("6f9fbf"), "sky_mid": Color("86aecb"), "sky_low": Color("a9c6d8"),
 		"block": Color("fff4e2"), "block_alt": Color("ff7a3c"), "frame": Color("2a3140"), "accent": Color("ffd23f"),
 		"stand": Color("5d7f4f"), "crowd": [Color("ff7a3c"), Color("3fbfa0"), Color("ffd23f"), Color("fff4e2")],
 	},
@@ -68,7 +67,6 @@ const THEMES = {
 		"sky_top": Color("5e4fc0"), "sky_mid": Color("9d8fe0"), "sky_low": Color("f2c9e0"),
 		"block": Color("f6f4fc"), "block_alt": Color("7d6cf0"), "frame": Color("2b2742"), "accent": Color("3fd9e6"),
 		"stand": Color("5d549a"), "crowd": [Color("ff7fd4"), Color("3fd9e6"), Color("ffe066"), Color("f6f4fc")],
-		"fog": {"color": Color("c9bfe8"), "begin": 30.0, "end": 90.0},
 	},
 }
 const BY_MAP = {

@@ -246,7 +246,9 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 	# so the two walls always read as the two teams and never as the robots' merchandise.
 	var paint = colors(0, team, tint)
 	paint["wear"] = 0.0
-	paint["team"] = team
+	# The rubber of the Blender island: the team colour at full strength under the cream
+	# cushion (the pale pilot tints read as white once the colours are Blender's).
+	paint["team"] = Color.from_hsv(team.h, maxf(team.s * 1.6, 0.76), team.v * 0.88)
 	paint["shell"] = Color("fff4e2")
 	_mount(view, node, "brick:soft", [["brick_soft", Transform3D.IDENTITY]], paint, false)
 
