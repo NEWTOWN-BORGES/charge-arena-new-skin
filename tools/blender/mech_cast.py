@@ -1572,6 +1572,181 @@ def faisca_leg(p, out):
 
 
 # ======================================================================================
+# ÓRBITA: astrónoma. Tronco em planeta com um anel orbital inclinado preso em dois pilares,
+# cabeça em cúpula de observatório com a fenda aberta e uma parabólica, asas de painéis
+# solares nos ombros, espingarda-telescópio e pés com propulsores.
+# ======================================================================================
+ORBITA = {
+    "hip": Vector((0.2, 0.66, 0.0)),
+    "shoulder_y": 1.28,
+    "elbow_l": Vector((-0.48, 1.0, 0.02)),
+    "wrist_l": Vector((-0.51, 0.73, -0.1)),
+    "elbow_r": Vector((0.48, 1.0, -0.02)),
+    "muzzle": Vector((0.44, 0.84, -1.04)),
+}
+O_CHEST = Vector((0.0, 1.13, 0.02))
+O_PLANET = 0.25
+O_HEAD = Vector((0.0, 1.72, 0.0))
+O_HEAD_R = 0.18
+O_SCREEN = (0.2, 0.11)
+
+
+def orbita_head(p):
+    c = O_HEAD
+    r = O_HEAD_R
+    mk.HEADS["orbita2_head"] = {"top": round(c.y + r + 0.03, 3), "center": round(c.y, 3), "aspect": round(O_SCREEN[0] / O_SCREEN[1], 3)}
+    base = T(*c)
+    ball(p, "dark", c, r - 0.03, 20)
+    # Cúpula de observatório: dois gomos que abrem pela fenda de cima, base em tambor.
+    sphere_panel(p, "shell", base, r, (0, 86), (-80, 70), 0.03, (12, 6), gap=0.01)
+    sphere_panel(p, "shell", base, r, (0, 86), (110, 260), 0.03, (12, 6), gap=0.01)
+    for side in (-1, 1):
+        meridian_arc(p, "trim", c, r + 0.004, 90 + side * 20, 0, 84, 0.01)
+    mtube(p, "dark", T(c.x, c.y + r * 0.72, c.z + 0.03), 0.03, 0.06, 12)
+    cyl_panel(p, "trim", sub(base, 0, -0.07, 0), r, 0.13, (-45, 225), 0.03, (18, 2), gap=0.008)
+    sphere_panel(p, "shell", base, r, (-70, -44), (-180, 180), 0.03, (18, 3), gap=0.0)
+    screen_well(p, (c.x, c.y - 0.055, c.z - r + 0.012), O_SCREEN, 0.05, 0.03)
+    # Parabólica na têmpora esquerda: braço, prato e alimentador.
+    arm = Vector((-r - 0.01, c.y + 0.05, c.z + 0.02))
+    mtube(p, "metal", axis_frame(arm, "-x"), 0.03, 0.03, 14)
+    rod(p, "metal", arm + Vector((-0.015, 0, 0)), arm + Vector((-0.07, 0.07, 0.0)), 0.009, 8)
+    dish = frame(arm + Vector((-0.08, 0.09, -0.01)), (-0.5, 0.6, -0.62))
+    lathe(p, "trim", dish, [(0.0, 0.0), (0.05, 0.005), (0.09, 0.02), (0.1, 0.03), (0.095, 0.034), (0.05, 0.01), (0.0, 0.004)], 22)
+    rod(p, "metal", at(dish, 0, 0.01, 0), at(dish, 0, 0.08, 0), 0.005, 6)
+    ball(p, "glow", at(dish, 0, 0.085, 0), 0.012, 8)
+    mbox(p, "glow", T(r - 0.01, c.y + 0.03, c.z - 0.06), (0.012, 0.02, 0.03), 0.004, 1)
+    serial(p, plane((0.0, c.y - 0.07, c.z + r + 0.002), (0, 0, 1), (1, 0, 0)), "09", 0.032)
+    mbox(p, "team", T(0, c.y + r * 0.6, c.z - r * 0.8), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+def orbita_torso(p):
+    c = O_CHEST
+    R = O_PLANET
+    neck(p, c.y + R * 0.9, O_HEAD.y - O_HEAD_R + 0.02, 0.065, 0.02, plate=(0.2, 0.18))
+    base = T(*c)
+    ball(p, "dark", c, R - 0.035, 22)
+    # Planeta em gomos com faixas de latitude; o núcleo é um anel de luz na frente.
+    for lat, lons in (((20, 64), ((-150, -100), (-80, -30), (-20, 60), (70, 150), (160, 200))),
+                      ((-40, 16), ((-150, -104), (-76, -30), (-20, 60), (70, 150), (160, 200)))):
+        for lo in lons:
+            sphere_panel(p, "shell", base, R, lat, lo, 0.034, (8, 6), gap=0.01)
+    sphere_panel(p, "trim", base, R, (66, 80), (-180, 180), 0.03, (24, 2), gap=0.0)
+    sphere_panel(p, "trim", base, R, (-62, -42), (-180, 180), 0.03, (24, 2), gap=0.0)
+    core_round(p, axis_frame((0, c.y - 0.02, c.z - R + 0.012), "-z"), 0.045)
+    # Anel orbital inclinado, preso a dois pilares com rolamentos (gira para o anel ultimate).
+    tilt = sub(base, 0, -0.03, 0, rot=(14, 0, -8))
+    arc_tube(p, "trim", tilt, R + 0.075, 0.02, -180, 180, 48, 8)
+    arc_tube(p, "metal", tilt, R + 0.075, 0.006, -180, 180, 48, 6)
+    for lon in (35, 215):
+        a = math.radians(lon)
+        out = at(tilt, math.cos(a) * (R + 0.075), 0, math.sin(a) * (R + 0.075))
+        inner = at(tilt, math.cos(a) * (R - 0.02), 0, math.sin(a) * (R - 0.02))
+        rod(p, "dark", inner, out, 0.02, 10)
+        mtube(p, "metal", frame(out, out - inner), 0.032, 0.03, 14)
+    q, n = ell_point(c, (R, R, R), 28, -55)
+    serial(p, plane(q, n, (math.sin(math.radians(-55)), 0, -math.cos(math.radians(-55)))), "09", 0.028)
+    q, n = ell_point(c, (R, R, R), -10, 180)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.042, 0.026)
+    # Mochila de propulsão atrás: tanque em cápsula, bocal e aviso.
+    pack = T(0, c.y + 0.02, c.z + R + 0.05)
+    capsule(p, "trim", sub(pack, rot=(0, 0, 90)), 0.07, 0.3, 16)
+    for side in (-1, 1):
+        lathe(p, "dark", sub(pack, side * 0.08, -0.08, 0.0), [(0.03, 0.0), (0.045, -0.05), (0.04, -0.06), (0.02, -0.01)], 14)
+        mtube(p, "glow", sub(pack, side * 0.08, -0.13, 0.0), 0.03, 0.004, 12)
+    mbox(p, "dark", T(0, c.y + 0.02, c.z + R + 0.0), (0.08, 0.08, 0.06), 0.01)
+    warning(p, plane((0.0, c.y + 0.05, c.z + R + 0.121), (0, 0, 1), (1, 0, 0)), 0.035)
+    waist(p, 0.76, c.y - R * 0.86, 0.12)
+    pelvis(p, (0, 0.68, 0.0), (0.26, 0.16, 0.25), ORBITA["hip"].x, ORBITA["hip"].y, 0.085)
+
+
+def orbita_shoulders(p):
+    y = ORBITA["shoulder_y"]
+    for side in (-1, 1):
+        pin, drum = shoulder(p, side, 0.24, y, 0.01, 0.095, 0.075, 0.075)
+        mbox(p, "dark", T(drum.x, y + 0.1, 0.01), (0.05, 0.06, 0.08), 0.01, 1)
+        m = T(drum.x + side * 0.01, y + 0.02, 0.01)
+        a0, a1 = (-90, 90) if side > 0 else (90, 270)
+        sphere_panel(p, "shell", m, 0.14, (24, 88), (a0 - 20, a1 + 20), 0.028, (12, 5), gap=0.008)
+        # Asa de painéis solares: longarina, três painéis em leque e dobradiça.
+        root = at(m, side * 0.05, 0.1, 0.06)
+        mtube(p, "metal", axis_frame(root, "z"), 0.02, 0.05, 10)
+        for i, ang in enumerate((25, 45, 65)):
+            wing = sub(T(*root), rot=(0, 0, -side * ang))
+            wing = sub(wing, rot=(-18, 0, 0))
+            rod(p, "dark", at(wing, 0, 0.0, 0.03), at(wing, 0, 0.2 - i * 0.02, 0.06), 0.008, 6)
+            mbox(p, "trim", sub(wing, 0, 0.11 - i * 0.01, 0.05), (0.06, 0.17 - i * 0.02, 0.008), 0.004, 1)
+            mbox(p, "glow", sub(wing, 0, 0.11 - i * 0.01, 0.055), (0.05, 0.15 - i * 0.02, 0.002), 0.0, 1)
+        mbox(p, "team", T(drum.x + side * 0.01, y + 0.16, 0.01), (0.06, 0.01, 0.08), 0.004, 1)
+        upper_arm(p, side, pin, ORBITA["elbow_l"] if side < 0 else ORBITA["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
+
+
+def orbita_forearm_left(p):
+    e, wr = ORBITA["elbow_l"], ORBITA["wrist_l"]
+    m = frame(e, wr - e, front=(0.3, 0, -1))
+    length = (wr - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.07, 0.07, 0.08), 0.012, 1)
+    capsule(p, "dark", sub(m, 0, length * 0.55, 0), 0.08, length * 0.8, 18)
+    for lo in ((-75, 75), (105, 255)):
+        cyl_panel(p, "shell", sub(m, 0, length * 0.5, 0), 0.106, length * 0.62, lo, 0.03, (10, 2), gap=0.012, radius_top=0.094)
+    mring(p, "trim", sub(m, 0, length * 0.85, 0), 0.095, 0.014, 20, 5)
+    mbox(p, "glow", sub(m, 0, length * 0.5, 0.106), (0.04, 0.012, 0.01), 0.003, 1)
+    connector(p, sub(m, 0.106, length * 0.45, 0.0, rot=(0, 0, -90)), 0.014)
+    wrist(p, m, length)
+    hand(p, sub(m, 0, length + 0.14, 0.0, rot=(0, -90, 180)), fingers=4, scale=1.3, curl=0.9)
+
+
+def orbita_forearm_right(p):
+    e, muzzle = ORBITA["elbow_r"], ORBITA["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.07, 0.08, 0.08), 0.012, 1)
+    capsule(p, "shell", sub(m, 0, 0.26, 0), 0.1, 0.38, 18)
+    for v in (0.12, 0.4):
+        mring(p, "trim", sub(m, 0, v, 0), 0.102, 0.014, 22, 5)
+    # Luneta de pontaria em cima, com a objetiva virada para a frente.
+    scope = sub(m, 0, 0.3, 0.13)
+    mbox(p, "dark", sub(m, 0, 0.3, 0.1), (0.03, 0.08, 0.04), 0.008, 1)
+    mtube(p, "metal", scope, 0.025, 0.16, 14)
+    mtube(p, "glow", sub(scope, 0, 0.081, 0), 0.018, 0.004, 12)
+    ring = sub(m, 0, 0.47, 0)
+    mtube(p, "metal", ring, 0.09, 0.03, 20, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), 0.075, 6, size=0.009)
+
+
+def orbita_gun(p):
+    """Espingarda-telescópio: tubo em troços que abrem, anéis de focagem e objetiva de luz."""
+    e, muzzle = ORBITA["elbow_r"], ORBITA["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    length = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.53, 0), 0.06, 0.1, 16)
+    lathe(p, "trim", m, [(0.05, 0.56), (0.052, 0.72), (0.06, 0.73), (0.062, 0.86), (0.072, 0.87), (0.075, length - 0.03), (0.08, length)], 20)
+    for v in (0.7, 0.85, length - 0.06):
+        mring(p, "metal", sub(m, 0, v, 0), 0.066 if v < 0.8 else 0.078, 0.01, 18, 5)
+    mtube(p, "glow", sub(m, 0, length - 0.01, 0), 0.06, 0.006, 18)
+
+
+def thruster_foot(p, m, out, ankle, length=0.4, width=0.25, armor="shell"):
+    """Pé de propulsão: sola em casco arredondado sobre almofadas de borracha, dois bocais
+    por baixo com anel de luz e tampa do calcanhar."""
+    mbox(p, "dark", sub(m, 0, 0.07, -0.03), (width - 0.05, 0.05, length - 0.04), 0.02)
+    for z in (-length / 2 + 0.07, length / 2 - 0.09):
+        for side in (-1, 1):
+            mbox(p, "rubber", sub(m, side * (width / 2 - 0.05), 0.018, -0.03 + z), (0.07, 0.036, 0.08), 0.014)
+    for z in (-0.1, 0.06):
+        lathe(p, "metal", sub(m, 0, 0.05, -0.03 + z), [(0.035, 0.0), (0.05, -0.03), (0.046, -0.034), (0.03, -0.004)], 16)
+        mtube(p, "glow", sub(m, 0, 0.018, -0.03 + z), 0.036, 0.004, 14)
+    dome(p, armor, sub(m, 0, 0.09, -0.04) @ Matrix.Diagonal((1.0, 1.0, 1.55, 1.0)), 0.12, 0.07, 22, 6)
+    mbox(p, "trim", sub(m, 0, 0.1, length / 2 - 0.06), (width * 0.6, 0.07, 0.06), 0.02)
+
+
+def orbita_leg(p, out):
+    def thrusters(q, m, o, ankle):
+        thruster_foot(q, m, o, ankle)
+    leg(p, out, ORBITA["hip"].y, knee_y=-0.23, ankle_up=0.24, width=0.95, knee_w=0.11, knee_r=0.06, foot_fn=thrusters,
+        thigh_fn=round_thigh(k=0.95), shin_fn=round_shin(k=0.95, r_bottom=0.09, r_top=0.115), thigh_top=0.03, guard=False,
+        shin_top=-0.18)
+
+
+# ======================================================================================
 def define(part):
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
@@ -1705,3 +1880,22 @@ def define(part):
     @part("faisca2_leg_r")
     def _(p):
         faisca_leg(p, 1)
+
+    part("orbita2_head")(orbita_head)
+    part("orbita2_torso")(orbita_torso)
+    part("orbita2_shoulders")(orbita_shoulders)
+
+    @part("orbita2_arm")
+    def _(p):
+        orbita_forearm_left(p)
+        orbita_forearm_right(p)
+
+    part("orbita2_gun")(orbita_gun)
+
+    @part("orbita2_leg_l")
+    def _(p):
+        orbita_leg(p, -1)
+
+    @part("orbita2_leg_r")
+    def _(p):
+        orbita_leg(p, 1)
