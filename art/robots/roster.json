@@ -6,7 +6,19 @@
 		"head_tall": {"top": 1.93, "center": 1.5, "aspect": 1.0},
 		"head_round": {"top": 1.81, "center": 1.44, "aspect": 1.478},
 		"head_slant": {"top": 1.84, "center": 1.44, "aspect": 1.619},
-		"head_visor": {"top": 1.61, "center": 1.32, "aspect": 3.647}
+		"head_visor": {"top": 1.61, "center": 1.32, "aspect": 3.647},
+		"batida2_head": {"top": 1.95, "center": 1.73, "aspect": 1.857},
+		"bigorna2_head": {"top": 1.753, "center": 1.56, "aspect": 3.778},
+		"bit2_head": {"top": 1.935, "center": 1.725, "aspect": 2.316},
+		"broto2_head": {"top": 1.88, "center": 1.68, "aspect": 1.846},
+		"eclipse2_head": {"top": 2.02, "center": 1.8, "aspect": 2.375},
+		"faisca2_head": {"top": 1.975, "center": 1.77, "aspect": 3.03},
+		"gancho2_head": {"top": 1.905, "center": 1.66, "aspect": 1.25},
+		"helio2_head": {"top": 2.1, "center": 1.8, "aspect": 1.455},
+		"magnus2_head": {"top": 1.96, "center": 1.7, "aspect": 2.182},
+		"orbita2_head": {"top": 1.93, "center": 1.72, "aspect": 1.818},
+		"rosca2_head": {"top": 1.88, "center": 1.66, "aspect": 1.833},
+		"salvo2_head": {"top": 1.89, "center": 1.7, "aspect": 3.077}
 	},
 	"cast": [
 		{"name": "BIT", "brick": "brick_crate", "brick_top": "top_antenna", "eye_style": "capsule", "mouth": true, "scale": [1.0, 1.0, 1.0], "wear": 0.35,
@@ -108,9 +120,15 @@
 				["PULSO", [-0.51, 0.79, -0.1], 0.3, [-0.8, 0.2, -1.0]], ["MÃO", [-0.53, 0.66, -0.15], 0.32, [-0.3, 0.1, -1.0]], ["NÚCLEO SOLAR", [0.0, 1.24, -0.18], 0.4, [0.3, 0.2, -1.0]],
 				["ANCA", [0.2, 0.7, 0.0], 0.42, [1.0, 0.15, 0.7]], ["JOELHO", [0.2, 0.43, -0.01], 0.4, [1.0, 0.15, 0.5]], ["TORNOZELO", [-0.2, 0.17, 0.0], 0.4, [-1.0, 0.3, -0.6]],
 				["COROA DE RAIOS", [0.0, 1.95, -0.05], 0.5, [0.5, 0.3, -1.0]], ["CETRO SOLAR", [0.44, 0.95, -0.95], 0.5, [1.0, 0.4, -0.6]]]},
-		{"name": "MAGNUS", "brick": "brick_emblem", "brick_top": "top_fins", "eye_style": "stars", "scale": [1.12, 1.1, 1.1], "wear": 0.25,
-			"parts": {"head": "head_box", "top": "top_fins", "spin": "spin_laurel", "torso": "torso_heavy", "shoulders": "shoulders_block", "back": "back_cape", "arm": "arm_heavy", "legs": "leg_heavy", "gun": "gun_gauntlet"},
-			"palette": {"shell": "27387c", "trim": "e0b050", "dark": "171b2b", "metal": "f0c566", "glow": "ffd477", "team": "", "eyes": "ffe29a"}}
+		{"name": "MAGNUS", "brick": "brick_emblem", "brick_top": "top_fins", "eye_style": "stars", "scale": [1.08, 1.06, 1.08], "wear": 0.25,
+			"hip": [0.24, 0.64, 0.0], "muzzle": [0.52, 0.8, -1.02],
+			"parts": {"head": "magnus2_head", "top": "", "spin": "", "torso": "magnus2_torso", "shoulders": "magnus2_shoulders", "back": "", "arm": "magnus2_arm", "legs": "magnus2_leg", "gun": "magnus2_gun"},
+			"palette": {"shell": "3d5bc6", "trim": "e8b84f", "dark": "171b2b", "metal": "f0c566", "glow": "ffd477", "team": "", "eyes": "ffe29a", "rubber": "11131c"},
+			"design_note": "O campeão, maior do que todos: elmo largo com crista e coroa de louros, peito enorme com a estrela do Penta, ombreiras em lamelas com debrum de ouro, capa real numa verga, manopla imperial e pernas pesadas com botas.",
+			"callouts": [["PESCOÇO E LOUROS", [0.0, 1.55, 0.05], 0.6, [0.5, 0.3, -1.0]], ["OMBRO", [-0.5, 1.28, 0.01], 0.65, [-1.0, 0.3, -0.5]], ["COTOVELO", [-0.58, 0.98, 0.02], 0.45, [-0.6, 0.5, 0.8]],
+				["PULSO", [-0.62, 0.68, -0.12], 0.36, [-0.8, 0.2, -1.0]], ["MÃO", [-0.64, 0.52, -0.18], 0.4, [-0.3, 0.1, -1.0]], ["ESTRELA DO PENTA", [0.0, 1.19, -0.24], 0.45, [0.3, 0.2, -1.0]],
+				["ANCA", [0.24, 0.64, 0.0], 0.45, [1.0, 0.15, 0.7]], ["JOELHO E BOTA", [0.24, 0.42, -0.01], 0.5, [1.0, 0.15, -0.6]], ["TORNOZELO", [-0.24, 0.2, 0.0], 0.45, [-1.0, 0.3, -0.6]],
+				["CAPA REAL", [0.0, 1.0, 0.42], 0.8, [0.6, 0.3, 1.0]], ["MANOPLA IMPERIAL", [0.52, 0.82, -0.85], 0.6, [1.0, 0.4, -0.6]]]}
 	],
 	"station": {
 		"about": "Pilotos de estrada (skins 100-149): variante v, kind = v % 10, família = v / 10; cabeça = heads[kind % 5], topo = tops[kind], olhos = eyes[kind].",

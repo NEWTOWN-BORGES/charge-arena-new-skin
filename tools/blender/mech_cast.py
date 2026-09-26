@@ -2005,7 +2005,8 @@ def helio_shoulders(p):
         for i in range(5):
             ang = 20 + i * 14
             fe = sub(T(*root), rot=(-20, 0, -side * ang))
-            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, 0.19 - i * 0.015, 0.02) @ Matrix.Diagonal((1.0, 1.0, 0.35, 1.0)), 0.04, 0.38 - i * 0.035, 10)
+            # Pás largas em leque (o design que ficou): elipsoides finas a abrir do ombro.
+            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, 0.13 - i * 0.012, 0.02) @ Matrix.Diagonal((0.03, 0.7, 0.28, 1.0)), 1.0, 0.26 - i * 0.025, 12)
         mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
         upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
@@ -2060,6 +2061,194 @@ def helio_leg(p, out):
     leg(p, out, HELIO["hip"].y, knee_y=-0.27, ankle_up=0.17, width=0.92, knee_w=0.108, knee_r=0.058, foot_fn=sandals,
         thigh_fn=round_thigh(k=0.92), shin_fn=round_shin(k=0.92, r_bottom=0.085, r_top=0.112), thigh_top=0.03, guard=False,
         shin_top=-0.22)
+
+
+# ======================================================================================
+# MAGNUS: o campeão. O maior de todos: elmo largo com crista e coroa de louros, peito enorme
+# com a estrela do Penta numa moldura, ombreiras em lamelas com debrum de ouro, capa real de
+# placas numa verga, manopla imperial no braço direito e pernas pesadas.
+# ======================================================================================
+MAGNUS = {
+    "hip": Vector((0.24, 0.64, 0.0)),
+    "shoulder_y": 1.26,
+    "elbow_l": Vector((-0.58, 0.98, 0.02)),
+    "wrist_l": Vector((-0.62, 0.68, -0.12)),
+    "elbow_r": Vector((0.58, 0.98, -0.02)),
+    "muzzle": Vector((0.52, 0.8, -1.02)),
+}
+M_CHEST = Vector((0.0, 1.14, 0.02))
+M_TORSO = [(-0.24, 0.16), (-0.18, 0.22), (-0.08, 0.27), (0.04, 0.3), (0.12, 0.305), (0.19, 0.27), (0.24, 0.17)]
+M_HEAD = Vector((0.0, 1.7, -0.01))
+M_HEAD_RADII = (0.2, 0.16, 0.17)
+M_SCREEN = (0.24, 0.11)
+
+
+def star_points(r_out, r_in, n=5):
+    return [((r_out if i % 2 == 0 else r_in) * math.sin(math.pi * i / n), (r_out if i % 2 == 0 else r_in) * math.cos(math.pi * i / n)) for i in range(2 * n)]
+
+
+def laurel(p, center, radius, side, leaves=7, role="metal"):
+    """Ramo de louros num arco atrás da cabeça: haste e folhas em amêndoa."""
+    c = Vector(center)
+    prev = None
+    for i in range(leaves):
+        a = math.radians(-20 + i * (150 / (leaves - 1)))
+        q = c + Vector((side * radius * math.cos(math.radians(90) - a) , radius * 0.25 * math.sin(a * 1.2), radius * math.sin(math.radians(90) - a) * 0.9))
+        if prev is not None:
+            rod(p, role, prev, q, 0.007, 6)
+        d = (q - c).normalized()
+        leaf(p, role, frame(q, (d + Vector((0, 0.8, 0))).normalized(), front=d), 0.07, 0.04, vein="dark")
+        prev = q
+
+
+def magnus_head(p):
+    c = M_HEAD
+    ex, ey, ez = M_HEAD_RADII
+    mk.HEADS["magnus2_head"] = {"top": round(c.y + ey + 0.1, 3), "center": round(c.y, 3), "aspect": round(M_SCREEN[0] / M_SCREEN[1], 3)}
+    hs = scaled(c, ex, ey, ez)
+    lathe(p, "dark", scaled(c, ex - 0.03, ey - 0.03, ez - 0.03), [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 22)
+    sphere_panel(p, "shell", hs, 1.0, (24, 88), (-88, 88), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (24, 88), (92, 268), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (-60, 22), (-28, 208), 0.2, (18, 6), gap=0.05)
+    sphere_panel(p, "trim", hs, 1.0, (-66, -26), (-150, -30), 0.2, (10, 4), gap=0.05)
+    screen_well(p, (c.x, c.y - 0.01, c.z - ez + 0.02), M_SCREEN, 0.05, 0.03)
+    # Crista em leque sobre a costura do elmo.
+    crest = [(-0.1, 0.0), (0.1, 0.0), (0.08, 0.05), (0.02, 0.1), (-0.06, 0.09), (-0.1, 0.04)]
+    extruded(p, "trim", sub(T(0, c.y + ey - 0.01, c.z + 0.01), rot=(0, 90, 0)), crest, 0.024)
+    mbox(p, "dark", T(0, c.y + ey - 0.005, c.z + 0.01), (0.04, 0.02, 0.2), 0.006, 1)
+    # Coroa de louros presa às fontes por cubos com parafusos.
+    for side in (-1, 1):
+        hub = axis_frame((side * (ex - 0.01), c.y + 0.03, c.z + 0.02), "x" if side > 0 else "-x")
+        mtube(p, "metal", hub, 0.036, 0.03, 16)
+        bolts(p, sub(hub, 0, 0.016, 0), 0.024, 4, size=0.006)
+        laurel(p, (0, c.y + 0.03, c.z + 0.02), ex + 0.03, side)
+    for side in (-1, 1):
+        mbox(p, "glow", T(side * 0.13, c.y + 0.08, c.z - ez * 0.8), (0.03, 0.012, 0.01), 0.003, 1)
+    serial(p, plane((0.0, c.y - 0.04, c.z + ez + 0.004), (0, 0, 1), (1, 0, 0)), "12", 0.032)
+    mbox(p, "team", T(0, c.y + ey * 0.55, c.z - ez * 0.84), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+def magnus_torso(p):
+    c = M_CHEST
+    top, bottom = M_TORSO[-1][0], M_TORSO[0][0]
+    neck(p, c.y + top - 0.005, M_HEAD.y - M_HEAD_RADII[1] + 0.02, 0.075, 0.0, plate=(0.24, 0.22))
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.82, 1.0))
+    lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in M_TORSO] + [(0.0, top)], 28)
+    for lo, yr in (((-150, -106), (-0.22, 0.22)), ((-74, -30), (-0.22, 0.22)), ((-24, 24), (-0.22, 0.0)),
+                   ((156, 204), (-0.22, 0.0)), ((30, 86), (-0.22, 0.22)), ((94, 150), (-0.22, 0.22))):
+        rev_panel(p, "shell", flat, M_TORSO, yr, lo, 0.036, (10, 8), gap=0.012)
+    for yy in (bottom + 0.03, top - 0.035):
+        mring(p, "trim", sub(flat, 0, yy, 0), profile_radius(M_TORSO, yy) + 0.004, 0.018, 30, 6)
+    # A estrela do Penta: moldura redonda de ouro, fundo escuro e estrela com luz.
+    core = axis_frame((0, c.y + 0.05, c.z - 0.3 * 0.82 + 0.01), "-z")
+    mring(p, "trim", sub(core, 0, -0.004, 0), 0.095, 0.018, 32, 6)
+    mtube(p, "dark", sub(core, 0, -0.03, 0), 0.09, 0.05, 28)
+    extruded(p, "glow", sub(core, 0, -0.004, 0, rot=(-90, 0, 0)), star_points(0.07, 0.03), 0.014)
+    bolts(p, sub(core, 0, 0.006, 0), 0.095, 8, size=0.009)
+    q, n = rev_point(c, M_TORSO, 0.82, -52, 0.14)
+    serial(p, plane(q, n, (math.sin(math.radians(-52)), 0, -math.cos(math.radians(-52)))), "12", 0.03)
+    q, n = rev_point(c, M_TORSO, 0.82, 180, -0.1)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.045, 0.028)
+    # Capa real: verga de ouro às costas por três suportes, quatro placas largas e a correia.
+    cy, cr = c.y + 0.16, 0.36
+    for lon in (50, 90, 130):
+        a = math.radians(lon)
+        d = Vector((math.cos(a), 0.0, math.sin(a)))
+        mbox(p, "dark", frame(Vector((0.0, cy, c.z)) + d * 0.3, d), (0.05, 0.12, 0.05), 0.01)
+    arc_tube(p, "metal", T(0.0, cy, c.z), cr, 0.02, 38, 142, 26, 8)
+    for lon in (38, 142):
+        a = math.radians(lon)
+        ball(p, "metal", (cr * math.cos(a), cy, c.z + cr * math.sin(a)), 0.03, 12)
+    topy = cy - 0.035
+    for lo, bottom_y in (((44, 68), 0.5), ((70, 89), 0.46), ((91, 110), 0.46), ((112, 136), 0.5)):
+        h = topy - bottom_y
+        origin = (0.0, (topy + bottom_y) / 2, c.z)
+        cyl_panel(p, "shell", T(*origin), cr + 0.1, h, lo, 0.024, (6, 6), gap=0.0, radius_top=cr + 0.004)
+        cyl_panel(p, "trim", T(0.0, bottom_y + 0.03, c.z), cr + 0.1 - 0.1 * 0.03 / h + 0.006, 0.05, lo, 0.012, (6, 1), gap=0.0, radius_top=cr + 0.1 - 0.1 * 0.08 / h + 0.006)
+        a = math.radians((lo[0] + lo[1]) / 2)
+        d = Vector((math.cos(a), 0.0, math.sin(a)))
+        eye = Vector((0.0, cy, c.z)) + d * cr
+        mring(p, "dark", frame(eye, Vector((-d.z, 0.0, d.x))), 0.03, 0.008, 14, 4)
+    warning(p, cone_mark((0.0, (topy + 0.46) / 2, c.z), cr + 0.1, cr + 0.004, topy - 0.46, 80, 0.0, 0.002), 0.045)
+    waist(p, 0.76, c.y + bottom + 0.02, 0.15)
+    pelvis(p, (0, 0.67, 0.0), (0.32, 0.17, 0.28), MAGNUS["hip"].x, MAGNUS["hip"].y, 0.1)
+
+
+def magnus_shoulders(p):
+    y = MAGNUS["shoulder_y"]
+    for side in (-1, 1):
+        pin, drum = shoulder(p, side, 0.33, y, 0.01, 0.11, 0.09, 0.09)
+        mbox(p, "dark", T(drum.x, y + 0.14, 0.01), (0.07, 0.12, 0.1), 0.012, 1)
+        m = T(drum.x + side * 0.015, y + 0.02, 0.01)
+        a0, a1 = (-90, 90) if side > 0 else (90, 270)
+        for i, (lat, rad, role) in enumerate((((56, 88), 0.22, "shell"), ((32, 60), 0.212, "shell"), ((8, 36), 0.204, "shell"))):
+            sphere_panel(p, role, m, rad, lat, (a0 - 18 - i * 7, a1 + 18 + i * 7), 0.03, (14, 3), gap=0.004)
+            sphere_panel(p, "trim", m, rad + 0.004, (lat[0], lat[0] + 5), (a0 - 18 - i * 7, a1 + 18 + i * 7), 0.012, (14, 1), gap=0.004)
+            for end in (a0 - 14 - i * 7, a1 + 14 + i * 7):
+                la, lo = math.radians((lat[0] + lat[1]) / 2), math.radians(end)
+                q = at(m, rad * math.cos(la) * math.cos(lo), rad * math.sin(la), rad * math.cos(la) * math.sin(lo))
+                screw(p, frame(q, q - at(m)), 0.0, 0.0, 0.01)
+        mbox(p, "team", T(drum.x + side * 0.015, y + 0.238, 0.01), (0.08, 0.01, 0.12), 0.004, 1)
+        upper_arm(p, side, pin, MAGNUS["elbow_l"] if side < 0 else MAGNUS["elbow_r"], bone_r=0.045, elbow_w=0.085, elbow_r=0.055, armor_size=(0.14, 0.12))
+
+
+def magnus_forearm_left(p):
+    e, wr = MAGNUS["elbow_l"], MAGNUS["wrist_l"]
+    m = frame(e, wr - e, front=(0.3, 0, -1))
+    length = (wr - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.08, 0.08, 0.09), 0.012, 1)
+    lathe(p, "dark", sub(m, 0, 0.05, 0), [(0.08, 0.0), (0.12, 0.04), (0.125, length * 0.6), (0.095, length - 0.05)], 20, True, True)
+    for lo in ((-70, 70), (90, 250)):
+        cyl_panel(p, "shell", sub(m, 0, 0.05 + length * 0.36, 0), 0.14, length * 0.46, lo, 0.03, (8, 2), gap=0.012, radius_top=0.13)
+    cuff = sub(m, 0, length * 0.62, 0)
+    span = length - length * 0.62 + 0.005
+    lathe(p, "trim", cuff, [(0.118, 0.0), (0.142, 0.0), (0.168, span - 0.016), (0.162, span), (0.095, span), (0.118, 0.0)], 24)
+    connector(p, sub(m, 0.14, length * 0.4, 0.0, rot=(0, 0, -90)), 0.015)
+    mbox(p, "glow", sub(m, 0, length * 0.42, 0.14), (0.05, 0.012, 0.01), 0.003, 1)
+    wrist(p, m, length, plate=(0.12, 0.1))
+    hand(p, sub(m, 0, length + 0.16, 0.0, rot=(0, -90, 180)), fingers=4, scale=1.6, curl=1.0)
+
+
+def magnus_forearm_right(p):
+    e, muzzle = MAGNUS["elbow_r"], MAGNUS["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.08, 0.09, 0.09), 0.012, 1)
+    lathe(p, "shell", m, [(0.0, 0.07), (0.08, 0.08), (0.14, 0.14), (0.15, 0.3), (0.135, 0.42), (0.0, 0.44)], 26)
+    for v in (0.16, 0.38):
+        mring(p, "trim", sub(m, 0, v, 0), 0.148, 0.016, 26, 6)
+    vents(p, sub(m, 0, 0.27, 0.15), 4, 0.06, depth=0.014, spacing=0.024, height=0.01)
+    ring = sub(m, 0, 0.47, 0)
+    mtube(p, "metal", ring, 0.11, 0.03, 22, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), 0.092, 8, size=0.01)
+
+
+def magnus_gun(p):
+    """Manopla imperial: um punho blindado de ouro com quatro nós e o cano no meio; recua."""
+    e, muzzle = MAGNUS["elbow_r"], MAGNUS["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    length = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.53, 0), 0.08, 0.1, 18)
+    mtube(p, "metal", sub(m, 0, (0.58 + length - 0.26) / 2, 0), 0.055, length - 0.84, 18)
+    for v in (0.66, length - 0.34):
+        mring(p, "trim", sub(m, 0, v, 0), 0.06, 0.014, 20, 5)
+    fist = sub(m, 0, length - 0.16, 0)
+    mbox(p, "shell", fist, (0.26, 0.24, 0.22), 0.07)
+    mbox(p, "trim", sub(fist, 0, -0.1, 0), (0.28, 0.05, 0.24), 0.02)
+    for k in range(4):
+        u = -0.09 + k * 0.06
+        mbox(p, "metal", sub(fist, u, 0.12, 0.05), (0.052, 0.06, 0.07), 0.022)
+        mbox(p, "metal", sub(fist, u, 0.12, -0.04), (0.052, 0.05, 0.06), 0.02)
+    mtube(p, "dark", sub(m, 0, length - 0.01, 0), 0.05, 0.05, 18)
+    mring(p, "trim", sub(m, 0, length + 0.01, 0), 0.055, 0.012, 20, 5)
+    mtube(p, "glow", sub(m, 0, length + 0.012, 0), 0.036, 0.006, 16)
+
+
+def magnus_leg(p, out):
+    def boots(q, m, o, ankle):
+        foot(q, m, length=0.5, width=0.32, out=o, toes=3, armor="shell", heel="trim")
+    leg(p, out, MAGNUS["hip"].y, knee_y=-0.22, ankle_up=0.2, width=1.3, knee_w=0.14, knee_r=0.072, foot_fn=boots,
+        thigh_fn=round_thigh(k=1.3), shin_fn=boot_shin(k=1.25, r_bottom=0.1, r_top=0.125, cuff=0.16), thigh_top=0.03, guard=False,
+        shin_top=-0.16)
 
 
 # ======================================================================================
@@ -2253,3 +2442,22 @@ def define(part):
     @part("helio2_leg_r")
     def _(p):
         helio_leg(p, 1)
+
+    part("magnus2_head")(magnus_head)
+    part("magnus2_torso")(magnus_torso)
+    part("magnus2_shoulders")(magnus_shoulders)
+
+    @part("magnus2_arm")
+    def _(p):
+        magnus_forearm_left(p)
+        magnus_forearm_right(p)
+
+    part("magnus2_gun")(magnus_gun)
+
+    @part("magnus2_leg_l")
+    def _(p):
+        magnus_leg(p, -1)
+
+    @part("magnus2_leg_r")
+    def _(p):
+        magnus_leg(p, 1)
