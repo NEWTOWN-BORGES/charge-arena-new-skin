@@ -440,8 +440,10 @@ func build(new_map: Dictionary = {}) -> void:
 	court_mat.shader = preload("res://shaders/court.gdshader")
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
-	court_mat.set_shader_parameter("floor_color", theme.floor)
-	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)
+	# The field takes the full sun here (the baked island has its shade): the tones go in a
+	# third darker so they come out rich instead of washed to pastel.
+	court_mat.set_shader_parameter("floor_color", theme.floor.darkened(0.32))
+	court_mat.set_shader_parameter("floor_alt", theme.floor_alt.darkened(0.32))
 	court_mat.set_shader_parameter("seam_color", theme.seam)
 	court_mat.set_shader_parameter("line_color", theme.line)
 	court_mat.set_shader_parameter("team_near", CYAN)
@@ -652,6 +654,13 @@ func build_goal(team: int) -> void:
 		add_child(post)
 		post.position = endpoint
 		Robots.prop(self, post, "goal_post", ["goal_post"], {"shell": theme.block_alt, "trim": theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": color, "team": color})
+	# The gate of the Blender island over every goal: on the goal line, facing the field.
+	var arch = Node3D.new()
+	add_child(arch)
+	arch.position = Vector3(center.x, 0.0, center.y + signf(center.y) * 0.1)
+	arch.rotation.y = 0.0 if team == 0 else PI
+	var gate_key = "goal_arch_01" if team == 0 else "goal_arch_02"
+	Robots.prop(self, arch, gate_key, [gate_key], {"shell": Color("fff4e2"), "trim": Color("ff7a3c"), "glow": color, "team": color, "dark": Color("2a3140")})
 	world_label("01" if team == 0 else "02", Vector3(0, 0.05, center.y * 0.89), color, 49)
 	var track = arc_points(center, Rules.TRACK_RADIUS, Rules.track_limit_for(map), team, 0.023)
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))

@@ -1163,6 +1163,30 @@ def _(p):
     p.box("team", (0, 0.8, 0), (0.16, 0.08, 0.16), 0.02)
 
 
+def goal_arch(p, number):
+    """The goal gate of the Blender island, to its measurements: two chubby cream pillars with
+    a band in the team colour and an orange dome, a thick cream arch over the goal, a band of
+    the team colour along its inside, a line of light and the dark plate with the number on
+    top. Faces -Z (the field) and stands on the goal line."""
+    from mech_kit import dome, mbox, mring, mtube, plane, serial, sub
+    from mech_cast import arc_tube
+    from mech_parts import T
+    for x in (-2.0, 2.0):
+        mtube(p, "shell", T(x, 0.7, 0), 0.3, 1.4, 20, bevel=0.08)
+        mring(p, "team", T(x, 1.1, 0), 0.31, 0.05, 20, 5)
+        dome(p, "trim", T(x, 1.4, 0), 0.33, 0.25, 20, 5)
+    gate = sub(T(0, 1.35, 0), rot=(-90, 0, 0))
+    arc_tube(p, "shell", gate, 2.0, 0.16, 0, 180, 40, 12)
+    arc_tube(p, "team", gate, 2.0, 0.08, 4, 176, 40, 10)
+    arc_tube(p, "glow", sub(T(0, 1.35, -0.12), rot=(-90, 0, 0)), 1.8, 0.035, 8, 172, 40, 6)
+    mbox(p, "dark", T(0, 3.1, 0), (1.0, 0.42, 0.16), 0.08, 3)
+    serial(p, plane((0, 3.1, -0.085), (0, 0, -1), (-1, 0, 0)), number, 0.24, role="glow")
+
+
+part("goal_arch_01")(lambda p: goal_arch(p, "01"))
+part("goal_arch_02")(lambda p: goal_arch(p, "02"))
+
+
 # ======================================================================================
 # Robôs v2: peças mecânicas (articulações, painéis, mãos e pés) em tools/blender/mech_kit.py
 # ======================================================================================

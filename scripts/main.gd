@@ -1259,7 +1259,7 @@ func _process(dt: float) -> void:
 		fps_timer = 0
 		var measured = Engine.get_frames_per_second()
 		if mode != "menu" and video.adapt(get_viewport(), measured):
-			hud.video_note.text = "Ajuste automático ativo: antialiasing %s, limite %d FPS." % ["ligado" if get_viewport().msaa_3d != Viewport.MSAA_DISABLED else "desligado", video.runtime_fps]
+			hud.video_note.text = "Ajuste automático ativo: limite %d FPS." % video.runtime_fps
 		hud.fps_label.text = "%d FPS  /  alvo %d" % [measured, video.runtime_fps]
 	if rules.phase == "finished" and cup_active and not cup_resolved:
 		cup_resolved = true

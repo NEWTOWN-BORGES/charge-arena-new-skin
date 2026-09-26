@@ -203,8 +203,8 @@ static func build(view, theme: Dictionary) -> void:
 static func walls_and_towers(view, walls: Array, look: Dictionary = {}) -> void:
 	# `look` recolours the armour for a world: "shell" (the plates), "trim" (the tower domes)
 	# and "glow" (the edge lights).
-	var shell: Color = look.get("shell", Color("f4f6f8"))
-	var trim: Color = look.get("trim", Color("ffc53d"))
+	var shell: Color = look.get("shell", Color("fff4e2"))
+	var trim: Color = look.get("trim", Color("ff7a3c"))
 	var glow: Color = look.get("glow", LIGHT)
 	for i in range(walls.size()):
 		var a2: Vector2 = walls[i]

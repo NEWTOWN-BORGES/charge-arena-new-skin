@@ -9,7 +9,9 @@ static var studio_sky: Sky
 
 # The game's lights reach every surface in full (no shadows or occlusion as in Cycles), so
 # the frame is exposed down to sit where the Blender renders sit.
-const EXPOSURE = 0.85
+const EXPOSURE = 0.78
+const VIVID_SATURATION = 1.35
+const VIVID_CONTRAST = 1.1
 static var blender_lut: ImageTexture3D
 
 static func blender_colors() -> ImageTexture3D:
@@ -66,8 +68,10 @@ static func environment(env: Environment, quality: int) -> void:
 	env.glow_hdr_threshold = 3.0
 	env.glow_hdr_scale = 1.1
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.0
-	env.adjustment_saturation = 1.0
+	# Blender's look, then pushed to vivid: more colour and a little more punch, the way the
+	# game wants to read on a phone (almost saturated, never garish).
+	env.adjustment_contrast = VIVID_CONTRAST
+	env.adjustment_saturation = VIVID_SATURATION
 	env.adjustment_brightness = 1.0
 	env.adjustment_color_correction = blender_colors()
 

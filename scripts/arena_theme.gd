@@ -9,8 +9,8 @@ const THEMES = {
 	"aurora": {
 		"name": "Arena Aurora",
 		# The floating sky arena: a steel deck in the clouds.
-		"dressing": "sky", "deck": Color("c9d6e2"), "deck_panel": Color("5d7fa3"), "hull": Color("e9edf1"),
-		"floor": Color("eef3f7"), "floor_alt": Color("d4e5f2"), "seam": Color("3a4656"), "line": Color("ffffff"),
+		"dressing": "sky", "deck": Color("9fc3e6"), "deck_panel": Color("2f6fc0"), "hull": Color("f4f1e8"),
+		"floor": Color("5aaee6"), "floor_alt": Color("4b9dd9"), "seam": Color("24508a"), "line": Color("ffffff"),
 		"sky_top": Color("2f7fd0"), "sky_mid": Color("5fa8e6"), "sky_low": Color("d6eef6"),
 		"block": Color("f6f2e8"), "block_alt": Color("2fc4a5"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("4f6f8a"), "crowd": [Color("2fc4a5"), Color("ff7a5c"), Color("ffc53d"), Color("f6f2e8")],
@@ -20,8 +20,8 @@ const THEMES = {
 		# A concrete pad in a green valley, with sandstone terraces, pines, wind turbines,
 		# solar farms, silos and a hangar.
 		"dressing": "ground", "grass": Color("86d65a"), "grass_high": Color("78cb4e"), "cliff": Color("eaa566"),
-		"dirt": Color("f1d08e"), "pad": Color("ebe8e1"), "pad_panel": Color("6d93a6"),
-		"floor": Color("f3f7ee"), "floor_alt": Color("dfecd2"), "seam": Color("3b4a3a"), "line": Color("ffffff"),
+		"dirt": Color("f1d08e"), "pad": Color("f3e3c3"), "pad_panel": Color("e0703a"),
+		"floor": Color("f2c35c"), "floor_alt": Color("e8b04a"), "seam": Color("9c5a24"), "line": Color("ffffff"),
 		"sky_top": Color("3f95e0"), "sky_mid": Color("7cc0ee"), "sky_low": Color("dff2f7"),
 		"block": Color("f6f2e8"), "block_alt": Color("ff8a3d"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("5d7f4f"), "crowd": [Color("ff8a3d"), Color("2fc4a5"), Color("ffc53d"), Color("f6f2e8")],
@@ -31,8 +31,8 @@ const THEMES = {
 		# A lit steel deck on the sandy seabed: reef shelves, kelp and coral, habitat domes, a
 		# yellow submarine, sonar masts and sunken cargo, in blue-green water.
 		"dressing": "sea", "sand": Color("f3c979"), "sand_high": Color("edbd68"), "shelf": Color("2ea6c4"),
-		"deck": Color("d3e0e6"), "deck_panel": Color("2f9fb3"), "sun": Color("d2f5ff"),
-		"floor": Color("eef8f8"), "floor_alt": Color("d3eef0"), "seam": Color("2c4a55"), "line": Color("ffffff"),
+		"deck": Color("b9e6ec"), "deck_panel": Color("ff9f43"), "sun": Color("d2f5ff"),
+		"floor": Color("3cc3cc"), "floor_alt": Color("2fb1bd"), "seam": Color("16627a"), "line": Color("ffffff"),
 		"sky_top": Color("0f5f8c"), "sky_mid": Color("1f8fb3"), "sky_low": Color("5cc9d6"),
 		"block": Color("f4f8fa"), "block_alt": Color("ffb03d"), "frame": Color("233845"), "accent": Color("ff6f91"),
 		"stand": Color("2f7f95"), "crowd": [Color("ffb03d"), Color("ff6f91"), Color("5cc9d6"), Color("f4f8fa")],
@@ -42,8 +42,8 @@ const THEMES = {
 		"name": "Estação Orbital",
 		# A white station deck in orbit: trusses, solar wings, modules, a docked shuttle and a
 		# ringed planet below, against a violet starfield.
-		"dressing": "space", "deck": Color("dfe3ea"), "deck_panel": Color("4a5fc4"), "hull": Color("eef0f5"),
-		"floor": Color("f0f1f8"), "floor_alt": Color("dcdff2"), "seam": Color("343a58"), "line": Color("ffffff"),
+		"dressing": "space", "deck": Color("c9c3f2"), "deck_panel": Color("ff8a3d"), "hull": Color("eef0f5"),
+		"floor": Color("7f70f0"), "floor_alt": Color("6f5fe2"), "seam": Color("2e2478"), "line": Color("ffffff"),
 		"sky_top": Color("171a4a"), "sky_mid": Color("3b2a86"), "sky_low": Color("a35bbd"), "stars": 1.0,
 		"block": Color("f4f5fa"), "block_alt": Color("ff8a3d"), "frame": Color("262b45"), "accent": Color("7fe6ff"),
 		"stand": Color("4a4f7a"), "crowd": [Color("ff8a3d"), Color("7fe6ff"), Color("ffd84a"), Color("f4f5fa")],
@@ -62,8 +62,8 @@ const THEMES = {
 		"name": "Cidade Alta",
 		# The top of a skyscraper: rooftop plant, a billboard and a helipad, with the towers of
 		# the city around it and the streets far below.
-		"dressing": "city", "roof": Color("dcd8e6"), "roof_panel": Color("6f63c9"), "street": Color("4a4d6b"),
-		"floor": Color("f3f0f9"), "floor_alt": Color("e2dcf2"), "seam": Color("3a3556"), "line": Color("ffffff"),
+		"dressing": "city", "roof": Color("e8d2f2"), "roof_panel": Color("7d5cf0"), "street": Color("4a4d6b"),
+		"floor": Color("ef7fae"), "floor_alt": Color("e26b9e"), "seam": Color("7a2f66"), "line": Color("ffffff"),
 		"sky_top": Color("5e4fc0"), "sky_mid": Color("9d8fe0"), "sky_low": Color("f2c9e0"),
 		"block": Color("f6f4fc"), "block_alt": Color("7d6cf0"), "frame": Color("2b2742"), "accent": Color("3fd9e6"),
 		"stand": Color("5d549a"), "crowd": [Color("ff7fd4"), Color("3fd9e6"), Color("ffe066"), Color("f6f4fc")],

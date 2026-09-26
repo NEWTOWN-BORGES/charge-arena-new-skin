@@ -106,9 +106,6 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 				runtime_fps = mini(fps, 60 if runtime_fps < 60 else fps)
 				Engine.max_fps = runtime_fps
 				return true
-			if viewport.msaa_3d != AA_LEVELS[quality]:
-				viewport.msaa_3d = AA_LEVELS[quality]
-				return true
 		return false
 	low_windows = 0
 	if recovered:
@@ -119,11 +116,8 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	# instead: 90 -> 60 -> 30. With 120 gone from the options, the ladder reaches all the
 	# way down rather than stopping at 60 on a phone that cannot hold it.
 	if quality > 0:
-		# Smoother edges first: dropping the multisampling is hardly visible on a phone screen
-		# and costs far less than halving the frame rate. The picture keeps its size.
-		if viewport.msaa_3d != Viewport.MSAA_DISABLED:
-			viewport.msaa_3d = Viewport.MSAA_DISABLED
-			return true
+		# Only the frame rate moves: nothing in the picture may change during a match (the
+		# phone's renderer changed the light when the multisampling was dropped mid-game).
 		if runtime_fps > 60:
 			runtime_fps = 60
 		elif runtime_fps > 30 and measured_fps < 60 * 0.6:
