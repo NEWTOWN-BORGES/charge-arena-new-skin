@@ -8,9 +8,9 @@ render_mode diffuse_burley, specular_schlick_ggx;
 // colour, alpha the finish: 1 glow, 0.75 metal, 0.5 dark chassis, 0.45 rubber, 0.25 paint.
 uniform float wear : hint_range(0.0, 1.0) = 0.4;
 varying vec3 model_position;
-const float SOFT_SAT = 0.6;
-const float SOFT_LIFT = 0.26;
-const float SOFT_GAIN = 1.9;
+const float SOFT_SAT = 0.85;
+const float SOFT_LIFT = 0.12;
+const float SOFT_GAIN = 1.55;
 
 // The Blender mockups' look: AgX there lifts and softens saturated paint into light, milky
 // pastels. The same grade is applied here so the game matches the renders: paint and metal

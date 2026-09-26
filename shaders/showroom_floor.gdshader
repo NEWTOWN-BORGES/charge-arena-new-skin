@@ -3,7 +3,7 @@ shader_type spatial;
 // the pedestal stands, fading into the backdrop towards the edge like a photo cyclorama.
 render_mode unshaded, blend_mix, depth_draw_opaque, cull_back, shadows_disabled;
 
-uniform vec4 base_color : source_color = vec4(0.72, 0.75, 0.78, 1.0);
+uniform vec4 base_color : source_color = vec4(0.86, 0.93, 0.96, 1.0);
 uniform vec4 line_color : source_color = vec4(0.45, 0.87, 0.78, 1.0);
 uniform vec4 warm_color : source_color = vec4(1.0, 0.82, 0.25, 1.0);
 uniform float radius = 9.0;

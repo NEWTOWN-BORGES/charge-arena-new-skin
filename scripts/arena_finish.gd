@@ -35,7 +35,11 @@ static func environment(env: Environment, quality: int) -> void:
 	env.glow_bloom = 0.02
 	env.glow_hdr_threshold = 1.2
 	env.glow_hdr_scale = 1.1
-	env.adjustment_enabled = false
+	# A touch more contrast and colour than the raw AgX, like the tuned Blender renders.
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.18
+	env.adjustment_brightness = 1.0
 
 static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	# The studio finish: clean semi-matte paint with soft highlights, no grain or grime. Leve

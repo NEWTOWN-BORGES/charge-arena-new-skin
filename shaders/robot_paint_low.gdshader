@@ -7,9 +7,9 @@ render_mode unshaded;
 // Colour and finish come from the vertices (see robots.gd); alpha 1 marks lights.
 uniform float wear : hint_range(0.0, 1.0) = 0.4;
 varying vec3 world_normal;
-const float SOFT_SAT = 0.6;
-const float SOFT_LIFT = 0.26;
-const float SOFT_GAIN = 1.9;
+const float SOFT_SAT = 0.85;
+const float SOFT_LIFT = 0.12;
+const float SOFT_GAIN = 1.55;
 
 // The Blender mockups' look: AgX there lifts and softens saturated paint into light, milky
 // pastels. The same grade is applied here so the game matches the renders: paint and metal

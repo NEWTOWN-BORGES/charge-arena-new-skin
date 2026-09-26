@@ -1061,14 +1061,14 @@ func build_showroom() -> void:
 	floor_node.material_override = floor_mat
 	floor_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	showroom.add_child(floor_node)
-	# A photo studio: two soft grey steps of pedestal with a thin painted lip in the team
+	# A toy showroom: a mint step under a white pedestal with a thin painted lip in the team
 	# colour, on a pale floor that melts into the backdrop.
-	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("c3c9cf"))
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("6fd4bd"))
 	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.018, Color(CYAN, 0.9))
-	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("d8dde2"))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("fbfaf6"))
 	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.02, Color("f2cb6e"))
 	# The boss's plinth, lower and a shade darker.
-	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("b7bdc4"))
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("f59a82"))
 	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.02, Color(CORAL, 0.9))
 	var key = OmniLight3D.new()
 	key.position = Vector3(1.6, 3.6, 3.2)
