@@ -1327,6 +1327,251 @@ def gancho_leg(p, out):
 
 
 # ======================================================================================
+# FAÍSCA: caçadora de tempestades. Corredora ágil: cabeça larga com a fenda do visor que
+# varre, dois para-raios em ziguezague sobre isoladores, tronco em gota invertida com banco
+# de condensadores, bobina de Tesla às costas com o toro atrás do pescoço, emissor-bobina no
+# braço direito e pernas de ave com pés de três dedos e esporão.
+# ======================================================================================
+FAISCA = {
+    "hip": Vector((0.19, 0.74, 0.0)),
+    "shoulder_y": 1.32,
+    "elbow_l": Vector((-0.46, 1.05, 0.02)),
+    "wrist_l": Vector((-0.49, 0.78, -0.1)),
+    "elbow_r": Vector((0.46, 1.05, -0.02)),
+    "muzzle": Vector((0.42, 0.9, -0.98)),
+}
+F_CHEST = Vector((0.0, 1.2, 0.02))
+F_TORSO = [(-0.26, 0.1), (-0.22, 0.14), (-0.14, 0.185), (-0.04, 0.215), (0.06, 0.225), (0.13, 0.212), (0.18, 0.175), (0.21, 0.12)]
+F_DEPTH = 0.85
+F_HEAD = Vector((0.0, 1.77, -0.01))
+F_HEAD_RADII = (0.19, 0.155, 0.16)
+F_SCREEN = (0.2, 0.066)
+F_COIL = Vector((0.0, 1.12, 0.37))
+
+
+def profile_radius(profile, y):
+    """Raio de um perfil [(y, r), ...] (y a subir) por interpolação linear."""
+    if y <= profile[0][0]:
+        return profile[0][1]
+    for (y0, r0), (y1, r1) in zip(profile, profile[1:]):
+        if y <= y1:
+            return r0 + (r1 - r0) * ((y - y0) / (y1 - y0) if y1 > y0 else 0.0)
+    return profile[-1][1]
+
+
+def rev_panel(p, role, m, profile, y_range, lon, thickness=0.03, steps=(10, 8), gap=0.0):
+    """Painel de um sólido de revolução com perfil livre à volta do Y local de `m` (lon em
+    graus, 0 = +X local, -90 = -Z local)."""
+    rmax = max(r for _, r in profile)
+    g = math.degrees(gap / rmax)
+    lo = (math.radians(lon[0] + g), math.radians(lon[1] - g))
+
+    def point(u, v, d):
+        r = profile_radius(profile, v) - d
+        return Vector((r * math.cos(u), v, r * math.sin(u)))
+    mk._shell_panel(p, role, m, point, lo, (y_range[0] + gap / 2, y_range[1] - gap / 2), thickness, steps)
+
+
+def rev_point(center, profile, depth, lon, y, lift=0.001):
+    """Ponto e normal na superfície do tronco de revolução (achatado em Z por `depth`)."""
+    a = math.radians(lon)
+    r = profile_radius(profile, y)
+    slope = (profile_radius(profile, y + 0.005) - profile_radius(profile, y - 0.005)) / 0.01
+    n = Vector((math.cos(a), -slope, math.sin(a) / depth)).normalized()
+    return Vector(center) + Vector((r * math.cos(a), y, r * math.sin(a) * depth)) + n * lift, n
+
+
+def extruded(p, role, m, pts, thickness):
+    """Placa plana com o contorno `pts` (x, y) no plano XY local de `m`, espessura em Z."""
+    bm = bmesh.new()
+    front = [bm.verts.new((x, y, -thickness / 2)) for x, y in pts]
+    back = [bm.verts.new((x, y, thickness / 2)) for x, y in pts]
+    bm.faces.new(front)
+    bm.faces.new(list(reversed(back)))
+    for i in range(len(pts)):
+        j = (i + 1) % len(pts)
+        bm.faces.new((front[i], front[j], back[j], back[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    p.add(role, bm, m)
+
+
+BOLT = [(-0.02, 0.0), (0.025, 0.0), (0.01, 0.07), (0.045, 0.07), (-0.01, 0.19), (0.0, 0.1), (-0.035, 0.1)]
+
+
+def faisca_head(p):
+    c = F_HEAD
+    ex, ey, ez = F_HEAD_RADII
+    mk.HEADS["faisca2_head"] = {"top": round(c.y + ey + 0.05, 3), "center": round(c.y, 3), "aspect": round(F_SCREEN[0] / F_SCREEN[1], 3)}
+    hs = scaled(c, ex, ey, ez)
+    lathe(p, "dark", scaled(c, ex - 0.035, ey - 0.03, ez - 0.035), [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 22)
+    # Calota em duas metades (a crista dos para-raios entre elas), faixa azul à volta com a
+    # fenda do visor aberta à frente, queixo e nuca.
+    sphere_panel(p, "shell", hs, 1.0, (17, 88), (-88, 88), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (17, 88), (92, 268), 0.2, (10, 6), gap=0.05)
+    sphere_panel(p, "trim", hs, 1.02, (-15, 15), (-26, 206), 0.2, (20, 2), gap=0.04)
+    sphere_panel(p, "shell", hs, 1.0, (-70, -17), (-150, -30), 0.2, (10, 4), gap=0.05)
+    sphere_panel(p, "shell", hs, 1.0, (-65, -17), (-26, 206), 0.2, (16, 4), gap=0.05)
+    # Visor que varre: ecrã largo recuado na fenda, barras de retenção em metal.
+    p.screen((c.x, c.y, c.z - ez + 0.04), F_SCREEN, bulge=0.01)
+    for dy in (-1, 1):
+        mbox(p, "metal", T(c.x, c.y + dy * 0.041, c.z - ez + 0.036), (0.2, 0.012, 0.014), 0.004, 1)
+    # Para-raios: ziguezagues sobre pilhas de isoladores, inclinados para trás.
+    for side in (-1, 1):
+        base = T(side * 0.05, c.y + ey * 0.93, c.z + 0.03)
+        lean = sub(base, rot=(28, 0, -side * 12))
+        for i, rr in enumerate((0.026, 0.022, 0.018)):
+            mtube(p, "shell" if i % 2 == 0 else "trim", sub(lean, 0, 0.012 + i * 0.018, 0), rr, 0.014, 14, bevel=0.003)
+        mtube(p, "dark", sub(lean, 0, 0.03, 0), 0.008, 0.07, 8)
+        extruded(p, "trim", sub(sub(lean, 0, 0.062, 0), rot=(0, 90, 0)), BOLT, 0.018)
+        ball(p, "glow", at(lean, 0, 0.062 + 0.19, 0.0), 0.013, 8)
+    # Sensores: LED de estado e grelha de microfone de lado, número atrás.
+    mbox(p, "glow", T(ex - 0.004, c.y + 0.02, c.z - 0.03), (0.012, 0.024, 0.03), 0.004, 1)
+    for i in range(3):
+        mbox(p, "dark", T(-ex + 0.006, c.y - 0.05 - i * 0.018, c.z), (0.01, 0.008, 0.05), 0.002, 1)
+    serial(p, plane((0.0, c.y, c.z + ez * 1.02 + 0.002), (0, 0, 1), (1, 0, 0)), "08", 0.03)
+    mbox(p, "team", T(0, c.y + ey + 0.002, c.z - 0.04), (0.02, 0.01, 0.1), 0.004, 1)
+
+
+def faisca_torso(p):
+    c = F_CHEST
+    top, bottom = F_TORSO[-1][0], F_TORSO[0][0]
+    neck(p, c.y + top - 0.005, F_HEAD.y - F_HEAD_RADII[1] + 0.02, 0.062, 0.0, plate=(0.2, 0.18))
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, F_DEPTH, 1.0))
+    inner = [(y, r - 0.035) for y, r in F_TORSO]
+    lathe(p, "dark", flat, [(0.0, bottom)] + [(r, y) for y, r in inner] + [(0.0, top)], 26)
+    # Blindagem: dois painéis à frente (condensadores entre eles), ilhargas baixas (em cima
+    # entram os suportes dos ombros), duas costas com a fenda do suporte da bobina.
+    for lo, yr in (((-150, -104), (-0.24, 0.19)), ((-76, -30), (-0.24, 0.19)), ((-28, 28), (-0.24, -0.02)),
+                   ((152, 208), (-0.24, -0.02)), ((32, 84), (-0.24, 0.19)), ((96, 148), (-0.24, 0.19))):
+        rev_panel(p, "shell", flat, F_TORSO, yr, lo, 0.034, (8, 8), gap=0.012)
+    mring(p, "trim", sub(flat, 0, bottom + 0.035, 0), profile_radius(F_TORSO, bottom + 0.035) + 0.004, 0.014, 26, 5)
+    # Banco de condensadores recuado: caixa escura, três garrafas de luz, moldura azul.
+    core = T(0, c.y + 0.02, c.z - 0.215 * F_DEPTH + 0.02)
+    mbox(p, "dark", sub(core, 0, 0, 0.01), (0.1, 0.17, 0.05), 0.01)
+    for dx in (-0.03, 0.0, 0.03):
+        capsule(p, "glow", sub(core, dx, 0, -0.012), 0.011, 0.12, 10)
+        for dy in (-1, 1):
+            mtube(p, "metal", sub(core, dx, dy * 0.062, -0.012), 0.014, 0.012, 10)
+    for dy in (-1, 1):
+        mbox(p, "trim", sub(core, 0, dy * 0.092, -0.016), (0.12, 0.016, 0.02), 0.006, 1)
+    for dx in (-1, 1):
+        mbox(p, "trim", sub(core, dx * 0.058, 0, -0.016), (0.016, 0.2, 0.02), 0.006, 1)
+    q, n = rev_point(c, F_TORSO, F_DEPTH, -50, 0.1)
+    serial(p, plane(q, n, (math.sin(math.radians(-50)), 0, -math.cos(math.radians(-50)))), "08", 0.028)
+    q, n = rev_point(c, F_TORSO, F_DEPTH, 180, -0.12)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.042, 0.026)
+    # Bobina de Tesla às costas: suporte pela fenda, base com parafusos, primário, forma
+    # azul enrolada, toro no topo e ponto de descarga.
+    b = F_COIL
+    mbox(p, "dark", T(0, b.y + 0.02, (0.17 + b.z) / 2 - 0.02), (0.08, 0.08, b.z - 0.15), 0.012)
+    mtube(p, "dark", T(b.x, b.y, b.z), 0.075, 0.05, 20, bevel=0.006)
+    bolts(p, T(b.x, b.y + 0.026, b.z), 0.06, 6, size=0.008)
+    for i in range(3):
+        mring(p, "metal", T(b.x, b.y + 0.045 + i * 0.022, b.z), 0.085, 0.009, 22, 5)
+    mtube(p, "trim", T(b.x, b.y + 0.25, b.z), 0.045, 0.38, 16, bevel=0.006)
+    for i in range(11):
+        mring(p, "metal", T(b.x, b.y + 0.1 + i * 0.03, b.z), 0.048, 0.004, 16, 4)
+    mring(p, "metal", T(b.x, b.y + 0.46, b.z), 0.1, 0.042, 32, 12)
+    mtube(p, "dark", T(b.x, b.y + 0.46, b.z), 0.05, 0.03, 16)
+    rod(p, "metal", (b.x + 0.1, b.y + 0.49, b.z), (b.x + 0.11, b.y + 0.54, b.z), 0.006, 6)
+    ball(p, "glow", (b.x + 0.11, b.y + 0.55, b.z), 0.016, 10)
+    warning(p, plane((b.x, b.y + 0.005, b.z - 0.0755), (0, 0, -1), (-1, 0, 0)), 0.032)
+    cable(p, [(0.06, b.y, b.z - 0.05), (0.09, b.y - 0.04, 0.26), (0.06, b.y - 0.02, 0.19)], 0.01)
+    waist(p, 0.84, c.y + bottom + 0.02, 0.11)
+    pelvis(p, (0, 0.76, 0.0), (0.24, 0.15, 0.24), FAISCA["hip"].x, FAISCA["hip"].y, 0.08)
+
+
+def faisca_shoulders(p):
+    y = FAISCA["shoulder_y"]
+    for side in (-1, 1):
+        pin, drum = shoulder(p, side, 0.25, y, 0.01, 0.095, 0.075, 0.075)
+        mbox(p, "dark", T(drum.x, y + 0.11, 0.01), (0.05, 0.08, 0.08), 0.01, 1)
+        m = T(drum.x + side * 0.01, y + 0.02, 0.01)
+        a0, a1 = (-90, 90) if side > 0 else (90, 270)
+        sphere_panel(p, "shell", m, 0.15, (22, 88), (a0 - 25, a1 + 25), 0.028, (12, 5), gap=0.008)
+        sphere_panel(p, "trim", m, 0.155, (8, 20), (a0 - 20, a1 + 20), 0.026, (12, 2), gap=0.006)
+        la, lo = math.radians(52), math.radians(0 if side > 0 else 180)
+        q = at(m, 0.152 * math.cos(la) * math.cos(lo), 0.152 * math.sin(la), 0.0)
+        mbox(p, "glow", frame(q, q - at(m)), (0.012, 0.004, 0.06), 0.002, 1)
+        mbox(p, "team", T(drum.x + side * 0.01, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
+        upper_arm(p, side, pin, FAISCA["elbow_l"] if side < 0 else FAISCA["elbow_r"], bone_r=0.034, elbow_w=0.07, elbow_r=0.045, armor_size=(0.1, 0.09))
+
+
+def faisca_forearm_left(p):
+    e, wr = FAISCA["elbow_l"], FAISCA["wrist_l"]
+    m = frame(e, wr - e, front=(0.3, 0, -1))
+    length = (wr - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.065, 0.065, 0.075), 0.012, 1)
+    capsule(p, "dark", sub(m, 0, length * 0.55, 0), 0.075, length * 0.8, 18)
+    for lo in ((-80, 80), (100, 260)):
+        cyl_panel(p, "shell", sub(m, 0, length * 0.5, 0), 0.1, length * 0.6, lo, 0.03, (10, 2), gap=0.012, radius_top=0.088)
+    for v in (0.2, 0.8):
+        mring(p, "trim", sub(m, 0, length * v, 0), 0.1 - 0.012 * v, 0.012, 20, 5)
+    mbox(p, "glow", sub(m, 0, length * 0.5, 0.1), (0.05, 0.01, 0.01), 0.003, 1)
+    connector(p, sub(m, 0.1, length * 0.45, 0.0, rot=(0, 0, -90)), 0.013)
+    wrist(p, m, length)
+    hand(p, sub(m, 0, length + 0.14, 0.0, rot=(0, -90, 180)), fingers=3, scale=1.3, curl=1.0)
+
+
+def faisca_forearm_right(p):
+    e, muzzle = FAISCA["elbow_r"], FAISCA["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.07, 0.08, 0.08), 0.012, 1)
+    # Alojamento dos condensadores: cápsula com uma cinta de aletas de arrefecimento a meio.
+    capsule(p, "shell", sub(m, 0, 0.16, 0), 0.1, 0.18, 18)
+    capsule(p, "shell", sub(m, 0, 0.39, 0), 0.095, 0.14, 18)
+    mtube(p, "dark", sub(m, 0, 0.28, 0), 0.075, 0.12, 16)
+    for i in range(5):
+        mtube(p, "metal", sub(m, 0, 0.235 + i * 0.022, 0), 0.105, 0.008, 22)
+    for i in range(3):
+        mbox(p, "glow", sub(m, -0.03 + i * 0.03, 0.16, 0.098), (0.018, 0.04, 0.008), 0.003, 1)
+    ring = sub(m, 0, 0.47, 0)
+    mtube(p, "metal", ring, 0.085, 0.03, 20, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), 0.07, 6, size=0.009)
+
+
+def faisca_gun(p):
+    """Emissor-bobina: uma pequena bobina de Tesla deitada, com o toro na boca e o elétrodo
+    de luz no centro; recua com o disparo."""
+    e, muzzle = FAISCA["elbow_r"], FAISCA["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    length = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.52, 0), 0.055, 0.08, 16)
+    mtube(p, "trim", sub(m, 0, 0.72, 0), 0.04, 0.34, 16, bevel=0.005)
+    for i in range(9):
+        mring(p, "metal", sub(m, 0, 0.58 + i * 0.032, 0), 0.043, 0.004, 14, 4)
+    mring(p, "metal", sub(m, 0, length - 0.04, 0), 0.07, 0.03, 26, 10)
+    ball(p, "glow", at(m, 0, length - 0.03, 0), 0.028, 12)
+
+
+def claw_foot(p, m, out, ankle, toe_len=0.12, tip_len=0.07, spread=30, width=0.07, armor="shell", trim="trim"):
+    """Pé de ave largo: bloco da sola debaixo do tornozelo, três dedos grossos à frente e um
+    esporão atrás; cada dedo com almofada de borracha, falanges escuras com pinos nas juntas,
+    cobertura pintada e unha de metal."""
+    mbox(p, "rubber", sub(m, 0, 0.012, 0.0), (0.15, 0.024, 0.15), 0.012)
+    mbox(p, "dark", sub(m, 0, 0.042, 0.0), (0.16, 0.04, 0.16), 0.02)
+    for a, length, tip in ((-spread, toe_len, tip_len), (0, toe_len * 1.1, tip_len), (spread, toe_len, tip_len), (180, toe_len * 0.55, tip_len * 0.8)):
+        toe = sub(m, 0, 0, 0, rot=(0, a, 0))
+        across = at(toe, 1, 0, 0) - at(toe)
+        z0 = -0.07
+        mtube(p, "metal", axis_frame(at(toe, 0, 0.04, z0), across), 0.016, width + 0.012, 10)
+        seg = sub(toe, 0, 0.034, z0 - length / 2)
+        mbox(p, "dark", seg, (width, 0.034, length), 0.01)
+        mbox(p, "rubber", sub(seg, 0, -0.024, 0), (width * 0.92, 0.016, length * 0.9), 0.007)
+        mbox(p, armor if a != 180 else trim, sub(seg, 0, 0.026, 0.004), (width + 0.008, 0.022, length * 0.82), 0.011)
+        z1 = z0 - length
+        mtube(p, "metal", axis_frame(at(toe, 0, 0.034, z1), across), 0.013, width * 0.9, 10)
+        tipm = sub(toe, 0, 0.028, z1 - tip / 2)
+        mbox(p, "dark", tipm, (width * 0.8, 0.03, tip), 0.009)
+        mbox(p, "rubber", sub(tipm, 0, -0.019, 0), (width * 0.74, 0.012, tip * 0.85), 0.005)
+        lathe(p, "metal", frame(at(tipm, 0, 0.0, -tip / 2), at(toe, 0, -0.35, -1) - at(toe)), [(0.0, -0.005), (width * 0.3, 0.0), (width * 0.22, 0.02), (0.0, 0.05)], 10)
+
+
+def faisca_leg(p, out):
+    bird_leg(p, out, FAISCA["hip"].y, knee=(-0.2, -0.12), heel=(-0.44, 0.12), ankle_up=0.11, foot_fn=claw_foot, k=1.0)
+
+
+# ======================================================================================
 def define(part):
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
@@ -1441,3 +1686,22 @@ def define(part):
     @part("gancho2_leg_r")
     def _(p):
         gancho_leg(p, 1)
+
+    part("faisca2_head")(faisca_head)
+    part("faisca2_torso")(faisca_torso)
+    part("faisca2_shoulders")(faisca_shoulders)
+
+    @part("faisca2_arm")
+    def _(p):
+        faisca_forearm_left(p)
+        faisca_forearm_right(p)
+
+    part("faisca2_gun")(faisca_gun)
+
+    @part("faisca2_leg_l")
+    def _(p):
+        faisca_leg(p, -1)
+
+    @part("faisca2_leg_r")
+    def _(p):
+        faisca_leg(p, 1)
