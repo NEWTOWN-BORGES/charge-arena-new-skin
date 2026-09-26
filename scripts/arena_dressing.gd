@@ -100,7 +100,9 @@ static func crowd(view, theme: Dictionary, reach: float, quality: int) -> void:
 	people.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var mat = StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	# Lit per vertex: little soft figures in the stands rather than flat stickers.
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+	mat.roughness = 0.6
 	people.material_override = mat
 	people.set_meta("crowd", true)
 	view.add_child(people)

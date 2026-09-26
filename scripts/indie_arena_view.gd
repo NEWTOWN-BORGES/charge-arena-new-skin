@@ -337,12 +337,8 @@ func set_quality(level: int) -> void:
 		secondary_light.visible = quality_level > 0
 	for mat in materials.values():
 		if mat is StandardMaterial3D:
+			# Leve lights per vertex: the studio's soft volume without per-pixel light.
 			ArenaFinish.surface(mat, quality_level)
-			# Flat lighting on Leve removes per-light passes and is also a clean
-			# indie look. Higher profiles restore the modeled ceramic shading.
-			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if quality_level == 0 or mat.get_meta("always_unshaded", false) else BaseMaterial3D.SHADING_MODE_PER_PIXEL
-			if mat.albedo_color == CREAM:
-				mat.clearcoat_enabled = quality_level >= 2
 
 func world_label(text: String, pos: Vector3, color: Color, font_size: int = 48, horizontal: bool = true) -> Label3D:
 	var label = Label3D.new()
@@ -395,16 +391,18 @@ func build(new_map: Dictionary = {}) -> void:
 		bg_mat.set_shader_parameter(key, theme[key])
 	background.material = bg_mat
 	background_layer.add_child(background)
+	# Studio light: a large warm key from the upper left and a cool, gentle fill from behind
+	# on the right. The grey dome of the environment does the rest.
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
-	light.light_color = Color("ffe9cc")
-	light.light_energy = 1.35
+	light.light_color = Color("fff3e6")
+	light.light_energy = 1.1
 	light.shadow_enabled = false
 	add_child(light)
 	secondary_light = DirectionalLight3D.new()
-	secondary_light.rotation_degrees = Vector3(-35, 145, 0)
-	secondary_light.light_color = Color("8fc8ff")
-	secondary_light.light_energy = 0.72
+	secondary_light.rotation_degrees = Vector3(-30, 145, 0)
+	secondary_light.light_color = Color("e4ecf6")
+	secondary_light.light_energy = 0.35
 	add_child(secondary_light)
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -416,11 +414,13 @@ func build(new_map: Dictionary = {}) -> void:
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
-	platform(outer, -0.28, 0.75, theme.frame)
+	# The plinth the arena floats on: a mid grey of the theme's frame, so the platform reads as
+	# a soft studio object and not a dark hole around the field.
+	platform(outer, -0.28, 0.75, theme.frame.lerp(theme.stand, 0.55))
 	var under: Array = []
 	for p in outer:
 		under.append(p * 0.97)
-	platform(under, -0.98, 0.22, theme.frame.darkened(0.35))
+	platform(under, -0.98, 0.22, theme.frame.lerp(theme.stand, 0.3))
 	# Floating plinth silhouette and a painted hexagon floor without coplanar seams.
 	var court = platform(walls, 0.0, 0.28, Color.WHITE)
 	var court_mat = ShaderMaterial.new()
@@ -769,7 +769,8 @@ func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null,
 	var root = Node3D.new()
 	(parent if parent != null else self).add_child(root)
 	root.position.z = Rules.track_position(team, 0).y
-	soft_disc(root, Vector3(0.12, 0.024, 0.14), Vector2(1.7, 1.35), Color(0.006, 0.02, 0.025, 0.8))
+	# Soft contact shadow under the pilot, a little towards the back right, away from the key.
+	soft_disc(root, Vector3(0.12, 0.024, 0.14), Vector2(1.8, 1.45), Color(0.07, 0.08, 0.1, 0.55))
 	torus(root, Vector3(0, 0.043, 0), 0.53, 0.018, Color(color, 0.72))
 	var body = Node3D.new()
 	body.name = "Body"
@@ -1056,24 +1057,25 @@ func build_showroom() -> void:
 	floor_node.material_override = floor_mat
 	floor_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	showroom.add_child(floor_node)
-	# Two steps of the pedestal, a neon lip on each, and a warm pool of light on top.
-	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("0f1130"))
-	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.025, Color(CYAN, 0.7))
-	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("161942"))
-	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.028, Color("ffd23f"))
-	# The boss's plinth, lower and darker.
-	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("1c1f48"))
-	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.03, Color(CORAL, 0.85))
+	# A photo studio: two soft grey steps of pedestal with a thin painted lip in the team
+	# colour, on a pale floor that melts into the backdrop.
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("c3c9cf"))
+	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.018, Color(CYAN, 0.9))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("d8dde2"))
+	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.02, Color("f2cb6e"))
+	# The boss's plinth, lower and a shade darker.
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("b7bdc4"))
+	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.02, Color(CORAL, 0.9))
 	var key = OmniLight3D.new()
 	key.position = Vector3(1.6, 3.6, 3.2)
-	key.light_color = Color("fff1dc")
-	key.light_energy = 0.7
+	key.light_color = Color("fff4e8")
+	key.light_energy = 0.55
 	key.omni_range = 9.0
 	showroom.add_child(key)
 	var rim = OmniLight3D.new()
 	rim.position = Vector3(-2.2, 2.6, -2.4)
-	rim.light_color = Color("7fe0ff")
-	rim.light_energy = 1.4
+	rim.light_color = Color("e6eef8")
+	rim.light_energy = 0.5
 	rim.omni_range = 7.0
 	showroom.add_child(rim)
 

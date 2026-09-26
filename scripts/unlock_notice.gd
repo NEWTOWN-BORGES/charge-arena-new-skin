@@ -44,7 +44,7 @@ func _ready() -> void:
 	heading.position = Vector2(84, 14)
 	heading.add_theme_font_override("font", UiKit.strong_font())
 	heading.add_theme_font_size_override("font_size", 12)
-	heading.add_theme_color_override("font_color", UiKit.SUN)
+	heading.add_theme_color_override("font_color", UiKit.SUN_INK)
 	card.add_child(heading)
 	title = Label.new()
 	title.position = Vector2(84, 32)

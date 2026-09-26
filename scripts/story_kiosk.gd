@@ -10,7 +10,6 @@ signal archive
 const UI = preload("res://scripts/story_ui.gd")
 const Press = preload("res://scripts/story_press.gd")
 const Models = preload("res://scripts/indie_arena_view.gd")
-const SPACE = preload("res://shaders/press_space.gdshader")
 const HOLO = Color(0.45, 0.92, 1.0, 0.32)
 const ROSE = Color("e0697a")
 const MINT = Color("9ff0dc")
@@ -58,44 +57,43 @@ func build_scene() -> void:
 	stage.add_child(model)
 	var world = WorldEnvironment.new()
 	world.environment = Environment.new()
+	# The Praça in the studio look: a soft pastel sky over the square and the studio's light.
 	var sky = Sky.new()
-	var sky_material = ShaderMaterial.new()
-	sky_material.shader = SPACE
-	# The arena's own night: deep teal with a faint gold haze.
-	sky_material.set_shader_parameter("nebula_a", Color("1c4a55"))
-	sky_material.set_shader_parameter("nebula_b", Color("3a3320"))
-	sky_material.set_shader_parameter("density", 0.99)
-	sky.sky_material = sky_material
+	var dome = ProceduralSkyMaterial.new()
+	dome.sky_top_color = Color("c9d4e0")
+	dome.sky_horizon_color = Color("eedfd2")
+	dome.ground_bottom_color = Color("6d737a")
+	dome.ground_horizon_color = Color("a9afb5")
+	dome.sun_angle_max = 0.0
+	sky.sky_material = dome
 	world.environment.background_mode = Environment.BG_SKY
 	world.environment.sky = sky
-	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world.environment.ambient_light_color = Color("91b5c5")
-	world.environment.ambient_light_energy = 0.5
-	world.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	world.environment.tonemap_exposure = 1.1
-	world.environment.adjustment_enabled = true
-	world.environment.adjustment_saturation = 1.12
+	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world.environment.ambient_light_energy = 0.9
+	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	world.environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	world.environment.tonemap_exposure = 1.05
 	stage.add_child(world)
 	var key = DirectionalLight3D.new()
 	key.rotation_degrees = Vector3(-40, 160, 0)
-	key.light_color = Color("ffe9cc")
-	key.light_energy = 1.25
+	key.light_color = Color("fff3e6")
+	key.light_energy = 1.1
 	stage.add_child(key)
 	var rim = DirectionalLight3D.new()
 	rim.rotation_degrees = Vector3(-25, -20, 0)
-	rim.light_color = Color("8fc8ff")
-	rim.light_energy = 0.8
+	rim.light_color = Color("e4ecf6")
+	rim.light_energy = 0.35
 	stage.add_child(rim)
 	var glow = OmniLight3D.new()
 	glow.position = Vector3(0, 0.6, 0.2)
-	glow.light_color = Color("7fe6ff")
-	glow.light_energy = 0.7
+	glow.light_color = Color("bff2ff")
+	glow.light_energy = 0.35
 	glow.omni_range = 3.5
 	stage.add_child(glow)
 	var warm = OmniLight3D.new()
 	warm.position = Vector3(0, 2.8, -0.6)
-	warm.light_color = Color("ffd7a0")
-	warm.light_energy = 1.3
+	warm.light_color = Color("ffe6c4")
+	warm.light_energy = 0.6
 	warm.omni_range = 5.0
 	stage.add_child(warm)
 	build_square()
@@ -354,7 +352,7 @@ func build_ui() -> void:
 	bottom.add_theme_constant_override("separation", 10)
 	add_child(bottom)
 	var speech = PanelContainer.new()
-	speech.add_theme_stylebox_override("panel", UI.panel_style(Color(0.03, 0.09, 0.11, 0.88), Color(Models.CYAN, 0.6), 16, 18))
+	speech.add_theme_stylebox_override("panel", UI.panel_style(Color(0.97, 0.975, 0.98, 0.94), Color(Models.CYAN, 0.7), 16, 18))
 	bottom.add_child(speech)
 	var speech_box = VBoxContainer.new()
 	speech.add_child(speech_box)

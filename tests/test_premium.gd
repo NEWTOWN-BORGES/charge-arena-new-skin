@@ -25,9 +25,10 @@ func run():
 		var pilot = view.build_player(View.CYAN, 0, skin)
 		var body = pilot.get_node("Body")
 		var valid = true
-		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Robot_screen", "Robot_outline"]:
+		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Robot_screen"]:
 			valid = valid and body.has_node(part)
 		check(valid, "Skin %d keeps animated body, legs, weapon, muzzle and face" % skin)
+		check(not body.has_node("Robot_outline"), "Skin %d has no ink hull in the studio look" % skin)
 		var batch_ok = true
 		for group in [body, body.get_node("LegL"), body.get_node("LegR"), body.get_node("Gun")]:
 			var meshes = group.get_children().filter(func(n): return n is MeshInstance3D)
@@ -36,19 +37,19 @@ func run():
 				batch_ok = batch_ok and child.mesh.get_aabb().position.is_finite() and child.mesh.get_aabb().size.is_finite()
 		check(batch_ok, "Skin %d merges its parts into bounded, finite meshes" % skin)
 		pilot.free()
-	# Switching profiles must be reversible, including glow, normal maps and MSAA.
+	# Switching profiles must be reversible, including glow, lighting and MSAA.
 	var ivory = view.material(View.CREAM)
 	for quality in [2, 0, 1, 2]:
 		video.configure(60, quality, false, false)
 		video.apply(root, view)
-		check(ivory.normal_enabled == (quality == 2) and (ivory.albedo_texture != null) == (quality > 0), "Profile %d uses the intended texture budget" % quality)
+		check(not ivory.normal_enabled and ivory.albedo_texture == null and not ivory.clearcoat_enabled, "Profile %d keeps the clean studio paint: no grain, no clearcoat" % quality)
 		check(view.presentation_environment.glow_enabled == (quality == 2) and root.msaa_3d == Video.AA_LEVELS[quality], "Profile %d applies glow and anti-aliasing" % quality)
 		var armour: MeshInstance3D = view.units[0].get_node("Body/Robot_paint")
 		var colours = armour.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
 		check(armour.material_override.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and colours != null and colours.size() > 0, "Profile %d preserves armour colours with the intended shader" % quality)
-		check(view.units[0].get_node("Body/Robot_outline").visible == (quality > 0), "Profile %d shows ink outlines only when it can afford them" % quality)
 		var new_paint = view.material(Color(0.43, 0.38, 0.49 + quality * 0.03))
-		check((new_paint.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED) == (quality == 0), "Newly created materials respect the current profile")
+		check(new_paint.shading_mode == (BaseMaterial3D.SHADING_MODE_PER_VERTEX if quality == 0 else BaseMaterial3D.SHADING_MODE_PER_PIXEL), "Newly created materials respect the current profile")
+		check(ivory.shading_mode == new_paint.shading_mode, "Profile %d relights existing materials the same way" % quality)
 		for tick in range(120): view.update_state(rules, 0, 1.0 / 60.0)
 		var nodes_before = view.get_child_count()
 		for request in range(200):

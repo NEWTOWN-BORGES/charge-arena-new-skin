@@ -75,7 +75,7 @@ func build() -> void:
 		box.add_child(tail)
 	else:
 		column.add_child(link(true))
-		var crown = UI.card(column, Color("2b2112"), UI.GOLD, 22)
+		var crown = UI.card(column, Color("f6ecd2"), UI.GOLD, 22)
 		crown.add_child(UI.label("CAMPEÃO DA TAÇA AURORA", 30, UI.GOLD, "display", false))
 		crown.add_child(UI.label("Dez rondas. Dez nomes grandes. Nenhum por sorte.", 17, UI.WHITE, "body"))
 	UI.gap(column, 30)

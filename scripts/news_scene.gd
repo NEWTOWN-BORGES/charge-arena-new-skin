@@ -7,7 +7,6 @@ extends SubViewport
 ## PRESS_ROOM, LOCKER, PLAZA (the Praça da Taça with Rosa's kiosk), BOX (a VIP box over
 ## the arena) and OBSERVATORY. The scene says what is happening on it.
 const Models = preload("res://scripts/indie_arena_view.gd")
-const SPACE = preload("res://shaders/press_space.gdshader")
 var stage: Node3D
 var model
 var cast_specs: Dictionary = {}
@@ -31,8 +30,13 @@ func face(node: Node3D, target: Vector3) -> void:
 	var to = target - node.position
 	node.rotation.y = atan2(-to.x, -to.z)
 
+# Sets are built in the studio look: every surface keeps a hint of its hue on a pale, soft
+# ground, like a photo shoot on painted flats rather than a night on location.
+const STUDIO_TONE = Color("d3d8dd")
+
 func block(pos: Vector3, dimensions: Vector3, color: String, glow: bool = false) -> MeshInstance3D:
-	return model.box(stage, pos, dimensions, Color(color), glow, 0.02)
+	var tone = Color(color) if glow else Color(color).lerp(STUDIO_TONE, 0.55)
+	return model.box(stage, pos, dimensions, tone, glow, 0.02)
 
 func sign_text(value: String, pos: Vector3, scale_size: float = 0.009, color: String = "e8bd78") -> void:
 	var l = Label3D.new()
@@ -67,34 +71,37 @@ func setup(story: Dictionary) -> void:
 	stage_actors(scene, set_name, String(story.get("personagemPrincipal", "")), String(story.get("personagemSecundario", "")))
 	var world = WorldEnvironment.new()
 	world.environment = Environment.new()
+	# Open-air sets get a soft pastel sky; indoor sets a pale studio wall. Either way the
+	# light is the studio's: a warm key, a gentle cool fill and a bright, even dome.
+	var sky = Sky.new()
+	var dome = ProceduralSkyMaterial.new()
+	dome.sky_top_color = [Color("c9d2e2"), Color("d3cbe2"), Color("dccfc4"), Color("c7dcd7")][variation % 4] if mood.space else Color("d9dee3")
+	dome.sky_horizon_color = [Color("efdccd"), Color("e9d8e6"), Color("f0e2cf"), Color("e2eee2")][variation % 4] if mood.space else Color("c3c9cf")
+	dome.ground_bottom_color = Color("6d737a")
+	dome.ground_horizon_color = Color("a9afb5")
+	dome.sun_angle_max = 0.0
+	sky.sky_material = dome
+	world.environment.sky = sky
 	if mood.space:
-		var sky = Sky.new()
-		var sky_material = ShaderMaterial.new()
-		sky_material.shader = SPACE
-		sky_material.set_shader_parameter("nebula_a", [Color("6b2a86"), Color("1f5a8a"), Color("7a3b2a"), Color("2a7a6a")][variation % 4])
-		sky_material.set_shader_parameter("nebula_b", [Color("15576f"), Color("5a2a6f"), Color("2a4a7a"), Color("6a5a2a")][variation % 4])
-		sky.sky_material = sky_material
 		world.environment.background_mode = Environment.BG_SKY
-		world.environment.sky = sky
 	else:
 		world.environment.background_mode = Environment.BG_COLOR
-		world.environment.background_color = mood.back
-	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world.environment.ambient_light_color = mood.ambient
-	world.environment.ambient_light_energy = mood.ambient_energy
-	world.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	world.environment.adjustment_enabled = true
-	world.environment.adjustment_saturation = 1.12
+		world.environment.background_color = Color(mood.back).lerp(STUDIO_TONE, 0.85)
+	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world.environment.ambient_light_energy = 0.9
+	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	world.environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	world.environment.tonemap_exposure = 1.05
 	add_child(world)
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = mood.sun
-	light.light_color = mood.sun_color
-	light.light_energy = 1.5
+	light.light_color = Color(mood.sun_color).lerp(Color("fff4e8"), 0.6)
+	light.light_energy = 1.15
 	add_child(light)
 	var fill = DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-15, 160, 0)
-	fill.light_color = mood.rim
-	fill.light_energy = 0.8
+	fill.light_color = Color("e4ecf6")
+	fill.light_energy = 0.35
 	add_child(fill)
 
 func build_set(set_name: String, camera: Camera3D) -> Dictionary:

@@ -137,7 +137,7 @@ static func pilot_render(cup, who: String, player_skin: int, turn: float = 0.0, 
 	# The model is built at its seat in the arena; a portrait wants it in the middle.
 	pilot.position = Vector3.ZERO
 	pilot.rotation.y = PI + turn
-	for rig in [[Vector3(-38, -30, 0), Color("ffe9cc"), 1.5], [Vector3(-20, 150, 0), Color("8fc8ff"), 0.9]]:
+	for rig in [[Vector3(-38, -30, 0), Color("fff3e6"), 1.15], [Vector3(-20, 150, 0), Color("e4ecf6"), 0.35]]:
 		var light = DirectionalLight3D.new()
 		light.rotation_degrees = rig[0]
 		light.light_color = rig[1]
@@ -147,9 +147,9 @@ static func pilot_render(cup, who: String, player_skin: int, turn: float = 0.0, 
 	world.environment = Environment.new()
 	world.environment.background_mode = Environment.BG_CLEAR_COLOR
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world.environment.ambient_light_color = Color("b4dce3")
-	world.environment.ambient_light_energy = 0.6
-	world.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	world.environment.ambient_light_color = Color("c3c9cf")
+	world.environment.ambient_light_energy = 0.9
+	world.environment.tonemap_mode = Environment.TONE_MAPPER_AGX
 	viewport.add_child(world)
 	var camera = Camera3D.new()
 	camera.fov = 26

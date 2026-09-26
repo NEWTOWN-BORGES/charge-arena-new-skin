@@ -8,10 +8,34 @@ jogo (regras, IA, poderes, campanha, Taça, PvP). O trabalho está dividido em f
 | 1 | Elenco de robôs: modelos, rostos, nomes, retratos | feito |
 | 2 | Arenas, muralhas, balizas e cenário | feito |
 | 3 | Disparos, poderes, partículas e explosões | feito |
-| 4 | Luz, atmosfera e interface | interface feita; luz por ambiente a seguir |
+| 4 | Luz, atmosfera e interface | feito: estilo estúdio no jogo todo |
 | 5 | Banda sonora | por fazer |
+| 6 | Robôs v2 (kit mecânico) | BIT feito; os outros 11 e os pilotos de estrada a seguir |
 
-## Estilo
+## Estilo estúdio (atual)
+
+O jogo inteiro segue o render do BIT v2 feito no Blender: suave e polido, como uma sessão de
+fotografia de estúdio.
+
+- **Materiais** (`shaders/robot_paint.gdshader`): pintura lisa semi-mate com reflexos largos nos
+  biséis, chassis grafite, juntas em metal polido, borracha mate e sensores com luz. Sem linha de
+  tinta nem sujidade. O perfil Leve usa `robot_paint_low.gdshader`, com a mesma luz calculada a
+  partir da normal.
+- **Luz** (`scripts/arena_finish.gd`): uma cúpula cinzenta neutra dá a luz ambiente e os reflexos,
+  uma luz principal quente vem de cima à esquerda e um enchimento frio e fraco vem de trás. O
+  tonemapping é AgX, o mesmo do Blender.
+- **Fundo** (`shaders/backdrop.gdshader`): um ciclorama claro com um gradiente suave e vinheta.
+- **Arenas** (`scripts/arena_theme.gd`): chão de placas mate claras com juntas suaves e marcações
+  pintadas, sem néon. As seis cores dos ambientes são tons pastel da mesma luz. O Leve ilumina por
+  vértice.
+- **Sombras**: um disco de contacto suave debaixo de cada piloto.
+- **Interface** (`scripts/ui_kit.gd`): placas claras com sombra suave, texto em tinta escura e o
+  amarelo só na ação principal. Os nomes da paleta mantêm o papel: `WHITE` é a cor do texto
+  principal e `PANEL` a das placas.
+- **História**: a banca da Rosa, as fotografias do jornal e os ecrãs do hub usam a mesma luz e a
+  mesma paleta.
+
+## Estilo anterior (robôs v1)
 
 Robôs *chibi* de cabeça-ecrã: uma cabeça grande em forma de televisor com o rosto desenhado num
 ecrã escuro, cantos e painéis laterais na cor de acento, corpo em placas, punhos e pés grandes de

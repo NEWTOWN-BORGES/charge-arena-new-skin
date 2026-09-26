@@ -27,7 +27,7 @@ func _ready() -> void:
 	var won = bool(outcome.get("won", false))
 	var champion = won and cup.champion()
 	var ground = ColorRect.new()
-	ground.color = Color("050c10") if won else Color("100807")
+	ground.color = Color("dde3e7") if won else Color("e6dcd8")
 	ground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ground)
@@ -80,9 +80,9 @@ func _ready() -> void:
 			column.add_child(unlocked)
 		# The paper: what did they write about it?
 		var e: Dictionary = Press.edition(cup, Press.editions_available(cup) - 1)
-		var news = UI.card(column, Color("1a1712"), UI.GOLD_DEEP, 18)
-		news.add_child(UI.label("NOVA EDIÇÃO  ·  AURORA EM CAMPO  N.º %03d" % int(e.number), 15, UI.PRESS_RED.lightened(0.3), "display", false))
-		news.add_child(UI.label(String(e.headline), 30, UI.PAPER, "headline_black"))
+		var news = UI.card(column, Color("f7f2e8"), UI.GOLD_DEEP, 18)
+		news.add_child(UI.label("NOVA EDIÇÃO  ·  AURORA EM CAMPO  N.º %03d" % int(e.number), 15, UI.PRESS_RED, "display", false))
+		news.add_child(UI.label(String(e.headline), 30, UI.INK, "headline_black"))
 		news.add_child(UI.label("Já está na Banca da Rosa.", 15, UI.MUTED, "italic"))
 		var keys = HBoxContainer.new()
 		keys.add_theme_constant_override("separation", 12)

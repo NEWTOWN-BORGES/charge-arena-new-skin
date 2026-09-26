@@ -143,13 +143,13 @@ class Split extends Control:
 	func _draw() -> void:
 		var w = size.x
 		var h = size.y
-		draw_rect(Rect2(Vector2.ZERO, size), Color("060d12"))
-		var left = Color(0.05, 0.22, 0.2, 1.0)
-		var right = Color(0.25, 0.08, 0.07, 1.0) if not final else Color(0.28, 0.2, 0.06, 1.0)
+		draw_rect(Rect2(Vector2.ZERO, size), Color("d9dee3"))
+		var left = Color("c9ebe3")
+		var right = Color("f4d6ce") if not final else Color("f3e3bf")
 		draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w * 0.56, 0), Vector2(w * 0.44, h), Vector2(0, h)]), left)
 		draw_colored_polygon(PackedVector2Array([Vector2(w * 0.56, 0), Vector2(w, 0), Vector2(w, h), Vector2(w * 0.44, h)]), right)
-		draw_line(Vector2(w * 0.56, 0), Vector2(w * 0.44, h), Color("e8bd78"), 4.0, true)
+		draw_line(Vector2(w * 0.56, 0), Vector2(w * 0.44, h), Color("c9922f"), 4.0, true)
 		for i in range(14):
 			var y = h * i / 14.0
-			draw_line(Vector2(0, y), Vector2(w, y), Color(1, 1, 1, 0.025), 1.0)
-		draw_rect(Rect2(0, h - 160, w, 160), Color(0, 0, 0, 0.35))
+			draw_line(Vector2(0, y), Vector2(w, y), Color(1, 1, 1, 0.18), 1.0)
+		draw_rect(Rect2(0, h - 160, w, 160), Color(1, 1, 1, 0.35))

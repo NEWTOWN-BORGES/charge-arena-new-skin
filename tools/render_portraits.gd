@@ -18,19 +18,21 @@ func run() -> void:
 	world.environment = Environment.new()
 	world.environment.background_mode = Environment.BG_CLEAR_COLOR
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world.environment.ambient_light_color = Color("aab4c8")
-	world.environment.ambient_light_energy = 0.55
-	world.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# The studio light of the game: neutral fill, AgX like the Blender renders.
+	world.environment.ambient_light_color = Color("c3c9cf")
+	world.environment.ambient_light_energy = 0.9
+	world.environment.tonemap_mode = Environment.TONE_MAPPER_AGX
 	root.add_child(world)
 	RenderingServer.set_default_clear_color(Color(0, 0, 0, 0))
 	var key = DirectionalLight3D.new()
 	key.rotation_degrees = Vector3(-38, -32, 0)
-	key.light_energy = 1.25
+	key.light_color = Color("fff3e6")
+	key.light_energy = 1.15
 	root.add_child(key)
 	var fill = DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-10, 150, 0)
-	fill.light_energy = 0.45
-	fill.light_color = Color("9fc4ff")
+	fill.light_energy = 0.35
+	fill.light_color = Color("e4ecf6")
 	root.add_child(fill)
 	var camera = Camera3D.new()
 	camera.fov = 26

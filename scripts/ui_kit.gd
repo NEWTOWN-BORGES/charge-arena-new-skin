@@ -1,35 +1,38 @@
 extends RefCounted
 ## The interface's look: its palette, its type and the shapes every panel, key and badge is
-## cut from. Panels read like the robots' own shells — deep indigo plates with a lit rim and
-## a chunky lip under them, so each key looks like a toy button you could press in.
+## cut from. Panels follow the studio look of the robots: pale, soft plates with a gentle
+## shadow and a chunky lip under them, so each key looks like a toy button you could press in.
 ##
 ## Shapes are drawn from one small generated atlas (`atlas()`), so a whole screen of discs,
 ## rings and rounded boxes lands in a single batch instead of one draw call per shape.
 const TITLE_FILE = preload("res://art/fonts/LilitaOne-Regular.ttf")
 const BODY_FILE = preload("res://art/fonts/Rubik-Variable.ttf")
 
-# Night indigo for the plates, one warm sun for the action that matters, the teams' own
-# colours for everything that belongs to a side.
-const NIGHT = Color("0c0d22")
-const PANEL = Color("1a1c42")
-const PANEL_EDGE = Color("3d4292")
-const CARD = Color("23285c")
-const CARD_HI = Color("2f367a")
-const CARD_EDGE = Color("4a52ad")
-const FIELD = Color("12143a")
-const LIP = Color("0a0b20")
-const EMPTY = Color("2c3066")
-const INK = Color("1b1433")
-const WHITE = Color("fff7ea")
-const MUTED = Color("a6abd9")
+# Studio greys for the plates, dark ink for the words, one warm sun for the action that
+# matters, the teams' own colours for everything that belongs to a side. The names keep
+# their roles: WHITE is the main text colour and PANEL the plates, whatever their tone.
+const NIGHT = Color("d9dee3")
+const PANEL = Color("f6f7f9")
+const PANEL_EDGE = Color("cbd1d8")
+const CARD = Color("eceff3")
+const CARD_HI = Color("e0e5eb")
+const CARD_EDGE = Color("c2c9d2")
+const FIELD = Color("dfe3e8")
+const LIP = Color("aab2bc")
+const EMPTY = Color("cdd3da")
+const INK = Color("20242e")
+const WHITE = Color("262b36")
+const MUTED = Color("6a7280")
 const SUN = Color("ffd23f")
-const SUN_LIP = Color("d7731d")
-const MINT = Color("4fe3c9")
-const MINT_LIP = Color("1d8e86")
-const GOLD = Color("ffc44d")
-const DANGER = Color("ff5d6c")
-const CYAN = Color("72ddc6")
-const CORAL = Color("ef947e")
+const SUN_LIP = Color("d7931d")
+# The sun as ink: amber that still reads on the pale plates, for accent words.
+const SUN_INK = Color("a8680a")
+const MINT = Color("4fd3b9")
+const MINT_LIP = Color("22998a")
+const GOLD = Color("e8a92e")
+const DANGER = Color("f0505f")
+const CYAN = Color("5fcfb7")
+const CORAL = Color("ec8a72")
 
 # Where each shape sits in the atlas.
 const DISC = Rect2(0, 0, 128, 128)
@@ -159,7 +162,7 @@ static func box(canvas: CanvasItem, rect: Rect2, color: Color, rim: Color = Colo
 
 static func plate(canvas: CanvasItem, rect: Rect2, color: Color = PANEL, rim: Color = PANEL_EDGE, lip: float = 5.0) -> void:
 	# A panel: soft shadow, a darker lip under it, the face and its lit rim.
-	slice(canvas, rect.grow(10).grow_side(SIDE_BOTTOM, lip), SHADOW, SHADOW_CORNER, Color(0, 0, 0, 0.35))
+	slice(canvas, rect.grow(10).grow_side(SIDE_BOTTOM, lip), SHADOW, SHADOW_CORNER, Color(0.12, 0.15, 0.2, 0.16))
 	if lip > 0.0:
 		box(canvas, rect.grow_side(SIDE_BOTTOM, lip), LIP)
 	box(canvas, rect, color, rim)

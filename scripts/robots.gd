@@ -22,7 +22,13 @@ const HEAD_CENTER = 1.44
 const DISC_SPINS = {"spin_rays": Vector3(0, 1.44, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
 const CENTRED_SPINS = ["spin_rays", "spin_halo", "spin_orbit"]
 # Vertex alpha tells the paint shader what a surface is made of.
-const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5}
+const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5, "rubber": 0.45}
+# The studio look has no ink line: soft light and the dark seams between panels carry the
+# shapes. Leave the hull code for a stylised mode, off by default.
+const INK = false
+# Small hardware (bolts, axles, seals, cables) gets no ink hull: outlined, every bolt read as
+# a dot and the hull doubled their triangles.
+const NO_INK = ["glow", "metal", "rubber"]
 const PAINTED = 0.25
 const OUTLINE_GROUP = "robot_outline"
 
@@ -45,11 +51,16 @@ static func recipe(skin: int) -> Dictionary:
 		parts["top"] = station.tops[kind]
 		parts["spin"] = ""
 		return {"parts": parts, "palette": station.palette, "eye_style": station.eyes[kind], "key": "road%d" % variant,
-			"scale": [1.0, 1.0, 1.0], "wear": station.get("wear", 0.4), "mouth": false}
+			"scale": [1.0, 1.0, 1.0], "wear": station.get("wear", 0.4), "mouth": false, "hip": LEG_PIVOT, "muzzle": MUZZLE}
 	var index = clampi(skin, 0, data.cast.size() - 1)
 	var entry: Dictionary = data.cast[index]
+	# Robots built with the mechanical kit (v2) say where their hips and muzzle are.
 	return {"parts": entry.parts, "palette": entry.palette, "eye_style": entry.eye_style, "key": "cast%d" % index,
-		"scale": entry.get("scale", [1.0, 1.0, 1.0]), "wear": entry.get("wear", 0.4), "mouth": entry.get("mouth", false)}
+		"scale": entry.get("scale", [1.0, 1.0, 1.0]), "wear": entry.get("wear", 0.4), "mouth": entry.get("mouth", false),
+		"hip": _vector(entry.get("hip", []), LEG_PIVOT), "muzzle": _vector(entry.get("muzzle", []), MUZZLE)}
+
+static func _vector(values: Array, fallback: Vector3) -> Vector3:
+	return Vector3(values[0], values[1], values[2]) if values.size() == 3 else fallback
 
 static func head(name: String) -> Dictionary:
 	return ROSTER.data.heads.get(name, {"top": HEAD_TOP, "center": HEAD_CENTER, "aspect": 1.45})
@@ -61,6 +72,9 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	for role in ["shell", "trim", "dark", "metal", "glow", "eyes"]:
 		var hex = String(palette.get(role, ""))
 		out[role] = Color(hex) if hex != "" else team
+	# Seals, sleeves and cables: near-black polymer unless the recipe says otherwise.
+	var rubber = String(palette.get("rubber", ""))
+	out["rubber"] = Color(rubber) if rubber != "" else Color(out.dark).darkened(0.45)
 	if String(palette.get("glow", "")) == "":
 		out.glow = team.lightened(0.3)
 	if String(palette.get("eyes", "")) == "":
@@ -124,7 +138,7 @@ static func merged(key: String, placed: Array, paint: Dictionary, outline: bool 
 			index.append_array(faces)
 			for i in range(start, index.size()):
 				index[i] += base
-			if outline and role != "glow":
+			if outline and not role in NO_INK:
 				var hull_base = hull_verts.size()
 				hull_verts.append_array(points)
 				var hull_start = hull_index.size()
@@ -181,17 +195,22 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	if String(parts.get("top", "")) != "":
 		core.append([parts.top, lift])
 	_mount(view, body, plan.key + ":body", core, paint)
+	var hip: Vector3 = plan.hip
 	for side in [-1, 1]:
 		var leg = Node3D.new()
 		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * LEG_PIVOT.x, LEG_PIVOT.y, LEG_PIVOT.z)
+		leg.position = Vector3(side * hip.x, hip.y, hip.z)
 		body.add_child(leg)
-		_mount(view, leg, plan.key + ":leg", [[parts.legs, Transform3D.IDENTITY]], paint)
+		# A mechanical leg has an outside (bearing caps, vents) and comes as a left and right pair.
+		var leg_part = String(parts.legs) + ("_l" if side == -1 else "_r")
+		if part(leg_part).is_empty():
+			leg_part = String(parts.legs)
+		_mount(view, leg, plan.key + ":" + leg_part, [[leg_part, Transform3D.IDENTITY]], paint)
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	body.add_child(gun)
 	_mount(view, gun, plan.key + ":gun", [[parts.gun, Transform3D.IDENTITY]], paint)
-	var flash = view.sphere(gun, MUZZLE, Vector3.ONE * 0.01, Color("fff1c7"), true)
+	var flash = view.sphere(gun, plan.muzzle, Vector3.ONE * 0.01, Color("fff1c7"), true)
 	flash.name = "Flash"
 	var crest = String(parts.get("spin", ""))
 	if crest != "":
@@ -242,9 +261,9 @@ static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionar
 
 static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Array:
 	var signature = ""
-	for role in ["shell", "trim", "dark", "metal", "glow", "team"]:
+	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber"]:
 		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
-	var meshes = merged(key + ":" + signature, placed, paint, outline)
+	var meshes = merged(key + ":" + signature, placed, paint, outline and INK)
 	var nodes: Array = []
 	for role in meshes:
 		var node = MeshInstance3D.new()

@@ -162,9 +162,9 @@ func build_kiosk() -> void:
 	var stall = Button.new()
 	stall.focus_mode = Control.FOCUS_NONE
 	stall.custom_minimum_size.y = 196
-	stall.add_theme_stylebox_override("normal", UI.panel_style(Color("1a1712"), UI.GOLD_DEEP, 14, 0))
-	stall.add_theme_stylebox_override("hover", UI.panel_style(Color("221d15"), UI.GOLD, 14, 0))
-	stall.add_theme_stylebox_override("pressed", UI.panel_style(Color("2a2318"), UI.GOLD, 14, 0))
+	stall.add_theme_stylebox_override("normal", UI.panel_style(Color("f7f2e8"), UI.GOLD_DEEP, 14, 0))
+	stall.add_theme_stylebox_override("hover", UI.panel_style(Color("f1eadc"), UI.GOLD, 14, 0))
+	stall.add_theme_stylebox_override("pressed", UI.panel_style(Color("e9e0cf"), UI.GOLD, 14, 0))
 	stall.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	stall.pressed.connect(open_kiosk)
 	home.add_child(stall)
@@ -288,14 +288,14 @@ func close_overlay() -> void:
 # --- drawn pieces ----------------------------------------------------------------------
 
 class Backdrop extends Control:
-	## The stadium at night behind the hub: a deep gradient and two long gold light bars.
+	## The studio behind the hub: a soft grey gradient and two faint warm light bars.
 	func _draw() -> void:
-		var top = Color("0b1c26")
-		var bottom = Color("050d12")
+		var top = Color("e2e6ea")
+		var bottom = Color("cfd5db")
 		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]), PackedColorArray([top, top, bottom, bottom]))
 		for i in range(2):
 			var y = size.y * (0.18 + i * 0.5)
-			draw_line(Vector2(0, y), Vector2(size.x, y - 120), Color(0.91, 0.74, 0.47, 0.035), 60.0)
+			draw_line(Vector2(0, y), Vector2(size.x, y - 120), Color(1.0, 0.96, 0.88, 0.25), 60.0)
 
 class Ladder extends Control:
 	## The draw as a ladder: the admission, then 1 024 down to 2, then the cup. Done in
@@ -312,7 +312,7 @@ class Ladder extends Control:
 		var y = 30.0
 		draw_line(Vector2(x0, y), Vector2(x1, y), Color(1, 1, 1, 0.12), 3.0)
 		var done_x = lerpf(x0, x1, float(current) / (n - 1))
-		draw_line(Vector2(x0, y), Vector2(done_x, y), Color("e8bd78"), 3.0)
+		draw_line(Vector2(x0, y), Vector2(done_x, y), Color("c9922f"), 3.0)
 		var font = UI.font("display")
 		for i in range(n):
 			var x = lerpf(x0, x1, float(i) / (n - 1))
@@ -321,12 +321,12 @@ class Ladder extends Control:
 			if here:
 				var pulse = 0.5 + 0.5 * sin(hub.clock * 3.0)
 				draw_circle(Vector2(x, y), 13 + pulse * 3, Color(0.51, 0.85, 0.77, 0.25), true, -1, true)
-				draw_circle(Vector2(x, y), 9, Color("81d9c4"), true, -1, true)
+				draw_circle(Vector2(x, y), 9, Color("3fb89f"), true, -1, true)
 			else:
-				draw_circle(Vector2(x, y), 7, Color("e8bd78") if done else Color("24404d"), true, -1, true)
+				draw_circle(Vector2(x, y), 7, Color("c9922f") if done else Color("b9c2cb"), true, -1, true)
 			var text: String = labels[i]
 			var w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-			draw_string(font, Vector2(x - w * 0.5, y + 34), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("81d9c4") if here else (Color("e8bd78") if done else Color("5d7884")))
+			draw_string(font, Vector2(x - w * 0.5, y + 34), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("238572") if here else (Color("a8680a") if done else Color("8a93a0")))
 
 class Kiosk extends Control:
 	## Rosa's kiosk: a striped awning, the day's papers pegged up, Rosa behind the counter,
@@ -371,7 +371,7 @@ class Kiosk extends Control:
 		# What she says.
 		var text_x = art.end.x + 18
 		var width = size.x - text_x - 16
-		draw_string(UI.font("display"), Vector2(text_x, 34), "BANCA DA ROSA", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("e8bd78"))
+		draw_string(UI.font("display"), Vector2(text_x, 34), "BANCA DA ROSA", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("a8680a"))
 		var f = UI.font("italic")
 		var words = ("«" + line + "»").split(" ")
 		var row = ""
@@ -379,14 +379,14 @@ class Kiosk extends Control:
 		for w in words:
 			var attempt = (row + " " + w).strip_edges()
 			if f.get_string_size(attempt, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x > width and row != "":
-				draw_string(f, Vector2(text_x, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("f2eee4"))
+				draw_string(f, Vector2(text_x, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("2a2f38"))
 				y += 24
 				row = w
 			else:
 				row = attempt
-		draw_string(f, Vector2(text_x, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("f2eee4"))
+		draw_string(f, Vector2(text_x, y), row, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("2a2f38"))
 		if not edition.is_empty():
-			draw_string(UI.font("headline"), Vector2(text_x, size.y - 30), String(edition.headline), HORIZONTAL_ALIGNMENT_LEFT, width, 17, Color("e8bd78"))
+			draw_string(UI.font("headline"), Vector2(text_x, size.y - 30), String(edition.headline), HORIZONTAL_ALIGNMENT_LEFT, width, 17, Color("a8680a"))
 		if fresh:
 			var tag = "NOVA EDIÇÃO  N.º %03d" % int(edition.get("number", 1))
 			var tw = UI.font("display").get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
@@ -394,7 +394,7 @@ class Kiosk extends Control:
 			draw_rect(Rect2(at, Vector2(tw + 18, 26)), Color("b83a2b"))
 			draw_string(UI.font("display"), at + Vector2(9, 19), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("f3eee1"))
 		else:
-			draw_string(UI.font("display"), Vector2(size.x - 150, size.y - 56), "LER O JORNAL  ›", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("9fb3ba"))
+			draw_string(UI.font("display"), Vector2(size.x - 150, size.y - 56), "LER O JORNAL  ›", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("6a7280"))
 
 class Tile extends Control:
 	const UI = preload("res://scripts/story_ui.gd")
@@ -404,7 +404,7 @@ class Tile extends Control:
 	func _draw() -> void:
 		var at = Vector2(40, size.y * 0.5)
 		draw_circle(at, 24, Color(0.91, 0.74, 0.47, 0.12), true, -1, true)
-		var gold = Color("e8bd78")
+		var gold = Color("c9922f")
 		match icon:
 			"route":
 				for i in range(3):
@@ -434,13 +434,13 @@ class Tile extends Control:
 					var angle = tooth * TAU / 8.0
 					draw_line(at + Vector2.from_angle(angle) * 7, at + Vector2.from_angle(angle) * 12, gold, 3.0, true)
 				draw_circle(at, 7, gold, false, 2.0, true)
-		draw_string(UI.font("display"), Vector2(78, size.y * 0.5 - 4), title, HORIZONTAL_ALIGNMENT_LEFT, size.x - 86, 21, Color("f2eee4"))
-		draw_string(UI.font("body"), Vector2(78, size.y * 0.5 + 20), sub, HORIZONTAL_ALIGNMENT_LEFT, size.x - 86, 14, Color("9fb3ba"))
+		draw_string(UI.font("display"), Vector2(78, size.y * 0.5 - 4), title, HORIZONTAL_ALIGNMENT_LEFT, size.x - 86, 21, Color("262b36"))
+		draw_string(UI.font("body"), Vector2(78, size.y * 0.5 + 20), sub, HORIZONTAL_ALIGNMENT_LEFT, size.x - 86, 14, Color("6a7280"))
 
 class Trophy extends Control:
 	func _draw() -> void:
 		var c = Vector2(size.x * 0.5, size.y * 0.5)
-		var gold = Color("e8bd78")
+		var gold = Color("c9922f")
 		draw_circle(c, 90, Color(0.91, 0.74, 0.47, 0.08), true, -1, true)
 		draw_arc(c + Vector2(0, -20), 46, 0, PI, 32, gold, 10, true)
 		draw_line(c + Vector2(-46, -20), c + Vector2(46, -20), gold, 10, true)

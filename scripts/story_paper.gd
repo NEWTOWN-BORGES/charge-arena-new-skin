@@ -21,7 +21,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var ground = ColorRect.new()
-	ground.color = Color("1b1d1e")
+	ground.color = Color("cfd5db")
 	ground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ground)

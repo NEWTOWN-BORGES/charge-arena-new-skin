@@ -358,7 +358,7 @@ func build_skins_menu() -> void:
 	skins_scroll.add_child(details)
 	skin_name = label("", 32, WHITE, true)
 	details.add_child(skin_name)
-	skin_weapon = label("", 16, SUN, true)
+	skin_weapon = label("", 16, UiKit.SUN_INK, true)
 	details.add_child(skin_weapon)
 	skin_bricks = label("", 16, CYAN, true)
 	details.add_child(skin_bricks)
@@ -644,7 +644,7 @@ func refresh_news() -> void:
 	# Shown in the row the menu already keeps for its hint, so nothing grows and the
 	# main action stays where the thumb rests.
 	menu_status.text = news_text if news_text != "" else MENU_HINT
-	menu_status.add_theme_color_override("font_color", SUN if news_text != "" else MUTED)
+	menu_status.add_theme_color_override("font_color", UiKit.SUN_INK if news_text != "" else MUTED)
 	# The rail keys carry the counts, and a red dot while something waits behind them.
 	if lobby != null:
 		lobby.refresh()
@@ -688,7 +688,7 @@ func refresh_skins() -> void:
 		skin_state.text = "DESBLOQUEADA  ·  BOSS DO NÍVEL %d" % level
 	else:
 		skin_state.text = "BLOQUEADA  ·  VENCE ESTE PILOTO NA TAÇA OU NO NÍVEL %d" % level
-	skin_state.add_theme_color_override("font_color", SUN if open else MUTED)
+	skin_state.add_theme_color_override("font_color", UiKit.SUN_INK if open else MUTED)
 	var ultimate: Dictionary = Powers.entry(String(entry.ultimate))
 	skin_ultimate_name.text = ("ULTIMATE  ·  " + String(ultimate.name)) if not ultimate.is_empty() else "ULTIMATE  ·  EM BREVE"
 	skin_ultimate_about.text = String(ultimate.about) if not ultimate.is_empty() else "Esta skin ainda não tem ultimate; o terceiro slot fica por preencher."
@@ -1644,7 +1644,7 @@ func draw_menu_level() -> void:
 	var x = stage.get_center().x
 	centered(String(entry.name), Vector2(x, stage.end.y + 38), 42, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
 	var tagline = String(entry.get("weapon", "")).to_upper()
-	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 12, SUN, true, 5, Color(UiKit.NIGHT, 0.85))
+	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 12, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
 	centered("arrasta para rodar  ·  toca no HANGAR para mudar", Vector2(x, stage.end.y + 80), 11, Color(WHITE, 0.6), false, 4, Color(UiKit.NIGHT, 0.8))
 
 func open_levels() -> void:
@@ -2356,13 +2356,13 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 		var disp_name = pilot
 		if disp_name.length() > 8 and rect.size.x < 190:
 			disp_name = disp_name.substr(0, 7) + "."
-		write(disp_name, Vector2(content_x, at.y + 28), 18, color.lightened(0.15), true)
+		write(disp_name, Vector2(content_x, at.y + 28), 18, color.darkened(0.35), true)
 		player_life_bar_compact(Vector2(content_x, at.y + 38), match_data.players[t].hp, color)
 		# The wall count is what both pilots watch, so it never leaves the card. Whatever else
 		# there is to say — a stun, the rival's charged powers — takes the line under it.
 		write(status, Vector2(content_x, at.y + 64), 11, status_color, true)
 		if stunned:
-			write("⚡ ATORDOADO %.1fs" % match_data.players[t].stun, Vector2(content_x, at.y + 84), 12, SUN, true)
+			write("⚡ ATORDOADO %.1fs" % match_data.players[t].stun, Vector2(content_x, at.y + 84), 12, UiKit.SUN_INK, true)
 		elif side == 1 and match_data.has("powers") and t < match_data.powers.size():
 			power_pips(Vector2(content_x, at.y + 84), t)
 	else:
@@ -2370,7 +2370,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 		write(role, at + Vector2(17, 26), 10, MUTED, true)
 		UiKit.disc(self, Vector2(center, at.y + 85), 46.0, Color(UiKit.FIELD, 0.9))
 		portrait(Vector2(center, at.y + 85), pilot_hue(t, color), stunned, team_skins[t], null, team_tints[t])
-		centered(pilot, Vector2(center, at.y + 150), 24, color.lightened(0.15), true)
+		centered(pilot, Vector2(center, at.y + 150), 24, color.darkened(0.35), true)
 		player_life_bar(Vector2(center - 47, at.y + 160), match_data.players[t].hp, color)
 		centered(status, Vector2(center, at.y + 212), 10, status_color, true)
 		# Your own hints go under the power buttons, which hang below your card; the rival's
@@ -2490,7 +2490,7 @@ func draw_hud() -> void:
 		write("ENCONTRA O TEU ÂNGULO", Vector2(size.x - 204, bottom - 24), 10, MUTED, true)
 		if not vertical:
 			write("UM DISPARO.", Vector2(size.x - 285, size.y - 126), 26, WHITE, true, 6, Color(UiKit.NIGHT, 0.7))
-			write("MIL POSSIBILIDADES.", Vector2(size.x - 285, size.y - 96), 26, SUN, true, 6, Color(UiKit.NIGHT, 0.7))
+			write("MIL POSSIBILIDADES.", Vector2(size.x - 285, size.y - 96), 26, UiKit.SUN_INK, true, 6, Color(UiKit.NIGHT, 0.7))
 		draw_menu_level()
 		return
 	if match_data.is_empty():
@@ -2502,7 +2502,7 @@ func draw_hud() -> void:
 		var round_text = "1º A %d GOLOS" % Rules.WIN_SCORE
 		if not level_info.is_empty():
 			round_text = ("FINAL" if level_info.number == 11 else "JOGO %d" % level_info.number) if level_info.get("cup", false) else "NÍVEL %d" % level_info.number
-		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, SUN, true)
+		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, UiKit.SUN_INK, true)
 		centered(digits, Vector2(score_rect.get_center().x, s.y + 52), 32, WHITE, true)
 		var mode_label = "TREINO / PvE" if mode == "pve" else "DUELO / PvP"
 		if not level_info.is_empty():
@@ -2510,15 +2510,15 @@ func draw_hud() -> void:
 		centered(mode_label, Vector2(score_rect.get_center().x, s.y + 72), 9, MUTED, true)
 	else:
 		UiKit.disc(self, s + Vector2(23, 30), 5, CYAN)
-		write("NOVA", s + Vector2(36, 35), 12, CYAN, true)
+		write("NOVA", s + Vector2(36, 35), 12, CYAN.darkened(0.35), true)
 		centered(digits, Vector2(score_rect.get_center().x, s.y + 43), 34, WHITE, true)
-		write("EMBER", s + Vector2(218, 35), 12, CORAL, true)
+		write("EMBER", s + Vector2(218, 35), 12, CORAL.darkened(0.3), true)
 		UiKit.disc(self, s + Vector2(284, 30), 5, CORAL)
 		var mode_at = Vector2(38, 142)
 		var mode_name = "TREINO / PvE" if mode == "pve" else "DUELO / PvP"
 		if not level_info.is_empty():
 			mode_name = "CAMPANHA · NÍVEL %d" % level_info.number
-		write(mode_name, mode_at, 12, SUN, true, 4)
+		write(mode_name, mode_at, 12, UiKit.SUN_INK, true, 4)
 		write("PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE, mode_at + Vector2(0, 23), 10, MUTED, true, 4)
 	for side in range(2):
 		player_card(card_rects[side], side, team if side == 0 else 1 - team)
@@ -2526,7 +2526,7 @@ func draw_hud() -> void:
 	if p.stun > 0:
 		var banner = stun_banner_rect()
 		panel(banner, Color(UiKit.PANEL, 0.95), Color(SUN, 0.7))
-		centered("PARALISADO   %.1f s" % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, SUN, true)
+		centered("PARALISADO   %.1f s" % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, UiKit.SUN_INK, true)
 	draw_moment()
 	draw_stick()
 	if defense_notice_time > 0 and match_data.phase == "play":
@@ -2641,7 +2641,7 @@ func draw_stick() -> void:
 	UiKit.ring(self, knob, 27, Color(WHITE, 0.35 if held else 0.18))
 	UiKit.disc(self, knob + Vector2(-7, -8), 7, Color(WHITE, 0.3 if held else 0.1))
 	centered("MOVER, APONTAR E DISPARAR" if not auto_fire and fire_control == 1 else "MOVER E APONTAR", stick + Vector2(0, 86), 10, CYAN, true, 4)
-	centered("DISPARO AUTOMÁTICO  ·  MIRA ASSISTIDA" if auto_fire else "MIRA ASSISTIDA", stick + Vector2(0, 101), 9, Color(SUN, 0.85), true, 4)
+	centered("DISPARO AUTOMÁTICO  ·  MIRA ASSISTIDA" if auto_fire else "MIRA ASSISTIDA", stick + Vector2(0, 101), 9, Color(UiKit.SUN_INK, 0.85), true, 4)
 	if not auto_fire and fire_control == 0:
 		# TOUCH = SHOT: the key sinks the instant it fires, springs just past its size and
 		# settles, while a ring counts the gun back to ready.
@@ -2698,7 +2698,10 @@ func draw_powers() -> void:
 		UiKit.disc(self, center + Vector2(0, 5), span, Color(UiKit.LIP, 0.75))
 		UiKit.disc(self, center + Vector2(0, sink), span, Color(UiKit.PANEL, 0.95))
 		UiKit.ring(self, center + Vector2(0, sink), span, Color(color, 0.6) if cost > 0 else Color(UiKit.CARD_EDGE, 0.6))
-		var face_color = color.darkened(0.0 if pressed else (0.08 if ready else 0.66))
+		# Ready: the power's own colour. Charging: a pale wash of it, like a key not yet lit.
+		var face_color = color if pressed else (color.darkened(0.04) if ready else color.lerp(UiKit.PANEL, 0.72))
+		if cost <= 0:
+			face_color = UiKit.CARD
 		UiKit.disc(self, center + Vector2(0, sink), span - 10, face_color)
 		# The ring is whichever of the two is still counting: the bricks before the first
 		# use, the clock after it.
@@ -2759,7 +2762,7 @@ func build_icon_sheet() -> void:
 	painter.size = Vector2(icon_sheet.size)
 	painter.draw.connect(func():
 		for index in range(ids.size()):
-			power_icon(ids[index], Vector2(index * ICON_CELL + ICON_CELL * 0.5, ICON_CELL * 0.5), WHITE, painter, 2.0, Color(WHITE, 0.62)))
+			power_icon(ids[index], Vector2(index * ICON_CELL + ICON_CELL * 0.5, ICON_CELL * 0.5), Color.WHITE, painter, 2.0, Color(1, 1, 1, 0.62)))
 	icon_sheet.add_child(painter)
 	add_child(icon_sheet)
 	# The layer sits under every overlay, so the pause screen and the menus still cover it.

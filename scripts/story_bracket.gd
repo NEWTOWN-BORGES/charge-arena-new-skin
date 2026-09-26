@@ -161,9 +161,9 @@ class Chart extends Control:
 			var box = Rect2(col_w, y - row_h * 0.34, col_w - 10, row_h * 0.68)
 			var mine = slot == 0
 			var next_rival = slot == cup.opponent_in(0, played + 1) if not cup.champion() else false
-			draw_rect(box, Color("163446") if not mine else Color("1d4a45"))
-			draw_rect(box, Color("81d9c4") if mine else (Color("ef947e") if next_rival else Color("2a4b5a")), false, 1.5)
-			draw_string(f, box.position + Vector2(8, box.size.y * 0.5 + 6), "TU" if mine else String(e.name), HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 14, 16, Color("f2eee4"))
+			draw_rect(box, Color("eef1f4") if not mine else Color("d9f1eb"))
+			draw_rect(box, Color("3fb89f") if mine else (Color("e07a62") if next_rival else Color("b9c2cb")), false, 1.5)
+			draw_string(f, box.position + Vector2(8, box.size.y * 0.5 + 6), "TU" if mine else String(e.name), HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 14, 16, Color("262b36"))
 		# Columns 2 and 3: the rounds to come - blank, with the player's line lit.
 		for k in range(2):
 			var span = 2 << k
@@ -173,16 +173,16 @@ class Chart extends Control:
 				var x0 = col_w * (1 + k) + col_w - 10
 				var x1 = col_w * (2 + k)
 				var lit = start + i <= at and at < start + i + span
-				var color = Color("81d9c4", 0.8) if lit else Color("2a4b5a")
+				var color = Color("3fb89f", 0.9) if lit else Color("b9c2cb")
 				draw_line(Vector2(x0, y0), Vector2(x0 + 8, y0), color, 1.5)
 				draw_line(Vector2(x0, y1), Vector2(x0 + 8, y1), color, 1.5)
 				draw_line(Vector2(x0 + 8, y0), Vector2(x0 + 8, y1), color, 1.5)
 				var mid = (y0 + y1) * 0.5
 				draw_line(Vector2(x0 + 8, mid), Vector2(x1, mid), color, 1.5)
 				var box = Rect2(x1, mid - row_h * 0.3, col_w - 10, row_h * 0.6)
-				draw_rect(box, Color("0e2330"))
+				draw_rect(box, Color("e3e7eb"))
 				draw_rect(box, color, false, 1.0)
 				draw_string(f, box.position + Vector2(8, box.size.y * 0.5 + 6), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.4))
 		var labels = ["RONDA ANTERIOR" if played > 0 else "", Taca.ROUND_NAMES[mini(played + 1, Taca.ROUNDS)].to_upper(), "A SEGUIR", "DEPOIS"]
 		for k in range(4):
-			draw_string(f, Vector2(col_w * k + 4, 14), labels[k], HORIZONTAL_ALIGNMENT_LEFT, col_w - 8, 12, Color("e8bd78"))
+			draw_string(f, Vector2(col_w * k + 4, 14), labels[k], HORIZONTAL_ALIGNMENT_LEFT, col_w - 8, 12, Color("a8680a"))
