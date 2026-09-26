@@ -11,7 +11,8 @@ const Powers = preload("res://scripts/powers.gd")
 # The campaign is the story: the Taça Aurora, round by round. ARENAS keeps the arenas
 # already won for free play, with their bosses.
 const MODES = [
-	{"id": "story", "name": "MODO HISTÓRIA", "about": "A Taça Aurora, 1.024 pilotos"},
+	# The story mode (the Taça Aurora) is out of the lobby until its new form is decided; its
+	# code stays behind the "story" id.
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
@@ -19,7 +20,7 @@ const MODES = [
 const RAIL_KEY = Vector2(88, 88)
 
 var hud
-var mode_id = "story"
+var mode_id = "quick"
 # What the story says right now, filled in by main.sync_story().
 var story_round = ""
 var story_line = ""
@@ -55,7 +56,7 @@ func _ready() -> void:
 	rail = VBoxContainer.new()
 	rail.add_theme_constant_override("separation", 12)
 	add_child(rail)
-	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["story", "HISTÓRIA"], ["pvp", "PvP"]]:
+	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["pvp", "PvP"]]:
 		var key = Button.new()
 		key.custom_minimum_size = RAIL_KEY
 		key.focus_mode = Control.FOCUS_NONE
@@ -76,7 +77,6 @@ func _ready() -> void:
 		rail_keys[kind] = key
 	rail_keys.hangar.pressed.connect(func(): hud.open_skins())
 	rail_keys.powers.pressed.connect(func(): hud.open_powers())
-	rail_keys.story.pressed.connect(func(): hud.cup_requested.emit())
 	rail_keys.pvp.pressed.connect(func(): hud.open_pvp())
 	build_sheet()
 

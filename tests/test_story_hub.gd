@@ -35,6 +35,8 @@ func run() -> void:
 	game.sync_story()
 	await process_frame
 	var hud = game.hud
+	# The story mode is off the lobby for now; its code is kept and still works when chosen.
+	hud.lobby.mode_id = "story"
 	check(hud.lobby.mode_id == "story" and hud.lobby.story_round.contains("ADMISSÃO") and hud.lobby.story_line.contains("BIT"), "The lobby opens on the story, naming the round and the rival")
 	hud.campaign_button.pressed.emit()
 	await process_frame

@@ -14,6 +14,7 @@ func run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	root.size = Vector2i(SIZE, SIZE)
 	root.transparent_bg = true
+	root.use_hdr_2d = false
 	var world = WorldEnvironment.new()
 	world.environment = Environment.new()
 	world.environment.background_mode = Environment.BG_CLEAR_COLOR
