@@ -9,7 +9,9 @@ const PowerShop = preload("res://scripts/powers.gd")
 const GameSettings = preload("res://scripts/game_settings.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const Cup = preload("res://scripts/cup.gd")
-const CupScreen = preload("res://scripts/cup_screen.gd")
+const Press = preload("res://scripts/story_press.gd")
+const CupScreen = preload("res://scripts/story_hub.gd")
+const GameFeel = preload("res://scripts/game_feel.gd")
 var cup = Cup.new()
 var cup_screen
 var cup_active = false
@@ -26,7 +28,14 @@ var remote_id = 0
 var remote_command = {"move": Vector2.ZERO, "fire": false}
 # Powers arrive on their own reliable channel, so a tap is never lost in the input stream.
 var remote_power = -1
-var remote_fire_tap = false
+# One shot per tap. Taps made while the gun reloads wait their turn and leave at the gun's
+# own cadence, so ten quick taps are ten shots; holding the finger down does not keep
+# firing. Per team: the host keeps the guest's taps the same way it keeps its own.
+const FIRE_BUFFER_MS = 900
+const MAX_QUEUED_SHOTS = 10
+var queued_shots: Array = [0, 0]
+var queued_until: Array = [0, 0]
+var pending_clicks = 0
 var pending_events: Array = []
 var remote_power_until = 0
 var remote_age = 0.0
@@ -47,6 +56,8 @@ var sustained_haptic = false
 var sustained_next_ms = 0
 var haptic_pulse_until = 0
 var arena_duck_db = 0.0
+# How the game feels: shared with the arena and edited by the LAB tuning panel.
+var feel = GameFeel.new()
 var release_focus = 0.0
 var break_times = [-10.0, -10.0]
 var last_phase = ""
@@ -97,6 +108,8 @@ func configure_test_access(enabled: bool) -> void:
 
 func _ready() -> void:
 	arena = ArenaView.new()
+	feel.load_values()
+	arena.feel = feel
 	add_child(arena)
 	arena.build()
 	var layer = CanvasLayer.new()
@@ -105,9 +118,15 @@ func _ready() -> void:
 	layer.add_child(hud)
 	hud.arena_aspect = arena.view_aspect()
 	hud.layout_changed.connect(frame_arena)
+	hud.showroom_spun.connect(func(amount): arena.turn_showroom(amount))
 	get_window().size_changed.connect(fit_content_scale)
 	fit_content_scale()
 	hud.play_requested.connect(start_pve)
+	hud.map_previewed.connect(preview_world)
+	hud.map_chosen.connect(func(world): start_pve(Rules.quick_map(world)))
+	hud.map_picker_closed.connect(frame_arena)
+	hud.map_orbited.connect(func(dx, dy): arena.orbit_tour(dx, dy))
+	hud.map_zoomed.connect(func(factor): arena.zoom_tour(factor))
 	hud.host_requested.connect(host_game)
 	hud.join_requested.connect(join_game)
 	hud.pvp_ai_requested.connect(start_pvp_ai)
@@ -147,12 +166,18 @@ func _ready() -> void:
 	rules.ai_level = game_settings.difficulty
 	arena.guide_enabled = game_settings.aim_guide
 	arena.shake_scale = [0.0, 0.45, 1.0][game_settings.camera_feedback]
+	feel.intensity = 1.0 if game_settings.effects_full else 0.6
 	rules.assist_team = local_team if game_settings.aim_assist else -1
 	hud.sync_game(game_settings)
 	hud.difficulty_changed.connect(change_difficulty)
 	hud.guide_changed.connect(change_guide)
 	hud.sensitivity_changed.connect(change_sensitivity)
 	hud.feedback_changed.connect(change_feedback)
+	hud.effects_changed.connect(change_effects)
+	hud.feel_tuning_requested.connect(open_feel_tuning)
+	hud.story_play_requested.connect(func():
+		open_cup()
+		cup_screen.open_versus())
 	hud.fire_layout_changed.connect(change_fire_layout)
 	campaign.load_preferences()
 	sync_boss_skins()
@@ -181,6 +206,7 @@ func _ready() -> void:
 	if cup.wins == Cup.FULL_MATCHES:
 		skins.defeat(11)
 	save_skins()
+	sync_story()
 	cup_screen = CupScreen.new()
 	cup_screen.cup = cup
 	cup_screen.player_skin_provider = func(): return skins.selected
@@ -235,11 +261,14 @@ func start_pve(layout: Dictionary = {}) -> void:
 	close_network()
 	mode = "pve"
 	local_team = 0
+	arena.set_view_team(local_team)
 	network_status = ""
 	leave_campaign(layout)
 	use_loadouts(["blast", "rapid"])
 	rules.reset_match()
 	dress_pilots(local_team)
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
 	sync_assist()
 	music.play_skin(skins.selected)
@@ -256,6 +285,7 @@ func start_level(index: int) -> void:
 	close_network()
 	mode = "pve"
 	local_team = 0
+	arena.set_view_team(local_team)
 	network_status = ""
 	level_index = index
 	menu_level = Campaign.menu_level(index)
@@ -274,6 +304,8 @@ func start_level(index: int) -> void:
 	hud.level_info = {"number": Campaign.menu_levels().find(Campaign.menu_level(index)) + 1, "name": level.name, "challenge": level.challenge, "boss_name": rival_name, "has_next": index + 1 < Campaign.LEVELS.size()}
 	hud.level_result = ""
 	hud.level_skin = ""
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
 	sync_assist()
 	# The theme follows whoever is on the other side, station pilot or boss, so ten matches
@@ -308,6 +340,15 @@ func show_menu_preview() -> void:
 	use_map(level.map)
 	dress_pilots(0)
 	show_menu_boss()
+	refresh_showroom()
+
+func refresh_showroom() -> void:
+	# The lobby's stage: your pilot on the pedestal, the chosen level's boss behind, in its
+	# team colour alone until it has been beaten.
+	var level: Dictionary = Campaign.LEVELS[menu_level]
+	var boss: int = int(level.boss)
+	var beaten: bool = boss < Skins.CATALOG.size() and skins.is_unlocked(boss)
+	arena.show_showroom(skins.selected, boss, not beaten)
 
 func show_menu_boss() -> void:
 	# The previewed rival is shown in its own colours, like it fights: a boss in its skin's
@@ -377,7 +418,7 @@ func show_levels() -> void:
 	hud.open_levels()
 
 func close_network() -> void:
-	remote_fire_tap = false
+	clear_shots()
 	mouse_firing = false
 	connected = false
 	remote_id = 0
@@ -406,8 +447,11 @@ func return_to_menu(message: String = "") -> void:
 	save_powers()
 	dress_pilots(0)
 	show_menu_boss()
+	refresh_showroom()
 	hud.sync_skins(skins)
 	hud.show_menu(message)
+	# Back in the lobby: the story card says where the run stands and whether there is news.
+	sync_story()
 	music.play("menu")
 	if is_instance_valid(cup_screen):
 		cup_screen.hide()
@@ -425,6 +469,7 @@ func pause_pve() -> void:
 		return
 	pve_paused = true
 	mouse_firing = false
+	clear_shots()
 	hud.show_pause(true)
 
 func resume_pve() -> void:
@@ -432,6 +477,7 @@ func resume_pve() -> void:
 		return
 	hud.show_pause(false)
 	mouse_firing = false
+	clear_shots()
 	pve_paused = false
 	arena.capture_motion(rules)
 
@@ -449,6 +495,7 @@ func host_game() -> void:
 	close_network()
 	mode = "host"
 	local_team = 0
+	arena.set_view_team(local_team)
 	leave_campaign(Rules.pvp_map())
 	use_loadouts(PowerShop.STARTER_KIT.duplicate())
 	rules.reset_match()
@@ -486,6 +533,7 @@ func join_game(address: String) -> void:
 	multiplayer.multiplayer_peer = peer
 	mode = "client"
 	local_team = 1
+	arena.set_view_team(local_team)
 	connection_timer = 10.0
 	network_status = "A ligar ao rival…"
 	leave_campaign(Rules.pvp_map())
@@ -547,6 +595,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
 			return
 		mouse_firing = event.pressed and mode != "menu"
+		if mouse_firing:
+			pending_clicks += 1
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_pressed() and event is InputEventKey and mode == "menu" and not hud.menu_overlay_open():
@@ -554,6 +604,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			step_menu_level(-1 if event.keycode == KEY_LEFT else 1)
 			return
 	if event.is_pressed() and not event.is_echo() and event is InputEventKey and mode != "menu":
+		if event.keycode == KEY_SPACE:
+			pending_clicks += 1
+			return
 		# On a PC the three powers are on the number keys; phones use the HUD buttons.
 		var slot = [KEY_1, KEY_2, KEY_3].find(event.keycode)
 		if slot < 0:
@@ -589,6 +642,7 @@ func select_skin(index: int) -> void:
 	hud.sync_skins(skins)
 	if mode == "menu":
 		arena.set_skin(0, index)
+		refresh_showroom()
 
 func bank_bricks() -> void:
 	# Bricks destroyed in any mode are the shop currency; they are banked as they fall.
@@ -651,8 +705,17 @@ func fit_content_scale() -> void:
 	var window = get_window()
 	window.content_scale_size = Vector2i(720, 1280) if window.size.y > window.size.x else Vector2i(1280, 720)
 
+func preview_world(world: String) -> void:
+	# The map picker shows the world it would play in, the camera touring it.
+	use_map(Rules.quick_map(world))
+	arena.start_tour()
+
 func frame_arena() -> void:
-	if hud.vertical:
+	if hud.mode == "menu" and hud.map_overlay.visible:
+		arena.start_tour()
+	elif hud.mode == "menu":
+		arena.frame_lobby(hud.lobby_stage(), hud.size)
+	elif hud.vertical:
 		arena.frame_rect(hud.arena_rect, hud.size, hud.mode == "menu")
 	else:
 		arena.frame_landscape(-4.5 if hud.mode == "menu" else 0.0)
@@ -689,9 +752,23 @@ func change_feedback(camera: int, haptics: bool, automatic: bool, volume: float)
 	game_settings.auto_fire = automatic
 	game_settings.sfx_volume = volume
 	arena.shake_scale = [0.0, 0.45, 1.0][camera]
-	if camera == 0: arena.shake_power = 0.0
+	if camera == 0: arena.shakes.clear()
 	mouse_firing = false
+	clear_shots()
 	save_game_settings()
+
+func change_effects(full: bool) -> void:
+	game_settings.effects_full = full
+	feel.intensity = 1.0 if full else 0.6
+	save_game_settings()
+
+var feel_panel
+
+func open_feel_tuning() -> void:
+	if not is_instance_valid(feel_panel):
+		feel_panel = preload("res://scripts/feel_panel.gd").new()
+		hud.add_child(feel_panel)
+	feel_panel.open(feel)
 
 func haptic(milliseconds: int, strength: float) -> void:
 	if not game_settings.haptics or mode == "menu" or not OS.has_feature("android"):
@@ -746,7 +823,7 @@ func update_feedback_mix(dt: float) -> void:
 	var focus = release_focus > 0.0
 	for state in rules.powers:
 		if state.ultimate_windup > 0.0 and state.ultimate_windup < 0.18: focus = true
-	arena_duck_db = move_toward(arena_duck_db, -4.5 if focus else 0.0, dt * (70.0 if focus else 24.0))
+	arena_duck_db = move_toward(arena_duck_db, feel.get_value("ultimate_duck_db") if focus else 0.0, dt * (70.0 if focus else 24.0))
 	var volume = linear_to_db(maxf(game_settings.sfx_volume, 0.0001))
 	for voice in audio_voices:
 		if voice.playing:
@@ -785,23 +862,28 @@ func play_events() -> void:
 	for event in rules.events:
 		ArenaView.CombatFinish.event(arena, event, rules)
 		if event.kind == "shot":
+			# weapon_fired: the one moment every layer answers at once — sound, recoil,
+			# muzzle, camera, button and (when the player pulls the trigger themselves) a
+			# micro pulse under the thumb. Auto-fire gets no buzz: it would never stop.
 			var team = int(event.team)
-			arena.shot_feedback(team)
-			if team == local_team:
-				arena.shake(0.016)
-				haptic(8, 0.12)
+			var mine = team == local_team
+			arena.shot_feedback(team, mine)
+			if mine:
 				hud.fire_age = 0.0
+				if not game_settings.auto_fire:
+					haptic(int(feel.get_value("haptic_fire_ms")), feel.get_value("haptic_fire_strength"))
 			var skin = int(arena.unit_skins[team])
 			# Intermediate opponents share the Aurora base, never a missing sample.
 			if skin >= Skins.CATALOG.size(): skin = 0
 			var variant = int(shot_variants[team]) % 3
 			shot_variants[team] += 1
-			play_tone("shot_%d_%d" % [skin, variant], 0.0 if team == local_team else -5.0)
+			play_tone("shot_%d_%d" % [skin, variant], 0.0 if team == local_team else -5.0, true)
 		elif event.kind == "boost":
 			play_tone("boost")
 		elif event.kind in ["bounce", "spent"]:
+			# A ricochet tells the trajectory; it never competes with a break.
 			arena.impact_feedback(event)
-			play_tone("metal" if event.get("surface", "") == "obstacle" else "ricochet")
+			play_tone("metal" if event.get("surface", "") == "obstacle" else "ricochet", -1.5, true)
 		elif event.kind == "player_hit":
 			arena.impact_feedback(event)
 			play_tone("shield")
@@ -810,8 +892,8 @@ func play_events() -> void:
 			arena.power_flash(event.p, String(event.get("id", "")))
 			var ability_cue = "ability_" + String(event.get("id", ""))
 			play_tone(ability_cue if tones.has(ability_cue) else "power")
-			arena.shake(0.22)
-			if int(event.team) == local_team: haptic(22, 0.30)
+			arena.shake_level(GameFeel.Level.POWER)
+			if int(event.team) == local_team: haptic(int(feel.get_value("haptic_power_ms")), feel.get_value("haptic_power_strength"))
 		elif event.kind == "laser":
 			arena.laser_beam(event.p, event.heading, event.team)
 			play_tone("laser_tick", -2.0)
@@ -829,7 +911,9 @@ func play_events() -> void:
 			# Two seconds of rising charge, heard by both sides.
 			play_tone("charging")
 		elif event.kind == "ultimate":
-			release_focus = 0.14
+			# The arena steps back for a beat so the ultimate's own sound comes through.
+			release_focus = feel.get_value("ultimate_duck_seconds")
+			arena.shake_level(GameFeel.Level.ULTIMATE)
 			arena.ultimate_accent(event.p, String(event.get("id", "")))
 			if int(event.team) == local_team:
 				haptic(48 if String(event.get("id", "")) in ["meteors", "sun_ray", "singularity"] else 30, 0.55)
@@ -910,18 +994,22 @@ func play_events() -> void:
 		elif event.kind in ["brick", "brick_hit"]:
 			arena.impact_feedback(event)
 			impact_variant = (impact_variant + 1) % 3
-			var cue = ("break_" if event.kind == "brick" else "hit_") + str(impact_variant)
-			play_tone("shield" if event.get("soaked", false) else cue)
+			if event.get("soaked", false):
+				play_tone("shield", 0.0, true)
+			else:
+				# THOCK on every hit; when the brick gives, the CRACK lands a beat after it.
+				play_tone("hit_" + str(impact_variant), 0.0, true)
+				if event.kind == "brick":
+					var crack = "break_" + str(impact_variant)
+					arena.schedule(0.028, func(): play_tone(crack, 0.0, true))
 			if event.kind == "brick":
 				var team = int(event.team)
-				var repeated = rules.elapsed - float(break_times[team]) < 0.18
 				break_times[team] = rules.elapsed
-				arena.shake(0.13 if repeated else 0.075)
-				if team != local_team: haptic(16, 0.24)
+				# The player feels the bricks they break, not their own wall crumbling.
+				if team != local_team: haptic(int(feel.get_value("haptic_destroy_ms")), feel.get_value("haptic_destroy_strength"))
 			if event.get("defense_open", false):
-				play_tone("defense")
-				arena.shake(0.19)
-				haptic(25, 0.34)
+				arena.schedule(feel.get_value("hitstop_last_brick"), func(): play_tone("defense"))
+				haptic(int(feel.get_value("haptic_destroy_ms")) + 14, minf(1.0, feel.get_value("haptic_destroy_strength") + 0.15))
 				hud.defense_notice = "DEFESA ABERTA — ATACA A BALIZA!" if int(event.team) != local_team else "A TUA BALIZA ESTÁ DESPROTEGIDA!"
 				hud.defense_notice_time = 1.25
 			if int(event.get("bite", 0)) > 0:
@@ -948,16 +1036,50 @@ func local_command() -> Dictionary:
 	else:
 		# Thumb still: let the magnetism settle the pilot on the target it is beside.
 		response = magnet_pull()
+	# The second PvP pilot looks at the arena from the other end, so right on their screen
+	# is left in the world. The magnet already speaks world directions and is left alone.
+	var screen_side = -1.0 if arena.view_team == 1 else 1.0
+	if absf(stick) > STICK_DEADZONE:
+		response *= screen_side
 	var move = Vector2(response, 0)
 	if DisplayServer.get_name() != "headless":
 		var keys = Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)), float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-		move += keys
-	# Manual fire is optional; a short mobile tap survives until this simulation tick.
-	var tap: bool = hud.fire_tap and not game_settings.auto_fire
-	var fire = game_settings.auto_fire or hud.fire_id >= 0 or (game_settings.fire_control == 1 and hud.move_id >= 0) or tap or mouse_firing
-	hud.fire_tap = false
-	if DisplayServer.get_name() != "headless": fire = fire or Input.is_physical_key_pressed(KEY_SPACE)
-	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": tap, "power": read_power()}
+		move += keys * screen_side
+	# Manual fire: every tap is one shot, from the button, the joystick, the mouse or the
+	# space bar.
+	pending_clicks += hud.fire_taps
+	hud.fire_taps = 0
+	var clicks: int = 0 if game_settings.auto_fire else mini(pending_clicks, MAX_QUEUED_SHOTS)
+	pending_clicks = 0
+	var fire: bool = game_settings.auto_fire
+	if mode != "client":
+		for click in range(clicks):
+			queue_shot(local_team)
+		fire = fire or take_queued_shot(local_team)
+	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": clicks > 0, "clicks": clicks, "power": read_power()}
+
+func queue_shot(team: int) -> void:
+	queued_shots[team] = mini(int(queued_shots[team]) + 1, MAX_QUEUED_SHOTS)
+	queued_until[team] = Time.get_ticks_msec() + FIRE_BUFFER_MS
+
+func take_queued_shot(team: int) -> bool:
+	if int(queued_shots[team]) <= 0:
+		return false
+	if Time.get_ticks_msec() > int(queued_until[team]):
+		# Taps from long ago are not fired late: that would feel like the gun going off by itself.
+		queued_shots[team] = 0
+		return false
+	if not rules.can_fire(team, 1.0 / Engine.physics_ticks_per_second):
+		return false
+	queued_shots[team] = int(queued_shots[team]) - 1
+	# The next tap in the queue gets its own window from here.
+	queued_until[team] = Time.get_ticks_msec() + FIRE_BUFFER_MS
+	return true
+
+func clear_shots() -> void:
+	queued_shots = [0, 0]
+	queued_until = [0, 0]
+	pending_clicks = 0
 
 func read_power() -> int:
 	# A key pressed a moment too early — during the countdown, or while another power is
@@ -1010,13 +1132,14 @@ func _physics_process(dt: float) -> void:
 		return
 	var command = local_command()
 	if mode == "client":
-		if command.get("tap", false): submit_fire_tap.rpc_id(1)
+		for click in range(int(command.get("clicks", 0))):
+			submit_fire_tap.rpc_id(1)
 		if command.power >= 0:
 			submit_power.rpc_id(1, command.power)
 		network_tick += dt
 		if network_tick >= 1.0 / 30:
 			network_tick = 0
-			submit_input.rpc_id(1, command.move, command.fire and not command.get("tap", false))
+			submit_input.rpc_id(1, command.move, command.fire)
 		return
 	var other: Dictionary
 	if mode == "pve":
@@ -1034,8 +1157,7 @@ func _physics_process(dt: float) -> void:
 			elif rules.can_activate_power(1 - local_team, remote_power):
 				remote_slot = remote_power
 				remote_power = -1
-		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or remote_fire_tap, "power": remote_slot}
-		remote_fire_tap = false
+		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or take_queued_shot(1 - local_team), "power": remote_slot}
 	arena.capture_motion(rules)
 	rules.step(dt, [command, other])
 	bank_bricks()
@@ -1067,7 +1189,7 @@ func submit_input(move: Vector2, firing: bool) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func submit_fire_tap() -> void:
 	if mode == "host" and multiplayer.get_remote_sender_id() == remote_id:
-		remote_fire_tap = true
+		queue_shot(1 - local_team)
 
 @rpc("any_peer", "call_remote", "reliable")
 func submit_power(power: int) -> void:
@@ -1137,7 +1259,7 @@ func _process(dt: float) -> void:
 		fps_timer = 0
 		var measured = Engine.get_frames_per_second()
 		if mode != "menu" and video.adapt(get_viewport(), measured):
-			hud.video_note.text = "Ajuste automático ativo: resolução 3D %d%%, limite %d FPS." % [roundi(video.runtime_scale * 100), video.runtime_fps]
+			hud.video_note.text = "Ajuste automático ativo: limite %d FPS." % video.runtime_fps
 		hud.fps_label.text = "%d FPS  /  alvo %d" % [measured, video.runtime_fps]
 	if rules.phase == "finished" and cup_active and not cup_resolved:
 		cup_resolved = true
@@ -1146,9 +1268,10 @@ func _process(dt: float) -> void:
 		if rules.phase == "finished" and mode == "pve" and level_index >= 0:
 			finish_level()
 		if rules.phase == "goal" or rules.phase == "finished":
+			# The goal: a hit of the blast under the chime, and the strongest pulse of the match.
+			play_tone("blast", -3.0)
 			play_tone("goal")
-			arena.shake(1.05)
-			haptic(65, 0.75)
+			haptic(int(feel.get_value("haptic_goal_ms")), feel.get_value("haptic_goal_strength"))
 			save_skins()
 		last_phase = rules.phase
 	for i in range(2):
@@ -1276,7 +1399,9 @@ func sweep_wave(seconds: float, from_hz: float, to_hz: float, grit: float) -> Au
 	wave.data = bytes
 	return wave
 
-func play_tone(sound: String, gain_db: float = 0.0) -> void:
+func play_tone(sound: String, gain_db: float = 0.0, vary: bool = false) -> void:
+	# `vary`: a touch of pitch and level variation, so the same shot heard a thousand times
+	# stays the same weapon without sounding pasted.
 	if audio_voices.is_empty() or not tones.has(sound):
 		return
 	var now = Time.get_ticks_msec()
@@ -1304,6 +1429,10 @@ func play_tone(sound: String, gain_db: float = 0.0) -> void:
 	voice.set_meta("secondary", weapon or sound in ["bounce", "metal", "ricochet", "sentry", "hit_0", "hit_1", "hit_2", "break_0", "break_1", "break_2"])
 	voice.volume_db += linear_to_db(maxf(game_settings.sfx_volume, 0.0001)) + (arena_duck_db if voice.get_meta("secondary") else 0.0)
 	voice.pitch_scale = 1.0
+	if vary:
+		var spread = feel.get_value("audio_pitch_variation")
+		voice.pitch_scale = 1.0 + randf_range(-spread, spread)
+		voice.volume_db += randf_range(-1.0, 1.0) * feel.get_value("audio_volume_variation")
 	voice.stream = tones[sound]
 	voice.play()
 
@@ -1329,14 +1458,19 @@ func cup_action(id: String) -> void:
 		"menu": return_to_menu()
 		"practice": start_pve()
 		"arenas": hud.open_levels()
+		"settings_open": hud.open_video()
 		"skins": hud.open_skins()
 		"powers": hud.open_powers()
 		"settings": hud.open_video()
 		"pvp": hud.open_pvp()
 
 func start_cup() -> void:
+	# A Taça match is the campaign level for that round, played exactly as the campaign
+	# plays it: its arena, its boss in its own colours, its kit, its pace and its theme.
 	if cup.confirmed_match().is_empty():
 		return
+	var index: int = cup.level_index()
+	var level: Dictionary = cup.level()
 	arena.show()
 	close_network()
 	pve_paused = false
@@ -1344,57 +1478,81 @@ func start_cup() -> void:
 	local_team = 0
 	network_status = ""
 	level_index = -1
-	var entry = cup.level()
-	use_map(entry.map)
+	menu_level = index
+	use_map(level.map)
 	rules.ai_profile = cup.profile(game_settings.difficulty)
-	use_loadouts(cup.kit(), cup.boss_id() if cup.local_wins() == cup.QUALIFIERS else 0, cup.ultimate())
+	use_loadouts(cup.kit(), int(level.boss), Campaign.level_ultimate(index))
 	rules.reset_match()
 	dress_pilots(0)
-	arena.set_skin(1, entry.boss, cup.local_wins() < cup.QUALIFIERS, entry.hue)
+	arena.set_skin(1, int(level.boss), Campaign.is_minor(index), Campaign.level_hue(index))
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": cup.wins + 1, "cup": true, "name": entry.name, "challenge": entry.get("challenge", "Vence para avançar na Taça Aurora."), "boss_name": cup.opponent(), "has_next": false}
+	hud.level_info = {"number": cup.step(), "cup": true, "round": cup.round_name().to_upper(), "name": level.name, "challenge": level.get("challenge", ""), "boss_name": cup.opponent().to_upper(), "has_next": false}
 	hud.level_result = ""
+	hud.level_skin = ""
+	# Compile what the match can draw during the countdown, not at its first shot.
+	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, 0)
 	sync_assist()
 	cup_screen.hide()
 	cup_active = true
 	cup_resolved = false
 	last_phase = ""
-	if not cup.entrance_passed:
-		music.play_skin(0)
-	elif cup.local_wins() == cup.QUALIFIERS:
-		music.play_skin(cup.boss_id())
-	else:
-		music.play_bot(cup.stage_index() * cup.QUALIFIERS + cup.local_wins() + 1)
+	music.play_skin(Campaign.level_music(index))
 
 func finish_cup() -> void:
+	# The result becomes part of the story: a win moves the draw on and prints the next
+	# edition; a defeat is remembered by the kiosk and nothing else. Either way the run
+	# comes back to the hub, never to a generic menu.
 	var won = rules.winner == 0
-	var rival = cup.opponent()
-	var new_rewards: Array = []
-	var reward_skin = cup.boss_id() if cup.local_wins() == cup.QUALIFIERS else 0
+	var step: int = cup.step()
+	var rival: String = cup.opponent()
+	var boss: int = cup.boss_id()
+	var index: int = cup.level_index()
 	var score = Array(rules.scores).duplicate()
 	bank_bricks()
+	var rewards: Array = []
 	if won:
 		cup.complete(score)
-		if cup.save() != OK:
-			push_warning("Não foi possível guardar a Taça.")
-		if reward_skin > 0 and skins.defeat(reward_skin):
-			new_rewards.append(Skins.CATALOG[reward_skin].name)
-		if cup.wins == Cup.FULL_MATCHES and skins.defeat(11):
-			new_rewards.append(Skins.CATALOG[11].name)
+		open_arena(index)
+		if step > 0 and boss > 0 and skins.defeat(boss):
+			rewards.append(Skins.CATALOG[boss].name)
+		if cup.champion() and skins.defeat(11):
+			rewards.append(Skins.CATALOG[11].name)
 		save_skins()
-	cup_screen.result = ("Vitória" if won else "Derrota") + " · %d–%d contra %s" % [score[0], score[1], rival]
-	if won and reward_skin > 0:
-		cup_screen.result += " · SKIN DESBLOQUEADA: " + Skins.CATALOG[reward_skin].name
-	if won and cup.wins == Cup.FULL_MATCHES:
-		cup_screen.result += " · PRÉMIO DA TAÇA: AUREL"
+	else:
+		cup.lose(score)
+	if cup.save() != OK:
+		push_warning("Não foi possível guardar a Taça.")
+	sync_story()
 	return_to_menu()
 	open_cup()
-	cup_screen.tab = 2 if won else 0
-	cup_screen.refresh()
-	hud.announce_unlock(new_rewards)
+	cup_screen.show_after({"won": won, "score": score, "rival": rival, "step": step, "reward": " · ".join(rewards)})
+
+func open_arena(index: int) -> void:
+	# A round won opens its arena for free play in ARENAS, whatever the build.
+	if not campaign.completed.has(index):
+		campaign.completed.append(index)
+	campaign.unlocked = clampi(maxi(campaign.unlocked, index + 2), 1, Campaign.LEVELS.size())
+	campaign.save_preferences()
+	hud.sync_campaign(campaign)
+
+func sync_story() -> void:
+	# What the lobby says about the story: the round to play and who waits in it.
+	if cup.champion():
+		hud.lobby.story_line = "Campeão da Taça Aurora"
+		hud.lobby.story_boss = -1
+	else:
+		var m: Dictionary = cup.confirmed_match()
+		hud.lobby.story_round = String(m.round_name).to_upper()
+		hud.lobby.story_line = "vs " + String(m.name).to_upper()
+		hud.lobby.story_boss = int(m.boss)
+	hud.lobby.story_news = Press.has_new_edition(cup)
+	hud.lobby.refresh()
 
 func open_cup() -> void:
+	# The hub takes the whole screen: the lobby's own top bar and rail step aside.
+	hud.lobby.hide()
+	hud.lobby.close_sheet()
 	cup_screen.show()
 	cup_screen.refresh()
 	arena.hide()

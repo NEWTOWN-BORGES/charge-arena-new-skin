@@ -3,17 +3,22 @@ extends RefCounted
 const FPS_OPTIONS = [30, 60, 90]
 const QUALITY_NAMES = ["Leve", "Equilibrado", "Refinado"]
 # Compatibility does not support screen-space FXAA. Use actual MSAA for silhouettes.
-const AA_LEVELS = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_8X]
+# 8x cost more than the whole rest of the frame on a phone screen (2340 x 1080) and dragged a
+# Galaxy S23 from 90 to under 20 FPS in a busy match; 4x keeps the edges clean for far less.
+const AA_LEVELS = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X]
 const SCREEN_AA = [Viewport.SCREEN_SPACE_AA_DISABLED, Viewport.SCREEN_SPACE_AA_DISABLED, Viewport.SCREEN_SPACE_AA_DISABLED]
 const EFFECT_LIMITS = [20, 48, 96]
-# Leve targets budget phones (Galaxy A15): 0.72x keeps text readable while
-# halving pixel throughput vs native.  Refinado stays at 1.0 for flagship feel.
-const RENDER_SCALES = [0.72, 0.88, 1.0]
-const MIN_RENDER_SCALES = [0.50, 0.62, 0.72]
+# The 3D always renders at full resolution. On Android the Compatibility renderer draws the
+# root viewport straight to the screen, so a 3D scale below 1 did not upscale: the arena came
+# out smaller, and shrank again every time the automatic adjustment stepped down mid-match.
+const RENDER_SCALES = [1.0, 1.0, 1.0]
+# Half-second windows of steady frames before stepping back up; doubled every time a step up
+# had to be undone, so a phone that cannot hold it does not see-saw.
+const RECOVER_WINDOWS = 12
 const CONFIG_PATH = "user://video_settings.cfg"
 var fps = 60
 # A phone starts on the performance profile; a PC has no reason to.
-var quality = 2 if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2)
+var quality = (1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2)
 var vsync = true
 var show_fps = false
 var runtime_scale = 0.72
@@ -21,6 +26,8 @@ var runtime_fps = 60
 var smooth_hud = true
 var low_windows = 0
 var stable_windows = 0
+var recover_after = RECOVER_WINDOWS
+var recovered = false
 
 func load_preferences(path: String = CONFIG_PATH) -> void:
 	var config = ConfigFile.new()
@@ -32,7 +39,7 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 	if OS.has_feature("mobile") and int(config.get_value("video", "performance_version", 0)) < 2:
 		saved_quality = 0
 	if OS.has_feature("open_test") and int(config.get_value("video", "presentation_version", 0)) < 3:
-		saved_quality = 2
+		saved_quality = 1 if OS.has_feature("mobile") else 2
 	configure(int(config.get_value("video", "fps", 60)), saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)))
 
 func configure(new_fps: int, new_quality: int, sync: bool, counter: bool) -> void:
@@ -45,6 +52,8 @@ func configure(new_fps: int, new_quality: int, sync: bool, counter: bool) -> voi
 	runtime_fps = fps
 	low_windows = 0
 	stable_windows = 0
+	recover_after = RECOVER_WINDOWS
+	recovered = false
 
 func save_preferences(path: String = CONFIG_PATH) -> Error:
 	var config = ConfigFile.new()
@@ -84,29 +93,42 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	else:
 		low_windows = 0
 		stable_windows += 1
-	var required_windows = 4 if quality > 0 else 2
+	# Three seconds of trouble, not one burst of a power, before anything is given away.
+	var required_windows = 6 if quality > 0 else 3
 	if low_windows < required_windows:
+		# Keeping up again: win back what was given away, frames first, then resolution.
+		# Without this a short heavy moment left the phone at 30 FPS for the rest of the
+		# session.
+		if stable_windows >= recover_after:
+			stable_windows = 0
+			recovered = true
+			if runtime_fps < fps:
+				runtime_fps = mini(fps, 60 if runtime_fps < 60 else fps)
+				Engine.max_fps = runtime_fps
+				return true
 		return false
 	low_windows = 0
+	if recovered:
+		# The last step up did not hold: wait longer before the next one.
+		recovered = false
+		recover_after = mini(recover_after * 2, 120)
 	# Equilibrado and Refinado preserve their exact visual profile and give up frames
 	# instead: 90 -> 60 -> 30. With 120 gone from the options, the ladder reaches all the
 	# way down rather than stopping at 60 on a phone that cannot hold it.
 	if quality > 0:
+		# Only the frame rate moves: nothing in the picture may change during a match (the
+		# phone's renderer changed the light when the multisampling was dropped mid-game).
 		if runtime_fps > 60:
 			runtime_fps = 60
-		elif runtime_fps > 30:
+		elif runtime_fps > 30 and measured_fps < 60 * 0.6:
+			# 30 only for a phone that cannot even reach the high forties: a busy moment that
+			# dips to 50 should not cost the whole match half its frames.
 			runtime_fps = 30
 		else:
 			return false
 		Engine.max_fps = runtime_fps
 		return true
-	# Leve is the performance profile for weaker phones and may lower its 3D
-	# resolution before using a stable 45/30 FPS fallback.
-	var minimum = MIN_RENDER_SCALES[quality]
-	if runtime_scale > minimum + 0.01:
-		runtime_scale = maxf(minimum, runtime_scale - 0.08)
-		viewport.scaling_3d_scale = runtime_scale
-		return true
+	# Leve is the performance profile for weaker phones: a stable 45/30 FPS fallback.
 	if runtime_fps > 45:
 		# 45 divides a 90 Hz display evenly. On a 60 Hz panel it causes uneven
 		# pacing, so go straight to the stable 30 FPS fallback.

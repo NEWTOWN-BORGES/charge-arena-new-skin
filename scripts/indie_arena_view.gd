@@ -14,7 +14,18 @@ const Rules = preload("res://scripts/arena_rules.gd")
 const Skins = preload("res://scripts/skins.gd")
 const Powers = preload("res://scripts/powers.gd")
 const SOFT_DISC = preload("res://shaders/soft_disc.gdshader")
-const PilotFinish = preload("res://scripts/pilot_finish.gd")
+const GameFeel = preload("res://scripts/game_feel.gd")
+const Robots = preload("res://scripts/robots.gd")
+const ArenaTheme = preload("res://scripts/arena_theme.gd")
+const ArenaDressing = preload("res://scripts/arena_dressing.gd")
+const ArenaSky = preload("res://scripts/arena_sky.gd")
+const ArenaGround = preload("res://scripts/arena_ground.gd")
+const ArenaSea = preload("res://scripts/arena_sea.gd")
+const ArenaSpace = preload("res://scripts/arena_space.gd")
+const ArenaCity = preload("res://scripts/arena_city.gd")
+const ArenaDiorama = preload("res://scripts/arena_diorama.gd")
+const Fx = preload("res://scripts/fx.gd")
+const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
 const ArenaFinish = preload("res://scripts/arena_finish.gd")
 const GLASS = preload("res://shaders/glass.gdshader")
@@ -32,7 +43,16 @@ var projectiles: Dictionary = {}
 var sentries: Dictionary = {}
 var effects: Array = []
 var presentation_environment: Environment
+# The scenery the dressing built (exported to be baked), and whether this build is for that.
+var world_nodes: Array = []
+var bake_export = false
 var court_material: ShaderMaterial
+# The arena environment (colours of floor, sky, blocks and stadium); see arena_theme.gd.
+var theme: Dictionary = {}
+# GPU particle batches (sparks, glows, smoke, rings, debris); see fx.gd.
+var fx: Node3D
+# Projectile nodes waiting to be reused.
+var orb_pool: Array[Node3D] = []
 var camera: Camera3D
 var aim_line: Node3D
 var materials: Dictionary = {}
@@ -81,7 +101,9 @@ var unit_tints: Array = [false, false]
 var unit_hues: Array = ["", ""]
 var shot_colors: Array = [CYAN, CORAL]
 var aim_guide: Node3D
-var guide_dots: Array = []
+var guide_dots: MultiMeshInstance3D
+# How many guide dots the current prediction shows.
+var guide_shown = 0
 var guide_marker: MeshInstance3D
 var guide_enabled = true
 var guide_timer = 0.0
@@ -90,49 +112,42 @@ var soft_disc_nodes: Array = []
 var secondary_light: DirectionalLight3D
 var quality_level = 0
 # Camera shake: a strength that decays, added to the camera's resting place.
-var camera_home = Vector3(0, 26, 15)
-var shake_power = 0.0
+var camera_home = Vector3(0, 21.8, 18.3)
+# Shared tuning for everything the player feels; main.gd hands in the same object.
+var feel = GameFeel.new()
+# Layered, directional camera shakes: {strength, age, life, hz, dir, seed}.
+var shakes: Array = []
+# Visual hit-stop and time dilation: the effects' own clock, which can hold still or slow
+# down for a beat while the match itself runs on untouched.
+var fx_clock = 0.0
+# Shader warm-up: invisible samples of every kind of effect material, drawn for a few frames
+# while nothing is happening yet, so no effect compiles its shader in the middle of a match.
+var warm_root: Node3D
+var warm_frames = 0
+var hitstop_left = 0.0
+var dilation_left = 0.0
+var dilation_rate = 1.0
 var shake_scale = 0.55
 var shot_age = [1.0, 1.0]
-var feedback_pool: Array[MeshInstance3D] = []
+var feedback_pool: Array[Node3D] = []
 var feedback_allocated = 0
 const FEEDBACK_POOL_LIMIT = 80
 var brick_reactions: Dictionary = {}
-var shake_seed = 0.0
 # Effects waiting for their moment: {"time": seconds, "call": Callable}.
 var pending: Array = []
-# Reuse render resources instead of creating/destroying emitters during ultimates.
-const PARTICLE_POOL_LIMIT = 48
+# Reuse lamps instead of creating/destroying them during ultimates; particles live in the
+# fixed GPU batches of fx.gd.
 const LIGHT_POOL_LIMIT = 8
-var particle_pool: Array[CPUParticles3D] = []
 var light_pool: Array[OmniLight3D] = []
-var active_particles = 0
 var active_lights = 0
 
 func prepare_fx_pool() -> void:
-	for i in range(PARTICLE_POOL_LIMIT):
-		var puff = CPUParticles3D.new()
-		puff.emitting = false
-		puff.hide()
-		add_child(puff)
-		particle_pool.append(puff)
 	for i in range(LIGHT_POOL_LIMIT):
 		var lamp = OmniLight3D.new()
 		lamp.shadow_enabled = false
 		lamp.hide()
 		add_child(lamp)
 		light_pool.append(lamp)
-
-func take_particle() -> CPUParticles3D:
-	if effects.size() >= effect_limit or active_particles >= [16, 32, 48][quality_level] or particle_pool.is_empty():
-		return null
-	var puff = particle_pool.pop_back()
-	active_particles += 1
-	puff.emitting = false
-	puff.transform = Transform3D.IDENTITY
-	puff.show()
-	return puff
-
 
 func material(color: Color, luminous: bool = false) -> StandardMaterial3D:
 	var key = str(color) + str(luminous)
@@ -302,22 +317,26 @@ func soft_disc(parent: Node3D, pos: Vector3, size_value: Vector2, color: Color) 
 		shape.size = size_value
 		shapes[shape_key] = shape
 	var node = mesh(parent, shapes[shape_key], pos, color, true)
+	node.material_override = soft_disc_material(color)
+	soft_disc_nodes.append(node)
+	node.visible = quality_level > 0
+	return node
+
+func soft_disc_material(color: Color) -> ShaderMaterial:
 	var key = "disc" + str(color)
 	if not materials.has(key):
 		var mat = ShaderMaterial.new()
 		mat.shader = SOFT_DISC
 		mat.set_shader_parameter("tint", color)
 		materials[key] = mat
-	node.material_override = materials[key]
-	soft_disc_nodes.append(node)
-	node.visible = quality_level > 0
-	return node
+	return materials[key]
 
 func set_quality(level: int) -> void:
 	quality_level = clampi(level, 0, 2)
 	if presentation_environment != null: ArenaFinish.environment(presentation_environment, quality_level)
 	if court_material != null: court_material.set_shader_parameter("finish_quality", float(quality_level))
-	PilotFinish.set_quality(self, quality_level)
+	Robots.set_quality(self, quality_level)
+	if fx != null: fx.quality = quality_level
 	# Transparent contact decals are the largest group of separate draw calls.
 	# Keep them in the two prettier profiles and remove them entirely on Leve.
 	for node in soft_disc_nodes:
@@ -327,12 +346,8 @@ func set_quality(level: int) -> void:
 		secondary_light.visible = quality_level > 0
 	for mat in materials.values():
 		if mat is StandardMaterial3D:
+			# Leve lights per vertex: the studio's soft volume without per-pixel light.
 			ArenaFinish.surface(mat, quality_level)
-			# Flat lighting on Leve removes per-light passes and is also a clean
-			# indie look. Higher profiles restore the modeled ceramic shading.
-			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if quality_level == 0 or mat.get_meta("always_unshaded", false) else BaseMaterial3D.SHADING_MODE_PER_PIXEL
-			if mat.albedo_color == CREAM:
-				mat.clearcoat_enabled = quality_level >= 2
 
 func world_label(text: String, pos: Vector3, color: Color, font_size: int = 48, horizontal: bool = true) -> Label3D:
 	var label = Label3D.new()
@@ -351,10 +366,16 @@ func world_label(text: String, pos: Vector3, color: Color, font_size: int = 48, 
 func platform(outline: Array, height: float, depth: float, color: Color) -> MeshInstance3D:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# The cap fans from the outline's own middle: a pad off to the side fanned from the world
+	# origin ran its triangles under the field (seen through the glass floor in space).
+	var middle := Vector2.ZERO
+	for p in outline:
+		middle += p
+	middle /= maxf(outline.size(), 1)
 	for i in range(outline.size()):
 		var a = Vector3(outline[i].x, height, outline[i].y)
 		var b = Vector3(outline[(i + 1) % outline.size()].x, height, outline[(i + 1) % outline.size()].y)
-		triangle(st, Vector3(0, height, 0), a, b)
+		triangle(st, Vector3(middle.x, height, middle.y), a, b)
 		triangle(st, a, a - Vector3.UP * depth, b - Vector3.UP * depth)
 		triangle(st, a, b - Vector3.UP * depth, b)
 	return mesh(self, st.commit(), Vector3.ZERO, color)
@@ -363,6 +384,7 @@ func build(new_map: Dictionary = {}) -> void:
 	prepare_fx_pool()
 	map = new_map if not new_map.is_empty() else Rules.default_map()
 	walls = Rules.map_outline(map)
+	theme = ArenaTheme.for_map(map)
 	var environment = WorldEnvironment.new()
 	environment.environment = Environment.new()
 	environment.environment.background_mode = Environment.BG_CANVAS
@@ -371,6 +393,7 @@ func build(new_map: Dictionary = {}) -> void:
 	environment.environment.ambient_light_color = Color("b0c6c5")
 	presentation_environment = environment.environment
 	ArenaFinish.environment(presentation_environment, quality_level)
+	ArenaFinish.fog(presentation_environment, theme.get("fog", {}))
 	add_child(environment)
 	var background_layer = CanvasLayer.new()
 	background_layer.layer = -1
@@ -380,83 +403,96 @@ func build(new_map: Dictionary = {}) -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg_mat = ShaderMaterial.new()
 	bg_mat.shader = preload("res://shaders/backdrop.gdshader")
+	for key in ["sky_top", "sky_mid", "sky_low"]:
+		bg_mat.set_shader_parameter(key, theme[key])
+	bg_mat.set_shader_parameter("stars", theme.get("stars", 0.0))
 	background.material = bg_mat
 	background_layer.add_child(background)
+	# Studio light: a large warm key from the upper left and a cool, gentle fill from behind
+	# on the right. The grey dome of the environment does the rest.
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
-	light.light_color = Color("ffe9cc")
-	light.light_energy = 1.35
+	light.light_color = theme.get("sun", Color("fff3e6"))
+	light.light_energy = 1.1
 	light.shadow_enabled = false
 	add_child(light)
 	secondary_light = DirectionalLight3D.new()
-	secondary_light.rotation_degrees = Vector3(-35, 145, 0)
-	secondary_light.light_color = Color("8fc8ff")
-	secondary_light.light_energy = 0.72
+	secondary_light.rotation_degrees = Vector3(-30, 145, 0)
+	secondary_light.light_color = Color("e4ecf6")
+	secondary_light.light_energy = 0.35
 	add_child(secondary_light)
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = LANDSCAPE_SIZE
-	camera.position = Vector3(0, 26, 15)
+	camera.position = Vector3(0, 21.8, 18.3)
 	add_child(camera)
 	camera.look_at(Vector3(0, -0.15, 0))
 	camera.current = true
+	# Each world builds its own ground around the field (arena_theme.gd names it); a theme
+	# without one falls back to the studio plinth and stands.
+	var dressing = String(theme.get("dressing", ""))
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
-	platform(outer, -0.28, 0.75, DARK)
-	var under: Array = []
-	for p in outer:
-		under.append(p * 0.97)
-	platform(under, -0.98, 0.22, Color("182a35"))
-	# Floating plinth silhouette and a painted playing surface without coplanar seams.
+	# The plinth the arena floats on: a mid grey of the theme's frame, so the platform reads as
+	# a soft studio object and not a dark hole around the field.
+	if dressing == "":
+		platform(outer, -0.28, 0.75, theme.frame.lerp(theme.stand, 0.55))
+		var under: Array = []
+		for p in outer:
+			under.append(p * 0.97)
+		platform(under, -0.98, 0.22, theme.frame.lerp(theme.stand, 0.3))
+	# Floating plinth silhouette and a painted hexagon floor without coplanar seams.
 	var court = platform(walls, 0.0, 0.28, Color.WHITE)
 	var court_mat = ShaderMaterial.new()
 	court_mat.shader = preload("res://shaders/court.gdshader")
+	if theme.get("glass_floor", false):
+		# Space: plates of glass, seams and paint solid, the stars showing through.
+		var glass = Shader.new()
+		# Only the faces towards the camera: seen through the top, the slab's own underside
+		# and inner sides made a pale band across the field.
+		glass.code = court_mat.shader.code.replace("	SPECULAR = 0.45;", "	SPECULAR = 0.45;\n	ALPHA = mix(0.28, 1.0, max(seam, paint));").replace("cull_disabled", "cull_back")
+		court_mat.shader = glass
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
-	court_mat.set_shader_parameter("sector_tint", Color(["284551", "344653", "344b49", "414052"][absi(String(map.get("id", "")).hash()) % 4]))
+	court_mat.set_shader_parameter("floor_color", theme.floor)
+	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)
+	court_mat.set_shader_parameter("seam_color", theme.seam)
+	court_mat.set_shader_parameter("line_color", theme.line)
+	court_mat.set_shader_parameter("team_near", CYAN)
+	court_mat.set_shader_parameter("team_far", CORAL)
 	court.material_override = court_mat
-	soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
-	for i in range(walls.size()):
-		var a = Vector3(walls[i].x, 0.15, walls[i].y)
-		var b = Vector3(walls[(i + 1) % walls.size()].x, 0.15, walls[(i + 1) % walls.size()].y)
-		var color = CYAN if (a.z + b.z) > 0 else CORAL
-		segment(self, a, b, 0.56, 0.40, CREAM)
-		segment(self, a + Vector3.UP * 0.23, b + Vector3.UP * 0.23, 0.12, 0.10, DARK)
-		segment(self, a + Vector3.UP * 0.29, b + Vector3.UP * 0.29, 0.055, 0.025, Color(color, 0.85), true)
-		segment(self, a * Vector3(1.12, 0, 1.045) - Vector3.UP * 0.4, b * Vector3(1.12, 0, 1.045) - Vector3.UP * 0.4, 0.07, 0.04, GOLD)
-		var length_value = a.distance_to(b)
-		for n in range(1, int(length_value / 1.5)):
-			var point = a.lerp(b, float(n) / int(length_value / 1.5))
-			cylinder(self, point + Vector3.UP * 0.24, 0.055, 0.025, GOLD, false, 8)
-	# Team machinery, four low towers and outside ventilation grilles.
-	for sign_x in [-1, 1]:
-		for sign_z in [-1, 1]:
-			var depth = sign_z * Rules.HALF_LENGTH * 0.5
-			var pos = Vector3(sign_x * (Rules.outline_x_at(walls, depth) + 0.1), -0.1, depth)
-			box(self, pos, Vector3(1.0, 0.7, 1.65), DARK, false, 0.16)
-			box(self, pos + Vector3.UP * 0.46, Vector3(0.78, 0.34, 1.3), CREAM, false, 0.12)
-			box(self, pos + Vector3.UP * 0.66, Vector3(0.48, 0.08, 0.88), Color("536764"))
-			var color = CYAN if sign_z > 0 else CORAL
-			for j in range(4):
-				box(self, pos + Vector3(0, 0.72, (j - 1.5) * 0.18), Vector3(0.34, 0.04, 0.06), color, true)
-			soft_disc(self, pos + Vector3(0, -0.96, 0), Vector2(2.5, 2.8), Color(color, 0.2))
-		for z in [-2.3, 2.3]:
-			var grille_x = sign_x * (Rules.outline_x_at(walls, z) + 0.4)
-			box(self, Vector3(grille_x, -0.17, z), Vector3(0.62, 0.17, 1.55), Color("172f39"))
-			for j in range(8):
-				box(self, Vector3(grille_x, -0.05, z + (j - 3.5) * 0.17), Vector3(0.4, 0.05, 0.085), Color("658079"))
-	# Recessed tournament pylons: opaque, batched and outside the playable contour.
-	for side in [-1, 1]:
-		var px = side * (Rules.outline_x_at(walls, 0) + 0.8)
-		box(self, Vector3(px, -0.1, 0), Vector3(0.48, 0.55, 2.2), DARK, false, 0.1)
-		for mark in range(5):
-			box(self, Vector3(px, 0.2, (mark - 2)*0.32), Vector3(0.20, 0.035, 0.13), GOLD if mark == 2 else CREAM, false, 0.02)
-	# Center insignia, team floor numbers and perimeter print.
-	var bolt = [Vector3(0.27, 0.022, -0.87), Vector3(-0.42, 0.022, 0.05), Vector3(0.38, 0.022, 0.05), Vector3(-0.3, 0.022, 0.85)]
-	for i in range(bolt.size() - 1):
-		segment(self, bolt[i], bolt[i + 1], 0.12, 0.012, Color("a5b3a3"), true)
-	world_label("C H A R G E", Vector3(0, 0.024, 1.34), Color("8ba89e"), 30)
+	# A world whose light was baked in Blender for this map (tools/export_world.gd, then
+	# tools/blender/bake_scene.py) replaces the lit dressing; the pieces the dressing adds are
+	# kept in `world_nodes` so they can be exported to be baked.
+	var first_world_node = get_child_count()
+	var baked_world = ArenaDiorama.baked_path(String(map.get("id", "")))
+	if dressing != "" and dressing != "diorama" and not bake_export and ResourceLoader.exists(baked_world):
+		dressing = "baked"
+	match dressing:
+		"baked":
+			ArenaDiorama.build(self, theme, baked_world)
+		"sky":
+			# The floating sky arena: deck, hull, armoured walls and deck furniture from the kit.
+			ArenaSky.build(self, theme)
+		"ground":
+			ArenaGround.build(self, theme)
+		"sea":
+			ArenaSea.build(self, theme)
+		"space":
+			ArenaSpace.build(self, theme)
+		"city":
+			ArenaCity.build(self, theme)
+		"diorama":
+			# The baked island brings its own tiled floor: the court would show in its seams.
+			court.hide()
+			ArenaDiorama.build(self, theme)
+		_:
+			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
+			ArenaDressing.perimeter(self, theme)
+			ArenaDressing.stadium(self, theme, quality_level)
+	world_nodes = get_children().slice(first_world_node)
+	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
 		build_goal(team)
 		units.append(build_player(CYAN if team == 0 else CORAL, team))
@@ -465,20 +501,30 @@ func build(new_map: Dictionary = {}) -> void:
 	build_obstacles()
 	build_barriers()
 	build_power_effects()
+	# The short aim line and the dotted shot guide are one MultiMesh each: a draw apiece
+	# instead of one per dot.
 	aim_line = Node3D.new()
 	add_child(aim_line)
+	var line_dots = dot_batch(aim_line, 8, 0.031)
 	for i in range(8):
-		cylinder(aim_line, Vector3(0, 0, -0.9 - i * 0.24), 0.031 if i < 5 else 0.022, 0.012, Color(CREAM, 0.55 - i * 0.045), true, 8)
+		var width = 1.0 if i < 5 else 0.022 / 0.031
+		line_dots.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(width, 1, width)), Vector3(0, 0, -0.9 - i * 0.24)))
+		line_dots.multimesh.set_instance_color(i, Color(CREAM, 0.55 - i * 0.045))
 	aim_guide = Node3D.new()
 	add_child(aim_guide)
-	for i in range(GUIDE_DOTS):
-		guide_dots.append(cylinder(aim_guide, Vector3.ZERO, 0.045, 0.012, Color(CREAM, 0.7), true, 10))
+	guide_dots = dot_batch(aim_guide, GUIDE_DOTS, 0.045)
+	guide_dots.multimesh.visible_instance_count = 0
 	guide_marker = torus(aim_guide, Vector3.ZERO, 0.42, 0.024, LIME)
 	aim_guide.hide()
+	fx = Fx.new()
+	fx.name = "Fx"
+	fx.quality = quality_level
+	add_child(fx)
 	CombatFinish.prepare(self)
-	ArenaFinish.architecture(self)
 	batch_bricks()
 	batch_static_geometry()
+	# A rebuilt arena brings its floor words back facing the first player.
+	orient_labels()
 
 func batch_static_geometry() -> void:
 	# Merge opaque architecture by material, leaving animated models independent.
@@ -501,7 +547,11 @@ func collect_static(parent: Node, groups: Dictionary) -> void:
 	for child in parent.get_children():
 		if child in units or child in brick_nodes or child in obstacle_nodes or child in power_nodes or child == aim_line or child == aim_guide:
 			continue
-		if child is MeshInstance3D and child.material_override is StandardMaterial3D and child.material_override.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+		var opaque = child is MeshInstance3D and child.material_override is StandardMaterial3D and child.material_override.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+		# Robot-painted props (goal posts) merge too; their ink outlines stay separate so the
+		# Leve profile can still hide them.
+		var painted = child is MeshInstance3D and child.material_override is ShaderMaterial and child.material_override.get_meta("robot_paint", false)
+		if opaque or painted:
 			# Separate attribute layouts so SurfaceTool never mixes UV and non-UV formats.
 			var arrays: Array = child.mesh.surface_get_arrays(0)
 			var has_uv = arrays[Mesh.ARRAY_TEX_UV] != null and arrays[Mesh.ARRAY_TEX_UV].size() > 0
@@ -623,8 +673,17 @@ func build_goal(team: int) -> void:
 	gate.material_override = shader
 	goals.append(gate)
 	for endpoint in [points.front(), points.back()]:
-		box(self, endpoint + Vector3.UP * 0.32, Vector3(0.18, 0.68, 0.18), CREAM)
-		box(self, endpoint + Vector3.UP * 0.70, Vector3(0.14, 0.08, 0.14), color, true)
+		var post = Node3D.new()
+		add_child(post)
+		post.position = endpoint
+		Robots.prop(self, post, "goal_post", ["goal_post"], {"shell": theme.block_alt, "trim": theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": color, "team": color})
+	# The gate of the Blender island over every goal: on the goal line, facing the field.
+	var arch = Node3D.new()
+	add_child(arch)
+	arch.position = Vector3(center.x, 0.0, center.y + signf(center.y) * 0.1)
+	arch.rotation.y = 0.0 if team == 0 else PI
+	var gate_key = "goal_arch_01" if team == 0 else "goal_arch_02"
+	Robots.prop(self, arch, gate_key, [gate_key], {"shell": theme.get("armour", Color("fff4e2")), "trim": theme.get("armour_trim", Color("ff7a3c")), "glow": color, "team": color, "dark": Color("2a3140")})
 	world_label("01" if team == 0 else "02", Vector3(0, 0.05, center.y * 0.89), color, 49)
 	var track = arc_points(center, Rules.TRACK_RADIUS, Rules.track_limit_for(map), team, 0.023)
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))
@@ -638,7 +697,6 @@ func build_bricks() -> void:
 func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false) -> Node3D:
 	# Every theme keeps the same footprint, the soft shadow and three team-coloured life lights.
 	var team_color = CYAN if data.team == 0 else CORAL
-	var palette = Skins.colors(skin, team_color, tint)
 	var brick = Node3D.new()
 	parent.add_child(brick)
 	brick.position = Vector3(data.p.x, 0, data.p.y)
@@ -648,116 +706,19 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.scale = Vector3(Rules.narrow_of(map), 1.0, 1.0)
 	# A shell around the whole brick rather than a lid on top of it: at this camera angle a
 	# flat plate all but disappears, and the brick has to look encased.
-	var plate = box(brick, Vector3(0, 0.3, 0), Vector3(0.7, 0.68, 0.44), Color(Rules.power_color("plating"), 0.3), true, 0.07)
+	# BIGORNA's plating: a hexagonal shell of yard steel with a hazard band round its top.
+	var plate = cylinder(brick, Vector3(0, 0.3, 0), 0.42, 0.7, Color(Rules.power_color("plating"), 0.3), true, 6)
+	plate.scale = Vector3(1.0, 1.0, 0.62)
 	plate.name = "Plate"
+	var band = torus(plate, Vector3(0, 0.33, 0), 0.4, 0.014, Color("2b2f36", 0.45), true)
+	band.scale = Vector3(1.05, 1.0, 1.05)
 	plate.hide()
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
-	match skin:
-		1:
-			# Farolim: white tower, team stripe, beacon window and brass cap.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.27, 0), Vector3(0.54, 0.34, 0.28), CREAM, false, 0.05)
-			box(brick, Vector3(0, 0.25, 0), Vector3(0.55, 0.07, 0.29), team_color, false, 0.02)
-			box(brick, Vector3(0, 0.49, 0), Vector3(0.44, 0.09, 0.2), palette.light, true, 0.02)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.5, 0.05, 0.25), GOLD, false, 0.02)
-		2:
-			# Observatório: indigo block, brass rim and a star on each face.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), palette.body.darkened(0.3), false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.36, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.52, 0), Vector3(0.56, 0.04, 0.3), GOLD, false, 0.01)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.43, 0.05, 0.21), CREAM, false, 0.02)
-			for face in [-1, 1]:
-				var star = box(brick, Vector3(0, 0.34, face * 0.15), Vector3(0.09, 0.09, 0.02), palette.light, true, 0.005)
-				star.rotation_degrees.z = 45
-		3:
-			# Estufa: glazed ceramic planter with leaves behind its life lights.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.5, 0.4, 0.26), CREAM, false, 0.07)
-			box(brick, Vector3(0, 0.26, 0), Vector3(0.51, 0.08, 0.27), palette.body, false, 0.02)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.56, 0.05, 0.3), CREAM.darkened(0.08), false, 0.02)
-			for x in [-0.21, 0.0, 0.21]:
-				sphere(brick, Vector3(x, 0.66, 0.08), Vector3(0.14, 0.18, 0.1), Color("7fbf5a"))
-		4:
-			# Veio de cristal: rough stone, steel brace and crystals breaking through.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.33, 0), Vector3(0.54, 0.4, 0.28), Color("6b6f78"), false, 0.1)
-			box(brick, Vector3(0, 0.22, 0), Vector3(0.56, 0.05, 0.3), Color("9aa1ab"), false, 0.01)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.46, 0.05, 0.22), Color("575b63"), false, 0.02)
-			for crystal_pose in [[Vector3(-0.2, 0.66, 0.08), 20.0], [Vector3(0.21, 0.63, 0.07), -25.0]]:
-				var crystal = box(brick, crystal_pose[0], Vector3(0.07, 0.2, 0.07), palette.light, true, 0.01)
-				crystal.rotation_degrees.z = crystal_pose[1]
-		5:
-			# Monólito Eclipse: obsidian on a gilded plinth, an eclipse on each face.
-			box(brick, Vector3(0, 0.09, 0), Vector3(0.54, 0.14, 0.28), GOLD, false, 0.03)
-			box(brick, Vector3(0, 0.36, 0), Vector3(0.52, 0.4, 0.27), palette.body, false, 0.04)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.46, 0.04, 0.22), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				var disc = cylinder(brick, Vector3(0, 0.36, face * 0.145), 0.07, 0.02, DARK, false, 20)
-				disc.rotation_degrees.x = 90
-				var corona = torus(brick, Vector3(0, 0.36, face * 0.14), 0.085, 0.012, palette.light)
-				corona.rotation_degrees.x = 90
-		6:
-			# Relógio de torre: bronze tower, brass cap and a clock face on each side.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.4, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.56, 0), Vector3(0.5, 0.05, 0.25), GOLD, false, 0.02)
-			for face in [-1, 1]:
-				var dial = cylinder(brick, Vector3(0, 0.34, face * 0.145), 0.1, 0.02, CREAM, false, 20)
-				dial.rotation_degrees.x = 90
-				var hand = box(brick, Vector3(0.025, 0.36, face * 0.158), Vector3(0.08, 0.02, 0.012), DARK, false, 0.003)
-				hand.rotation_degrees.z = 35
-				var rim = torus(brick, Vector3(0, 0.34, face * 0.15), 0.1, 0.012, palette.light)
-				rim.rotation_degrees.x = 90
-		7:
-			# Para-raios: slate block with a storm-yellow band, a bolt on each face and two brass rods.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.42, 0.28), palette.body, false, 0.05)
-			box(brick, Vector3(0, 0.22, 0), Vector3(0.55, 0.05, 0.29), STORM_YELLOW, false, 0.01)
-			for face in [-1, 1]:
-				var bolt = box(brick, Vector3(0, 0.37, face * 0.145), Vector3(0.05, 0.22, 0.02), palette.light, true, 0.005)
-				bolt.rotation_degrees.z = 25
-			for x in [-0.21, 0.21]:
-				cylinder(brick, Vector3(x, 0.65, 0.08), 0.016, 0.18, GOLD, false, 6)
-				sphere(brick, Vector3(x, 0.76, 0.08), Vector3.ONE * 0.065, palette.light, true)
-		8:
-			# Alambique: copper still with a window of glowing potion and two bubbling flasks.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.35, 0), Vector3(0.52, 0.42, 0.27), COPPER, false, 0.1)
-			box(brick, Vector3(0, 0.55, 0), Vector3(0.53, 0.05, 0.28), palette.body, false, 0.02)
-			for face in [-1, 1]:
-				box(brick, Vector3(0, 0.34, face * 0.14), Vector3(0.3, 0.14, 0.02), palette.light, true, 0.02)
-			for x in [-0.21, 0.21]:
-				sphere(brick, Vector3(x, 0.66, 0.08), Vector3(0.1, 0.12, 0.1), palette.light, true)
-		9:
-			# Arca do tesouro: wooden chest, coloured lid, brass straps and gems peeking out.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.3, 0), Vector3(0.54, 0.32, 0.28), WOOD, false, 0.04)
-			box(brick, Vector3(0, 0.52, 0), Vector3(0.54, 0.12, 0.28), palette.body, false, 0.05)
-			for x in [-0.17, 0.17]:
-				box(brick, Vector3(x, 0.4, 0), Vector3(0.05, 0.5, 0.29), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				box(brick, Vector3(0, 0.44, face * 0.145), Vector3(0.07, 0.08, 0.02), GOLD, false, 0.01)
-			sphere(brick, Vector3(-0.21, 0.62, 0.08), Vector3.ONE * 0.08, palette.light, true)
-			sphere(brick, Vector3(0.21, 0.62, -0.07), Vector3.ONE * 0.08, palette.light, true)
-		10:
-			# Obelisco solar: royal block on a gilded plinth, a sun on each face.
-			box(brick, Vector3(0, 0.09, 0), Vector3(0.54, 0.14, 0.28), GOLD, false, 0.03)
-			box(brick, Vector3(0, 0.36, 0), Vector3(0.52, 0.4, 0.27), palette.body, false, 0.04)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.46, 0.04, 0.22), GOLD, false, 0.01)
-			for face in [-1, 1]:
-				var sun = cylinder(brick, Vector3(0, 0.36, face * 0.145), 0.065, 0.02, palette.light, true, 16)
-				sun.rotation_degrees.x = 90
-				var rays = torus(brick, Vector3(0, 0.36, face * 0.14), 0.1, 0.014, GOLD, false)
-				rays.rotation_degrees.x = 90
-		_:
-			# Bateria Aurora: the original battery cell in the team colour.
-			box(brick, Vector3(0, 0.10, 0), Vector3(0.54, 0.16, 0.28), DARK, false, 0.03)
-			box(brick, Vector3(0, 0.34, 0), Vector3(0.54, 0.44, 0.28), team_color, false, 0.05)
-			box(brick, Vector3(0, 0.58, 0), Vector3(0.43, 0.05, 0.21), CREAM, false, 0.02)
+	Robots.brick(self, brick, skin, team_color, tint)
 	for i in range(3):
-		var pip = box(brick, Vector3((i - 1) * 0.13, 0.614, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
+		var pip = box(brick, Vector3((i - 1) * 0.13, 0.426, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
 		pip.name = "HP" + str(i)
 	return brick
 
@@ -790,16 +751,18 @@ func build_boosters() -> void:
 			curve.append(p)
 			upper.append(p + Vector3.UP * 0.32)
 			lower.append(p - Vector3.UP * 0.21)
-		arc_ribbon(root, curve, 0.15, 0.6, DARK, false)
-		arc_ribbon(root, upper, 0.075, 0.055, GOLD)
-		arc_ribbon(root, lower, 0.09, 0.07, LIME)
-		soft_disc(root, Vector3(sign_x * (side - 0.25), 0.012, 0), Vector2(1.8, 2.8), Color(GOLD, 0.32))
-		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), GOLD, 29)
+		arc_ribbon(root, curve, 0.15, 0.6, theme.frame, false)
+		arc_ribbon(root, upper, 0.075, 0.055, theme.accent)
+		arc_ribbon(root, lower, 0.09, 0.07, theme.line)
+		soft_disc(root, Vector3(sign_x * (side - 0.25), 0.012, 0), Vector2(1.8, 2.8), Color(theme.accent, 0.32))
+		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), theme.accent, 29)
 		label.rotation.y = -sign_x * PI * 0.5
 		booster_nodes.append(root)
 
 func build_obstacles() -> void:
-	var color = Color("a4c8d4")
+	# Painted guides are opaque, pre-blended with the floor, so they merge with the static
+	# geometry instead of costing a transparent draw each.
+	var color = theme.line
 	for spec in map.get("obstacles", []):
 		var kind: String = spec.get("kind", "fixed")
 		var radius: float = spec.get("radius", Rules.OBSTACLE_RADIUS)
@@ -810,17 +773,17 @@ func build_obstacles() -> void:
 			var axis: Vector2 = spec.get("axis", Vector2.RIGHT)
 			for n in range(-10, 11):
 				var at = center + axis * travel * n / 10.0
-				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), Color(color, 0.24), true)
+				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), color.lerp(theme.floor, 0.7), true)
 				tick.rotation.y = -axis.angle()
 			for end in [-1, 1]:
 				var cap = center + axis * travel * end
-				cylinder(self, Vector3(cap.x, 0.021, cap.y), 0.085, 0.015, Color(color, 0.45), true, 12)
+				cylinder(self, Vector3(cap.x, 0.021, cap.y), 0.085, 0.015, color.lerp(theme.floor, 0.5), true, 12)
 		elif kind == "orbit":
 			var dots = maxi(24, int(TAU * travel / 0.32))
 			for n in range(dots):
 				var angle = TAU * n / dots
 				var at = center + Vector2(cos(angle), sin(angle)) * travel
-				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), Color(color, 0.22), true)
+				var tick = box(self, Vector3(at.x, 0.017, at.y), Vector3(0.10, 0.012, 0.025), color.lerp(theme.floor, 0.72), true)
 				tick.rotation.y = -(angle + PI * 0.5)
 		else:
 			cylinder(self, Vector3(center.x, 0.02, center.y), radius + 0.14, 0.03, DARK, false, 32)
@@ -830,15 +793,18 @@ func build_obstacles() -> void:
 		node.position = Vector3(pos.x, 0, pos.y)
 		var size = radius / Rules.OBSTACLE_RADIUS
 		soft_disc(node, Vector3(0.06, 0.025, 0.09), Vector2(1.9, 1.6) * size, Color(0.005, 0.018, 0.024, 0.8))
-		cylinder(node, Vector3(0, 0.31, 0), radius, 0.54, CREAM)
-		torus(node, Vector3(0, 0.43, 0), radius + 0.012, 0.027, DARK)
-		torus(node, Vector3(0, 0.12, 0), radius, 0.034, color)
-		# Fixed pillars wear a gold cap; moving bumpers keep the dark one.
-		cylinder(node, Vector3(0, 0.60, 0), radius * 0.82, 0.10, GOLD if kind == "fixed" else DARK)
-		torus(node, Vector3(0, 0.667, 0), radius * 0.68, 0.025, color)
+		# An industrial hex pylon from the kit; fixed pillars wear the accent colour, moving
+		# bumpers the theme's block colour. Its three-armed cap (Core) turns while it runs.
+		var paint = {"shell": theme.block_alt, "trim": theme.accent if kind == "fixed" else theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": theme.line, "team": theme.line}
+		var shell = Node3D.new()
+		node.add_child(shell)
+		shell.scale = Vector3(radius / 0.44, 1.0, radius / 0.44)
+		Robots.prop(self, shell, "bumper_body", ["bumper_body"], paint)
 		var core = Node3D.new()
 		core.name = "Core"
+		core.scale = shell.scale
 		node.add_child(core)
+		Robots.prop(self, core, "bumper_core", ["bumper_core"], paint.duplicate())
 		# Stars for the shock pulse, hidden until the bumper seizes up.
 		var dazed = Node3D.new()
 		dazed.name = "Stun"
@@ -849,9 +815,6 @@ func build_obstacles() -> void:
 			var star = box(dazed, Vector3(cos(angle) * radius * 0.7, 0.98, sin(angle) * radius * 0.7), Vector3(0.11, 0.11, 0.11), LIME, true)
 			star.rotation_degrees.z = 45
 		dazed.hide()
-		for sign_x in [-1, 1]:
-			var stripe = box(core, Vector3(sign_x * 0.1 * size, 0.674, 0), Vector3(0.12, 0.023, 0.28) * Vector3(size, 1, size), color, true, 0.02)
-			stripe.rotation.y = -0.5
 		obstacle_nodes.append(node)
 
 func build_barriers() -> void:
@@ -860,62 +823,27 @@ func build_barriers() -> void:
 	for barrier in map.get("barriers", []):
 		var a = Vector3(barrier.a.x, 0.0, barrier.a.y)
 		var b = Vector3(barrier.b.x, 0.0, barrier.b.y)
-		segment(self, a + Vector3.UP * 0.2, b + Vector3.UP * 0.2, thickness, 0.4, CREAM)
-		segment(self, a + Vector3.UP * 0.42, b + Vector3.UP * 0.42, thickness * 0.6, 0.05, DARK)
-		segment(self, a + Vector3.UP * 0.46, b + Vector3.UP * 0.46, 0.05, 0.02, GOLD, true)
+		segment(self, a + Vector3.UP * 0.2, b + Vector3.UP * 0.2, thickness, 0.4, theme.block)
+		segment(self, a + Vector3.UP * 0.42, b + Vector3.UP * 0.42, thickness * 0.6, 0.05, theme.frame)
+		segment(self, a + Vector3.UP * 0.46, b + Vector3.UP * 0.46, 0.05, 0.02, theme.line, true)
 		for end in [a, b]:
-			cylinder(self, end + Vector3.UP * 0.2, Rules.BARRIER_RADIUS, 0.4, CREAM, false, 16)
-			cylinder(self, end + Vector3.UP * 0.43, Rules.BARRIER_RADIUS * 0.7, 0.06, GOLD, false, 12)
+			cylinder(self, end + Vector3.UP * 0.2, Rules.BARRIER_RADIUS, 0.4, theme.block_alt, false, 16)
+			cylinder(self, end + Vector3.UP * 0.43, Rules.BARRIER_RADIUS * 0.7, 0.06, theme.accent, false, 12)
 
 func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null, tint: bool = false) -> Node3D:
 	# `parent` lets the skins viewer build the same model inside its own 3D world.
 	var root = Node3D.new()
 	(parent if parent != null else self).add_child(root)
 	root.position.z = Rules.track_position(team, 0).y
-	soft_disc(root, Vector3(0.12, 0.024, 0.14), Vector2(1.7, 1.35), Color(0.006, 0.02, 0.025, 0.8))
+	# Soft contact shadow under the pilot, a little towards the back right, away from the key.
+	soft_disc(root, Vector3(0.12, 0.024, 0.14), Vector2(1.8, 1.45), Color(0.07, 0.08, 0.1, 0.55))
 	torus(root, Vector3(0, 0.043, 0), 0.53, 0.018, Color(color, 0.72))
 	var body = Node3D.new()
 	body.name = "Body"
 	root.add_child(body)
-	# Every skin provides LegL, LegR, Gun and Gun/Flash for the shared animation code.
-	var palette = Skins.colors(skin, color, tint)
-	crafting_pilot = true
-	if skin == 1:
-		build_lighthouse_keeper(body, palette.body, palette.light)
-	elif skin == 2:
-		build_astronomer(body, palette.body, palette.light, color)
-	elif skin == 3:
-		build_gardener(body, palette.body, palette.light, color)
-	elif skin == 4:
-		build_miner(body, palette.body, palette.light, color)
-	elif skin == 5:
-		build_sentinel(body, palette.body, palette.light, color)
-	elif skin == 6:
-		build_clockmaker(body, palette.body, palette.light, color)
-	elif skin == 7:
-		build_storm_chaser(body, palette.body, palette.light, color)
-	elif skin == 8:
-		build_alchemist(body, palette.body, palette.light, color)
-	elif skin == 9:
-		build_corsair(body, palette.body, palette.light, color)
-	elif skin == 10:
-		build_archon(body, palette.body, palette.light, color)
-	elif skin == 11:
-		build_station_pilot(body, palette.body, palette.light, color, 7)
-		for badge in range(4):
-			sphere(body, Vector3(-0.24 + badge * 0.16, 1.17, -0.27), Vector3(0.07, 0.07, 0.045), Color("ffd477"), true)
-	elif skin >= STATION_SKIN:
-		build_station_pilot(body, palette.body, palette.light, color, skin - STATION_SKIN)
-	else:
-		build_aurora_pilot(body, color)
-	PilotFinish.apply(self, body, skin, palette, color)
-	# Small enamel competition badge and shoulder seams unify the collection without
-	# changing faces, silhouettes, weapon origins or hitboxes.
-	var badge_color = Color("e8bd78") if skin < STATION_SKIN else color.lightened(0.25)
-	box(body, Vector3(-0.20, 0.86, -0.265), Vector3(0.085, 0.12, 0.026), badge_color, false, 0.018)
-	for side in [-1, 1]:
-		box(body, Vector3(side*0.43, 1.00, -0.07), Vector3(0.22, 0.035, 0.24), badge_color, false, 0.015)
-	crafting_pilot = false
+	# Robots come from the Blender kit; each provides LegL, LegR, Gun and Gun/Flash for
+	# the shared animation code.
+	Robots.build(self, body, skin, color, tint)
 	# Frost: a block of ice around the pilot with crystals standing off it, and a ring of
 	# spikes grown out of the floor. It is the heaviest of the worn effects on purpose -
 	# being frozen is the worst thing that happens to you in a match.
@@ -963,7 +891,7 @@ func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null,
 	torus(surge, Vector3(0, 0.5, 0), 0.46, 0.022, Color(GOLD, 0.6))
 	for i in range(6):
 		var spark_angle = i * TAU / 6.0
-		box(surge, Vector3(cos(spark_angle) * 0.66, 0.26, sin(spark_angle) * 0.66), Vector3(0.07, 0.2, 0.07), GOLD, true, 0.02)
+		sphere(surge, Vector3(cos(spark_angle) * 0.66, 0.2 + 0.08 * (i % 3), sin(spark_angle) * 0.66), Vector3.ONE * (0.1 + 0.04 * (i % 2)), GOLD, true)
 	surge.hide()
 	var stun = Node3D.new()
 	stun.name = "Stun"
@@ -1001,617 +929,13 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 # Station pilots are addressed from here up, well clear of the eleven skins in the shop.
 const STATION_SKIN = 100
 
-func build_station_pilot(body: Node3D, shell: Color, light: Color, color: Color, variant: int) -> void:
-	# The pilots between the bosses. One chassis, ten heads: nobody here has a name, so the
-	# whole read has to come from the silhouette and the colour. Deliberately plainer than
-	# any shop skin - these are the road, not the destination.
-	var kind: int = posmod(variant, 10)
-	var family: int = clampi(variant / 10, 0, 4)
-	body.set_meta("design_signature", "%d:%d" % [kind, family])
-	# Five equipment families × ten helmets: fifty distinct silhouettes.
-	for side in [-1, 1]:
-		match family:
-			0: box(body, Vector3(side * 0.46, 0.98, 0.06), Vector3(0.2, 0.3, 0.36), color, false, 0.08)
-			1: cone(body, Vector3(side * 0.52, 1.06, 0.03), 0.19, 0.46, shell, false, 6)
-			2: box(body, Vector3(side * 0.42, 0.56, 0.26), Vector3(0.3, 0.7, 0.12), color, false, 0.04).rotation.z = side * 0.25
-			3: cylinder(body, Vector3(side * 0.38, 0.98, 0.4), 0.14, 0.8, shell, false, 8)
-			4: sphere(body, Vector3(side * 0.53, 0.89, 0.05), Vector3(0.44, 0.4, 0.42), color)
-	body.scale = Vector3(0.91 + family * 0.045, 0.92 + (kind % 3) * 0.055, 1.0)
-	for side in [-1, 1]:
-		var leg = Node3D.new()
-		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * 0.23, 0.30, 0)
-		body.add_child(leg)
-		box(leg, Vector3(0, -0.04, 0), Vector3(0.26, 0.36, 0.26), DARK, false, 0.07)
-		box(leg, Vector3(0, -0.22, -0.08), Vector3(0.32, 0.18, 0.46), shell, false, 0.06)
-	# A plated torso with a service band across it, in the pilot's own colour.
-	box(body, Vector3(0, 0.72, 0), Vector3(0.62, 0.64, 0.48), shell, false, 0.1)
-	box(body, Vector3(0, 0.82, -0.25), Vector3(0.5, 0.1, 0.04), light, true)
-	box(body, Vector3(0, 0.62, -0.25), Vector3(0.34, 0.08, 0.04), DARK)
-	box(body, Vector3(0, 0.7, 0.3), Vector3(0.42, 0.44, 0.22), DARK, false, 0.06)
-	for side in [-1, 1]:
-		box(body, Vector3(side * 0.42, 0.9, 0), Vector3(0.18, 0.2, 0.34), DARK, false, 0.05)
-		box(body, Vector3(side * 0.44, 0.62, -0.1), Vector3(0.2, 0.32, 0.2), shell, false, 0.05)
-	# The helmet: four shapes, so a glance at the outline is enough to tell two apart.
-	match kind % 4:
-		0:
-			sphere(body, Vector3(0, 1.22, -0.02), Vector3(0.84, 0.78, 0.78), CREAM)
-		1:
-			box(body, Vector3(0, 1.22, -0.02), Vector3(0.76, 0.72, 0.74), CREAM, false, 0.16)
-		2:
-			cylinder(body, Vector3(0, 1.22, -0.02), 0.42, 0.72, CREAM, false, 14)
-		_:
-			cone(body, Vector3(0, 1.3, -0.02), 0.44, 0.78, CREAM, false, 12)
-	box(body, Vector3(0, 1.24, -0.4), Vector3(0.58, 0.2, 0.06), DARK, false, 0.03)
-	box(body, Vector3(0, 1.24, -0.43), Vector3(0.3, 0.08, 0.02), light, true)
-	# And a crest on top, five of them, so the four helmets make ten pilots between them.
-	match kind % 5:
-		0:
-			cylinder(body, Vector3(0, 1.72, -0.02), 0.035, 0.36, GOLD, false, 8)
-			sphere(body, Vector3(0, 1.92, -0.02), Vector3.ONE * 0.13, light, true)
-		1:
-			box(body, Vector3(0, 1.68, -0.02), Vector3(0.1, 0.3, 0.44), light, true, 0.03)
-		2:
-			for side in [-1, 1]:
-				cone(body, Vector3(side * 0.28, 1.6, -0.02), 0.09, 0.34, GOLD, false, 8).rotation_degrees.z = side * -22
-		3:
-			torus(body, Vector3(0, 1.66, -0.02), 0.3, 0.035, light)
-		_:
-			for step in range(3):
-				box(body, Vector3(0, 1.6, -0.28 + step * 0.22), Vector3(0.36 - step * 0.08, 0.07, 0.1), GOLD, false, 0.02)
-	# The pack on the back, which is where the colour reads from behind.
-	box(body, Vector3(0, 0.86, 0.46), Vector3(0.3, 0.42, 0.16), light, true, 0.04)
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.3, 0.7, -0.44), Vector3(0.3, 0.3, 0.46), shell, false, 0.07)
-	box(gun, Vector3(0.3, 0.7, -0.72), Vector3(0.2, 0.2, 0.16), DARK)
-	sphere(gun, Vector3(0.3, 0.7, -0.82), Vector3(0.12, 0.12, 0.05), light, true)
-	var flash = sphere(gun, Vector3(0.3, 0.7, -0.88), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func build_aurora_pilot(body: Node3D, color: Color) -> void:
-	for side in [-1, 1]:
-		var leg = Node3D.new()
-		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * 0.22, 0.31, 0)
-		body.add_child(leg)
-		sphere(leg, Vector3(0, -0.05, 0), Vector3(0.25, 0.38, 0.27), DARK)
-		box(leg, Vector3(0, -0.2, -0.09), Vector3(0.34, 0.2, 0.5), CREAM, false, 0.075)
-		box(leg, Vector3(0, -0.28, -0.075), Vector3(0.35, 0.065, 0.49), DARK)
-	box(body, Vector3(0, 0.73, 0), Vector3(0.66, 0.65, 0.5), color, false, 0.14)
-	box(body, Vector3(0, 0.67, -0.27), Vector3(0.37, 0.24, 0.055), CREAM)
-	box(body, Vector3(0, 0.69, -0.31), Vector3(0.08, 0.13, 0.02), color.darkened(0.2), true)
-	box(body, Vector3(0, 0.68, 0.34), Vector3(0.46, 0.49, 0.26), DARK, false, 0.08)
-	for x in [-0.15, 0.15]:
-		cylinder(body, Vector3(x, 0.66, 0.48), 0.07, 0.32, GOLD)
-	# Oversized ceramic helmet and tinted inset visor give each pilot a readable face.
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.82, 0.82), CREAM)
-	sphere(body, Vector3(0, 1.29, -0.30), Vector3(0.77, 0.43, 0.34), DARK)
-	for x in [-0.17, 0.17]:
-		box(body, Vector3(x, 1.32, -0.473), Vector3(0.065, 0.115, 0.027), color.lightened(0.25), true, 0.01)
-	box(body, Vector3(0, 1.63, -0.035), Vector3(0.13, 0.045, 0.51), color)
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.35, 0.35), GOLD)
-		sphere(body, Vector3(side * 0.43, 0.87, -0.02), Vector3(0.32, 0.34, 0.39), color)
-		sphere(body, Vector3(side * 0.46, 0.65, -0.14), Vector3(0.24, 0.36, 0.24), DARK)
-	# Compact energy gauntlet, centered on the actual shot direction.
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.29, 0.70, -0.46), Vector3(0.33, 0.32, 0.5), CREAM, false, 0.09)
-	box(gun, Vector3(0.29, 0.70, -0.74), Vector3(0.24, 0.24, 0.14), DARK)
-	sphere(gun, Vector3(0.29, 0.70, -0.83), Vector3(0.13, 0.13, 0.05), color.lightened(0.2), true)
-	var flash = sphere(gun, Vector3(0.29, 0.70, -0.88), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func build_lighthouse_keeper(body: Node3D, color: Color, glow: Color) -> void:
-	# Keeper of the floating beacons: tall dome with a brass band, one glowing visor slit,
-	# the arena's gold beacon gem on a mast and a lantern pack lit with the beacon light.
-	for side in [-1, 1]:
-		var leg = Node3D.new()
-		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * 0.22, 0.31, 0)
-		body.add_child(leg)
-		sphere(leg, Vector3(0, -0.05, 0), Vector3(0.24, 0.36, 0.26), DARK)
-		box(leg, Vector3(0, -0.19, -0.08), Vector3(0.32, 0.19, 0.46), CREAM, false, 0.09)
-		box(leg, Vector3(0, -0.285, -0.07), Vector3(0.33, 0.05, 0.47), GOLD)
-	# Keeper's coat: team-coloured chest, flared hem and a brass belt.
-	box(body, Vector3(0, 0.75, 0), Vector3(0.62, 0.56, 0.48), color, false, 0.16)
-	box(body, Vector3(0, 0.46, 0.02), Vector3(0.7, 0.2, 0.54), color.darkened(0.25), false, 0.08)
-	box(body, Vector3(0, 0.56, 0.01), Vector3(0.68, 0.06, 0.52), GOLD)
-	var badge = cylinder(body, Vector3(0, 0.78, -0.25), 0.12, 0.04, CREAM, false, 24)
-	badge.rotation_degrees.x = 90
-	var lens = cylinder(body, Vector3(0, 0.78, -0.275), 0.065, 0.02, glow, true, 16)
-	lens.rotation_degrees.x = 90
-	# Lantern pack.
-	cylinder(body, Vector3(0, 0.52, 0.36), 0.2, 0.08, DARK, false, 16)
-	cylinder(body, Vector3(0, 0.71, 0.36), 0.14, 0.3, glow, true, 16)
-	for y in [0.62, 0.8]:
-		torus(body, Vector3(0, y, 0.36), 0.145, 0.012, GOLD, false)
-	cylinder(body, Vector3(0, 0.9, 0.36), 0.2, 0.07, GOLD, false, 16)
-	sphere(body, Vector3(0, 0.97, 0.36), Vector3.ONE * 0.09, GOLD)
-	# Dome helmet, brass band and the single visor slit.
-	sphere(body, Vector3(0, 1.27, -0.03), Vector3(0.88, 0.9, 0.84), CREAM)
-	var band = torus(body, Vector3(0, 1.19, -0.03), 0.43, 0.03, GOLD, false)
-	band.scale.z = 0.96
-	sphere(body, Vector3(0, 1.3, -0.3), Vector3(0.8, 0.3, 0.36), DARK)
-	box(body, Vector3(0, 1.31, -0.475), Vector3(0.42, 0.05, 0.027), glow, true, 0.01)
-	cylinder(body, Vector3(0, 1.78, -0.03), 0.035, 0.2, GOLD, false, 8)
-	var gem = box(body, Vector3(0, 1.95, -0.03), Vector3(0.16, 0.24, 0.16), GOLD, true, 0.04)
-	gem.rotation_degrees = Vector3(0, 45, 15)
-	for side in [-1, 1]:
-		var lamp = cylinder(body, Vector3(side * 0.44, 1.27, 0), 0.13, 0.07, GOLD, false, 20)
-		lamp.rotation_degrees.z = 90
-		var bulb = cylinder(body, Vector3(side * 0.475, 1.27, 0), 0.075, 0.03, glow, true, 16)
-		bulb.rotation_degrees.z = 90
-		sphere(body, Vector3(side * 0.43, 0.98, -0.02), Vector3(0.3, 0.22, 0.36), GOLD)
-		sphere(body, Vector3(side * 0.44, 0.82, -0.02), Vector3(0.26, 0.34, 0.32), color)
-		sphere(body, Vector3(side * 0.46, 0.63, -0.14), Vector3(0.22, 0.32, 0.22), DARK)
-	# Lança-Farol: long barrel, brass coils and a diamond crystal lens at the tip.
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.29, 0.70, -0.36), Vector3(0.26, 0.26, 0.34), CREAM, false, 0.08)
-	box(gun, Vector3(0.43, 0.74, -0.38), Vector3(0.04, 0.16, 0.28), CREAM, false, 0.015)
-	var barrel = cylinder(gun, Vector3(0.29, 0.70, -0.69), 0.062, 0.5, DARK, false, 16)
-	barrel.rotation_degrees.x = 90
-	for z in [-0.52, -0.64, -0.76]:
-		var coil = cylinder(gun, Vector3(0.29, 0.70, z), 0.1, 0.04, GOLD, false, 20)
-		coil.rotation_degrees.x = 90
-	var crystal = box(gun, Vector3(0.29, 0.70, -0.99), Vector3(0.15, 0.15, 0.2), glow, true, 0.02)
-	crystal.rotation_degrees.z = 45
-	var flash = sphere(gun, Vector3(0.29, 0.70, -1.1), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func build_astronomer(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Star cartographer: indigo robe with a brass sash, orbit rings circling the helmet,
-	# a telescope monocle and a sextant ring around a crystal star. Shoulders keep the team colour.
-	for side in [-1, 1]:
-		var leg = Node3D.new()
-		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * 0.22, 0.31, 0)
-		body.add_child(leg)
-		sphere(leg, Vector3(0, -0.05, 0), Vector3(0.24, 0.36, 0.26), DARK)
-		box(leg, Vector3(0, -0.2, -0.09), Vector3(0.33, 0.2, 0.48), CREAM, false, 0.08)
-		box(leg, Vector3(0, -0.28, -0.075), Vector3(0.34, 0.06, 0.48), coat.darkened(0.25))
-	box(body, Vector3(0, 0.74, 0), Vector3(0.62, 0.58, 0.5), coat, false, 0.16)
-	box(body, Vector3(0, 0.45, 0.02), Vector3(0.72, 0.22, 0.56), coat.darkened(0.22), false, 0.09)
-	cylinder(body, Vector3(0, 1.02, -0.02), 0.3, 0.06, CREAM, false, 24)
-	var sash = box(body, Vector3(0, 0.73, -0.265), Vector3(0.74, 0.07, 0.02), GOLD, false, 0.01)
-	sash.rotation_degrees.z = -37.5
-	for star_pos in [Vector3(-0.16, 0.66, -0.27), Vector3(0.18, 0.86, -0.27), Vector3(0.05, 0.5, -0.29)]:
-		var star = box(body, star_pos, Vector3(0.07, 0.07, 0.02), glow, true, 0.005)
-		star.rotation_degrees.z = 45
-	# Star-chart tube slung across the back.
-	var tube = cylinder(body, Vector3(0, 0.78, 0.33), 0.085, 0.6, GOLD, false, 16)
-	tube.rotation_degrees.z = 62
-	for end in [-1, 1]:
-		# Caps follow the rotated cylinder axis (-sin 62°, cos 62°).
-		var cap = cylinder(body, Vector3(-0.883 * end * 0.3, 0.78 + 0.469 * end * 0.3, 0.33), 0.1, 0.07, CREAM, false, 16)
-		cap.rotation_degrees.z = 62
-	# Helmet, monocle telescope and one plain eye.
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.84, 0.84), CREAM)
-	sphere(body, Vector3(0, 1.29, -0.3), Vector3(0.77, 0.43, 0.34), DARK)
-	box(body, Vector3(-0.17, 1.32, -0.473), Vector3(0.065, 0.115, 0.027), glow, true, 0.01)
-	var scope = cylinder(body, Vector3(0.17, 1.31, -0.53), 0.1, 0.18, GOLD, false, 20)
-	scope.rotation_degrees.x = 90
-	var lens = cylinder(body, Vector3(0.17, 1.31, -0.625), 0.068, 0.02, glow, true, 16)
-	lens.rotation_degrees.x = 90
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.33, 0.33), coat.lightened(0.1))
-		sphere(body, Vector3(side * 0.43, 0.87, -0.02), Vector3(0.32, 0.34, 0.39), team_color)
-		sphere(body, Vector3(side * 0.46, 0.65, -0.14), Vector3(0.24, 0.36, 0.24), DARK)
-	# Tilted orbit with three bodies; the arena and the viewer spin "Orbit".
-	var tilt = Node3D.new()
-	tilt.name = "OrbitTilt"
-	tilt.position = Vector3(0, 1.3, -0.03)
-	tilt.rotation_degrees = Vector3(14, 0, 18)
-	body.add_child(tilt)
-	var orbit = Node3D.new()
-	orbit.name = "Orbit"
-	tilt.add_child(orbit)
-	torus(orbit, Vector3.ZERO, 0.64, 0.016, GOLD, false)
-	sphere(orbit, Vector3(0.64, 0, 0), Vector3.ONE * 0.13, glow, true)
-	sphere(orbit, Vector3(-0.45, 0, 0.45), Vector3.ONE * 0.09, team_color)
-	sphere(orbit, Vector3(0, 0, -0.64), Vector3.ONE * 0.07, CREAM)
-	# Sextante Estelar: brass ring standing along the shot, a crystal star at its heart.
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.29, 0.70, -0.36), Vector3(0.24, 0.24, 0.3), CREAM, false, 0.08)
-	var rail = cylinder(gun, Vector3(0.29, 0.70, -0.63), 0.04, 0.46, DARK, false, 12)
-	rail.rotation_degrees.x = 90
-	var ring = torus(gun, Vector3(0.29, 0.70, -0.64), 0.2, 0.024, GOLD, false)
-	ring.rotation_degrees.z = 90
-	var crystal = box(gun, Vector3(0.29, 0.70, -0.64), Vector3(0.13, 0.13, 0.13), glow, true, 0.02)
-	crystal.rotation_degrees = Vector3(45, 0, 45)
-	var flash = sphere(gun, Vector3(0.29, 0.70, -0.9), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func pilot_legs(body: Node3D, boot: Color, sole: Color, boot_height: float = 0.2) -> void:
-	for side in [-1, 1]:
-		var leg = Node3D.new()
-		leg.name = "LegL" if side == -1 else "LegR"
-		leg.position = Vector3(side * 0.22, 0.31, 0)
-		body.add_child(leg)
-		sphere(leg, Vector3(0, -0.05, 0), Vector3(0.24, 0.36, 0.26), DARK)
-		box(leg, Vector3(0, -0.19, -0.08), Vector3(0.32, boot_height, 0.46), boot, false, 0.09)
-		box(leg, Vector3(0, -0.285, -0.07), Vector3(0.33, 0.05, 0.47), sole)
-
-func pilot_arms(body: Node3D, team_color: Color) -> void:
-	# Upper arms always wear the team colour, whatever the skin.
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.43, 0.87, -0.02), Vector3(0.32, 0.34, 0.39), team_color)
-		sphere(body, Vector3(side * 0.46, 0.65, -0.14), Vector3(0.24, 0.36, 0.24), DARK)
-
-func build_gardener(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Orbital gardener: glass terrarium dome with a sprout, apron, planter pack and a seed sprayer.
-	var leaf = Color("7fbf5a")
-	pilot_legs(body, Color("6e5646"), DARK, 0.22)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.62, 0.58, 0.48), coat, false, 0.16)
-	box(body, Vector3(0, 0.66, -0.255), Vector3(0.42, 0.42, 0.04), CREAM, false, 0.03)
-	box(body, Vector3(0, 0.6, -0.28), Vector3(0.2, 0.1, 0.02), coat.darkened(0.2), false, 0.01)
-	for x in [-0.17, 0.17]:
-		box(body, Vector3(x, 0.93, -0.24), Vector3(0.07, 0.16, 0.03), CREAM, false, 0.01)
-	cylinder(body, Vector3(0, 0.74, 0.34), 0.2, 0.3, CREAM, false, 20)
-	cylinder(body, Vector3(0, 0.66, 0.34), 0.205, 0.07, coat.darkened(0.1), false, 20)
-	cylinder(body, Vector3(0, 0.9, 0.34), 0.17, 0.02, DARK, false, 20)
-	cylinder(body, Vector3(0, 1.02, 0.34), 0.02, 0.24, leaf.darkened(0.2), false, 8)
-	for leaf_pos in [Vector3(-0.1, 1.1, 0.34), Vector3(0.1, 1.16, 0.36), Vector3(0, 1.2, 0.3)]:
-		sphere(body, leaf_pos, Vector3(0.16, 0.08, 0.12), leaf)
-	sphere(body, Vector3(0, 1.22, -0.03), Vector3(0.72, 0.64, 0.64), CREAM)
-	sphere(body, Vector3(0, 1.24, -0.23), Vector3(0.6, 0.34, 0.26), DARK)
-	for x in [-0.13, 0.13]:
-		box(body, Vector3(x, 1.26, -0.36), Vector3(0.055, 0.1, 0.02), glow, true, 0.008)
-	cylinder(body, Vector3(0, 1.6, -0.03), 0.015, 0.14, leaf.darkened(0.2), false, 6)
-	sphere(body, Vector3(-0.05, 1.68, -0.03), Vector3(0.1, 0.05, 0.07), leaf)
-	sphere(body, Vector3(0.05, 1.7, -0.03), Vector3(0.1, 0.05, 0.07), leaf)
-	torus(body, Vector3(0, 0.98, -0.03), 0.34, 0.03, GOLD, false)
-	pilot_arms(body, team_color)
-	var dome = sphere(body, Vector3(0, 1.3, -0.03), Vector3(1.0, 0.94, 0.9), Color(0.82, 0.96, 0.92, 0.28))
-	dome.material_override = glass_material()
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	sphere(gun, Vector3(0.29, 0.72, -0.42), Vector3(0.3, 0.3, 0.34), CREAM)
-	var band = cylinder(gun, Vector3(0.29, 0.72, -0.42), 0.155, 0.06, coat, false, 20)
-	band.rotation_degrees.z = 90
-	var spout = cylinder(gun, Vector3(0.29, 0.75, -0.66), 0.035, 0.34, GOLD, false, 10)
-	spout.rotation_degrees.x = -80
-	var rose = cylinder(gun, Vector3(0.29, 0.79, -0.86), 0.075, 0.05, GOLD, false, 16)
-	rose.rotation_degrees.x = -80
-	var holes = cylinder(gun, Vector3(0.29, 0.795, -0.89), 0.055, 0.02, glow, true, 12)
-	holes.rotation_degrees.x = -80
-	var flash = sphere(gun, Vector3(0.29, 0.8, -0.93), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func build_miner(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Asteroid miner: hard hat with a headlamp, crystal ore pack and a quartz drill.
-	var steel = Color("9aa1ab")
-	pilot_legs(body, coat.darkened(0.2), DARK, 0.22)
-	for side in [-1, 1]:
-		box(body.get_node("LegL" if side == -1 else "LegR"), Vector3(0, -0.23, -0.28), Vector3(0.34, 0.1, 0.16), steel, false, 0.03)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.66, 0.6, 0.5), coat, false, 0.14)
-	box(body, Vector3(0, 0.8, -0.26), Vector3(0.4, 0.24, 0.05), CREAM, false, 0.03)
-	var badge = box(body, Vector3(0, 0.8, -0.29), Vector3(0.07, 0.12, 0.02), glow, true, 0.005)
-	badge.rotation_degrees.z = 45
-	box(body, Vector3(0, 0.52, 0), Vector3(0.68, 0.06, 0.52), steel, false, 0.01)
-	box(body, Vector3(0.2, 0.52, -0.27), Vector3(0.14, 0.1, 0.08), DARK, false, 0.02)
-	box(body, Vector3(0, 0.76, 0.36), Vector3(0.46, 0.44, 0.24), DARK, false, 0.06)
-	box(body, Vector3(0, 0.99, 0.36), Vector3(0.5, 0.05, 0.28), steel, false, 0.01)
-	# A cluster, tallest in the middle, reads as ore rather than two antennae.
-	for crystal_pose in [[Vector3(0.0, 1.15, 0.37), Vector3(0.11, 0.34, 0.11), 0.0], [Vector3(-0.14, 1.06, 0.35), Vector3(0.08, 0.2, 0.08), 28.0], [Vector3(0.14, 1.08, 0.35), Vector3(0.08, 0.22, 0.08), -24.0]]:
-		var crystal = box(body, crystal_pose[0], crystal_pose[1], glow, true, 0.01)
-		crystal.rotation_degrees = Vector3(0, 45, crystal_pose[2])
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.82, 0.82), CREAM)
-	sphere(body, Vector3(0, 1.27, -0.3), Vector3(0.77, 0.4, 0.34), DARK)
-	for x in [-0.17, 0.17]:
-		box(body, Vector3(x, 1.29, -0.47), Vector3(0.065, 0.1, 0.027), glow, true, 0.01)
-	sphere(body, Vector3(0, 1.5, -0.03), Vector3(0.86, 0.5, 0.84), coat)
-	cylinder(body, Vector3(0, 1.44, -0.05), 0.5, 0.035, coat.darkened(0.1), false, 32)
-	var lamp = cylinder(body, Vector3(0, 1.5, -0.46), 0.1, 0.1, GOLD, false, 16)
-	lamp.rotation_degrees.x = 90
-	var lamp_lens = cylinder(body, Vector3(0, 1.5, -0.52), 0.065, 0.02, glow, true, 16)
-	lamp_lens.rotation_degrees.x = 90
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.33, 0.33), steel)
-	pilot_arms(body, team_color)
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.29, 0.7, -0.38), Vector3(0.28, 0.28, 0.36), coat, false, 0.07)
-	var collar = cylinder(gun, Vector3(0.29, 0.7, -0.58), 0.15, 0.06, steel, false, 20)
-	collar.rotation_degrees.x = 90
-	var bit = cone(gun, Vector3(0.29, 0.7, -0.78), 0.13, 0.34, steel, false, 20)
-	bit.rotation_degrees.x = -90
-	for ring_pose in [[-0.72, 0.09], [-0.82, 0.06]]:
-		var spiral = torus(gun, Vector3(0.29, 0.7, ring_pose[0]), ring_pose[1], 0.012, GOLD, false)
-		spiral.rotation_degrees.x = 90
-	box(gun, Vector3(0.29, 0.7, -0.96), Vector3(0.05, 0.05, 0.08), glow, true, 0.01)
-	var flash = sphere(gun, Vector3(0.29, 0.7, -1.0), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func build_sentinel(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Elite sentinel: obsidian cape, golden eclipse halo, stern visor and a corona lance.
-	pilot_legs(body, CREAM, GOLD)
-	var cape = box(body, Vector3(0, 0.62, 0.3), Vector3(0.64, 0.86, 0.05), coat.darkened(0.15), false, 0.02)
-	cape.rotation_degrees.x = 8
-	box(body, Vector3(0, 0.75, 0), Vector3(0.62, 0.6, 0.48), coat, false, 0.16)
-	box(body, Vector3(0, 0.44, 0.01), Vector3(0.7, 0.14, 0.54), coat.darkened(0.25), false, 0.06)
-	box(body, Vector3(0, 0.52, 0), Vector3(0.66, 0.05, 0.52), GOLD, false, 0.01)
-	var emblem = cylinder(body, Vector3(0, 0.8, -0.255), 0.09, 0.03, DARK, false, 20)
-	emblem.rotation_degrees.x = 90
-	var corona = torus(body, Vector3(0, 0.8, -0.27), 0.1, 0.014, glow)
-	corona.rotation_degrees.x = 90
-	torus(body, Vector3(0, 1.02, -0.02), 0.3, 0.03, GOLD, false)
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.84, 0.84), CREAM)
-	sphere(body, Vector3(0, 1.28, -0.3), Vector3(0.77, 0.4, 0.34), DARK)
-	for side in [-1, 1]:
-		# Match the HUD portrait: thin stern slits whose inner corners point down.
-		var eye = box(body, Vector3(side * 0.15, 1.29, -0.475), Vector3(0.15, 0.022, 0.018), glow, true, 0.004)
-		eye.name = "SentinelEyeL" if side == -1 else "SentinelEyeR"
-		eye.rotation_degrees.z = side * 12
-	box(body, Vector3(0, 1.69, -0.03), Vector3(0.07, 0.05, 0.5), GOLD)
-	var halo = torus(body, Vector3(0, 1.32, 0.24), 0.5, 0.025, GOLD, false)
-	halo.rotation_degrees.x = 90
-	var halo_light = torus(body, Vector3(0, 1.32, 0.25), 0.43, 0.01, glow)
-	halo_light.rotation_degrees.x = 90
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.33, 0.33), GOLD)
-		sphere(body, Vector3(side * 0.43, 1.0, -0.02), Vector3(0.3, 0.14, 0.34), GOLD)
-	pilot_arms(body, team_color)
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	box(gun, Vector3(0.29, 0.7, -0.36), Vector3(0.22, 0.22, 0.3), CREAM, false, 0.07)
-	var shaft = cylinder(gun, Vector3(0.29, 0.7, -0.72), 0.042, 0.62, coat, false, 12)
-	shaft.rotation_degrees.x = 90
-	var grip_ring = cylinder(gun, Vector3(0.29, 0.7, -0.5), 0.07, 0.05, GOLD, false, 16)
-	grip_ring.rotation_degrees.x = 90
-	var eclipse = cylinder(gun, Vector3(0.29, 0.7, -1.02), 0.1, 0.03, DARK, false, 24)
-	eclipse.rotation_degrees.x = 90
-	var lance_corona = torus(gun, Vector3(0.29, 0.7, -1.02), 0.12, 0.016, glow)
-	lance_corona.rotation_degrees.x = 90
-	var flash = sphere(gun, Vector3(0.29, 0.7, -1.08), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
 func spin_parts(body: Node3D, time: float) -> void:
-	# The Relojoeiro's wind-up key and the Arconte's crown turn slowly.
+	# Crests on the robots (a crown, a halo, an orbit) turn slowly.
 	var spin: Node3D = body.get_node_or_null("Spin")
 	if spin == null:
 		spin = body.get_node_or_null("KeyMount/Spin")
 	if spin != null:
 		spin.rotation.y = time * 1.6
-
-func add_gun(body: Node3D) -> Node3D:
-	var gun = Node3D.new()
-	gun.name = "Gun"
-	body.add_child(gun)
-	return gun
-
-func add_flash(gun: Node3D, z: float) -> void:
-	var flash = sphere(gun, Vector3(0.29, 0.7, z), Vector3.ONE * 0.01, Color("fff1c7"), true)
-	flash.name = "Flash"
-
-func pilot_head(body: Node3D) -> void:
-	# The classic ceramic helmet and dark visor most skins share.
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.84, 0.84), CREAM)
-	sphere(body, Vector3(0, 1.28, -0.3), Vector3(0.77, 0.4, 0.34), DARK)
-
-func build_clockmaker(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Clockmaker: gear cap, loupe monocle, waistcoat with brass buttons, a turning wind-up key and a spring cannon.
-	pilot_legs(body, coat.darkened(0.3), DARK)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.62, 0.58, 0.48), coat, false, 0.16)
-	box(body, Vector3(0, 0.72, -0.25), Vector3(0.36, 0.46, 0.04), CREAM, false, 0.03)
-	for y in [0.84, 0.68]:
-		sphere(body, Vector3(0, y, -0.28), Vector3.ONE * 0.06, GOLD)
-	var chain = box(body, Vector3(0.12, 0.75, -0.28), Vector3(0.2, 0.018, 0.018), GOLD, false, 0.004)
-	chain.rotation_degrees.z = -30
-	box(body, Vector3(0, 0.5, 0), Vector3(0.66, 0.06, 0.52), GOLD, false, 0.01)
-	var mount = Node3D.new()
-	mount.name = "KeyMount"
-	mount.position = Vector3(0, 0.8, 0.26)
-	mount.rotation_degrees.x = 90
-	body.add_child(mount)
-	var key = Node3D.new()
-	key.name = "Spin"
-	mount.add_child(key)
-	cylinder(key, Vector3(0, 0.12, 0), 0.035, 0.24, GOLD, false, 10)
-	for side in [-1, 1]:
-		var loop = torus(key, Vector3(side * 0.1, 0.3, 0), 0.085, 0.022, GOLD, false)
-		loop.rotation_degrees.x = 90
-	sphere(key, Vector3(0, 0.3, 0), Vector3.ONE * 0.08, glow, true)
-	pilot_head(body)
-	box(body, Vector3(-0.16, 1.29, -0.47), Vector3(0.065, 0.1, 0.027), glow, true, 0.01)
-	var loupe = cylinder(body, Vector3(0.15, 1.29, -0.47), 0.1, 0.1, GOLD, false, 20)
-	loupe.rotation_degrees.x = 90
-	var lens = cylinder(body, Vector3(0.15, 1.29, -0.525), 0.07, 0.02, glow, true, 20)
-	lens.rotation_degrees.x = 90
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.3, 0.3), GOLD)
-	cylinder(body, Vector3(0, 1.68, -0.03), 0.2, 0.08, coat, false, 24)
-	for i in range(8):
-		var angle = i * TAU / 8
-		var tooth = box(body, Vector3(cos(angle) * 0.22, 1.68, -0.03 + sin(angle) * 0.22), Vector3(0.08, 0.07, 0.06), GOLD, false, 0.01)
-		tooth.rotation.y = -angle
-	cylinder(body, Vector3(0, 1.73, -0.03), 0.07, 0.03, glow, true, 16)
-	pilot_arms(body, team_color)
-	var gun = add_gun(body)
-	box(gun, Vector3(0.29, 0.7, -0.36), Vector3(0.26, 0.26, 0.3), coat, false, 0.07)
-	var barrel = cylinder(gun, Vector3(0.29, 0.7, -0.68), 0.075, 0.44, GOLD, false, 16)
-	barrel.rotation_degrees.x = 90
-	for z in [-0.56, -0.66, -0.76]:
-		var coil = torus(gun, Vector3(0.29, 0.7, z), 0.1, 0.018, CREAM, false)
-		coil.rotation_degrees.x = 90
-	box(gun, Vector3(0.44, 0.7, -0.36), Vector3(0.05, 0.16, 0.04), GOLD, false, 0.01)
-	var mouth = torus(gun, Vector3(0.29, 0.7, -0.9), 0.08, 0.016, glow)
-	mouth.rotation_degrees.x = 90
-	add_flash(gun, -0.96)
-
-func build_storm_chaser(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Storm chaser: lightning-rod helmet, rain boots, battery cells on the back, a bolt on the chest and a Tesla coil.
-	var steel = Color("9aa1ab")
-	pilot_legs(body, STORM_YELLOW, DARK, 0.24)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.64, 0.6, 0.5), coat, false, 0.14)
-	box(body, Vector3(0, 0.99, 0), Vector3(0.58, 0.08, 0.46), STORM_YELLOW, false, 0.03)
-	for bolt in [[Vector3(0.035, 0.86, -0.265), -25.0], [Vector3(-0.035, 0.66, -0.265), -25.0]]:
-		var part = box(body, bolt[0], Vector3(0.06, 0.18, 0.02), glow, true, 0.005)
-		part.rotation_degrees.z = bolt[1]
-	box(body, Vector3(0, 0.76, -0.265), Vector3(0.13, 0.045, 0.02), glow, true, 0.005)
-	box(body, Vector3(0, 0.76, 0.36), Vector3(0.44, 0.46, 0.22), DARK, false, 0.06)
-	for x in [-0.11, 0.11]:
-		cylinder(body, Vector3(x, 0.78, 0.47), 0.065, 0.34, glow, true, 12)
-	box(body, Vector3(0, 1.0, 0.36), Vector3(0.48, 0.05, 0.26), steel, false, 0.01)
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.84, 0.84), CREAM)
-	sphere(body, Vector3(0, 1.27, -0.3), Vector3(0.8, 0.36, 0.34), DARK)
-	for x in [-0.16, 0.16]:
-		box(body, Vector3(x, 1.28, -0.47), Vector3(0.11, 0.045, 0.027), glow, true, 0.01)
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.33, 0.33), steel)
-	cylinder(body, Vector3(0, 1.8, -0.03), 0.025, 0.36, GOLD, false, 8)
-	for y in [1.74, 1.84]:
-		torus(body, Vector3(0, y, -0.03), 0.07, 0.012, GOLD, false)
-	sphere(body, Vector3(0, 2.0, -0.03), Vector3.ONE * 0.11, glow, true)
-	pilot_arms(body, team_color)
-	var gun = add_gun(body)
-	box(gun, Vector3(0.29, 0.7, -0.36), Vector3(0.24, 0.24, 0.3), STORM_YELLOW, false, 0.07)
-	var tube = cylinder(gun, Vector3(0.29, 0.7, -0.64), 0.05, 0.36, DARK, false, 12)
-	tube.rotation_degrees.x = 90
-	for z in [-0.54, -0.63, -0.72]:
-		var coil = torus(gun, Vector3(0.29, 0.7, z), 0.085, 0.014, GOLD, false)
-		coil.rotation_degrees.x = 90
-	sphere(gun, Vector3(0.29, 0.7, -0.88), Vector3.ONE * 0.17, glow, true)
-	add_flash(gun, -0.98)
-
-func build_alchemist(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Alchemist: hood and brass goggles, potion vials on the belt, a copper still on the back and a plasma flask.
-	var strap = Color("3a2a20")
-	pilot_legs(body, coat.darkened(0.2), DARK)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.62, 0.58, 0.48), coat, false, 0.16)
-	box(body, Vector3(0, 0.46, 0.01), Vector3(0.7, 0.2, 0.54), coat.darkened(0.15), false, 0.06)
-	box(body, Vector3(0, 0.57, 0), Vector3(0.66, 0.05, 0.52), strap, false, 0.01)
-	for x in [-0.16, 0.0, 0.16]:
-		cylinder(body, Vector3(x, 0.63, -0.27), 0.035, 0.1, glow, true, 8)
-	box(body, Vector3(0, 0.84, -0.25), Vector3(0.3, 0.22, 0.04), CREAM, false, 0.03)
-	sphere(body, Vector3(0, 0.74, 0.38), Vector3(0.36, 0.36, 0.34), COPPER)
-	cylinder(body, Vector3(0, 0.98, 0.4), 0.04, 0.26, COPPER, false, 10)
-	var pipe = cylinder(body, Vector3(0.11, 1.14, 0.4), 0.03, 0.26, COPPER, false, 10)
-	pipe.rotation_degrees.z = -60
-	sphere(body, Vector3(0.26, 0.62, 0.3), Vector3.ONE * 0.13, glow, true)
-	var flask_glass = sphere(body, Vector3(0.26, 0.62, 0.3), Vector3.ONE * 0.2, Color(0.9, 1, 0.9, 0.25))
-	flask_glass.material_override = glass_material()
-	sphere(body, Vector3(0, 1.26, -0.03), Vector3(0.93, 0.84, 0.84), CREAM)
-	sphere(body, Vector3(0, 1.28, -0.3), Vector3(0.77, 0.4, 0.34), DARK)
-	sphere(body, Vector3(0, 1.5, 0.05), Vector3(0.96, 0.6, 0.86), coat.darkened(0.1))
-	torus(body, Vector3(0, 1.3, -0.03), 0.47, 0.02, strap, false)
-	for side in [-1, 1]:
-		var goggle = cylinder(body, Vector3(side * 0.15, 1.3, -0.46), 0.09, 0.1, GOLD, false, 20)
-		goggle.rotation_degrees.x = 90
-		var lens = cylinder(body, Vector3(side * 0.15, 1.3, -0.515), 0.065, 0.02, glow, true, 20)
-		lens.rotation_degrees.x = 90
-	pilot_arms(body, team_color)
-	var gun = add_gun(body)
-	box(gun, Vector3(0.29, 0.7, -0.36), Vector3(0.22, 0.22, 0.28), COPPER, false, 0.07)
-	var neck = cylinder(gun, Vector3(0.29, 0.7, -0.54), 0.045, 0.16, CREAM, false, 10)
-	neck.rotation_degrees.x = 90
-	sphere(gun, Vector3(0.29, 0.7, -0.74), Vector3.ONE * 0.2, glow, true)
-	var bulb = sphere(gun, Vector3(0.29, 0.7, -0.74), Vector3.ONE * 0.28, Color(0.9, 1, 0.9, 0.25))
-	bulb.material_override = glass_material()
-	var mouth = cylinder(gun, Vector3(0.29, 0.7, -0.92), 0.05, 0.1, CREAM, false, 12)
-	mouth.rotation_degrees.x = 90
-	var rim = torus(gun, Vector3(0.29, 0.7, -0.97), 0.055, 0.012, glow)
-	rim.rotation_degrees.x = 90
-	add_flash(gun, -1.02)
-
-func build_corsair(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Star corsair: tricorn hat, eye patch, long coat with a sash, a drone parrot and a blunderbuss.
-	var patch = Color("141e24")
-	pilot_legs(body, Color("3b2a22"), DARK, 0.26)
-	for side in [-1, 1]:
-		box(body.get_node("LegL" if side == -1 else "LegR"), Vector3(0, -0.07, -0.08), Vector3(0.36, 0.06, 0.48), CREAM, false, 0.02)
-	box(body, Vector3(0, 0.74, 0), Vector3(0.64, 0.6, 0.5), coat, false, 0.14)
-	box(body, Vector3(0, 0.44, 0.08), Vector3(0.7, 0.24, 0.44), coat.darkened(0.12), false, 0.05)
-	for side in [-1, 1]:
-		var lapel = box(body, Vector3(side * 0.12, 0.82, -0.255), Vector3(0.12, 0.3, 0.03), CREAM, false, 0.02)
-		lapel.rotation_degrees.z = side * 15
-	box(body, Vector3(0, 0.62, 0), Vector3(0.68, 0.08, 0.53), glow.darkened(0.25), false, 0.02)
-	box(body, Vector3(0, 0.62, -0.27), Vector3(0.1, 0.1, 0.03), GOLD, false, 0.01)
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.43, 1.0, -0.02), Vector3(0.3, 0.1, 0.34), GOLD)
-	pilot_head(body)
-	box(body, Vector3(0.17, 1.29, -0.47), Vector3(0.065, 0.1, 0.027), glow, true, 0.01)
-	var eye_patch = cylinder(body, Vector3(-0.16, 1.3, -0.47), 0.075, 0.03, patch, false, 16)
-	eye_patch.rotation_degrees.x = 90
-	var band = box(body, Vector3(-0.03, 1.37, -0.44), Vector3(0.4, 0.03, 0.03), patch, false, 0.005)
-	band.rotation_degrees.z = -22
-	sphere(body, Vector3(0, 1.58, -0.03), Vector3(0.78, 0.36, 0.76), coat)
-	for yaw in [0.0, TAU / 3, -TAU / 3]:
-		var out = Vector3(sin(yaw), 0, cos(yaw))
-		var wall = box(body, Vector3(0, 1.58, -0.03) + out * 0.34, Vector3(0.7, 0.2, 0.05), coat.darkened(0.1), false, 0.02)
-		wall.rotation = Vector3(0.35, yaw, 0)
-		var trim = box(body, Vector3(0, 1.68, -0.03) + out * 0.38, Vector3(0.66, 0.025, 0.06), GOLD, false, 0.005)
-		trim.rotation = Vector3(0.35, yaw, 0)
-	var emblem = box(body, Vector3(0, 1.62, -0.44), Vector3(0.08, 0.08, 0.02), glow, true, 0.005)
-	emblem.rotation_degrees.z = 45
-	sphere(body, Vector3(-0.46, 1.13, 0.04), Vector3(0.2, 0.22, 0.24), CREAM)
-	sphere(body, Vector3(-0.46, 1.24, 0.06), Vector3(0.05, 0.1, 0.05), glow, true)
-	var beak = cone(body, Vector3(-0.46, 1.13, -0.12), 0.04, 0.1, GOLD, false, 10)
-	beak.rotation_degrees.x = -90
-	pilot_arms(body, team_color)
-	var gun = add_gun(body)
-	box(gun, Vector3(0.29, 0.68, -0.34), Vector3(0.2, 0.24, 0.34), WOOD, false, 0.06)
-	var barrel = cylinder(gun, Vector3(0.29, 0.7, -0.7), 0.05, 0.46, GOLD, false, 12)
-	barrel.rotation_degrees.x = 90
-	var bell = cone(gun, Vector3(0.29, 0.7, -0.95), 0.13, 0.16, GOLD, false, 20)
-	bell.rotation_degrees.x = 90
-	var mouth = torus(gun, Vector3(0.29, 0.7, -1.03), 0.11, 0.016, glow)
-	mouth.rotation_degrees.x = 90
-	add_flash(gun, -1.08)
-
-func build_archon(body: Node3D, coat: Color, glow: Color, team_color: Color) -> void:
-	# Solar archon: turning crown of sun rays, royal mantle, gold pauldrons, a sun emblem and a gyroscope sceptre.
-	pilot_legs(body, CREAM, GOLD)
-	var mantle = box(body, Vector3(0, 0.6, 0.31), Vector3(0.74, 0.9, 0.05), coat.darkened(0.2), false, 0.02)
-	mantle.rotation_degrees.x = 10
-	box(body, Vector3(0, 0.75, 0), Vector3(0.62, 0.6, 0.48), coat, false, 0.16)
-	box(body, Vector3(0, 0.45, 0.01), Vector3(0.7, 0.16, 0.54), coat.darkened(0.2), false, 0.06)
-	box(body, Vector3(0, 0.54, 0), Vector3(0.66, 0.05, 0.52), GOLD, false, 0.01)
-	var emblem = cylinder(body, Vector3(0, 0.8, -0.255), 0.075, 0.03, glow, true, 20)
-	emblem.rotation_degrees.x = 90
-	for i in range(8):
-		var angle = i * TAU / 8
-		var ray = box(body, Vector3(cos(angle) * 0.12, 0.8 + sin(angle) * 0.12, -0.26), Vector3(0.05, 0.022, 0.02), GOLD, false, 0.004)
-		ray.rotation.z = angle
-	torus(body, Vector3(0, 1.02, -0.02), 0.3, 0.035, GOLD, false)
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.44, 1.0, -0.02), Vector3(0.34, 0.16, 0.38), GOLD)
-	pilot_head(body)
-	for x in [-0.16, 0.16]:
-		box(body, Vector3(x, 1.29, -0.47), Vector3(0.065, 0.1, 0.027), glow, true, 0.01)
-	for side in [-1, 1]:
-		sphere(body, Vector3(side * 0.45, 1.26, 0), Vector3(0.15, 0.33, 0.33), GOLD)
-	var crown = Node3D.new()
-	crown.name = "Spin"
-	crown.position = Vector3(0, 1.62, -0.03)
-	body.add_child(crown)
-	torus(crown, Vector3.ZERO, 0.3, 0.03, GOLD, false)
-	for i in range(8):
-		var angle = i * TAU / 8
-		var long_ray = i % 2 == 0
-		var ray = cone(crown, Vector3(cos(angle) * 0.3, 0.1 if long_ray else 0.07, sin(angle) * 0.3), 0.05, 0.2 if long_ray else 0.13, glow if long_ray else GOLD, long_ray, 8)
-		ray.basis = Basis(Vector3(sin(angle), 0, -cos(angle)), 0.35)
-	pilot_arms(body, team_color)
-	var gun = add_gun(body)
-	box(gun, Vector3(0.29, 0.7, -0.36), Vector3(0.22, 0.22, 0.3), CREAM, false, 0.07)
-	var shaft = cylinder(gun, Vector3(0.29, 0.7, -0.68), 0.035, 0.5, GOLD, false, 10)
-	shaft.rotation_degrees.x = 90
-	sphere(gun, Vector3(0.29, 0.7, -1.0), Vector3.ONE * 0.2, glow, true)
-	var ring_front = torus(gun, Vector3(0.29, 0.7, -1.0), 0.15, 0.014, GOLD, false)
-	ring_front.rotation_degrees.x = 90
-	var ring_side = torus(gun, Vector3(0.29, 0.7, -1.0), 0.15, 0.014, GOLD, false)
-	ring_side.rotation_degrees.z = 90
-	add_flash(gun, -1.12)
 
 func glass_material() -> ShaderMaterial:
 	if not materials.has("glass"):
@@ -1620,7 +944,7 @@ func glass_material() -> ShaderMaterial:
 		materials["glass"] = glass
 	return materials["glass"]
 
-func stadium_marks() -> Array:
+func stadium_marks(wall: float = -1.0) -> Array:
 	# Everything the camera has to keep on screen: the boundary, the rails the pilots walk
 	# — which reach outside the wall line at the goal ends on some outlines — and the top of
 	# the walls, each with a hair of margin around it.
@@ -1631,7 +955,7 @@ func stadium_marks() -> Array:
 			spots.append(Rules.track_position(team, lerpf(-limit, limit, step / 8.0)))
 	# The leaning view needs less room around the boundary: the rails are already among the
 	# marks, and out there a wide margin is a lot of screen.
-	var margin: float = 0.3 if leaning() else 0.72
+	var margin: float = wall if wall >= 0.0 else (0.3 if leaning() else 0.72)
 	var marks: Array = []
 	for spot in spots:
 		for corner in [Vector2(-margin, -margin), Vector2(margin, -margin), Vector2(-margin, margin), Vector2(margin, margin)]:
@@ -1660,43 +984,67 @@ func measure_view_bounds() -> Rect2:
 	var basis = camera.global_transform.basis
 	var bounds = Rect2()
 	var first = true
-	if camera_home != LANDSCAPE_EYE:
-		for mark in stadium_marks():
-			var offset: Vector3 = mark - camera.global_position
-			var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
-			bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
-			first = false
-		return bounds
-	else:
-		# Menu and landscape: full stadium extent on camera plane, side beacons included.
-		for node in find_children("*", "GeometryInstance3D", true, false):
-			if not node.is_visible_in_tree() or node.layers == 0:
-				continue
-			if node.material_override is ShaderMaterial and node.material_override.shader == SOFT_DISC:
-				continue
-			var box: AABB = node.global_transform * node.get_aabb()
-			for i in range(8):
-				var offset = box.get_endpoint(i) - camera.global_position
-				var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
-				bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
-				first = false
-		return bounds
+	# The menu seat measures the field and its wall with a wider margin, never the stands and
+	# towers around it: measuring every mesh let the floodlights and skyline decide the zoom
+	# and shrank the previewed level to a stamp.
+	for mark in stadium_marks(1.1 if camera_home == LANDSCAPE_EYE else -1.0):
+		var offset: Vector3 = mark - camera.global_position
+		var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
+		bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
+		first = false
+	return bounds
+	# Menu seat: the field and its wall, not the stands and towers around it. Measuring every
+	# mesh let the floodlights and skyline decide the zoom and shrank the level to a stamp.
+	for mark in stadium_marks(1.1):
+		var offset: Vector3 = mark - camera.global_position
+		var point = Vector2(offset.dot(basis.x), offset.dot(basis.y))
+		bounds = Rect2(point, Vector2.ZERO) if first else bounds.expand(point)
+		first = false
+	return bounds
 
 func view_aspect() -> float:
 	if view_bounds.size == Vector2.ZERO:
 		view_bounds = measure_view_bounds()
 	return view_bounds.size.x / view_bounds.size.y
 
-const LANDSCAPE_EYE = Vector3(0, 26, 15)
+# 50 degrees down: low enough that the walls, the robots and the deck around the field show
+# their volume, high enough that the far end of the field still reads clearly.
+const LANDSCAPE_EYE = Vector3(0, 21.8, 18.3)
+
+# Whose side of the arena the camera sits on. Each player sees their own goal at the bottom:
+# in PvP the second pilot's camera is turned half round, and their stick with it.
+var view_team = 0
+
+func turned(point: Vector3) -> Vector3:
+	return Basis(Vector3.UP, PI) * point if view_team == 1 else point
+
+func set_view_team(team: int) -> void:
+	if view_team == team:
+		return
+	view_team = team
+	# Force every framing to take its seat again from the new side.
+	camera_home = Vector3.ZERO
+	view_bounds = Rect2()
+	orient_labels()
+
+func orient_labels() -> void:
+	# The words painted on the floor turn to face whoever is looking.
+	for label in find_children("*", "Label3D", true, false):
+		var facing = PI if view_team == 1 else 0.0
+		if not label.has_meta("base_yaw"):
+			label.set_meta("base_yaw", label.rotation.y)
+		label.rotation.y = float(label.get_meta("base_yaw")) + facing
 
 func frame_landscape(h_offset: float) -> void:
+	lobby_view = false
+	tour_view = false
 	# Wide screens keep the original lean, which reads more like a stadium seen from a seat.
 	if camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		camera_home = Vector3.ZERO
 		view_bounds = Rect2()
-	if camera_home != LANDSCAPE_EYE:
-		camera_home = LANDSCAPE_EYE
+	if camera_home != turned(LANDSCAPE_EYE):
+		camera_home = turned(LANDSCAPE_EYE)
 		camera.position = camera_home
 		camera.look_at(Vector3(0, -0.15, 0))
 		view_bounds = Rect2()
@@ -1707,11 +1055,11 @@ func frame_landscape(h_offset: float) -> void:
 
 # A hair more lean than the landscape seat, no more: at 72 degrees the arena flattened
 # into something that read as 2D, and the depth is what gives this game its look.
-const PORTRAIT_EYE = Vector3(0, 26.6, 14.2)
+const PORTRAIT_EYE = Vector3(0, 22.2, 18.6)
 # A map that asks to lean is shown through a real perspective instead: the board tips
 # towards the player, the near goal comes at you and the far one falls away. The arena has
 # to be narrow for this, which is why only the tall one asks for it.
-const LEAN_DIR = Vector3(0, 0.80, 0.62)
+const LEAN_DIR = Vector3(0, 0.64, 0.77)
 const LEAN_FOV = 40.0
 const LEAN_MARGIN = 1.0
 
@@ -1726,7 +1074,7 @@ func frame_leaning(rect: Rect2, screen: Vector2) -> void:
 	camera.fov = LEAN_FOV
 	camera.h_offset = 0.0
 	camera.v_offset = 0.0
-	var direction: Vector3 = LEAN_DIR.normalized()
+	var direction: Vector3 = turned(LEAN_DIR).normalized()
 	var pivot := Vector3(0, 0.3, 0)
 	var distance := 34.0
 	for step in range(6):
@@ -1745,7 +1093,173 @@ func frame_leaning(rect: Rect2, screen: Vector2) -> void:
 	camera.look_at(pivot)
 	camera_home = camera.position
 
+# The lobby: your pilot alone on a pedestal, far below the arena under the same sky, turning
+# slowly while the camera sways; the boss of the chosen level waits on a smaller plinth
+# behind, in its fighting colours until it has been beaten.
+const LOBBY_FOV = 30.0
+const LOBBY_PILOT_HEIGHT = 2.6
+const SHOWROOM = Vector3(0, -400, 0)
+const PEDESTAL_TOP = 0.42
+const BOSS_SPOT = Vector3(1.55, 0, -5.2)
+var lobby_view = false
+var lobby_rect = Rect2()
+var lobby_screen = Vector2.ZERO
+var showroom: Node3D
+var showroom_pilot: Node3D
+var showroom_boss: Node3D
+var showroom_skins = [-1, -1, false]
+var showroom_turn = 0.0
+# Dragging on the stage turns the pilot; it eases back to turning on its own.
+var showroom_drag = 0.0
+var showroom_idle = 9.0
+
+func build_showroom() -> void:
+	showroom = Node3D.new()
+	showroom.name = "Showroom"
+	showroom.position = SHOWROOM
+	add_child(showroom)
+	var floor_node = MeshInstance3D.new()
+	var disc = PlaneMesh.new()
+	disc.size = Vector2(20, 20)
+	floor_node.mesh = disc
+	var floor_mat = ShaderMaterial.new()
+	floor_mat.shader = preload("res://shaders/showroom_floor.gdshader")
+	floor_node.material_override = floor_mat
+	floor_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	showroom.add_child(floor_node)
+	# A toy showroom: a mint step under a white pedestal with a thin painted lip in the team
+	# colour, on a pale floor that melts into the backdrop.
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("6fd4bd"))
+	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.018, Color(CYAN, 0.9))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("fbfaf6"))
+	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.02, Color("f2cb6e"))
+	# The boss's plinth, lower and a shade darker.
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("f59a82"))
+	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.02, Color(CORAL, 0.9))
+	var key = OmniLight3D.new()
+	key.position = Vector3(1.6, 3.6, 3.2)
+	key.light_color = Color("fff4e8")
+	key.light_energy = 0.55
+	key.omni_range = 9.0
+	showroom.add_child(key)
+	var rim = OmniLight3D.new()
+	rim.position = Vector3(-2.2, 2.6, -2.4)
+	rim.light_color = Color("e6eef8")
+	rim.light_energy = 0.5
+	rim.omni_range = 7.0
+	showroom.add_child(rim)
+
+func show_showroom(skin: int, boss: int, boss_dark: bool) -> void:
+	# Rebuilt only when the pilot or the boss changes.
+	if not is_instance_valid(showroom):
+		build_showroom()
+		showroom_skins = [-1, -1, false]
+	if showroom_skins[0] != skin:
+		if is_instance_valid(showroom_pilot):
+			showroom_pilot.queue_free()
+		showroom_pilot = build_player(CYAN, 0, skin, showroom)
+		showroom_pilot.position = Vector3(0, PEDESTAL_TOP, 0)
+	if showroom_skins[1] != boss or showroom_skins[2] != boss_dark:
+		if is_instance_valid(showroom_boss):
+			showroom_boss.queue_free()
+		showroom_boss = build_player(CORAL, 1, boss, showroom, boss_dark)
+		showroom_boss.position = BOSS_SPOT + Vector3(0, 0.24, 0)
+		showroom_boss.scale = Vector3.ONE * 0.9
+		showroom_boss.rotation.y = PI - 0.45
+	showroom_skins = [skin, boss, boss_dark]
+
+func animate_showroom(dt: float) -> void:
+	if not is_instance_valid(showroom_pilot):
+		return
+	showroom_drag = move_toward(showroom_drag, 0.0, dt * 1.5)
+	showroom_idle += dt
+	# A pilot faces down -z: turned round to face the camera. A finger turns it all the way
+	# round; left alone for a moment it goes on turning slowly by itself.
+	if showroom_idle > 2.0:
+		showroom_turn += dt * 0.35
+	showroom_pilot.rotation.y = PI + showroom_turn
+	for pilot in [showroom_pilot, showroom_boss]:
+		if not is_instance_valid(pilot):
+			continue
+		var body: Node3D = pilot.get_node("Body")
+		body.position.y = sin(clock * 2.2 + (0.0 if pilot == showroom_pilot else 1.3)) * 0.02
+		spin_parts(body, clock)
+
+func turn_showroom(amount: float) -> void:
+	showroom_turn += amount
+	showroom_drag = 0.0
+	showroom_idle = 0.0
+
+# The map picker: behind it the camera orbits the chosen world, always looking at its middle.
+# A finger turns and tilts it and two fingers zoom, like the hangar; left alone it goes on
+# turning slowly.
+var tour_view = false
+var tour_yaw = 0.5
+var tour_pitch = 0.62
+var tour_distance = 24.0
+var tour_idle = 9.0
+
+func start_tour() -> void:
+	lobby_view = false
+	tour_view = true
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 44.0
+	camera.h_offset = 0.0
+	camera.v_offset = 0.0
+	place_tour_camera()
+
+func orbit_tour(dx: float, dy: float) -> void:
+	tour_yaw -= dx * 0.01
+	tour_pitch = clampf(tour_pitch + dy * 0.006, 0.18, 1.45)
+	tour_idle = 0.0
+	place_tour_camera()
+
+func zoom_tour(factor: float) -> void:
+	tour_distance = clampf(tour_distance * factor, 9.0, 45.0)
+	tour_idle = 0.0
+	place_tour_camera()
+
+func advance_tour(dt: float) -> void:
+	tour_idle += dt
+	if tour_idle > 2.5:
+		tour_yaw += dt * 0.12
+	place_tour_camera()
+
+func place_tour_camera() -> void:
+	var toward = Vector3(sin(tour_yaw) * cos(tour_pitch), sin(tour_pitch), cos(tour_yaw) * cos(tour_pitch))
+	camera.position = toward * tour_distance
+	camera.look_at(Vector3(0, 0.3, 0))
+	# The seat the shake settles back to each frame: without it the camera snapped back to the
+	# lobby's and the picker showed nothing but sky.
+	camera_home = camera.position
+
+func frame_lobby(rect: Rect2, screen: Vector2) -> void:
+	lobby_view = true
+	tour_view = false
+	lobby_rect = rect
+	lobby_screen = screen
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = LOBBY_FOV
+	view_bounds = Rect2()
+	place_lobby_camera()
+
+func place_lobby_camera() -> void:
+	var focus = SHOWROOM + Vector3(0, PEDESTAL_TOP + 0.95, 0)
+	var tan_half = tan(deg_to_rad(LOBBY_FOV) * 0.5)
+	# Far enough that the pilot fills about two thirds of the band it is shown in.
+	var distance = LOBBY_PILOT_HEIGHT / 0.62 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
+	var yaw = sin(clock * 0.2) * 0.12 - 0.12
+	camera.position = focus + Vector3(sin(yaw), 0.34, cos(yaw)).normalized() * distance
+	camera.look_at(focus)
+	camera_home = camera.position
+	# Slide the picture so the pilot stands in the middle of its band.
+	var per_pixel = 2.0 * distance * tan_half / lobby_screen.y
+	camera.h_offset = -(lobby_rect.get_center().x - lobby_screen.x * 0.5) * per_pixel
+	camera.v_offset = (lobby_rect.get_center().y + lobby_rect.size.y * 0.04 - lobby_screen.y * 0.5) * per_pixel
+
 func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
+	lobby_view = false
+	tour_view = false
 	# Fit the stadium inside the viewport band between top cards and bottom controls.
 	# In menu mode, restore the original camera seat so demo maps look as they did before.
 	# In match portrait mode, frame the arena closely without cutting off the sides.
@@ -1757,7 +1271,7 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		camera_home = Vector3.ZERO
 		view_bounds = Rect2()
-	var target_eye = LANDSCAPE_EYE if is_menu else PORTRAIT_EYE
+	var target_eye = LANDSCAPE_EYE if is_menu else turned(PORTRAIT_EYE)
 	if camera_home != target_eye:
 		camera_home = target_eye
 		camera.position = camera_home
@@ -1773,6 +1287,13 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	advance_fx_clock(dt)
+	if fx != null: fx.tick(fx_clock)
+	if lobby_view:
+		place_lobby_camera()
+		animate_showroom(dt)
+	elif tour_view:
+		advance_tour(dt)
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt
@@ -1786,19 +1307,24 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			job_index += 1
 	for callback in ready:
 		callback.call()
+	if warm_frames > 0:
+		warm_frames -= 1
+		if warm_frames == 0 and is_instance_valid(warm_root):
+			warm_root.queue_free()
+			warm_root = null
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
-	if shake_power > 0.0:
-		shake_power *= exp(-dt * 17.0)
-		if shake_power < 0.0005: shake_power = 0.0
-		shake_seed += dt * 46.0
-		camera.position = camera_home + Vector3(sin(shake_seed) * 0.6, cos(shake_seed * 1.37) * 0.35, sin(shake_seed * 0.8) * 0.3) * shake_power
+	var offset = shake_offset(dt)
+	if offset != Vector3.ZERO:
+		camera.position = camera_home + offset
 	elif camera.position != camera_home:
 		camera.position = camera_home
 	for id in brick_reactions.keys():
 		brick_reactions[id] -= dt
 		if id < brick_nodes.size():
 			var brick: Node3D = brick_nodes[id]
-			brick.position.y = sin(maxf(0.0, brick_reactions[id]) / 0.14 * PI) * 0.065
+			# A brick near the end jumps harder: its lives are read from how it takes a hit.
+			var worn = clampf(3.0 - float(brick.get_meta("hp", 3)), 0.0, 2.0)
+			brick.position.y = sin(maxf(0.0, brick_reactions[id]) / 0.14 * PI) * 0.065 * (1.0 + worn * 0.45)
 			update_brick_batch(id)
 		if brick_reactions[id] <= 0.0:
 			brick_reactions.erase(id)
@@ -1861,9 +1387,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		body.rotation.y = atan2(-facing.x, -facing.y)
 		body.position.y = sin(clock * (12.0 if speed > 0.5 else 2.2)) * (0.035 if speed > 0.5 else 0.016)
 		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else -data.aim.x * speed * 0.018, minf(dt * 10, 1))
-		var orbit: Node3D = body.get_node_or_null("OrbitTilt/Orbit")
-		if orbit != null:
-			orbit.rotation.y = clock * 1.1
 		spin_parts(body, clock)
 		body.get_node("LegL").rotation.x = sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
 		body.get_node("LegR").rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
@@ -1894,17 +1417,23 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var halo: Node3D = node.get_node("Stun")
 		halo.visible = data.stun > 0
 		halo.rotation.y = clock * 2.7
+		Robots.set_mood(body, 2 if data.stun > 0 else 0)
 		if data.stun > stuns_before[team] + 0.2:
 			burst(data.p, GOLD, false)
 		stuns_before[team] = data.stun
 		var gun: Node3D = body.get_node("Gun")
 		shot_age[team] += dt
 		var age: float = shot_age[team]
-		# Only the weapon moves: 60 ms impulse, 150 ms recovery. Simulation is untouched.
-		var recoil = sin(clampf(age / 0.06, 0.0, 1.0) * PI * 0.5) if age < 0.06 else pow(maxf(0.0, 1.0 - (age - 0.06) / 0.15), 2.0)
-		gun.position.z = recoil * 0.17
-		gun.rotation.x = recoil * 0.045
-		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / 0.055))
+		# Visual recoil only, the simulation never moves: the gun snaps back in a frame,
+		# holds a hair, returns with a small overshoot; the body takes a little of the kick.
+		var recoil = recoil_curve(age)
+		gun.position.z = recoil * feel.get_value("fire_recoil_strength")
+		gun.rotation.x = recoil * 0.06
+		var kick = recoil * feel.get_value("fire_body_kick")
+		body.position.x = body.basis.z.x * kick
+		body.position.z = body.basis.z.z * kick
+		body.rotation.x = -recoil * 0.05
+		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
 		goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
 	for i in range(rules.bricks.size()):
 		var data: Dictionary = rules.bricks[i]
@@ -1933,16 +1462,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if ball.get("ghost", false):
 			color = Rules.power_color("ghost")
 		if not projectiles.has(ball.id):
-			var root = Node3D.new()
-			add_child(root)
-			var core = sphere(root, Vector3.ZERO, Vector3.ONE * 0.26, Color("fff3d5"), true)
-			core.name = "Core"
-			var tail = sphere(root, Vector3.ZERO, Vector3.ONE, Color(color, 0.55), true)
-			tail.name = "Tail"
-			var aura = sphere(root, Vector3.ZERO, Vector3.ONE * 0.39, Color(color, 0.28), true)
-			aura.name = "Aura"
-			soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN if ball.owner == 0 else CORAL, 0.42))
-			projectiles[ball.id] = root
+			projectiles[ball.id] = take_orb(ball.owner)
 		var node: Node3D = projectiles[ball.id]
 		node.position = Vector3(ball.p.x, 0.58, ball.p.y)
 		if interpolate and previous_motion.balls.has(ball.id):
@@ -1951,23 +1471,34 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			if old.bounces == ball.bounces:
 				var pos: Vector2 = old.p.lerp(ball.p, motion_alpha)
 				node.position = Vector3(pos.x, 0.58, pos.y)
-		node.get_node("Aura").material_override = material(Color(color, 0.45 if ball.get("boosted", false) else 0.28), true)
 		# A heavy explosive round, a lean burst round: size alone says which is which.
 		var swell: float = POWER_BALL_SCALE[clampi(kind, 0, POWER_BALL_SCALE.size() - 1)]
-		node.get_node("Aura").scale = Vector3.ONE * (0.52 if ball.get("boosted", false) else 0.39) * swell
-		node.get_node("Core").scale = Vector3.ONE * 0.26 * swell
-		# One attached, short tail per ball: no trail nodes allocated every frame.
-		var tail: MeshInstance3D = node.get_node("Tail")
-		var direction: Vector2 = ball.v.normalized()
-		tail.position = Vector3(-direction.x * 0.31, 0, -direction.y * 0.31)
-		tail.rotation.y = atan2(direction.x, direction.y)
-		tail.scale = Vector3(0.105, 0.105, 0.48 if quality_level == 0 else 0.72) * swell
-		tail.material_override = material(Color(color, 0.55), true)
+		var charged = ball.get("boosted", false) or ball.get("amplified", false)
+		var orb: MeshInstance3D = node.get_node("Orb")
+		orb.scale = Vector3.ONE * (1.04 if charged else 0.78) * swell
+		orb.material_override.set_shader_parameter("tint", color)
+		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
+		# The comet tail: short-lived glows left behind every frame by the GPU batch.
+		if fx != null:
+			# Two glows per frame, one halfway back along this frame's travel, so the tail
+			# reads as one continuous streak rather than a string of beads.
+			var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
+			var stride = Vector3(ball.v.x, 0, ball.v.y) * dt
+			# Two glows a frame only on Refinado: every glow is transparent overdraw, and a
+			# phone on the lighter profiles reads the comet just as well from one.
+			for k in range(2 if quality_level > 1 else 1):
+				# trail_length stretches the tail by how long each glow lives: short and legible,
+				# never a line across the arena that hides the bricks behind it.
+				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length"))
+			if charged and quality_level > 0:
+				fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
 	if trail_timer > trail_interval:
 		trail_timer = 0
 	for id in projectiles.keys():
 		if not active.has(id):
-			projectiles[id].queue_free()
+			# Projectiles go back to a pool instead of being freed: no churn per shot.
+			projectiles[id].hide()
+			orb_pool.append(projectiles[id])
 			projectiles.erase(id)
 			ball_previous.erase(id)
 	update_sentries(rules, dt)
@@ -1977,6 +1508,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	aim_line.position = units[local_team].position + Vector3.UP * 0.032
 	aim_line.rotation.y = units[local_team].get_node("Body").rotation.y
 	if rules.phase != phase_before and (rules.phase == "goal" or rules.phase == "finished"):
+		var end_z = -(Rules.HALF_LENGTH - 1.03) if rules.winner == 0 else Rules.HALF_LENGTH - 1.03
+		goal_scored(rules.winner, Vector3(0, 0.1, end_z))
 		for i in range(5):
 			burst(Vector2((i - 2) * 0.45, -(Rules.HALF_LENGTH - 1.03) if rules.winner == 0 else Rules.HALF_LENGTH - 1.03), CYAN if rules.winner == 0 else CORAL, true)
 	phase_before = rules.phase
@@ -2013,11 +1546,6 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if effect.ttl <= 0:
 			if effect.get("combat_finish", false):
 				CombatFinish.recycle(self, effect.node)
-			elif effect.get("particle_pool", false):
-				effect.node.emitting = false
-				effect.node.hide()
-				particle_pool.append(effect.node)
-				active_particles -= 1
 			elif effect.get("light_pool", false):
 				effect.node.hide()
 				light_pool.append(effect.node)
@@ -2028,6 +1556,78 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			else:
 				effect.node.queue_free()
 			effects.remove_at(effect_index)
+
+
+func warm_shaders() -> void:
+	if not is_instance_valid(camera):
+		return
+	if is_instance_valid(warm_root):
+		warm_root.queue_free()
+	warm_root = Node3D.new()
+	warm_root.name = "ShaderWarmup"
+	add_child(warm_root)
+	# Just in front of the camera and far too small to cover a pixel, but inside the view,
+	# so every sample is really drawn.
+	warm_root.global_position = camera.global_position - camera.global_basis.z * 4.0
+	var tiny = Vector3.ONE * 0.004
+	for sample in [[Color(1, 1, 1, 1), true], [Color(1, 1, 1, 0.5), true], [Color(0.5, 0.5, 0.5, 1), false], [Color(0.05, 0.05, 0.08, 0.45), false]]:
+		sphere(warm_root, Vector3.ZERO, tiny, sample[0], sample[1])
+		torus(warm_root, Vector3.ZERO, 0.002, 0.001, sample[0], sample[1])
+	box(warm_root, Vector3.ZERO, tiny, Color(0.9, 0.9, 0.9), false, 0.001)
+	soft_disc(warm_root, Vector3.ZERO, Vector2(0.004, 0.004), Color(0, 0, 0, 0.5)).visible = true
+	# A projectile, the one effect every match draws within its first second.
+	var orb = take_orb(0)
+	orb.reparent(warm_root, false)
+	orb.position = Vector3.ZERO
+	orb.scale = Vector3.ONE * 0.004
+	orb.show()
+	warm_frames = 4
+
+func take_orb(owner: int) -> Node3D:
+	# One camera-facing card with the orb shader and a team-coloured glow on the floor.
+	var root: Node3D
+	if not orb_pool.is_empty():
+		root = orb_pool.pop_back()
+	else:
+		root = Node3D.new()
+		add_child(root)
+		var orb = MeshInstance3D.new()
+		orb.name = "Orb"
+		var card = QuadMesh.new()
+		card.size = Vector2.ONE
+		orb.mesh = card
+		var mat = ShaderMaterial.new()
+		mat.shader = ORB
+		orb.material_override = mat
+		orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(orb)
+		var glow = soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN, 0.42))
+		glow.name = "FloorGlow"
+	root.get_node("FloorGlow").material_override = soft_disc_material(Color(CYAN if owner == 0 else CORAL, 0.42))
+	root.show()
+	return root
+
+func dot_batch(parent: Node3D, count: int, radius: float) -> MultiMeshInstance3D:
+	var disc = CylinderMesh.new()
+	disc.top_radius = radius
+	disc.bottom_radius = radius
+	disc.height = 0.012
+	disc.radial_segments = 10
+	disc.rings = 1
+	var batch = MultiMeshInstance3D.new()
+	batch.multimesh = MultiMesh.new()
+	batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	batch.multimesh.use_colors = true
+	batch.multimesh.mesh = disc
+	batch.multimesh.instance_count = count
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	batch.material_override = mat
+	batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(batch)
+	return batch
 
 func update_aim_guide(rules, local_team: int, dt: float) -> void:
 	# Dotted path of the shot the local pilot would fire now, ricochets included, and a ring
@@ -2056,17 +1656,15 @@ func update_aim_guide(rules, local_team: int, dt: float) -> void:
 	var shown = 0
 	for i in range(1, points.size()):
 		var length = points[i].distance_to(points[i - 1])
-		while next_dot <= travelled + length and shown < guide_dots.size():
+		while next_dot <= travelled + length and shown < GUIDE_DOTS:
 			var at = points[i - 1].lerp(points[i], (next_dot - travelled) / maxf(length, 0.0001))
-			var dot: MeshInstance3D = guide_dots[shown]
-			dot.position = Vector3(at.x, 0.035, at.y)
-			dot.material_override = material(Color(CREAM, snappedf(lerpf(0.85, 0.25, next_dot / maxf(total, 0.001)), 0.1)), true)
-			dot.show()
+			guide_dots.multimesh.set_instance_transform(shown, Transform3D(Basis.IDENTITY, Vector3(at.x, 0.035, at.y)))
+			guide_dots.multimesh.set_instance_color(shown, Color(CREAM, lerpf(0.85, 0.25, next_dot / maxf(total, 0.001))))
 			shown += 1
 			next_dot += 0.34
 		travelled += length
-	for i in range(shown, guide_dots.size()):
-		guide_dots[i].hide()
+	guide_dots.multimesh.visible_instance_count = shown
+	guide_shown = shown
 	var outcome: Dictionary = path.outcome
 	guide_marker.show()
 	match outcome.get("kind", ""):
@@ -2085,167 +1683,36 @@ func update_aim_guide(rules, local_team: int, dt: float) -> void:
 		_:
 			guide_marker.hide()
 
-func particle_mesh(size: float, color: Color) -> Mesh:
-	# One flat card per particle, unshaded and always facing the camera.
-	var key = "particle" + str(size) + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var card = QuadMesh.new()
-	card.size = Vector2(size, size)
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.albedo_texture = spark_texture()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.vertex_color_use_as_albedo = true
-	mat.set_meta("always_unshaded", true)
-	card.material = mat
-	shapes[key] = card
-	return card
-
-func spark_texture() -> Texture2D:
-	# A soft round dot, so embers read as light and not as little squares.
-	if not shapes.has("spark"):
-		var gradient = Gradient.new()
-		gradient.set_color(0, Color(1, 1, 1, 1))
-		gradient.set_color(1, Color(1, 1, 1, 0))
-		gradient.add_point(0.45, Color(1, 1, 1, 0.75))
-		var texture = GradientTexture2D.new()
-		texture.gradient = gradient
-		texture.fill = GradientTexture2D.FILL_RADIAL
-		texture.fill_from = Vector2(0.5, 0.5)
-		texture.fill_to = Vector2(1.0, 0.5)
-		texture.width = 48
-		texture.height = 48
-		shapes["spark"] = texture
-	return shapes["spark"]
-
-func ember_ramp(color: Color) -> GradientTexture1D:
-	# Embers are born white-hot, take the power's colour, then cool and fade out.
-	var key = "ramp" + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var gradient = Gradient.new()
-	gradient.set_color(0, Color(color.lightened(0.75), 1.0))
-	gradient.set_color(1, Color(color.darkened(0.35), 0.0))
-	gradient.add_point(0.22, color)
-	gradient.add_point(0.7, Color(color, 0.55))
-	var ramp = GradientTexture1D.new()
-	ramp.gradient = gradient
-	ramp.width = 64
-	shapes[key] = ramp
-	return ramp
-
 func emitter(at: Vector3, color: Color, amount: int, life: float, speed: float, spread: float, size: float, gravity: float = -7.0, direction: Vector3 = Vector3.UP) -> CPUParticles3D:
-	# A one-shot puff of embers. CPU particles keep the GL compatibility renderer happy
-	# on phones, and the counts here stay small on purpose.
-	var count = maxi(4, int(amount * (0.45 if quality_level == 0 else (0.75 if quality_level == 1 else 1.0))))
-	var puff = take_particle()
-	if puff == null: return null
-	puff.mesh = particle_mesh(size, color)
-	puff.amount = count
-	puff.lifetime = life
-	puff.lifetime_randomness = 0.35
-	puff.one_shot = true
-	puff.explosiveness = 0.88
-	puff.randomness = 0.4
-	puff.direction = direction
-	puff.spread = spread
-	puff.initial_velocity_min = speed * 0.35
-	puff.initial_velocity_max = speed
-	puff.gravity = Vector3(0, gravity, 0)
-	# Air resistance, a little spin and a size that swells then dies.
-	puff.damping_min = speed * 0.25
-	puff.damping_max = speed * 0.7
-	puff.angle_min = -180.0
-	puff.angle_max = 180.0
-	puff.angular_velocity_min = -220.0
-	puff.angular_velocity_max = 220.0
-	puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	puff.emission_sphere_radius = maxf(size * 0.9, 0.12)
-	puff.scale_amount_min = 0.55
-	puff.scale_amount_max = 1.35
-	puff.scale_amount_curve = fade_curve()
-	puff.color = color
-	puff.color_ramp = ember_ramp(color)
-	puff.position = at
-	puff.restart()
-	puff.emitting = true
-	effects.append({"node": puff, "particle_pool": true, "v": Vector3.ZERO, "ttl": life + 0.35, "life": life + 0.35, "gravity": false, "base": Vector3.ONE, "keep": true})
-	return puff
+	# A one-shot spray of embers and sparks from the GPU batches: no node, no per-frame cost.
+	if fx == null:
+		return null
+	var cone = clampf(spread, 5.0, 180.0)
+	fx.embers(at, color, amount, speed, size * 1.4, life, direction, cone, gravity * 0.5)
+	fx.sparks(at, color.lightened(0.3), maxi(2, amount / 2), speed * 1.4, size * 1.1, life * 0.7, direction, cone, gravity)
+	return null
 
 func dust(at: Vector3, color: Color, amount: int, life: float, speed: float, size: float) -> void:
 	# Heavy, slow and unlit: the smoke that hangs after an impact, not a spark.
-	if effects.size() >= effect_limit:
-		return
-	var count = maxi(3, int(amount * [0.45, 0.7, 1.0][quality_level]))
-	var cloud = take_particle()
-	if cloud == null: return
-	cloud.mesh = particle_mesh(size, Color(color, 0.5))
-	cloud.amount = count
-	cloud.lifetime = life
-	cloud.lifetime_randomness = 0.5
-	cloud.one_shot = true
-	cloud.explosiveness = 0.7
-	cloud.randomness = 0.6
-	cloud.direction = Vector3.UP
-	cloud.spread = 65.0
-	cloud.initial_velocity_min = speed * 0.2
-	cloud.initial_velocity_max = speed
-	cloud.gravity = Vector3(0, 0.6, 0)
-	cloud.damping_min = speed * 0.8
-	cloud.damping_max = speed * 1.6
-	cloud.angle_min = -180.0
-	cloud.angle_max = 180.0
-	cloud.angular_velocity_min = -40.0
-	cloud.angular_velocity_max = 40.0
-	cloud.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	cloud.emission_sphere_radius = size
-	cloud.scale_amount_min = 1.0
-	cloud.scale_amount_max = 2.4
-	cloud.scale_amount_curve = swell_curve()
-	cloud.color = Color(color, 0.45)
-	cloud.color_ramp = smoke_ramp(color)
-	cloud.position = at
-	cloud.restart()
-	cloud.emitting = true
-	effects.append({"node": cloud, "particle_pool": true, "v": Vector3.ZERO, "ttl": life + 0.4, "life": life + 0.4, "gravity": false, "base": Vector3.ONE, "keep": true})
+	if fx != null:
+		fx.smoke(at, color, amount, size, life * 1.3, size, 0.3 + speed * 0.1)
 
-func swell_curve() -> Curve:
-	if not shapes.has("swell_curve"):
-		var curve = Curve.new()
-		curve.add_point(Vector2(0, 0.5))
-		curve.add_point(Vector2(0.6, 1.0))
-		curve.add_point(Vector2(1, 0.75))
-		shapes["swell_curve"] = curve
-	return shapes["swell_curve"]
+# -1 follows the quality profile; tests set it to compare.
+var light_override = -1
 
-func smoke_ramp(color: Color) -> GradientTexture1D:
-	var key = "smoke" + str(color)
-	if shapes.has(key):
-		return shapes[key]
-	var gradient = Gradient.new()
-	gradient.set_color(0, Color(color, 0.0))
-	gradient.set_color(1, Color(color.darkened(0.55), 0.0))
-	gradient.add_point(0.18, Color(color, 0.42))
-	gradient.add_point(0.55, Color(color.darkened(0.3), 0.22))
-	var ramp = GradientTexture1D.new()
-	ramp.gradient = gradient
-	ramp.width = 64
-	shapes[key] = ramp
-	return ramp
-
-func fade_curve() -> Curve:
-	# Particles swell a little, then shrink away instead of popping out of existence.
-	if not shapes.has("fade_curve"):
-		var curve = Curve.new()
-		curve.add_point(Vector2(0, 0.35))
-		curve.add_point(Vector2(0.25, 1.0))
-		curve.add_point(Vector2(1, 0.0))
-		shapes["fade_curve"] = curve
-	return shapes["fade_curve"]
+func light_cap() -> int:
+	# Every lamp is paid again on every lit pixel of every mesh it touches. On a phone one
+	# lamp at a time is enough for the arena to answer a big hit; the particles' glow does
+	# the rest.
+	if light_override >= 0:
+		return light_override
+	# Reduced effects: no light flashes at all.
+	if feel.intensity < 1.0:
+		return 0
+	# On a phone: none. The first lamp to touch a material makes the GL renderer compile its
+	# lit variant on the spot - the stall of the first blast - and the particles' own glow
+	# carries the impact anyway.
+	return 0 if OS.has_feature("mobile") else [2, 4, 6][quality_level]
 
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:
 	# A short-lived lamp: what sells an impact is the light it throws on the ceramic.
@@ -2255,7 +1722,9 @@ func flash(at: Vector3, color: Color, energy: float, life: float, reach: float =
 	if quality_level == 0:
 		energy *= 0.6
 		life *= 0.7
-	if light_pool.is_empty() or active_lights >= [2, 4, 8][quality_level]: return
+	if fx != null:
+		fx.glow(at, color, clampf(reach * 0.14, 0.4, 1.6), life * 0.8)
+	if light_pool.is_empty() or active_lights >= light_cap(): return
 	var lamp = light_pool.pop_back()
 	active_lights += 1
 	lamp.show()
@@ -2270,7 +1739,75 @@ func schedule(seconds: float, call: Callable) -> void:
 	pending.append({"time": seconds, "call": call})
 
 func shake(power: float) -> void:
-	shake_power = maxf(shake_power, power * shake_scale)
+	# The older call: a plain shake without a direction, at a mid frequency.
+	shake_event(power, 0.22, 22.0)
+
+func shake_event(strength: float, life: float, hz: float, direction: Vector3 = Vector3.ZERO) -> void:
+	# Each shake has its own strength, length, frequency and falloff, and, when the event
+	# has one, a direction: the first swing goes the way the blow went.
+	strength *= shake_scale
+	if strength <= 0.0005:
+		return
+	if shakes.size() >= 6:
+		shakes.remove_at(0)
+	shakes.append({"strength": strength, "age": 0.0, "life": life, "hz": hz, "dir": direction.normalized() if direction != Vector3.ZERO else Vector3.ZERO, "seed": randf() * 10.0})
+
+func shake_level(level: int, direction: Vector3 = Vector3.ZERO, scale: float = 1.0) -> void:
+	var spec: Dictionary = GameFeel.LEVELS.get(level, {})
+	if spec.is_empty():
+		return
+	shake_event(feel.get_value(spec.camera) * scale, spec.shake_time, spec.shake_hz, direction)
+
+func shake_offset(dt: float) -> Vector3:
+	var total = Vector3.ZERO
+	for index in range(shakes.size() - 1, -1, -1):
+		var item: Dictionary = shakes[index]
+		item.age += dt
+		var k: float = item.age / item.life
+		if k >= 1.0:
+			shakes.remove_at(index)
+			continue
+		var falloff = (1.0 - k) * (1.0 - k)
+		var wave = cos(TAU * item.hz * item.age)
+		var push: Vector3 = item.dir * wave * item.strength * falloff
+		# Around the main swing, a smaller wobble on the other axes so it never reads as a
+		# mechanical back-and-forth.
+		var wobble = Vector3(sin(TAU * item.hz * 1.37 * item.age + item.seed), cos(TAU * item.hz * 0.83 * item.age + item.seed * 1.7) * 0.6, sin(TAU * item.hz * 1.11 * item.age + item.seed * 0.6) * 0.5)
+		total += push + wobble * item.strength * falloff * (0.35 if item.dir != Vector3.ZERO else 0.8)
+	return total
+
+func recoil_curve(age: float) -> float:
+	var peak = feel.get_value("fire_recoil_peak")
+	var back = feel.get_value("fire_return_duration")
+	if age < 0.016:
+		return age / 0.016
+	if age < peak:
+		return 1.0
+	var x = (age - peak) / back
+	if x >= 1.4:
+		return 0.0
+	if x >= 1.0:
+		# Settle: the overshoot eases back to rest.
+		return -0.08 * (1.0 - (x - 1.0) / 0.4)
+	return pow(1.0 - x, 3.0) - 0.08 * smoothstep(0.55, 1.0, x)
+
+func advance_fx_clock(dt: float) -> void:
+	if hitstop_left > 0.0:
+		hitstop_left -= dt
+		return
+	var rate = 1.0
+	if dilation_left > 0.0:
+		dilation_left -= dt
+		rate = dilation_rate
+	fx_clock += dt * rate
+
+func hitstop(seconds: float) -> void:
+	# Effects hold still for a beat; projectiles, pilots and the rules never do.
+	hitstop_left = maxf(hitstop_left, seconds)
+
+func dilate(rate: float, seconds: float) -> void:
+	dilation_rate = rate
+	dilation_left = maxf(dilation_left, seconds)
 
 func scorch(at: Vector2, size: float, color: Color, life: float) -> void:
 	# A soft mark left on the floor, using the same decal shader as the shadows.
@@ -2281,38 +1818,39 @@ func scorch(at: Vector2, size: float, color: Color, life: float) -> void:
 	effects.append({"node": mark, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 func burst(pos: Vector2, color: Color, debris: bool = true) -> void:
-	if effects.size() >= effect_limit:
+	# A hit: a hot star and a spray of sparks; when something breaks, chunks of it tumble
+	# out in the arena's block colours and the colour that was struck.
+	if fx == null:
 		return
+	var at = Vector3(pos.x, 0.45, pos.y)
 	if debris:
-		for i in range(3 if quality_level == 0 else 5):
-			if effects.size() >= effect_limit:
-				break
-			var node = box(self, Vector3(pos.x, 0.45, pos.y), Vector3(0.13, 0.065, 0.20), CREAM if i % 2 == 0 else color, false, 0.018)
-			var angle = float(i) * 2.399
-			var life = 0.48
-			effects.append({"node": node, "v": Vector3(cos(angle)*1.7, 1.5, sin(angle)*1.7), "ttl": life, "life": life, "gravity": true, "base": Vector3.ONE})
-	if effects.size() < effect_limit:
-		emitter(Vector3(pos.x, 0.48, pos.y), color, 9 if debris else 5, 0.28, 2.8, 72, 0.105, -4.0)
+		fx.debris(at, [theme.get("block_alt", CREAM), color, color.darkened(0.35)], 6, 3.4, 0.12, 0.95)
+		fx.smoke(Vector3(pos.x, 0.25, pos.y), theme.get("frame", DARK).lerp(color, 0.25), 2, 0.35, 0.7, 0.2)
+	fx.hit(at, color, 1.0 if debris else 0.8)
 
 func explosion(pos: Vector2, radius: float) -> void:
-	# The blast radius has to be readable at a glance: a ring that opens to its real size.
+	# The blast radius has to be readable at a glance: a floor ring that opens to its real
+	# size under a fireball, sparks, embers, tumbling chunks and a hanging cloud.
 	var tint: Color = Rules.power_color("blast")
-	if effects.size() < effect_limit:
-		var ring = torus(self, Vector3(pos.x, 0.34, pos.y), radius, 0.09, Color(tint, 0.9), true)
-		ring.scale = Vector3.ONE * 0.25
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.42, "life": 0.42, "gravity": false, "base": Vector3.ONE, "grow": true, "tint": tint})
-	burst(pos, tint, true)
-	if effects.size() + 2 < effect_limit:
-		emitter(Vector3(pos.x, 0.32, pos.y), Color("fff1d4"), 18, 0.35, 5.0, 85.0, 0.13, -7.0)
-		scorch(pos, radius * 1.4, tint, 0.65)
+	if fx != null:
+		fx.blast(Vector3(pos.x, 0.4, pos.y), tint, radius)
+		fx.debris(Vector3(pos.x, 0.4, pos.y), [theme.get("block_alt", CREAM), tint, DARK], 8, 5.0, 0.13, 1.1)
+	flash(Vector3(pos.x, 0.9, pos.y), tint, 4.0, 0.25, 6.0)
+	scorch(pos, radius * 1.4, tint, 0.65)
 	shake(0.12)
 
 func power_flash(pos: Vector2, id: String) -> void:
+	# A power going off: a floor ring in its colour; defensive powers lift a column of
+	# embers, attacks throw sparks outwards.
 	var color = Rules.power_color(id)
-	if effects.size() + 2 < effect_limit:
+	if fx != null:
 		var defense = id in ["weld", "rebuild", "mirror", "walls", "bloom", "plating"]
-		var ring = torus(self, Vector3(pos.x, 0.08, pos.y), 0.72, 0.035, Color(color, 0.85), true)
-		effects.append({"node": ring, "v": Vector3.UP * (1.6 if defense else 0.0), "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE, "grow": true, "tint": color})
+		fx.ring(Vector3(pos.x, 0.06, pos.y), color, 0.8, 0.45)
+		fx.glow(Vector3(pos.x, 0.5, pos.y), color, 0.9, 0.3)
+		if defense:
+			fx.embers(Vector3(pos.x, 0.2, pos.y), color, 10, 1.2, 0.18, 0.7, Vector3.UP, 25.0, 1.5)
+		else:
+			fx.sparks(Vector3(pos.x, 0.45, pos.y), color, 10, 6.0, 0.14, 0.35, Vector3.UP, 100.0)
 	burst(pos, color, false)
 
 func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
@@ -2366,8 +1904,11 @@ func meteor_fall(at: Vector2, radius: float, warm: bool) -> void:
 	var rock = Node3D.new()
 	add_child(rock)
 	rock.position = start
-	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.1, Color("1b2b33"))
-	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 0.7, Color(hot, 0.9), true)
+	# The rock is the Blender kit's (fx_meteor), in the rubber finish of the robots.
+	var stone = Node3D.new()
+	rock.add_child(stone)
+	stone.scale = Vector3.ONE * radius * 1.1
+	Robots.prop(self, stone, "fx_meteor:" + str(warm), ["fx_meteor"], {"shell": Color("5b4f78") if warm else Color("4a3f6e"), "trim": color, "dark": Color("2a3140")})
 	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.45, Color(color, 0.3), true)
 	var velocity = (Vector3(at.x, 0.2, at.y) - start) / fall
 	effects.append({"node": rock, "v": velocity, "ttl": fall, "life": fall, "gravity": false, "base": Vector3.ONE, "keep": true, "spin": true})
@@ -2433,9 +1974,10 @@ func thunder_stroke(at: Vector2, color: Color, hot: Color, weight: float, life: 
 	for step in range(widths.size()):
 		var low := floor_y + step * span
 		var wide: float = float(widths[widths.size() - 1 - step]) * weight
-		box(bolt, Vector3(at.x, low + span * 0.5, at.y), Vector3(wide, span, wide), Color(color, 0.32), true, 0.02)
+		var kink = Vector2(0.09 if step % 2 == 0 else -0.09, 0.06 if step % 3 == 0 else -0.04) * weight
+		cylinder(bolt, Vector3(at.x + kink.x, low + span * 0.5, at.y + kink.y), wide * 0.5, span, Color(color, 0.32), true, 10)
 	var core: float = 0.15 * weight
-	box(bolt, Vector3(at.x, (floor_y + BOLT_TOP) * 0.5, at.y), Vector3(core, BOLT_TOP - floor_y, core), Color(hot, 1.0), true, 0.01)
+	cylinder(bolt, Vector3(at.x, (floor_y + BOLT_TOP) * 0.5, at.y), core * 0.5, BOLT_TOP - floor_y, Color(hot, 1.0), true, 8)
 	effects.append({"node": bolt, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 func thunder_land(at: Vector2, radius: float, color: Color, hot: Color) -> void:
@@ -2473,6 +2015,15 @@ func bloom_flash(positions: Array, heal: int) -> void:
 			emitter(Vector3(at.x, 0.45, at.y), color, 12, 0.8, 2.4, 42.0, 0.26, -1.4, Vector3.UP)
 		var halo = torus(self, Vector3(at.x, 0.42, at.y), 0.38, 0.045, Color(color, 0.85), true)
 		effects.append({"node": halo, "v": Vector3(0, 1.3, 0), "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE * 1.5, "grow": true, "tint": color})
+		if index % 2 == 1 and effects.size() < effect_limit:
+			var sprout = Node3D.new()
+			add_child(sprout)
+			sprout.position = Vector3(at.x, 0.7, at.y)
+			for side in [-1.0, 1.0]:
+				var leaf = sphere(sprout, Vector3(side * 0.16, 0.08, 0), Vector3(0.3, 0.07, 0.16), color, true)
+				leaf.rotation.z = side * 0.5
+			sphere(sprout, Vector3(0, 0.2, 0), Vector3.ONE * 0.1, pale, true)
+			effects.append({"node": sprout, "v": Vector3(0, 1.1, 0), "ttl": 0.7, "life": 0.7, "gravity": false, "base": Vector3.ONE * 1.3})
 		if index % 2 == 0:
 			gain_mark(at, heal, color)
 
@@ -2499,6 +2050,20 @@ func volley_flash(at: Vector2, heading: Vector2) -> void:
 		var arc = torus(self, Vector3(at.x, 0.45, at.y), 0.7, 0.05, Color(color, 0.85), true)
 		effects.append({"node": arc, "v": Vector3.ZERO, "ttl": 0.32, "life": 0.32, "gravity": false, "base": Vector3.ONE * 2.6, "grow": true, "tint": color})
 	flash(Vector3(at.x, 0.9, at.y), color, 3.2, 0.3, 8.0)
+	for lane in [-0.45, 0.0, 0.45]:
+		if effects.size() >= effect_limit:
+			break
+		var way = heading.rotated(lane)
+		var missile = Node3D.new()
+		add_child(missile)
+		missile.position = Vector3(at.x, 1.3, at.y)
+		missile.rotation.y = -Vector2(way.x, way.y).angle() - PI * 0.5
+		var body = cylinder(missile, Vector3.ZERO, 0.07, 0.36, Color("4f6db3"), false, 10)
+		body.rotation.x = PI * 0.5
+		var nose = cone(missile, Vector3(0, 0, -0.24), 0.07, 0.14, color, true, 10)
+		nose.rotation.x = -PI * 0.5
+		sphere(missile, Vector3(0, 0, 0.2), Vector3.ONE * 0.14, Color(color, 0.8), true)
+		effects.append({"node": missile, "v": Vector3(way.x, 0.25, way.y) * 11.0, "ttl": 0.4, "life": 0.4, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 # How fast the front of the wave crosses the floor, so each brick lights up as it
 # arrives instead of the whole wall flashing at once.
@@ -2743,7 +2308,7 @@ func plunder_flash(team: int) -> void:
 	# Two curtains of light cross the arena in opposite directions, dragging embers with
 	# them, and every brick flashes as it changes hands.
 	var color = Rules.power_color("plunder")
-	var pale = Color("ffd7e6")
+	var pale = Color("fff0c8")
 	for side in [-1.0, 1.0]:
 		if effects.size() + 2 >= effect_limit:
 			break
@@ -2751,8 +2316,16 @@ func plunder_flash(team: int) -> void:
 		add_child(curtain)
 		curtain.position = Vector3(0, 0, side * Rules.HALF_LENGTH * 0.7)
 		var span: float = Rules.side_x(map.get("outline", "hex"), Rules.narrow_of(map)) * 2.0
-		box(curtain, Vector3(0, 0.75, 0), Vector3(span, 1.5, 0.1), Color(color, 0.8), true, 0.04)
-		box(curtain, Vector3(0, 0.75, 0), Vector3(span, 1.9, 0.5), Color(color, 0.22), true, 0.04)
+		var rope = cylinder(curtain, Vector3(0, 1.2, 0), 0.04, span, Color("c2472e", 0.9), false, 8)
+		rope.rotation.z = PI * 0.5
+		var coins = int(span / 0.55)
+		for k in range(coins):
+			var x = -span * 0.5 + (k + 0.5) * span / coins
+			var coin = cylinder(curtain, Vector3(x, 0.45 + 0.55 * abs(sin(k * 1.7)), 0), 0.2, 0.05, Color(color, 0.95), true, 16)
+			coin.rotation = Vector3(PI * 0.5, 0, k * 0.6)
+		var hook = torus(curtain, Vector3(0, 0.75, 0), 0.4, 0.06, Color(color, 0.95), true)
+		hook.rotation.x = PI * 0.5
+		hook.scale = Vector3(1.0, 1.0, 1.4)
 		box(curtain, Vector3(0, 0.05, 0), Vector3(span, 0.04, 1.6), Color(pale, 0.5), true, 0.02)
 		effects.append({"node": curtain, "v": Vector3(0, 0, -side * 9.0), "ttl": 0.62, "life": 0.62, "gravity": false, "base": Vector3.ONE, "keep": true})
 		emitter(Vector3(0, 0.6, side * Rules.HALF_LENGTH * 0.7), pale, 22, 0.7, 3.0, 85.0, 0.34, -1.2, Vector3.UP)
@@ -2866,20 +2439,20 @@ func build_sentry(team: int) -> Node3D:
 	add_child(root)
 	# A glow on the floor marks it as yours from across the arena, the way a shot does.
 	soft_disc(root, Vector3(0, 0.02, 0), Vector2(2.2, 2.2), Color(color, 0.4))
-	cylinder(root, Vector3(0, 0.1, 0), 0.5, 0.2, DARK, false, 18)
-	cylinder(root, Vector3(0, 0.26, 0), 0.44, 0.12, Color(GOLD, 0.95), false, 18)
 	var drum = Node3D.new()
 	drum.name = "Drum"
 	root.add_child(drum)
-	# Tall enough not to be taken for a bumper, with a lit head and a barrel out front.
-	box(drum, Vector3(0, 0.62, 0), Vector3(0.54, 0.62, 0.54), CREAM, false, 0.09)
-	box(drum, Vector3(0, 0.98, 0), Vector3(0.34, 0.16, 0.34), Color(color, 0.95), true, 0.04)
-	cylinder(drum, Vector3(0, 1.1, 0), 0.06, 0.22, Color(GOLD, 0.9), true, 10)
+	# ROSCA's workshop build: a round copper drum with a toothed gear collar, a domed head
+	# with a lit lens, and a riveter barrel with a coil spring out front. Tall enough not to
+	# be taken for a bumper.
+	# The Blender kit's sentry (fx_sentry_body / fx_sentry_gun): rubber cream body with the
+	# team's band and an orange collar, a lit lens, a barrel that recoils.
+	var paint = {"shell": Color("fff4e2"), "team": color, "trim": Color("ff7a3c"), "glow": color, "dark": Color("2a3140"), "metal": Color("9aa7b5")}
+	Robots.prop(self, drum, "fx_sentry_body", ["fx_sentry_body"], paint.duplicate())
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	drum.add_child(gun)
-	box(gun, Vector3(0, 0.6, 0.42), Vector3(0.2, 0.2, 0.62), DARK, false, 0.03)
-	box(gun, Vector3(0, 0.6, 0.3), Vector3(0.3, 0.3, 0.18), Color(GOLD, 0.85), false, 0.04)
+	Robots.prop(self, gun, "fx_sentry_gun", ["fx_sentry_gun"], paint.duplicate())
 	var flash = sphere(gun, Vector3(0, 0.6, 0.78), Vector3.ONE * 0.2, Color("fff2cf"), true)
 	flash.name = "Flash"
 	flash.scale = Vector3.ONE * 0.001
@@ -3079,25 +2652,31 @@ func build_power_effects() -> void:
 		var walls = Node3D.new()
 		walls.name = "Walls"
 		root.add_child(walls)
-		# Ceramic slabs with a brass rail, the same build as the fixed barriers.
+		# Rubber blocks from the Blender kit (fx_wall_block), laid end to end along each slab.
+		var wall_paint = {"shell": Color("fff4e2"), "team": CYAN if team == 0 else CORAL, "trim": Color("ff7a3c"),
+			"glow": Rules.power_color("walls"), "dark": Color("2a3140")}
 		for slab in Rules.team_walls(team, map):
 			var a = Vector3(slab.a.x, 0.0, slab.a.y)
 			var b = Vector3(slab.b.x, 0.0, slab.b.y)
-			segment(walls, a + Vector3.UP * 0.55, b + Vector3.UP * 0.55, Rules.BARRIER_RADIUS * 2, 1.1, CREAM)
-			segment(walls, a + Vector3.UP * 1.12, b + Vector3.UP * 1.12, Rules.BARRIER_RADIUS * 1.2, 0.06, DARK)
-			segment(walls, a + Vector3.UP * 1.17, b + Vector3.UP * 1.17, 0.06, 0.03, Color(Rules.power_color("walls"), 0.95), true)
-			for end in [a, b]:
-				cylinder(walls, end + Vector3.UP * 0.55, Rules.BARRIER_RADIUS, 1.1, CREAM, false, 14)
+			var span = a.distance_to(b)
+			if span < 0.01:
+				continue
+			var along = (b - a) / span
+			var count = maxi(1, int(round(span / 0.5)))
+			for k in range(count):
+				var block = Node3D.new()
+				walls.add_child(block)
+				block.transform = Transform3D(Basis(along, Vector3.UP, along.cross(Vector3.UP)).scaled(Vector3(span / count / 0.5, 1.0, Rules.BARRIER_RADIUS * 2.0 / 0.34)), a.lerp(b, (k + 0.5) / count))
+				Robots.prop(self, block, "fx_wall_block", ["fx_wall_block"], wall_paint.duplicate())
 		walls.hide()
 		var ray = Node3D.new()
 		ray.name = "SunRay"
 		root.add_child(ray)
 		# Modelled from 0 to 1 along +X: an opaque white core, a solid sun-coloured body
 		# and a soft corona around them, plus rings that ride down the beam.
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 0.34, 0.34), Color("fff6e0"), true, 0.02)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 0.72, 0.72), Rules.power_color("sun_ray"), true, 0.03)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 1.25, 1.25), Color(Rules.power_color("sun_ray"), 0.35), true, 0.04)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 1.9, 1.9), Color(Color("ff9a3c"), 0.16), true, 0.05)
+		for layer in [[0.17, Color("fff6e0")], [0.36, Rules.power_color("sun_ray")], [0.62, Color(Rules.power_color("sun_ray"), 0.35)], [0.95, Color(Color("ff9a3c"), 0.16)]]:
+			var tube = cylinder(ray, Vector3(0.5, 0, 0), float(layer[0]), 1.0, layer[1], true, 20)
+			tube.rotation.z = PI * 0.5
 		for i in range(4):
 			var halo = torus(ray, Vector3(0.1 + i * 0.25, 0, 0), 0.85, 0.07, Color("ffe9a8"))
 			halo.name = "Ring%d" % i
@@ -3138,7 +2717,7 @@ func build_power_effects() -> void:
 		torus(windup, Vector3(0, 0.5, 0), 0.9, 0.05, Color(GOLD, 0.7), true)
 		for i in range(4):
 			var angle = i * TAU / 4
-			box(windup, Vector3(cos(angle) * 0.9, 0.5, sin(angle) * 0.9), Vector3(0.14, 0.5, 0.14), Color(GOLD, 0.6), true, 0.02)
+			cylinder(windup, Vector3(cos(angle) * 0.9, 0.5, sin(angle) * 0.9), 0.07, 0.5, Color(GOLD, 0.6), true, 10)
 		# Ground seal makes the cast readable before the bright discharge, even from above.
 		torus(windup, Vector3(0, 0.055, 0), 1.04, 0.022, Color(GOLD, 0.7), true)
 		for spoke in range(8):
@@ -3165,66 +2744,88 @@ func world_at(screen: Vector2) -> Vector2:
 
 # Basic feedback uses a bounded reusable pool, separate from the elaborate ultimate VFX.
 func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, size: Vector3, debris: bool = false) -> void:
-	if effects.size() >= effect_limit:
+	# Muzzle sparks and impact chips come from the GPU batches: a chip is written once and
+	# animated by its shader, so a volley costs no nodes and no per-frame work.
+	if fx == null:
 		return
-	var chip: MeshInstance3D
-	if not feedback_pool.is_empty():
-		chip = feedback_pool.pop_back()
-	elif feedback_allocated < FEEDBACK_POOL_LIMIT:
-		chip = MeshInstance3D.new()
-		if not shapes.has("feedback_cube"):
-			var cube = BoxMesh.new()
-			cube.size = Vector3.ONE
-			shapes["feedback_cube"] = cube
-		chip.mesh = shapes["feedback_cube"]
-		chip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(chip)
-		feedback_allocated += 1
+	if debris:
+		fx.emit("debris", at, velocity, tint.darkened(0.15), size.x, 0.0, life * 2.2, -9.0, 0.0, 0.0, 0.0, 10.0)
 	else:
-		return
-	chip.position = at
-	chip.rotation = Vector3.ZERO
-	chip.scale = size
-	chip.material_override = material(tint, not debris)
-	chip.show()
-	effects.append({"node": chip, "v": velocity, "ttl": life, "life": life, "gravity": debris, "base": size, "pooled": true})
+		fx.emit("spark", at, velocity, tint, size.x * 1.8, size.x * 0.3, life * 1.8, -2.0, 2.0, 0.08)
 
-func shot_feedback(team: int) -> void:
+func shot_feedback(team: int, local: bool = false) -> void:
+	# FIRE: the gun snaps back, the barrel flashes with a shape and a direction, and the
+	# arena answers for a moment. Everything starts on the frame the shot is made.
 	shot_age[team] = 0.0
 	var gun: Node3D = units[team].get_node("Body/Gun")
-	gun.position.z = 0.055
 	gun.get_node("Flash").scale = Vector3.ONE * 0.42
 	var origin = muzzle_of(team)
 	var direction = -units[team].get_node("Body").global_basis.z
-	for i in range(2 if quality_level == 0 else 4):
-		feedback_chip(origin, direction * (2.5 + i) + Vector3((i % 2 - 0.5) * 1.1, 0.3, 0), shot_colors[team], 0.09, Vector3.ONE * 0.06)
+	if fx != null:
+		var spark_count = int(feel.get_value("muzzle_spark_amount") * (1.0 if local else 0.6))
+		fx.muzzle(origin, direction, shot_colors[team], feel.get_value("muzzle_flash_duration"), spark_count, feel.get_value("muzzle_flash_size") * (1.0 if local else 0.8))
+	# A lamp for a few frames, where the budget allows (never on a phone's lighter profiles).
+	if local and light_cap() >= 2:
+		flash(origin, shot_colors[team], 1.1, 0.05, 3.0)
+	if local:
+		shake_level(GameFeel.Level.SHOT, -direction)
 
 func impact_feedback(event: Dictionary) -> void:
+	# IMPACT: exactly where the shot met something, in that thing's own language.
 	var kind = String(event.kind)
 	var broken = kind == "brick"
 	var shield = kind in ["mirror", "player_hit"] or event.get("soaked", false)
 	var tint: Color = shot_colors[int(event.get("team", 0))] if shield or kind.begins_with("brick") else GOLD
 	var at: Vector2 = event.p
-	var heading: Vector2 = event.get("heading", Vector2.ZERO)
-	var direction = Vector3(heading.x, 0, heading.y)
-	var origin = Vector3(at.x, 0.55, at.y)
-	feedback_chip(origin, Vector3.ZERO, Color("fff3d5"), 0.055, Vector3.ONE * (0.28 if broken else 0.16))
-	var count = (5 if quality_level == 0 else 8) if broken else (2 if quality_level == 0 else 4)
-	for i in range(count):
-		var angle = i * 2.399
-		var velocity = direction * (1.5 if broken else -0.65) + Vector3(cos(angle), 0.8 + (i % 3) * 0.35, sin(angle)) * (1.7 if broken else 0.7)
-		feedback_chip(origin, velocity, CREAM if broken and i % 2 == 0 else tint, 0.38 if broken else 0.13, Vector3(0.13, 0.08, 0.16) if broken else Vector3.ONE * 0.055, broken)
-	if shield and effects.size() < effect_limit:
-		var ring = torus(self, origin, 0.32, 0.025, tint, true)
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.18, "life": 0.18, "gravity": false, "base": Vector3.ONE * 1.7, "grow": true, "tint": tint})
+	var heading2: Vector2 = event.get("heading", Vector2.ZERO)
+	var heading = Vector3(heading2.x, 0, heading2.y)
+	var origin = Vector3(at.x, 0.5, at.y)
+	var material = "shield" if shield else ("brick" if kind.begins_with("brick") else ("metal" if event.get("surface", "") == "obstacle" else "wall"))
+	if fx != null:
+		fx.impact(origin, heading, tint, material, feel.count("impact_particle_amount", quality_level), feel.get_value("impact_flash_size"))
+		if broken:
+			var brick_color: Color = tint
+			fx.break_apart(origin, heading, [theme.get("block_alt", CREAM), brick_color, brick_color.darkened(0.35)], feel.count("destruction_particle_amount", quality_level))
 	if kind == "brick_hit" and event.has("brick_id"):
+		# The hit is confirmed on the brick itself: it jumps, and a little harder the closer
+		# it is to falling.
 		brick_reactions[int(event.brick_id)] = 0.14
+	if broken:
+		hitstop(feel.get_value("hitstop_destroy"))
+		shake_level(GameFeel.Level.DESTROY, heading)
+	elif material != "wall":
+		shake_level(GameFeel.Level.IMPACT, heading, 0.6)
 	if event.get("defense_open", false):
-		var team = int(event.team)
-		var spot = Vector3(goals[team].global_position.x, 0.1, goals[team].global_position.z)
+		defense_falls(int(event.team), tint)
+
+func defense_falls(team: int, tint: Color) -> void:
+	# The last brick: CRACK, a beat of stillness, then the goal's shield gives way in a
+	# pulse and the goal itself lights up. The match should feel different from here on.
+	hitstop(feel.get_value("hitstop_last_brick"))
+	shake_level(GameFeel.Level.DESTROY, Vector3.ZERO, feel.get_value("camera_last_brick_strength") / maxf(feel.get_value("camera_destroy_strength"), 0.001))
+	var centre: Vector2 = Rules.goal_center(team)
+	var spot = Vector3(centre.x, 0.1, centre.y)
+	schedule(feel.get_value("hitstop_last_brick"), func():
+		if fx != null:
+			fx.pulse(spot, tint.lightened(0.2), 1.6, 0.5)
+			fx.sparks(spot + Vector3(0, 0.4, 0), tint.lightened(0.3), 14, 6.0, 0.12, 0.4, Vector3.UP, 70.0)
 		if effects.size() < effect_limit:
 			var ring = torus(self, spot, 1.1, 0.045, tint, true)
-			effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.35, "life": 0.35, "gravity": false, "base": Vector3.ONE * 2.0, "grow": true, "tint": tint})
+			effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE * 2.2, "grow": true, "tint": tint}))
+
+func goal_scored(team_scoring: int, spot: Vector3) -> void:
+	# The biggest normal payoff of a match: a longer hold, the effects slowed for a beat,
+	# the strongest shake, and the goal erupting.
+	hitstop(feel.get_value("hitstop_goal"))
+	dilate(0.45, 0.55)
+	shake_level(GameFeel.Level.DECISIVE, Vector3(0, 0, -1 if team_scoring == 0 else 1))
+	var color = CYAN if team_scoring == 0 else CORAL
+	if fx != null:
+		fx.pulse(spot, color, 2.6, 0.7)
+		fx.star(spot + Vector3(0, 0.6, 0), Color(1, 0.97, 0.9), 1.6, 0.25)
+		fx.sparks(spot + Vector3(0, 0.4, 0), color.lightened(0.3), 26, 9.0, 0.16, 0.6, Vector3.UP, 80.0)
+		fx.embers(spot, color, 16, 3.0, 0.2, 0.9, Vector3.UP, 60.0, -1.5)
+	flash(spot + Vector3(0, 1.0, 0), color, 3.0, 0.3, 7.0)
 
 func ultimate_accent(at: Vector2, id: String) -> void:
 	# Small silhouette accents augment, rather than replace, each themed main effect.

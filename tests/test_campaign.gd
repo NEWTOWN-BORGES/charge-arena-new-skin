@@ -64,13 +64,13 @@ func run() -> void:
 	var levels: Array = Campaign.LEVELS
 	var ids = levels.map(func(l): return l.map.id)
 	# Eleven bosses, and between the last two runs of them the station pilots: five before
-	# the Sentinela and five before the Arconte.
+	# the Eclipse and five before the Hélio.
 	var bosses_only: Array = range(levels.size()).filter(func(i): return not Campaign.is_minor(i))
 	var minors: Array = range(levels.size()).filter(func(i): return Campaign.is_minor(i))
 	check(levels.size() == 21 and ids.all(func(id): return ids.count(id) == 1), "Twenty-one levels, each on its own arena (%d)" % levels.size())
 	check(bosses_only.size() == 11 and minors.size() == 10, "Eleven of them are bosses and ten are station pilots")
 	check(minors.all(func(i): return not levels[i].has("minor") or levels[i].minor), "Every station level says so")
-	check(levels[0].boss == 0 and levels[1].boss == 1 and levels[bosses_only[9]].boss == 5 and levels[bosses_only[10]].boss == 10, "Level 1 trains against a copy of the standard pilot, level 2 meets the Faroleiro, the Sentinela is the one before last and the Arconte closes the campaign")
+	check(levels[0].boss == 0 and levels[1].boss == 1 and levels[bosses_only[9]].boss == 5 and levels[bosses_only[10]].boss == 10, "Level 1 trains against a copy of the standard pilot, level 2 meets the Salvo, the Eclipse is the one before last and the Hélio closes the campaign")
 	check(minors.all(func(i): return levels[i].has("ultimate") and levels[i].has("kit") and levels[i].has("hue")), "A station pilot brings a plain ultimate, a bought kit and a colour of its own")
 	var hues: Array = minors.map(func(i): return String(levels[i].hue))
 	check(range(1, hues.size()).all(func(i): return not hues.slice(0, i).has(hues[i])), "No two station pilots share a colour")
@@ -193,43 +193,52 @@ func run() -> void:
 	game.show_menu_preview()
 
 	var menu_buttons = hud.menu.find_children("*", "Button", true, false).filter(func(b): return b.visible)
-	var lowest = menu_buttons.reduce(func(low, b): return b if b.get_global_rect().end.y > low.get_global_rect().end.y else low)
-	check(lowest == hud.campaign_button and hud.campaign_button.size.y >= 60, "CAMPANHA is the largest button and the lowest one")
+	var lowest = menu_buttons.all(func(b): return b.get_global_rect().end.y <= hud.campaign_button.get_global_rect().end.y + 0.5)
+	check(lowest and hud.campaign_button.size.y >= 60, "JOGAR is the largest button and sits on the lowest row")
 	check(hud.campaign_button.get_global_rect().end.y > hud.size.y - 110, "In portrait the main action sits in the bottom thumb zone")
-	check(hud.quick_button.visible and hud.campaign_button.text == "JOGAR NÍVEL 1  →", "The menu shows quick play and a button to play the previewed level")
+	check(hud.lobby.mode_id == "quick" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick") and hud.lobby.sheet_cards.has("campaign") and not hud.lobby.sheet_cards.has("story"), "The lobby starts on quick play, the arenas one tap away, the story mode out for now")
+	# The arenas already won are played from ARENAS, level by level.
+	hud.lobby.choose_mode("campaign")
 
-	# Carousel: swipe the stadium sideways to browse levels; the arena follows once settled.
-	var area: Rect2 = hud.swipe_area()
-	var swipe = func(from: Vector2, to: Vector2):
-		for pressed in [true, false]:
-			var touch = InputEventScreenTouch.new()
-			touch.index = 0
-			touch.pressed = pressed
-			touch.position = from if pressed else to
-			hud._input(touch)
-	var middle = area.get_center()
-	swipe.call(middle + Vector2(120, 0), middle - Vector2(120, 0))
-	check(game.menu_level == 1 and hud.menu_level == 1 and game.arena.map.id == "treino", "Swiping left selects the next level at once, before rebuilding")
+	# The level strip in the dock steps through the levels; the arena follows once settled.
+	var arrows: Array = hud.level_strip.get_children().filter(func(child): return child is Button)
+	check(hud.level_strip.visible and arrows.size() == 2, "The dock carries the level strip with its two arrows")
+	arrows[1].pressed.emit()
+	check(game.menu_level == 1 and hud.menu_level == 1 and game.arena.map.id == "treino", "The next arrow selects the next level at once, before rebuilding")
 	game._process(0.1)
 	game._process(0.1)
 	await process_frame
 	check(game.arena.map.id == "farol" and game.arena.unit_skins[1] == 1 and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The stadium then shows level 2's arena, boss and bricks")
-	swipe.call(middle, middle + Vector2(30, 4))
-	check(game.menu_level == 1, "A tap or short drag does not change level")
-	swipe.call(middle + Vector2(0, -100), middle + Vector2(90, 120))
-	check(game.menu_level == 1, "A mostly vertical drag does not change level")
-	swipe.call(Vector2(hud.size.x * 0.5, hud.menu.get_rect().get_center().y), Vector2(hud.size.x * 0.5 - 200, hud.menu.get_rect().get_center().y))
-	check(game.menu_level == 1, "Swipes over the menu buttons are ignored")
-	swipe.call(middle - Vector2(120, 0), middle + Vector2(120, 0))
-	swipe.call(middle - Vector2(120, 0), middle + Vector2(120, 0))
-	check(game.menu_level == 0, "Swiping right goes back and stops at level 1")
+	check(game.arena.showroom_skins[1] == 1, "The lobby's stage puts level 2's boss behind your pilot")
+	# Dragging across the stage turns your pilot and never changes level.
+	var area: Rect2 = hud.swipe_area()
+	var turn_before: float = game.arena.showroom_turn
+	var press = InputEventScreenTouch.new()
+	press.index = 0
+	press.pressed = true
+	press.position = area.get_center()
+	hud._input(press)
+	var drag = InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = area.get_center() + Vector2(-80, 0)
+	drag.relative = Vector2(-80, 0)
+	hud._input(drag)
+	var lift = InputEventScreenTouch.new()
+	lift.index = 0
+	lift.pressed = false
+	lift.position = drag.position
+	hud._input(lift)
+	check(game.menu_level == 1 and not is_equal_approx(game.arena.showroom_turn, turn_before), "Dragging the stage turns the pilot and leaves the level alone")
+	arrows[0].pressed.emit()
+	arrows[0].pressed.emit()
+	check(game.menu_level == 0, "The back arrow goes back and stops at level 1")
 	for i in range(Campaign.LEVELS.size() + 3):
 		game.step_menu_level(1)
 	check(game.menu_level == Campaign.LEVELS.size() - 1, "Browsing stops at the last level")
 	game.step_menu_level(-(Campaign.LEVELS.size() - 1))
 	game._process(0.3)
 	await process_frame
-	check(game.arena.map.id == "treino" and hud.campaign_button.text == "JOGAR NÍVEL 1  →" and not hud.campaign_button.disabled, "Rapid browsing rebuilds only the level it settles on")
+	check(game.arena.map.id == "treino" and hud.campaign_button.text == "JOGAR" and not hud.campaign_button.disabled, "Rapid browsing rebuilds only the level it settles on")
 	hud.open_pvp()
 	check(hud.pvp_overlay.visible and hud.ip.is_visible_in_tree(), "PvP moved to its own panel with the IP field")
 	hud.close_pvp()
@@ -255,8 +264,8 @@ func run() -> void:
 	hud.next_button.pressed.emit()
 	await process_frame
 	check(game.level_index == 1 and game.arena.map.id == "farol" and game.rules.obstacles.size() == 6, "Next level rebuilds the arena with the lighthouse bay")
-	check(game.arena.unit_skins == [game.skins.selected, 1] and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The Faroleiro boss arrives with its own bricks")
-	check(game.rules.obstacles.size() == 6 and game.arena.obstacle_nodes.size() == 6 and hud.level_info.name == "Baía do Farol" and hud.level_info.boss_name == "FAROLEIRO", "Its lighthouses, name and boss name come with it")
+	check(game.arena.unit_skins == [game.skins.selected, 1] and game.arena.brick_nodes[game.rules.bricks.size() / 2].get_meta("skin") == 1, "The Salvo boss arrives with its own bricks")
+	check(game.rules.obstacles.size() == 6 and game.arena.obstacle_nodes.size() == 6 and hud.level_info.name == "Baía do Farol" and hud.level_info.boss_name == "SALVO", "Its lighthouses, name and boss name come with it")
 	check(game.rules.ai_profile == Campaign.ai_profile(1, game.game_settings.difficulty), "The boss uses its level's pace")
 
 	game._process(0.02)
@@ -278,7 +287,14 @@ func run() -> void:
 	hud.open_levels()
 	hud.close_levels()
 	hud.quick_button.pressed.emit()
-	check(game.mode == "pve" and game.level_index == -1 and game.rules.ai_profile.is_empty() and game.arena.map.id == "torre" and hud.level_info.is_empty(), "Quick play opens the tall arena with the chosen AI level")
+	check(game.mode == "menu" and hud.lobby.mode_id == "quick", "Choosing a mode only changes the lobby's mode")
+	hud.campaign_button.pressed.emit()
+	check(game.mode == "menu" and hud.map_overlay.visible and game.arena.tour_view, "Quick play first opens the map picker, touring the world behind it")
+	hud.pick_world("cidade")
+	check(game.arena.map.id == "torre_cidade" and game.arena.tour_view, "Tapping a map shows that world behind the picker")
+	hud.pick_world("aurora")
+	hud.map_chosen.emit(hud.chosen_world)
+	check(game.mode == "pve" and game.level_index == -1 and game.rules.ai_profile.is_empty() and game.arena.map.id == "torre" and hud.level_info.is_empty() and not hud.map_overlay.visible, "Quick play opens the tall arena with the chosen AI level")
 	game.return_to_menu()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
 	print("CAMPAIGN_RESULT failures=", failures)

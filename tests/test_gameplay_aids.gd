@@ -1,6 +1,6 @@
 extends SceneTree
 # Aids for hitting bricks: aiming guide, softer stick, AI difficulty, plus weapon sounds
-# and the Jardineiro's glass dome.
+# and the robots' face screens.
 const Rules = preload("res://scripts/arena_rules.gd")
 const GameSettings = preload("res://scripts/game_settings.gd")
 const TMP = "res://tests/game-settings.tmp"
@@ -118,7 +118,7 @@ func run() -> void:
 	var outcome: Dictionary = game.rules.predict_path(0, aimed_at_brick).outcome
 	arena.guide_timer = 0
 	arena.update_state(game.rules, 0, 1.0 / 60)
-	var shown = arena.guide_dots.filter(func(d): return d.visible).size()
+	var shown = arena.guide_shown
 	var target: Dictionary = game.rules.bricks[outcome.target]
 	check(arena.aim_guide.visible and shown >= 3 and not arena.aim_line.visible, "The guide draws the shot path instead of the short aim line")
 	check(arena.guide_marker.visible and Vector2(arena.guide_marker.position.x, arena.guide_marker.position.z).is_equal_approx(target.p), "A ring marks the brick the shot would hit")
@@ -141,7 +141,7 @@ func run() -> void:
 	arena.set_skin(0, 4)
 	game.rules.players[0].cooldown = 0
 	game._physics_process(1.0 / 60)
-	check(game.audio_voices.any(func(v): return v.stream == game.tones["shot_4"]), "Firing as the Mineiro plays the drill sound")
+	check(game.audio_voices.any(func(v): return v.stream == game.tones["shot_4"]), "Firing as the Bigorna plays the drill sound")
 	for voice in game.audio_voices:
 		voice.stop()
 	game.play_tone("shot_5")
@@ -164,10 +164,10 @@ func run() -> void:
 	check(hud.viewer_audio.stream == game.tones["shot_3_0"], "Skin preview plays the same mastered weapon sound used in combat")
 	hud.close_skins()
 
-	# The Jardineiro's dome uses the rim-lit glass shader.
+	# Every robot's face is drawn on its screen by the face shader.
 	game.arena.set_skin(0, 3)
-	var glass = game.arena.units[0].find_children("*", "MeshInstance3D", true, false).filter(func(m): return m.material_override is ShaderMaterial and m.material_override.shader == game.arena.GLASS)
-	check(glass.size() == 1, "The Jardineiro's dome is drawn as rim-lit glass")
+	var faces = game.arena.units[0].find_children("*", "MeshInstance3D", true, false).filter(func(m): return m.material_override is ShaderMaterial and m.material_override.shader == game.arena.Robots.FACE)
+	check(faces.size() == 1, "Broto's face is drawn on its screen")
 	game.arena.set_skin(0, 0)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
 	print("AIDS_RESULT failures=", failures)

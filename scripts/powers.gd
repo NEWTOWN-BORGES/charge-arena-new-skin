@@ -50,19 +50,19 @@ const ULTIMATES = [
 		"about": "Um segundo de meteoros roxos e amarelos a cair sobre metade do campo do rival, 1 de dano cada."},
 	{"id": "thunder", "short": "TROVOADA", "name": "TROVOADA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "7fe6ff",
 		"about": "Dois segundos de raios a cair ao acaso no campo do rival, 2 de dano cada."},
-	{"id": "singularity", "short": "VÓRTICE", "name": "SINGULARIDADE", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "f3a13c",
-		"about": "Três ondas de choque caem do céu e varrem a arena: tudo o que apanham perde o rumo e é arrastado em câmara lenta até ao Sentinela. Quando está tudo compactado, o núcleo larga uma só onda enorme, que corre o mapa todo e sai para lá dele: 3 de dano na primeira fila da muralha do rival, 2 na de trás e 1 nas seguintes."},
-	{"id": "sentries", "short": "SENTINELAS", "name": "SENTINELAS", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "8fd3c7",
+	{"id": "singularity", "short": "VÓRTICE", "name": "SINGULARIDADE", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ff4d5e",
+		"about": "Três ondas de choque caem do céu e varrem a arena: tudo o que apanham perde o rumo e é arrastado em câmara lenta até ao Eclipse. Quando está tudo compactado, o núcleo larga uma só onda enorme, que corre o mapa todo e sai para lá dele: 3 de dano na primeira fila da muralha do rival, 2 na de trás e 1 nas seguintes."},
+	{"id": "sentries", "short": "SENTINELAS", "name": "SENTINELAS", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ff9b54",
 		"about": "Duas mini-guns automáticas ficam de pé no meio do ringue. Disparam sozinhas, devagar, 2 de dano e sem ricochete, atacam a muralha do rival e metem golo se a baliza já estiver aberta. São frágeis — 2 vidas cada — e estão expostas: duas bolas em jogo bastam para abater uma."},
 	{"id": "bloom", "short": "FLORIR", "name": "FLORESCER", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "9fe37a",
 		"about": "Cura 2 de vida em cada tijolo teu; os que já estão inteiros ganham mais 2 e crescem."},
-	{"id": "plunder", "short": "PILHAGEM", "name": "PILHAGEM", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ff5c8a",
+	{"id": "plunder", "short": "PILHAGEM", "name": "PILHAGEM", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffcf5a",
 		"about": "As duas muralhas cruzam-se no ar, tijolo a tijolo e cada um a sua velocidade, e assentam em espelho do lado contrario. Quando pousam, o que ele tinha passa a ser teu."},
-	{"id": "surge", "short": "SOBRECARGA", "name": "SOBRECARGA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "7fe6c8",
+	{"id": "surge", "short": "SOBRECARGA", "name": "SOBRECARGA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ff5cc0",
 		"about": "Seis segundos com a manopla em sobrecarga: cada tiro teu sai turbinado, com 2 de dano, e a cadencia duplica."},
-	{"id": "volley", "short": "RAJADA", "name": "RAJADA DO FAROL", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffc978",
+	{"id": "volley", "short": "RAJADA", "name": "RAJADA DO FAROL", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ff8a3d",
 		"about": "O mesmo leque da abilidade, mas cinco vezes seguidas: cinco ondas de cinco balas, 2 de dano cada. Entre uma onda e a seguinte da para andar na calha, por isso as cinco podem cobrir a muralha toda."},
-	{"id": "plating", "short": "COURACA", "name": "COURACA DE CRISTAL", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "8fd8ff",
+	{"id": "plating", "short": "COURACA", "name": "COURACA DE CRISTAL", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffc61a",
 		"about": "Sete segundos com a tua muralha blindada a cristal: cada pancada que lhe acerta perde uma vida pelo caminho. O tiro normal deixa de lhe fazer nada, o turbinado tira 1 em vez de 2 e uma ultimate de 3 tira 2."},
 ]
 # The pilots between the bosses are nobody in particular: no skin of their own, no name to
@@ -74,7 +74,7 @@ const BASIC_ULTIMATES = [
 	{"id": "b_quick", "short": "RÁPIDA+", "name": "CADÊNCIA AMPLIFICADA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "e9baff", "about": "A habilidade de cadência dura mais 25%, com preparação violeta."},
 	{"id": "b_fan", "short": "LEQUE+", "name": "LEQUE AMPLIFICADO", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "b4fff4", "about": "A habilidade de leque ganha dois projéteis e uma preparação luminosa própria."},
 	{"id": "b_salvo", "short": "SALVA", "name": "SALVA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffc978",
-		"about": "Tres leques seguidos, a metade da rajada do Faroleiro."},
+		"about": "Tres leques seguidos, a metade da rajada do Salvo."},
 	{"id": "b_hail", "short": "GRANIZO", "name": "GRANIZO", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "cbb2ff",
 		"about": "Cinco pedras pequenas sobre a muralha do rival, uma vida cada."},
 	{"id": "b_spark", "short": "FAISCA", "name": "FAISCA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "7fe6ff",
@@ -114,6 +114,9 @@ var unlock_all = UNLOCK_ALL_FOR_TESTS
 var bricks = 0
 var owned: Array = STARTER_KIT.duplicate()
 var kit: Array = STARTER_KIT.duplicate()
+# The mini tutorial in the match (a bubble over the first power to light up) ends the first
+# time a power is used.
+var tutorial_done = false
 
 static func all_ids() -> Array:
 	return CATALOG.map(func(entry): return String(entry.id))
@@ -193,6 +196,7 @@ func load_preferences() -> void:
 	if saved_version < SAVE_VERSION and not FileAccess.file_exists(config_path + ".before-v3"):
 		DirAccess.copy_absolute(config_path, config_path + ".before-v3")
 	bricks = maxi(int(config.get_value("powers", "bricks", 0)), 0)
+	tutorial_done = bool(config.get_value("powers", "tutorial_done", false))
 	owned = all_ids() if unlock_all else STARTER_KIT.duplicate()
 	if unlock_all:
 		bricks = maxi(bricks, TEST_WALLET)
@@ -210,4 +214,5 @@ func save_preferences() -> Error:
 	config.set_value("powers", "bricks", bricks)
 	config.set_value("powers", "owned", owned)
 	config.set_value("powers", "kit", kit)
+	config.set_value("powers", "tutorial_done", tutorial_done)
 	return config.save(config_path)

@@ -38,7 +38,7 @@ func run() -> void:
 	for n in range(40): game.play_tone("blast")
 	check(started[0].playing and started[0].stream == stream, "Impact saturation cannot steal weapon tails")
 	game.arena.shake(0.9)
-	check(game.arena.shake_power == 0.0, "Disabled camera shake stays disabled")
+	check(game.arena.shakes.is_empty(), "Disabled camera shake stays disabled")
 	game.rules.powers[0].ultimate_windup = 0.15
 	game.update_feedback_mix(0.10)
 	check(game.arena_duck_db < -4.0, "Secondary sounds duck before ultimate release")
@@ -52,6 +52,7 @@ func run() -> void:
 	game.change_fire_layout(1, 1.3, 0.2, 0.8)
 	touch.position = game.hud.move_home
 	touch.pressed = true
+	game.rules.players[0].cooldown = 0.0
 	game.hud._input(touch)
 	check(game.local_command().fire, "Joystick press fires without a separate button")
 	var drag = InputEventScreenDrag.new()
@@ -59,7 +60,7 @@ func run() -> void:
 	drag.position = touch.position + Vector2(-25, 0)
 	game.hud._input(drag)
 	var held: Dictionary = game.local_command()
-	check(held.fire and held.move.x < 0, "Joystick aims and fires simultaneously")
+	check(not held.fire and held.move.x < 0, "Holding the joystick aims without firing again: one touch, one shot")
 	touch.pressed = false
 	game.hud._input(touch)
 	check(not game.local_command().fire, "Joystick release stops manual fire")

@@ -11,6 +11,8 @@ var aim_assist = true
 var joystick_sensitivity = 2
 var camera_feedback = 1
 var haptics = true
+# Effects intensity: Full, or Reduced (fewer particles, no light flashes) for comfort.
+var effects_full = true
 var auto_fire = true
 var fire_control = 0
 var fire_size = 1.0
@@ -32,6 +34,7 @@ func load_preferences() -> void:
 	aim_assist = bool(config.get_value("game", "aim_assist", true))
 	camera_feedback = clampi(int(config.get_value("game", "camera_feedback", 1)), 0, 2)
 	haptics = bool(config.get_value("game", "haptics", true))
+	effects_full = bool(config.get_value("game", "effects_full", true))
 	auto_fire = bool(config.get_value("game", "auto_fire", true))
 	fire_control = clampi(int(config.get_value("game", "fire_control", 0)), 0, 1)
 	fire_size = clampf(float(config.get_value("game", "fire_size", 1.0)), 0.7, 1.5)
@@ -47,6 +50,7 @@ func save_preferences() -> Error:
 	config.set_value("game", "joystick_sensitivity", joystick_sensitivity)
 	config.set_value("game", "camera_feedback", camera_feedback)
 	config.set_value("game", "haptics", haptics)
+	config.set_value("game", "effects_full", effects_full)
 	config.set_value("game", "auto_fire", auto_fire)
 	config.set_value("game", "sfx_volume", sfx_volume)
 	config.set_value("game", "fire_control", fire_control)

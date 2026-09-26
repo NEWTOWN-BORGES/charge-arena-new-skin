@@ -118,10 +118,10 @@ static func event(view, data: Dictionary, rules = null) -> void:
 	if now - float(last.get(key, -100.0)) < spacing: return
 	last[key] = now
 	match kind:
-		"brick", "brick_hit", "player_hit", "mirror":
-			card(view, at, 0.69 if kind == "brick" else 0.42, tint, 0.28 if kind == "brick" else 0.18)
-			if kind == "brick" and view.quality_level > 0:
-				card(view, at, 0.45, tint, 0.14, 6, true, 0.55)
+		"player_hit", "mirror":
+			card(view, at, 0.42, tint, 0.18)
+		# Bricks get no card: with forty a side breaking all match long, each card was one
+		# more transparent draw on a phone. The arena's own flash and ring say enough.
 		"boost":
 			impact(view, at, 0.8, Color("ffce63"), 2, 0.28)
 			view.flash(Vector3(at.x, 0.7, at.y), Color("ffd175"), 2.3, 0.13, 3.2)

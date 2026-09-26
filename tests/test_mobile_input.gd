@@ -44,7 +44,7 @@ func run() -> void:
 	var hud = scene.hud
 
 	var play: Button = hud.campaign_button
-	check(play != null and play.visible and find_button(hud.menu, "JOGO RÁPIDO") != null, "Os botões de campanha e jogo rápido existem e estão visíveis no menu")
+	check(play != null and play.visible and hud.lobby.sheet_cards.has("quick"), "O botão JOGAR está visível e o jogo rápido está na folha dos modos")
 	check(play != null and play.mouse_filter != Control.MOUSE_FILTER_IGNORE,
 		"O botão de jogar aceita eventos de ponteiro")
 

@@ -33,17 +33,17 @@ func run() -> void:
 	hud.sync_skins(game.skins)
 	hud.sync_powers(game.power_shop)
 	check(hud.news_text == "", "A fresh pilot with an empty wallet is told nothing")
-	check(not hud.skins_button.text.ends_with("•") and not hud.powers_button.text.ends_with("•"), "And no button carries a dot")
+	check(not hud.skins_button.get_meta("dot", false) and not hud.powers_button.get_meta("dot", false), "And no button carries a dot")
 
 	# A boss falls: the skin is news until the panel is opened.
 	game.skins.defeat(6)
 	hud.sync_skins(game.skins)
-	check(hud.news_text != "" and hud.news_text.contains("RELOJOEIRO") and hud.news_text.contains("SKINS"), "A won skin is named, and points at the panel that holds it")
-	check(hud.skins_button.text.ends_with("•"), "The SKINS button carries the dot")
+	check(hud.news_text != "" and hud.news_text.contains("ROSCA") and hud.news_text.contains("SKINS"), "A won skin is named, and points at the panel that holds it")
+	check(hud.skins_button.get_meta("dot", false), "The SKINS button carries the dot")
 	hud.open_skins()
 	hud.close_skins()
 	hud.sync_skins(game.skins)
-	check(not hud.skins_button.text.ends_with("•"), "Opening the panel puts the dot out")
+	check(not hud.skins_button.get_meta("dot", false), "Opening the panel puts the dot out")
 	check(game.skins.seen.has(6), "And remembers it was shown")
 
 	# Bricks enough for a power: the shop is worth a visit.
@@ -51,14 +51,14 @@ func run() -> void:
 	game.power_shop.bricks = 600
 	hud.sync_powers(game.power_shop)
 	check(hud.news_text != "" and hud.news_text.contains("PODERES"), "An affordable power points at the shop")
-	check(hud.powers_button.text.ends_with("•"), "The PODERES button carries the dot")
+	check(hud.powers_button.get_meta("dot", false), "The PODERES button carries the dot")
 	check(hud.news_text.contains("METRALHADORA") or hud.news_text.contains("200"), "It names the cheapest one within reach")
 	game.power_shop.buy("rapid")
 	hud.sync_powers(game.power_shop)
 	check(hud.news_text.contains("FANTASMA") or hud.news_text.contains("250"), "Buying it moves the hint on to the next one")
 	game.power_shop.bricks = 0
 	hud.sync_powers(game.power_shop)
-	check(not hud.powers_button.text.ends_with("•"), "With an empty wallet the dot goes out")
+	check(not hud.powers_button.get_meta("dot", false), "With an empty wallet the dot goes out")
 
 	# What was seen survives a restart.
 	game.skins.save_preferences()

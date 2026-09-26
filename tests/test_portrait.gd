@@ -63,10 +63,15 @@ func run() -> void:
 	check(root.content_scale_size == Vector2i(720, 1280) and hud.size.is_equal_approx(Vector2(720, 1600)), "A tall screen switches the HUD to 720 units wide")
 	check(hud.vertical, "HUD detects the vertical layout")
 
-	var arena = drawn_arena(game)
-	check(hud.arena_rect.grow(1).encloses(arena), "Menu: the whole stadium is framed above the menu")
+	var arena: Rect2
+	# The lobby shows your pilot up close: it stands inside its band, above the dock.
+	var stage: Rect2 = hud.lobby_stage()
+	var feet: Vector2 = game.arena.camera.unproject_position(game.arena.showroom_pilot.global_position)
+	var head: Vector2 = game.arena.camera.unproject_position(game.arena.showroom_pilot.global_position + Vector3(0, 2.2, 0))
+	var scale_to_hud: float = hud.size.y / float(root.size.y)
+	check(game.arena.lobby_view and stage.grow(4).has_point(feet * scale_to_hud) and stage.grow(4).has_point(head * scale_to_hud), "Lobby: the pilot stands inside its band")
 	check(screen.encloses(hud.menu.get_rect()), "Menu: the panel fits on screen")
-	check(arena.end.y + 50 <= hud.menu.position.y, "Menu: the slogan has room between the stadium and the panel")
+	check(stage.end.y + 50 <= hud.menu.position.y, "Lobby: the pilot's name has room between the pilot and the dock")
 
 	for size in [Vector2i(720, 1600), Vector2i(720, 1280)]:
 		root.size = size
@@ -118,6 +123,6 @@ func run() -> void:
 	check(hud.score_rect == Rect2(488, 19, 304, 59) and hud.touch_top == 302.4, "Landscape score and touch zone keep their positions")
 	game.return_to_menu()
 	await settle()
-	check(game.arena.camera.h_offset == -4.5 and hud.menu.position.x == 48 and is_equal_approx(hud.menu.get_rect().end.y, 680), "Landscape menu sits bottom-left, within thumb reach, with the stadium to its right")
+	check(game.arena.lobby_view and hud.menu.position.x == 124 and is_equal_approx(hud.menu.get_rect().end.y, 680), "Landscape lobby: the dock sits bottom-left, within thumb reach, right of the rail, with the pilot to its right")
 	print("PORTRAIT_RESULT failures=", failures)
 	quit(failures)

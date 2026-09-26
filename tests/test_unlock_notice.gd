@@ -8,7 +8,7 @@ func run() -> void:
 	game.hud.announce_unlock([game.Skins.CATALOG[5].name, game.Skins.CATALOG[10].name])
 	var notice = game.hud.unlock_notice
 	assert(notice.current.id == 5 and notice.pending.size() == 1)
-	assert(notice.card.size.x <= 344 and notice.card.size.y == 72)
+	assert(notice.card.size.x <= 380 and notice.card.size.y == 84)
 	assert(notice.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(notice.close.size.x >= 44)
 	game.hud.announce_unlock([game.Skins.CATALOG[5].name])

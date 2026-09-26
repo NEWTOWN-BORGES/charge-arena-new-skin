@@ -235,6 +235,7 @@ var elapsed = 0.0
 var ai_target_angle = 0.0
 var ai_next_scan = 0.0
 var ai_scan_index = 0
+var ai_scan_budget = 4.0
 var ai_best_score = -INF
 var ai_next_fire_check = 0.0
 var ai_next_power = 0.0
@@ -294,6 +295,14 @@ static func tower_map() -> Dictionary:
 			{"kind": "slide", "center": Vector2(0, 2.6), "axis": Vector2.RIGHT, "travel": 2.4, "frequency": 0.55, "phase": PI, "radius": 0.42},
 		],
 	}
+
+static func quick_map(world: String) -> Dictionary:
+	# Quick play in the world chosen before the match: the tall tower layout, dressed as that
+	# world (arena_theme.gd maps the id to it). The sky keeps the original "torre" id.
+	var layout = tower_map()
+	if world != "aurora":
+		layout.id = "torre_" + world
+	return layout
 
 static func pvp_map() -> Dictionary:
 	return {
@@ -580,6 +589,7 @@ func reset_round() -> void:
 	ai_target_angle = 0.0
 	ai_next_scan = 0.0
 	ai_scan_index = 0
+	ai_scan_budget = 4.0
 	ai_best_score = -INF
 	ai_next_fire_check = 0.0
 	ai_next_power = 0.0
@@ -823,6 +833,14 @@ func step(dt: float, commands: Array) -> void:
 				balls.erase(ball)
 			else:
 				advance_ball(ball, dt, true)
+
+func can_fire(team: int, dt: float = 0.0) -> bool:
+	# Whether a shot asked for on the tick about to run would leave the barrel. A tap is
+	# kept until this says yes, so one made during the reload is not thrown away.
+	if phase != "play" or team < 0 or team >= players.size():
+		return false
+	var p: Dictionary = players[team]
+	return p.cooldown <= dt and p.stun <= dt and powers[team].laser_time <= 0 and powers[team].rapid_time <= 0
 
 func can_activate_power(team: int, index: int) -> bool:
 	if team < 0 or team >= powers.size() or index < 0 or index >= POWER_SLOTS:
@@ -1672,7 +1690,24 @@ func spawn_ball(team: int, heading: Vector2, power: int, damage: int = 1, booste
 	balls.append({"id": next_id, "owner": team, "p": players[team].p + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "boosted": boosted, "damage": damage, "ttl": BALL_LIFE, "power": power, "ghost": powers[team].ghost_time > 0})
 	next_id += 1
 
-func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, preview: bool = false, future_time: float = 0.0, shooter_position: Vector2 = Vector2.ZERO) -> Dictionary:
+func target_bricks(owner: int) -> Dictionary:
+	# The bricks a shot from `owner` can hit, flattened into packed arrays once per forecast.
+	# Nothing changes while a forecast runs, so every one of its sub-steps can reuse this.
+	var index = PackedInt32Array()
+	var at = PackedVector2Array()
+	var turn = PackedFloat32Array()
+	var reach = PackedVector2Array()
+	for i in range(bricks.size()):
+		var brick: Dictionary = bricks[i]
+		if not brick.alive or brick.team == owner:
+			continue
+		index.append(i)
+		at.append(brick.p)
+		turn.append(brick.rotation)
+		reach.append(brick_extent * brick_scale(brick.hp) + Vector2.ONE * BALL_RADIUS)
+	return {"index": index, "p": at, "rotation": turn, "extent": reach}
+
+func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, preview: bool = false, future_time: float = 0.0, shooter_position: Vector2 = Vector2.ZERO, targets: Dictionary = {}) -> Dictionary:
 	# Prediction uses the same collisions, but only mutates its private projectile.
 	var remaining = dt
 	for _iteration in range(8):
@@ -1687,17 +1722,31 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 		var surface_velocity = Vector2.ZERO
 		var bounds_min = start.min(start + travel) - Vector2.ONE * 0.50
 		var bounds_max = start.max(start + travel) + Vector2.ONE * 0.50
-		for i in range(bricks.size()):
-			if not bricks[i].alive or bricks[i].team == ball.owner:
-				continue
-			var brick: Dictionary = bricks[i]
-			if brick.p.x < bounds_min.x or brick.p.x > bounds_max.x or brick.p.y < bounds_min.y or brick.p.y > bounds_max.y:
-				continue
-			var t = segment_box((start - brick.p).rotated(-brick.rotation), travel.rotated(-brick.rotation), Vector2.ZERO, brick_extent * brick_scale(brick.hp) + Vector2.ONE * BALL_RADIUS)
-			if t >= 0 and t < best:
-				best = t
-				kind = "brick"
-				target = i
+		if not targets.is_empty():
+			var spots: PackedVector2Array = targets.p
+			var turns: PackedFloat32Array = targets.rotation
+			var reaches: PackedVector2Array = targets.extent
+			for k in range(spots.size()):
+				var spot: Vector2 = spots[k]
+				if spot.x < bounds_min.x or spot.x > bounds_max.x or spot.y < bounds_min.y or spot.y > bounds_max.y:
+					continue
+				var t = segment_box((start - spot).rotated(-turns[k]), travel.rotated(-turns[k]), Vector2.ZERO, reaches[k])
+				if t >= 0 and t < best:
+					best = t
+					kind = "brick"
+					target = targets.index[k]
+		else:
+			for i in range(bricks.size()):
+				if not bricks[i].alive or bricks[i].team == ball.owner:
+					continue
+				var brick: Dictionary = bricks[i]
+				if brick.p.x < bounds_min.x or brick.p.x > bounds_max.x or brick.p.y < bounds_min.y or brick.p.y > bounds_max.y:
+					continue
+				var t = segment_box((start - brick.p).rotated(-brick.rotation), travel.rotated(-brick.rotation), Vector2.ZERO, brick_extent * brick_scale(brick.hp) + Vector2.ONE * BALL_RADIUS)
+				if t >= 0 and t < best:
+					best = t
+					kind = "brick"
+					target = i
 		for team in range(2):
 			if team == ball.owner:
 				continue
@@ -1870,23 +1919,25 @@ func brick_count(team: int) -> int:
 func ai_command() -> Dictionary:
 	if phase != "play" or players[1].stun > 0:
 		return {"move": Vector2.ZERO, "fire": false}
-	# Spread a fine search across frames instead of running a full planner every tick.
+	# Spread a fine search across frames instead of running a full planner every tick: four
+	# candidates per scan gap (bounded trajectory work on mobile, even on Hard), paid out one
+	# at a time as the budget accrues so no single frame carries a whole batch.
 	var scan_gap = 0.04 if ai_level >= 2 else 0.05
-	var candidates_per_step = 4 # Bounded trajectory work on mobile, even on Hard.
-	if elapsed >= ai_next_scan:
-		ai_next_scan = elapsed + scan_gap
+	ai_scan_budget = minf(ai_scan_budget + maxf(elapsed - ai_next_scan, 0.0) / scan_gap * 4.0, 4.0)
+	ai_next_scan = elapsed
+	while ai_scan_budget >= 1.0:
+		ai_scan_budget -= 1.0
 		if ai_scan_index == 0:
 			ai_best_score = ai_angle_score(ai_target_angle)
-		for _candidate in range(candidates_per_step):
-			# The step follows the arc, so the scan always covers it end to end.
-			var angle = 0.0 if ai_scan_index == 0 else ceilf(ai_scan_index / 2.0) * (track_limit / 24.0) * (1 if ai_scan_index % 2 else -1)
-			var score = ai_angle_score(angle)
-			if score > ai_best_score + 0.05:
-				ai_best_score = score
-				ai_target_angle = angle
-			ai_scan_index = (ai_scan_index + 1) % 49
-			if ai_scan_index == 0:
-				break
+		# The step follows the arc, so the scan always covers it end to end.
+		var angle = 0.0 if ai_scan_index == 0 else ceilf(ai_scan_index / 2.0) * (track_limit / 24.0) * (1 if ai_scan_index % 2 else -1)
+		var score = ai_angle_score(angle)
+		if score > ai_best_score + 0.05:
+			ai_best_score = score
+			ai_target_angle = angle
+		ai_scan_index = (ai_scan_index + 1) % 49
+		if ai_scan_index == 0:
+			break
 	var level: Dictionary = ai_profile if not ai_profile.is_empty() else AI_LEVELS[clampi(ai_level, 0, AI_LEVELS.size() - 1)]
 	var p: Vector2 = players[1].p
 	var dodge = 0.0
@@ -2080,9 +2131,10 @@ func predict_shot(team: int, angle: float, delay: float = 0.0) -> Dictionary:
 	var origin = track_position(team, angle)
 	var heading = forward_direction(team, angle)
 	var probe = {"owner": team, "p": origin + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "damage": 1, "boosted": false}
+	var targets = target_bricks(team)
 	# Forecast obstacle motion; the opponent's future decisions remain unknown.
 	for tick in range(80):
-		var outcome = advance_ball(probe, 0.05, false, true, obstacle_time + delay + tick * 0.05, origin)
+		var outcome = advance_ball(probe, 0.05, false, true, obstacle_time + delay + tick * 0.05, origin, targets)
 		if not outcome.is_empty():
 			return outcome
 	return {"kind": "expired"}
@@ -2094,8 +2146,9 @@ func predict_path(team: int, angle: float) -> Dictionary:
 	var probe = {"owner": team, "p": origin + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "damage": 1, "boosted": false}
 	var points = PackedVector2Array([probe.p])
 	var step = 0.05
+	var targets = target_bricks(team)
 	for tick in range(80):
-		var outcome = advance_ball(probe, step, false, true, obstacle_time + tick * step, origin)
+		var outcome = advance_ball(probe, step, false, true, obstacle_time + tick * step, origin, targets)
 		points.append(probe.p)
 		if not outcome.is_empty():
 			return {"points": points, "outcome": outcome}
