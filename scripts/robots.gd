@@ -241,15 +241,14 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	face.set_shader_parameter("mouth", 1.0 if plan.mouth else 0.0)
 
 static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> void:
-	# Every wall is the same arena brick, whoever defends it: a battery crate in the team's
-	# colour (blue for the near side, red for the far one), so the two walls always read as
-	# the two teams and never as the robots' merchandise.
+	# Every wall is the same arena brick, whoever defends it: a soft rubbery block in the
+	# team's colour (blue for the near side, red for the far one) with a cream cushion on top,
+	# so the two walls always read as the two teams and never as the robots' merchandise.
 	var paint = colors(0, team, tint)
-	paint["glow"] = team.lightened(0.35)
-	paint["wear"] = 0.35
-	paint["shell"] = team
-	paint["trim"] = team.darkened(0.35)
-	_mount(view, node, "brick:crate", [["brick_crate", Transform3D.IDENTITY]], paint, false)
+	paint["wear"] = 0.0
+	paint["team"] = team
+	paint["shell"] = Color("fff4e2")
+	_mount(view, node, "brick:soft", [["brick_soft", Transform3D.IDENTITY]], paint, false)
 
 static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionary) -> Array:
 	# Arena furniture from the same kit (bumpers, goal posts), painted like the robots.

@@ -23,6 +23,7 @@ const ArenaGround = preload("res://scripts/arena_ground.gd")
 const ArenaSea = preload("res://scripts/arena_sea.gd")
 const ArenaSpace = preload("res://scripts/arena_space.gd")
 const ArenaCity = preload("res://scripts/arena_city.gd")
+const ArenaDiorama = preload("res://scripts/arena_diorama.gd")
 const Fx = preload("res://scripts/fx.gd")
 const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
@@ -457,6 +458,8 @@ func build(new_map: Dictionary = {}) -> void:
 			ArenaSpace.build(self, theme)
 		"city":
 			ArenaCity.build(self, theme)
+		"diorama":
+			ArenaDiorama.build(self, theme)
 		_:
 			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
 			ArenaDressing.perimeter(self, theme)

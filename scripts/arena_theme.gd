@@ -49,6 +49,16 @@ const THEMES = {
 		"block": Color("f4f5fa"), "block_alt": Color("ff8a3d"), "frame": Color("262b45"), "accent": Color("7fe6ff"),
 		"stand": Color("4a4f7a"), "crowd": [Color("ff8a3d"), Color("7fe6ff"), Color("ffd84a"), Color("f4f5fa")],
 	},
+	"jardim": {
+		"name": "Ilha Jardim",
+		# The grass island from the Blender diorama, its render lighting baked in
+		# (arena_diorama.gd): teal checker floor, rubbery cream and orange walls, round trees.
+		"dressing": "diorama",
+		"floor": Color("3fbfa0"), "floor_alt": Color("37ad91"), "seam": Color("ff9a3c"), "line": Color("fff1d8"),
+		"sky_top": Color("7fa9c4"), "sky_mid": Color("9dbfd2"), "sky_low": Color("c9dde8"),
+		"block": Color("fff4e2"), "block_alt": Color("ff7a3c"), "frame": Color("2a3140"), "accent": Color("ffd23f"),
+		"stand": Color("5d7f4f"), "crowd": [Color("ff7a3c"), Color("3fbfa0"), Color("ffd23f"), Color("fff4e2")],
+	},
 	"cidade": {
 		"name": "Cidade Alta",
 		# The top of a skyscraper: rooftop plant, a billboard and a helipad, with the towers of
@@ -67,10 +77,10 @@ const BY_MAP = {
 	"farol": "oceano", "laboratorio": "oceano", "recife": "oceano",
 	"oficina": "cidade", "tempestade": "cidade",
 	"observatorio": "orbita", "santuario": "orbita", "coroa": "orbita",
-	"torre_terra": "terra", "torre_oceano": "oceano", "torre_orbita": "orbita", "torre_cidade": "cidade",
+	"torre_terra": "terra", "torre_oceano": "oceano", "torre_orbita": "orbita", "torre_cidade": "cidade", "torre_jardim": "jardim",
 }
 # The worlds in the order the map picker shows them, with the thumbnail of each.
-const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade"]
+const WORLDS = ["jardim", "aurora", "terra", "oceano", "orbita", "cidade"]
 const WORLD_PICTURE = "res://art/ui/maps/%s.png"
 # The road stations between the bosses take the four ground-level worlds in turn; the sky
 # deck stays the home arena.
@@ -83,7 +93,9 @@ static func id_for(map: Dictionary) -> String:
 	if id.begins_with("posto_"):
 		return ROAD_CYCLE[posmod(int(id.substr(6)) - 1, ROAD_CYCLE.size())]
 	# Cup and custom arenas: stable pick from the id, so the same map always looks the same.
-	return THEMES.keys()[posmod(id.hash(), THEMES.size())]
+	# The baked island only fits the tower layout it was modelled round, so it is left out.
+	var pool = THEMES.keys().filter(func(key): return key != "jardim")
+	return pool[posmod(id.hash(), pool.size())]
 
 static func for_map(map: Dictionary) -> Dictionary:
 	return THEMES[id_for(map)]

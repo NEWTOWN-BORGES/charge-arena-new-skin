@@ -255,7 +255,7 @@ var map_overlay: Control
 var map_panel: PanelContainer
 var map_title: Label
 var map_tiles: Dictionary = {}
-var chosen_world = "aurora"
+var chosen_world = "jardim"
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
