@@ -25,12 +25,12 @@ from mech_cast import arc_tube, ball  # noqa: E402
 
 # Tema Aurora da paleta nova.
 THEME = {
-    "tile": "f3f1ec", "tile_alt": "e7e4dc", "tile_near": "d8f1ea", "tile_far": "fbe0d8", "paint": "ffffff",
+    "tile": "eef3f7", "tile_alt": "cfe3f2", "tile_near": "a9ecd9", "tile_far": "ffcdbd", "paint": "ffffff",
     "shell": "f6f2e8", "dark": "2a3140", "metal": "b9c2cc", "glow": "8ff6e2", "near": "2fc4a5", "far": "ff7a5c",
     "accent": "ffc53d", "rubber": "15171c", "hazard": "f2c230", "base": "4f6f8a", "base_dark": "2d4054",
     "seat": "e9edf2", "crowd1": "2fc4a5", "crowd2": "ff7a5c", "crowd3": "ffc53d", "crowd4": "8f7cf0", "screen": "0b0f18",
 }
-SKY = ("3f97c2", "7cc2dc", "d6eef6")
+SKY = ("2f7fd0", "5fa8e6", "d6eef6")
 
 SCALE = 1.24
 HALF_W = 6.0 * SCALE * 0.71
@@ -404,6 +404,253 @@ def build_vivid_walls(p):
         mtube(p, "glow", sub(lamp, 0, 0.095, 0), 0.12, 0.012, 18)
 
 
+
+# ======================================================================================
+# Arena flutuante sci-fi: plataforma no céu com propulsores, convés com sucata, contentores,
+# grua robótica, drones e placar. Sem fantasia: tudo é máquina.
+# ======================================================================================
+TECH = {
+    "deck": "c9d6e2", "deck_dark": "36404f", "deck_panel": "5d7fa3", "pad": "ffc53d", "crate": "ffae3d", "crate2": "2fa6e0", "barrel": "ff5c4d",
+    "scrap": "a39a92", "rust": "c9794a", "container1": "ff7a3c", "container2": "2fc4a5", "container3": "8f7cf0",
+    "hull": "e9edf1", "hull_dark": "4a5566", "thruster": "ffb35c",
+}
+
+
+def barrel(p, at_pt, rng, lying=False):
+    x, y, z = at_pt
+    role = rng.choice(["barrel", "crate2", "container2"])
+    m = sub(T(x, y + (0.2 if lying else 0.3), z), rot=(90 if lying else 0, rng.uniform(0, 180), 0))
+    mtube(p, role, m, 0.2, 0.58, 16, bevel=0.02)
+    for v in (-0.18, 0.18):
+        mring(p, "dark", sub(m, 0, v, 0), 0.205, 0.018, 16, 4)
+    mtube(p, "metal", sub(m, 0, 0.29, 0), 0.05, 0.02, 8)
+
+
+def crate(p, at_pt, size, rng):
+    x, y, z = at_pt
+    m = sub(T(x, y + size / 2, z), rot=(0, rng.uniform(0, 90), 0))
+    mbox(p, rng.choice(["crate", "crate2", "deck"]), m, (size, size, size), 0.04, 2)
+    for u in (-1, 1):
+        mbox(p, "dark", sub(m, u * size * 0.36, 0, 0), (size * 0.1, size * 1.01, size * 1.01), 0.01, 1)
+    mbox(p, "dark", sub(m, 0, 0, 0), (size * 1.01, size * 0.1, size * 1.01), 0.01, 1)
+
+
+def gear(p, at_pt, radius, rng, role="scrap"):
+    x, y, z = at_pt
+    m = sub(T(x, y + 0.05, z), rot=(rng.uniform(-15, 15), rng.uniform(0, 90), rng.uniform(-15, 15)))
+    mtube(p, role, m, radius, 0.08, 24)
+    mtube(p, "dark", m, radius * 0.3, 0.1, 12)
+    for k in range(12):
+        a = k * 30
+        mbox(p, role, sub(m, 0, 0, 0, rot=(0, a, 0)) @ Matrix.Translation(Vector((radius + 0.04, 0, 0))), (0.1, 0.08, 0.08), 0.01, 1)
+
+
+def tire(p, at_pt, rng):
+    x, y, z = at_pt
+    m = sub(T(x, y + 0.08, z), rot=(rng.uniform(-10, 10), 0, rng.uniform(-10, 10)))
+    mring(p, "rubber", m, 0.26, 0.1, 24, 10)
+    mtube(p, "metal", m, 0.17, 0.08, 16)
+
+
+def robot_head(p, at_pt, rng):
+    x, y, z = at_pt
+    m = sub(T(x, y + 0.2, z), rot=(rng.uniform(-25, 25), rng.uniform(0, 360), rng.uniform(-30, 30)))
+    mbox(p, "deck", m, (0.5, 0.36, 0.38), 0.07, 3)
+    mbox(p, "screen", sub(m, 0, 0, -0.19), (0.36, 0.2, 0.02), 0.02, 1)
+    mbox(p, "glow", sub(m, -0.08, 0.02, -0.2), (0.05, 0.08, 0.01), 0.01, 1)
+    mtube(p, "dark", sub(m, 0, -0.24, 0), 0.08, 0.12, 12)
+    rod(p, "metal", at(m, 0.12, 0.18, 0), at(m, 0.16, 0.42, 0.05), 0.012)
+
+
+def scrap_pile(p, at_pt, rng):
+    x, y, z = at_pt
+    # Monte de sucata: chapas tortas, tubos, uma roda, engrenagens e peças de robô.
+    for k in range(6):
+        mbox(p, rng.choice(["scrap", "rust", "deck", "hull_dark"]), sub(T(x + rng.uniform(-0.6, 0.6), y + 0.08 + k * 0.06, z + rng.uniform(-0.6, 0.6)),
+             rot=(rng.uniform(-25, 25), rng.uniform(0, 180), rng.uniform(-25, 25))), (rng.uniform(0.4, 0.9), 0.05, rng.uniform(0.3, 0.6)), 0.02, 1)
+    for k in range(3):
+        a = Vector((x + rng.uniform(-0.7, 0.7), y + rng.uniform(0.1, 0.4), z + rng.uniform(-0.7, 0.7)))
+        b = a + Vector((rng.uniform(-0.8, 0.8), rng.uniform(-0.1, 0.3), rng.uniform(-0.8, 0.8)))
+        rod(p, rng.choice(["metal", "rust"]), a, b, 0.05, 10)
+    gear(p, (x + 0.4, y + 0.3, z - 0.3), 0.3, rng, rng.choice(["scrap", "rust"]))
+    tire(p, (x - 0.5, y, z + 0.4), rng)
+    robot_head(p, (x + 0.1, y + 0.35, z + 0.2), rng)
+
+
+def container(p, at_pt, yaw, role):
+    x, y, z = at_pt
+    m = sub(T(x, y + 0.45, z), rot=(0, yaw, 0))
+    mbox(p, role, m, (2.2, 0.9, 0.95), 0.04, 2)
+    for k in range(9):
+        mbox(p, role, sub(m, -0.98 + k * 0.245, 0, 0), (0.06, 0.86, 0.99), 0.01, 1)
+    for u in (-1.1, 1.1):
+        mbox(p, "dark", sub(m, u, 0, 0), (0.04, 0.92, 0.97), 0.01, 1)
+    mbox(p, "hazard", sub(m, 0.6, 0.28, -0.49), (0.3, 0.1, 0.01), 0.0, 1)
+
+
+def crane(p, base_pt, reach_pt):
+    """Grua robótica: torre giratória, dois braços com dobradiças e pistões, garra."""
+    b = Vector(base_pt)
+    mtube(p, "hull_dark", T(b.x, b.y + 0.2, b.z), 0.6, 0.4, 24, bevel=0.03)
+    mring(p, "hazard", T(b.x, b.y + 0.4, b.z), 0.6, 0.04, 24, 5)
+    mtube(p, "hull", T(b.x, b.y + 0.7, b.z), 0.4, 0.6, 20, bevel=0.05)
+    bolts(p, T(b.x, b.y + 1.0, b.z), 0.32, 8, size=0.03)
+    shoulder = b + Vector((0, 1.1, 0))
+    r = Vector(reach_pt)
+    elbow = shoulder.lerp(r, 0.5) + Vector((0, 2.2, 0))
+    for a0, a1, w in ((shoulder, elbow, 0.2), (elbow, r + Vector((0, 0.9, 0)), 0.15)):
+        rod(p, "container1", a0, a1, w, 14)
+        mtube(p, "metal", axis_frame(a0, "x"), w * 1.2, w * 2.4, 16)
+        piston(p, a0 + (a1 - a0) * 0.1 + Vector((0, -0.2, 0)), a0 + (a1 - a0) * 0.6 + Vector((0, -0.1, 0)), 0.06)
+    wrist = r + Vector((0, 0.9, 0))
+    mtube(p, "dark", T(wrist.x, wrist.y, wrist.z), 0.16, 0.2, 14)
+    for k in range(3):
+        a = math.radians(k * 120)
+        d = Vector((math.cos(a), 0, math.sin(a)))
+        rod(p, "metal", wrist, wrist + d * 0.3 + Vector((0, -0.3, 0)), 0.04)
+        rod(p, "metal", wrist + d * 0.3 + Vector((0, -0.3, 0)), wrist + d * 0.15 + Vector((0, -0.55, 0)), 0.035)
+    mbox(p, "rust", T(r.x, r.y + 0.2, r.z), (0.4, 0.3, 0.4), 0.03)
+
+
+def drone(p, at_pt):
+    x, y, z = at_pt
+    mbox(p, "hull", T(x, y, z), (0.36, 0.14, 0.36), 0.06, 3)
+    mbox(p, "glow", T(x, y - 0.08, z), (0.14, 0.02, 0.14), 0.02, 1)
+    for dx, dz in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+        rod(p, "dark", (x, y, z), (x + dx * 0.32, y + 0.04, z + dz * 0.32), 0.02)
+        mring(p, "dark", T(x + dx * 0.32, y + 0.06, z + dz * 0.32), 0.14, 0.012, 16, 4)
+        mtube(p, "metal", T(x + dx * 0.32, y + 0.07, z + dz * 0.32), 0.02, 0.03, 8)
+
+
+def scoreboard(p, at_pt):
+    x, y, z = at_pt
+    for dx in (-1.6, 1.6):
+        rod(p, "hull_dark", (x + dx, 0, z), (x + dx, y, z), 0.12)
+        for k in range(1, 5):
+            rod(p, "metal", (x + dx, y * k / 5, z), (x + dx * 0.8, y * (k + 0.5) / 5, z), 0.03)
+    mbox(p, "hull", T(x, y + 0.9, z), (3.8, 1.9, 0.3), 0.1, 3)
+    mbox(p, "screen", T(x, y + 0.9, z + 0.16), (3.4, 1.5, 0.02), 0.04, 1)
+    mbox(p, "near", T(x - 0.9, y + 0.9, z + 0.18), (1.2, 0.8, 0.01), 0.04, 1)
+    mbox(p, "far", T(x + 0.9, y + 0.9, z + 0.18), (1.2, 0.8, 0.01), 0.04, 1)
+    mbox(p, "glow", T(x, y + 1.9, z), (3.8, 0.05, 0.32), 0.02, 1)
+
+
+def build_tech_goals(p):
+    """Portões mecânicos: pilares blindados, arco em duas meias-luas com rolamentos, pistões
+    e anel de luz da equipa."""
+    for side, role in ((1, "near"), (-1, "far")):
+        zc = side * (HALF_L + 0.05)
+        for x in (-1.95, 1.95):
+            mbox(p, "hull_dark", T(x, 0.7, zc), (0.36, 1.4, 0.4), 0.05)
+            mbox(p, "hull", T(x, 0.55, zc - side * 0.05), (0.42, 0.9, 0.44), 0.06)
+            mbox(p, role, T(x, 1.08, zc - side * 0.05), (0.43, 0.08, 0.45), 0.02, 1)
+            mtube(p, "metal", axis_frame((x, 1.45, zc), "z"), 0.14, 0.46, 16)
+            bolts(p, axis_frame((x, 1.45, zc + side * 0.23), "z" if side > 0 else "-z"), 0.1, 6, size=0.02)
+            piston(p, (x * 0.85, 0.15, zc - side * 0.45), (x * 0.9, 1.1, zc - side * 0.2), 0.05)
+        gate = sub(T(0, 1.45, zc), rot=(-90, 0, 0))
+        arc_tube(p, "hull", gate, 1.95, 0.14, 0, 180, 40, 8)
+        arc_tube(p, role, gate, 1.95, 0.07, 4, 176, 40, 8)
+        arc_tube(p, "glow", sub(gate, 0, -side * 0.1, 0), 1.78, 0.03, 8, 172, 40, 6)
+        mbox(p, "dark", T(0, 3.55, zc), (1.0, 0.42, 0.14), 0.05)
+        serial(p, rk_plane((0, 3.55, zc - side * 0.075), (0, 0, -side), (-side, 0, 0)), "01" if side > 0 else "02", 0.24, role="glow")
+
+
+def build_sky_platform(p):
+    """Plataforma no céu: convés largo com juntas, orla de luz, casco em degraus por baixo,
+    quatro propulsores acesos, antenas e nuvens a passar."""
+    import random
+    rng = random.Random(11)
+    deck = offset(OUTLINE, 3.6)
+    slab(p, "deck", deck, -0.35, -0.03, 0.06)
+    slab(p, "deck_dark", offset(OUTLINE, 3.7), -0.55, -0.33, 0.04)
+    for a, b in edges(deck):
+        e = (b - a).normalized()
+        n = -inward(a, b)
+        length = (b - a).length
+        yaw = math.degrees(math.atan2(e.x, e.y))
+        mid = (a + b) / 2
+        mbox(p, "glow", sub(T(mid.x + n.x * 0.06, -0.44, mid.y + n.y * 0.06), rot=(0, yaw - 90, 0)), (length - 0.4, 0.04, 0.02), 0.0, 1)
+        count = max(1, int(length / 1.6))
+        for i in range(1, count):
+            q = a + e * (length * i / count)
+            mbox(p, "deck_dark", sub(T(q.x, -0.028, q.y), rot=(0, yaw - 90, 0)), (0.04, 0.01, 0.9), 0.0, 1)
+    # Painéis do convés em azul, faixa de perigo na orla e duas plataformas de aterragem.
+    # Por baixo do chão da arena (cujo topo escuro fica em y = -0.02): só se veem à volta.
+    slab(p, "deck_panel", offset(OUTLINE, 2.9), -0.06, -0.026, 0.01)
+    slab(p, "deck", offset(OUTLINE, 1.0), -0.05, -0.022, 0.01)
+    for a, b in edges(offset(OUTLINE, 3.35)):
+        e = (b - a).normalized()
+        length = (b - a).length
+        yaw = math.degrees(math.atan2(e.x, e.y))
+        n = int(length / 0.3)
+        for i in range(n):
+            q = a + e * (length * (i + 0.5) / n)
+            mbox(p, "hazard" if i % 2 == 0 else "deck_dark", sub(T(q.x, -0.02, q.y), rot=(0, yaw - 90 + 30, 0)), (0.28, 0.02, 0.3), 0.0, 1)
+    for x, z in ((-HALF_W - 2.2, -HALF_L + 1.8), (HALF_W + 2.2, HALF_L - 1.2)):
+        mtube(p, "deck_dark", T(x, 0.01, z), 0.95, 0.04, 32)
+        mring(p, "pad", T(x, 0.035, z), 0.8, 0.04, 32, 4)
+        mbox(p, "pad", T(x - 0.2, 0.035, z), (0.08, 0.01, 0.6), 0.0, 1)
+        mbox(p, "pad", T(x + 0.2, 0.035, z), (0.08, 0.01, 0.6), 0.0, 1)
+        mbox(p, "pad", T(x, 0.035, z), (0.4, 0.01, 0.08), 0.0, 1)
+        for k in range(8):
+            ang = math.radians(k * 45)
+            ball(p, "glow", (x + math.cos(ang) * 0.95, 0.04, z + math.sin(ang) * 0.95), 0.05, 8)
+    # Casco por baixo, em degraus que afunilam.
+    for k, (d, y0, y1) in enumerate(((3.2, -1.3, -0.55), (2.2, -2.1, -1.25), (0.9, -2.8, -2.05))):
+        slab(p, "hull" if k % 2 == 0 else "hull_dark", offset(OUTLINE, d), y0, y1, 0.08)
+    for x, z in ((-3.2, -5.0), (3.2, -5.0), (-3.2, 5.0), (3.2, 5.0)):
+        m = T(x, -2.9, z)
+        lathe(p, "hull_dark", m, [(0.55, 0.3), (0.7, 0.0), (0.8, -0.5), (0.6, -0.55), (0.45, -0.1)], 24)
+        mtube(p, "thruster", sub(m, 0, -0.5, 0), 0.62, 0.02, 24)
+        mring(p, "metal", sub(m, 0, 0.1, 0), 0.72, 0.05, 24, 5)
+    # Nuvens em volta e por baixo.
+    for x, y, z, sz in ((-13, -3.5, -6, 2.6), (12, -4.0, 4, 3.0), (-11, -5.0, 10, 2.2), (10, -2.5, -12, 2.4), (0, -6, 14, 3.2), (-6, -7, -14, 2.8)):
+        cloud(p, (x, y, z), sz)
+    # Antenas e sinalização nos cantos do convés.
+    for x, z in offset(OUTLINE, 3.2)[::2]:
+        rod(p, "hull_dark", (x, 0, z), (x, 2.2, z), 0.05)
+        ball(p, "glow", (x, 2.25, z), 0.08, 10)
+        mbox(p, "hazard", T(x, 0.3, z), (0.3, 0.6, 0.3), 0.04)
+
+
+def build_tech_dressing(p):
+    import random
+    rng = random.Random(5)
+    # Sucata e cargas no convés, entre a muralha e a orla.
+    spots = []
+    tries = 0
+    while len(spots) < 40 and tries < 4000:
+        tries += 1
+        x, z = rng.uniform(-HALF_W - 3.4, HALF_W + 3.4), rng.uniform(-HALF_L - 3.4, HALF_L + 3.4)
+        if inside((x, z), offset(OUTLINE, 1.0), 0.0) or not inside((x, z), offset(OUTLINE, 3.2), 0.0):
+            continue
+        if abs(x) < 2.8 and abs(z) > HALF_L - 1:
+            continue
+        if any((Vector((x, z)) - Vector(q)).length < 1.4 for q in spots):
+            continue
+        spots.append((x, z))
+        k = rng.random()
+        if k < 0.3:
+            scrap_pile(p, (x, 0, z), rng)
+        elif k < 0.55:
+            crate(p, (x, 0, z), rng.uniform(0.45, 0.7), rng)
+            if rng.random() < 0.5:
+                crate(p, (x + 0.1, 0.55, z + 0.05), 0.4, rng)
+        elif k < 0.8:
+            for j in range(rng.randint(1, 3)):
+                barrel(p, (x + j * 0.42, 0, z + rng.uniform(-0.2, 0.2)), rng, lying=rng.random() < 0.3)
+        else:
+            robot_head(p, (x, 0.0, z), rng)
+            gear(p, (x + 0.5, 0.0, z), 0.35, rng)
+    container(p, (-HALF_W - 2.4, 0, 1.5), 90, "container1")
+    container(p, (-HALF_W - 2.4, 0.9, 1.3), 92, "container2")
+    container(p, (HALF_W + 2.4, 0, -2.0), 90, "container3")
+    crane(p, (HALF_W + 2.3, 0, 3.4), (HALF_W + 0.8, 0, 6.2))
+    for x, y, z in ((-2.5, 3.0, -2.0), (3.0, 2.6, 3.0), (-4.5, 3.4, 5.5)):
+        drone(p, (x, y, z))
+    scoreboard(p, (0, 3.6, -HALF_L - 2.4))
+
+
 def hex_rgb(value):
     return rk.hex_rgb(value)
 
@@ -411,12 +658,13 @@ def hex_rgb(value):
 def render(out, samples=96):
     rk.reset()
     parts = {}
-    for name, fn in (("floor", build_vivid_floor), ("walls", build_vivid_walls), ("goals", build_goals), ("vivid", build_vivid)):
+    for name, fn in (("floor", build_floor), ("walls", build_walls), ("pylons", build_pylons), ("goals", build_tech_goals),
+                     ("platform", build_sky_platform), ("dressing", build_tech_dressing)):
         prt = rk.Part("arena_" + name)
         fn(prt)
         parts[name] = prt
     mats = {}
-    for role, value in {**THEME, **VIVID}.items():
+    for role, value in {**THEME, **VIVID, **TECH}.items():
         mat = bpy.data.materials.new(role)
         mat.use_nodes = True
         bsdf = mat.node_tree.nodes["Principled BSDF"]
@@ -424,9 +672,9 @@ def render(out, samples=96):
         bsdf.inputs["Base Color"].default_value = (*col, 1)
         bsdf.inputs["Roughness"].default_value = {"metal": 0.3, "rubber": 0.85, "dark": 0.5, "screen": 0.15, "paint": 0.5}.get(role, 0.4)
         bsdf.inputs["Metallic"].default_value = {"metal": 0.85, "dark": 0.3}.get(role, 0.0)
-        if role in ("glow", "crystal", "crystal2"):
+        if role in ("glow", "crystal", "crystal2", "thruster"):
             bsdf.inputs["Emission Color"].default_value = (*col, 1)
-            bsdf.inputs["Emission Strength"].default_value = 5.0 if role == "glow" else 0.8
+            bsdf.inputs["Emission Strength"].default_value = 5.0 if role in ("glow", "thruster") else 0.8
         mats[role] = mat
     for prt in parts.values():
         for role, me in prt.meshes.items():
@@ -466,13 +714,18 @@ def render(out, samples=96):
     sun.rotation_euler = (math.radians(48), math.radians(-18), math.radians(-35))
     bpy.context.collection.objects.link(sun)
     cam = bpy.data.objects.new("Cam", bpy.data.cameras.new("Cam"))
-    cam.data.lens = 38
+    cam.data.lens = 30
     bpy.context.collection.objects.link(cam)
     scene.camera = cam
-    target = rk.CONVERT @ Vector((0, 0, 0.8, 1))
-    cam.location = (rk.CONVERT @ Vector((9.5, 13.5, 17.0, 1))).to_3d()
+    target = rk.CONVERT @ Vector((0, -1.0, 0.5, 1))
+    cam.location = (rk.CONVERT @ Vector((14.0, 10.5, 21.0, 1))).to_3d()
     cam.rotation_euler = (target.to_3d() - cam.location).to_track_quat("-Z", "Y").to_euler()
     scene.render.filepath = str(out)
+    bpy.ops.render.render(write_still=True)
+    # Vista baixa: a plataforma a flutuar, com os propulsores por baixo.
+    cam.location = (rk.CONVERT @ Vector((16.0, 3.0, 19.0, 1))).to_3d()
+    cam.rotation_euler = (target.to_3d() - cam.location).to_track_quat("-Z", "Y").to_euler()
+    scene.render.filepath = str(Path(out).with_name(Path(out).stem + "_low.png"))
     bpy.ops.render.render(write_still=True)
     # Segunda vista: a câmara do jogo (de cima e de trás da baliza de baixo).
     cam.location = (rk.CONVERT @ Vector((0.0, 22.0, 16.0, 1))).to_3d()
