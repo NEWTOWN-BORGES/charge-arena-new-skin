@@ -1904,8 +1904,11 @@ func meteor_fall(at: Vector2, radius: float, warm: bool) -> void:
 	var rock = Node3D.new()
 	add_child(rock)
 	rock.position = start
-	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.1, Color("1b2b33"))
-	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 0.7, Color(hot, 0.9), true)
+	# The rock is the Blender kit's (fx_meteor), in the rubber finish of the robots.
+	var stone = Node3D.new()
+	rock.add_child(stone)
+	stone.scale = Vector3.ONE * radius * 1.1
+	Robots.prop(self, stone, "fx_meteor:" + str(warm), ["fx_meteor"], {"shell": Color("5b4f78") if warm else Color("4a3f6e"), "trim": color, "dark": Color("2a3140")})
 	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.45, Color(color, 0.3), true)
 	var velocity = (Vector3(at.x, 0.2, at.y) - start) / fall
 	effects.append({"node": rock, "v": velocity, "ttl": fall, "life": fall, "gravity": false, "base": Vector3.ONE, "keep": true, "spin": true})
@@ -2436,31 +2439,20 @@ func build_sentry(team: int) -> Node3D:
 	add_child(root)
 	# A glow on the floor marks it as yours from across the arena, the way a shot does.
 	soft_disc(root, Vector3(0, 0.02, 0), Vector2(2.2, 2.2), Color(color, 0.4))
-	cylinder(root, Vector3(0, 0.1, 0), 0.5, 0.2, DARK, false, 18)
-	cylinder(root, Vector3(0, 0.26, 0), 0.44, 0.12, Color(GOLD, 0.95), false, 18)
 	var drum = Node3D.new()
 	drum.name = "Drum"
 	root.add_child(drum)
 	# ROSCA's workshop build: a round copper drum with a toothed gear collar, a domed head
 	# with a lit lens, and a riveter barrel with a coil spring out front. Tall enough not to
 	# be taken for a bumper.
-	var copper = Color("c9652e")
-	cylinder(drum, Vector3(0, 0.6, 0), 0.3, 0.56, copper, false, 24)
-	torus(drum, Vector3(0, 0.36, 0), 0.31, 0.035, Color(GOLD, 0.95), false)
-	for tooth in range(10):
-		var bearing = tooth * TAU / 10.0
-		sphere(drum, Vector3(cos(bearing) * 0.34, 0.36, sin(bearing) * 0.34), Vector3.ONE * 0.07, Color(GOLD, 0.95))
-	sphere(drum, Vector3(0, 0.88, 0), Vector3(0.58, 0.34, 0.58), Color("eadfc9"))
-	sphere(drum, Vector3(0, 0.92, 0.22), Vector3.ONE * 0.16, Color(color, 0.95), true)
-	cylinder(drum, Vector3(0, 1.1, 0), 0.03, 0.22, Color(GOLD, 0.9), true, 10)
+	# The Blender kit's sentry (fx_sentry_body / fx_sentry_gun): rubber cream body with the
+	# team's band and an orange collar, a lit lens, a barrel that recoils.
+	var paint = {"shell": Color("fff4e2"), "team": color, "trim": Color("ff7a3c"), "glow": color, "dark": Color("2a3140"), "metal": Color("9aa7b5")}
+	Robots.prop(self, drum, "fx_sentry_body", ["fx_sentry_body"], paint.duplicate())
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	drum.add_child(gun)
-	var barrel = cylinder(gun, Vector3(0, 0.6, 0.46), 0.08, 0.6, DARK, false, 14)
-	barrel.rotation.x = PI * 0.5
-	for coil in range(4):
-		var spring = torus(gun, Vector3(0, 0.6, 0.3 + coil * 0.08), 0.1, 0.018, Color(GOLD, 0.9), false)
-		spring.rotation.x = PI * 0.5
+	Robots.prop(self, gun, "fx_sentry_gun", ["fx_sentry_gun"], paint.duplicate())
 	var flash = sphere(gun, Vector3(0, 0.6, 0.78), Vector3.ONE * 0.2, Color("fff2cf"), true)
 	flash.name = "Flash"
 	flash.scale = Vector3.ONE * 0.001
@@ -2660,15 +2652,22 @@ func build_power_effects() -> void:
 		var walls = Node3D.new()
 		walls.name = "Walls"
 		root.add_child(walls)
-		# Ceramic slabs with a brass rail, the same build as the fixed barriers.
+		# Rubber blocks from the Blender kit (fx_wall_block), laid end to end along each slab.
+		var wall_paint = {"shell": Color("fff4e2"), "team": CYAN if team == 0 else CORAL, "trim": Color("ff7a3c"),
+			"glow": Rules.power_color("walls"), "dark": Color("2a3140")}
 		for slab in Rules.team_walls(team, map):
 			var a = Vector3(slab.a.x, 0.0, slab.a.y)
 			var b = Vector3(slab.b.x, 0.0, slab.b.y)
-			segment(walls, a + Vector3.UP * 0.55, b + Vector3.UP * 0.55, Rules.BARRIER_RADIUS * 2, 1.1, CREAM)
-			segment(walls, a + Vector3.UP * 1.12, b + Vector3.UP * 1.12, Rules.BARRIER_RADIUS * 1.2, 0.06, DARK)
-			segment(walls, a + Vector3.UP * 1.17, b + Vector3.UP * 1.17, 0.06, 0.03, Color(Rules.power_color("walls"), 0.95), true)
-			for end in [a, b]:
-				cylinder(walls, end + Vector3.UP * 0.55, Rules.BARRIER_RADIUS, 1.1, CREAM, false, 14)
+			var span = a.distance_to(b)
+			if span < 0.01:
+				continue
+			var along = (b - a) / span
+			var count = maxi(1, int(round(span / 0.5)))
+			for k in range(count):
+				var block = Node3D.new()
+				walls.add_child(block)
+				block.transform = Transform3D(Basis(along, Vector3.UP, along.cross(Vector3.UP)).scaled(Vector3(span / count / 0.5, 1.0, Rules.BARRIER_RADIUS * 2.0 / 0.34)), a.lerp(b, (k + 0.5) / count))
+				Robots.prop(self, block, "fx_wall_block", ["fx_wall_block"], wall_paint.duplicate())
 		walls.hide()
 		var ray = Node3D.new()
 		ray.name = "SunRay"

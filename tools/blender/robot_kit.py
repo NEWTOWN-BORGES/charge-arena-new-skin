@@ -1184,6 +1184,49 @@ def goal_arch(p, number):
 
 
 part("goal_arch_01")(lambda p: goal_arch(p, "01"))
+
+# --- peças dos poderes (muralhas, sentinelas, meteoros), no aspeto de borracha da ilha ---
+@part("fx_wall_block")
+def _(p):
+    """Um bloco da muralha que sobe do chão: 0.5 de comprimento em X, 1.1 de alto, corpo
+    creme gordo, faixa na cor da equipa, tampa laranja e um fio de luz no topo."""
+    p.box("shell", (0, 0.5, 0), (0.48, 1.0, 0.34), radius=0.09)
+    p.box("team", (0, 0.32, 0), (0.5, 0.16, 0.36), radius=0.06)
+    p.box("trim", (0, 1.04, 0), (0.46, 0.12, 0.32), radius=0.05)
+    p.box("glow", (0, 1.11, 0), (0.4, 0.03, 0.1), radius=0.012)
+
+
+@part("fx_sentry_body")
+def _(p):
+    """A sentinela: base escura, corpo creme gordo com cinta da equipa e cabeça em cúpula
+    com a lente acesa. A arma é outra peça (roda sozinha)."""
+    p.tube("dark", (0, 0.1, 0), 0.5, 0.2, detail=24, bevel=0.05)
+    p.tube("trim", (0, 0.26, 0), 0.42, 0.12, detail=24, bevel=0.04)
+    p.tube("shell", (0, 0.58, 0), 0.32, 0.52, detail=24, bevel=0.1)
+    p.ring("team", (0, 0.46, 0), 0.33, 0.045, detail=24, sides=8)
+    p.ball("shell", (0, 0.88, 0), (0.62, 0.42, 0.62), detail=24)
+    p.ball("glow", (0, 0.92, 0.24), (0.18, 0.18, 0.12))
+    p.tube("metal", (0, 1.1, 0), 0.03, 0.22, detail=8)
+    p.ball("trim", (0, 1.22, 0), (0.08, 0.08, 0.08), detail=8)
+
+
+@part("fx_sentry_gun")
+def _(p):
+    """O cano da sentinela, a apontar para +Z à altura 0.6."""
+    p.tube("dark", (0, 0.6, 0.46), 0.085, 0.6, rot=(90, 0, 0), detail=14, bevel=0.02)
+    p.tube("team", (0, 0.6, 0.72), 0.11, 0.1, rot=(90, 0, 0), detail=14, bevel=0.02)
+    for k in range(3):
+        p.ring("metal", (0, 0.6, 0.28 + k * 0.1), 0.1, 0.02, rot=(90, 0, 0), detail=14, sides=5)
+
+
+@part("fx_meteor")
+def _(p):
+    """Uma rocha facetada de raio 0.5, com crateras claras: o fogo à volta é do jogo."""
+    p.ball("shell", (0, 0, 0), (1.0, 0.9, 0.95), detail=7)
+    for at, k in (((0.25, 0.2, -0.3), 0.26), ((-0.3, -0.05, -0.25), 0.2), ((0.05, -0.28, -0.3), 0.18), ((-0.1, 0.32, 0.2), 0.2)):
+        p.ball("trim", at, (k, k, k * 0.6), detail=8)
+
+
 part("goal_arch_02")(lambda p: goal_arch(p, "02"))
 
 
