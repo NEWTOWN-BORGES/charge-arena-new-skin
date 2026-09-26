@@ -644,8 +644,12 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.scale = Vector3(Rules.narrow_of(map), 1.0, 1.0)
 	# A shell around the whole brick rather than a lid on top of it: at this camera angle a
 	# flat plate all but disappears, and the brick has to look encased.
-	var plate = box(brick, Vector3(0, 0.3, 0), Vector3(0.7, 0.68, 0.44), Color(Rules.power_color("plating"), 0.3), true, 0.07)
+	# BIGORNA's plating: a hexagonal shell of yard steel with a hazard band round its top.
+	var plate = cylinder(brick, Vector3(0, 0.3, 0), 0.42, 0.7, Color(Rules.power_color("plating"), 0.3), true, 6)
+	plate.scale = Vector3(1.0, 1.0, 0.62)
 	plate.name = "Plate"
+	var band = torus(plate, Vector3(0, 0.33, 0), 0.4, 0.014, Color("2b2f36", 0.45), true)
+	band.scale = Vector3(1.05, 1.0, 1.05)
 	plate.hide()
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
@@ -825,7 +829,7 @@ func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null,
 	torus(surge, Vector3(0, 0.5, 0), 0.46, 0.022, Color(GOLD, 0.6))
 	for i in range(6):
 		var spark_angle = i * TAU / 6.0
-		box(surge, Vector3(cos(spark_angle) * 0.66, 0.26, sin(spark_angle) * 0.66), Vector3(0.07, 0.2, 0.07), GOLD, true, 0.02)
+		sphere(surge, Vector3(cos(spark_angle) * 0.66, 0.2 + 0.08 * (i % 3), sin(spark_angle) * 0.66), Vector3.ONE * (0.1 + 0.04 * (i % 2)), GOLD, true)
 	surge.hide()
 	var stun = Node3D.new()
 	stun.name = "Stun"
@@ -1850,9 +1854,10 @@ func thunder_stroke(at: Vector2, color: Color, hot: Color, weight: float, life: 
 	for step in range(widths.size()):
 		var low := floor_y + step * span
 		var wide: float = float(widths[widths.size() - 1 - step]) * weight
-		box(bolt, Vector3(at.x, low + span * 0.5, at.y), Vector3(wide, span, wide), Color(color, 0.32), true, 0.02)
+		var kink = Vector2(0.09 if step % 2 == 0 else -0.09, 0.06 if step % 3 == 0 else -0.04) * weight
+		cylinder(bolt, Vector3(at.x + kink.x, low + span * 0.5, at.y + kink.y), wide * 0.5, span, Color(color, 0.32), true, 10)
 	var core: float = 0.15 * weight
-	box(bolt, Vector3(at.x, (floor_y + BOLT_TOP) * 0.5, at.y), Vector3(core, BOLT_TOP - floor_y, core), Color(hot, 1.0), true, 0.01)
+	cylinder(bolt, Vector3(at.x, (floor_y + BOLT_TOP) * 0.5, at.y), core * 0.5, BOLT_TOP - floor_y, Color(hot, 1.0), true, 8)
 	effects.append({"node": bolt, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 func thunder_land(at: Vector2, radius: float, color: Color, hot: Color) -> void:
@@ -1890,6 +1895,15 @@ func bloom_flash(positions: Array, heal: int) -> void:
 			emitter(Vector3(at.x, 0.45, at.y), color, 12, 0.8, 2.4, 42.0, 0.26, -1.4, Vector3.UP)
 		var halo = torus(self, Vector3(at.x, 0.42, at.y), 0.38, 0.045, Color(color, 0.85), true)
 		effects.append({"node": halo, "v": Vector3(0, 1.3, 0), "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE * 1.5, "grow": true, "tint": color})
+		if index % 2 == 1 and effects.size() < effect_limit:
+			var sprout = Node3D.new()
+			add_child(sprout)
+			sprout.position = Vector3(at.x, 0.7, at.y)
+			for side in [-1.0, 1.0]:
+				var leaf = sphere(sprout, Vector3(side * 0.16, 0.08, 0), Vector3(0.3, 0.07, 0.16), color, true)
+				leaf.rotation.z = side * 0.5
+			sphere(sprout, Vector3(0, 0.2, 0), Vector3.ONE * 0.1, pale, true)
+			effects.append({"node": sprout, "v": Vector3(0, 1.1, 0), "ttl": 0.7, "life": 0.7, "gravity": false, "base": Vector3.ONE * 1.3})
 		if index % 2 == 0:
 			gain_mark(at, heal, color)
 
@@ -1916,6 +1930,20 @@ func volley_flash(at: Vector2, heading: Vector2) -> void:
 		var arc = torus(self, Vector3(at.x, 0.45, at.y), 0.7, 0.05, Color(color, 0.85), true)
 		effects.append({"node": arc, "v": Vector3.ZERO, "ttl": 0.32, "life": 0.32, "gravity": false, "base": Vector3.ONE * 2.6, "grow": true, "tint": color})
 	flash(Vector3(at.x, 0.9, at.y), color, 3.2, 0.3, 8.0)
+	for lane in [-0.45, 0.0, 0.45]:
+		if effects.size() >= effect_limit:
+			break
+		var way = heading.rotated(lane)
+		var missile = Node3D.new()
+		add_child(missile)
+		missile.position = Vector3(at.x, 1.3, at.y)
+		missile.rotation.y = -Vector2(way.x, way.y).angle() - PI * 0.5
+		var body = cylinder(missile, Vector3.ZERO, 0.07, 0.36, Color("4f6db3"), false, 10)
+		body.rotation.x = PI * 0.5
+		var nose = cone(missile, Vector3(0, 0, -0.24), 0.07, 0.14, color, true, 10)
+		nose.rotation.x = -PI * 0.5
+		sphere(missile, Vector3(0, 0, 0.2), Vector3.ONE * 0.14, Color(color, 0.8), true)
+		effects.append({"node": missile, "v": Vector3(way.x, 0.25, way.y) * 11.0, "ttl": 0.4, "life": 0.4, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 # How fast the front of the wave crosses the floor, so each brick lights up as it
 # arrives instead of the whole wall flashing at once.
@@ -2160,7 +2188,7 @@ func plunder_flash(team: int) -> void:
 	# Two curtains of light cross the arena in opposite directions, dragging embers with
 	# them, and every brick flashes as it changes hands.
 	var color = Rules.power_color("plunder")
-	var pale = Color("ffd7e6")
+	var pale = Color("fff0c8")
 	for side in [-1.0, 1.0]:
 		if effects.size() + 2 >= effect_limit:
 			break
@@ -2168,8 +2196,16 @@ func plunder_flash(team: int) -> void:
 		add_child(curtain)
 		curtain.position = Vector3(0, 0, side * Rules.HALF_LENGTH * 0.7)
 		var span: float = Rules.side_x(map.get("outline", "hex"), Rules.narrow_of(map)) * 2.0
-		box(curtain, Vector3(0, 0.75, 0), Vector3(span, 1.5, 0.1), Color(color, 0.8), true, 0.04)
-		box(curtain, Vector3(0, 0.75, 0), Vector3(span, 1.9, 0.5), Color(color, 0.22), true, 0.04)
+		var rope = cylinder(curtain, Vector3(0, 1.2, 0), 0.04, span, Color("c2472e", 0.9), false, 8)
+		rope.rotation.z = PI * 0.5
+		var coins = int(span / 0.55)
+		for k in range(coins):
+			var x = -span * 0.5 + (k + 0.5) * span / coins
+			var coin = cylinder(curtain, Vector3(x, 0.45 + 0.55 * abs(sin(k * 1.7)), 0), 0.2, 0.05, Color(color, 0.95), true, 16)
+			coin.rotation = Vector3(PI * 0.5, 0, k * 0.6)
+		var hook = torus(curtain, Vector3(0, 0.75, 0), 0.4, 0.06, Color(color, 0.95), true)
+		hook.rotation.x = PI * 0.5
+		hook.scale = Vector3(1.0, 1.0, 1.4)
 		box(curtain, Vector3(0, 0.05, 0), Vector3(span, 0.04, 1.6), Color(pale, 0.5), true, 0.02)
 		effects.append({"node": curtain, "v": Vector3(0, 0, -side * 9.0), "ttl": 0.62, "life": 0.62, "gravity": false, "base": Vector3.ONE, "keep": true})
 		emitter(Vector3(0, 0.6, side * Rules.HALF_LENGTH * 0.7), pale, 22, 0.7, 3.0, 85.0, 0.34, -1.2, Vector3.UP)
@@ -2288,15 +2324,26 @@ func build_sentry(team: int) -> Node3D:
 	var drum = Node3D.new()
 	drum.name = "Drum"
 	root.add_child(drum)
-	# Tall enough not to be taken for a bumper, with a lit head and a barrel out front.
-	box(drum, Vector3(0, 0.62, 0), Vector3(0.54, 0.62, 0.54), CREAM, false, 0.09)
-	box(drum, Vector3(0, 0.98, 0), Vector3(0.34, 0.16, 0.34), Color(color, 0.95), true, 0.04)
-	cylinder(drum, Vector3(0, 1.1, 0), 0.06, 0.22, Color(GOLD, 0.9), true, 10)
+	# ROSCA's workshop build: a round copper drum with a toothed gear collar, a domed head
+	# with a lit lens, and a riveter barrel with a coil spring out front. Tall enough not to
+	# be taken for a bumper.
+	var copper = Color("c9652e")
+	cylinder(drum, Vector3(0, 0.6, 0), 0.3, 0.56, copper, false, 24)
+	torus(drum, Vector3(0, 0.36, 0), 0.31, 0.035, Color(GOLD, 0.95), false)
+	for tooth in range(10):
+		var bearing = tooth * TAU / 10.0
+		sphere(drum, Vector3(cos(bearing) * 0.34, 0.36, sin(bearing) * 0.34), Vector3.ONE * 0.07, Color(GOLD, 0.95))
+	sphere(drum, Vector3(0, 0.88, 0), Vector3(0.58, 0.34, 0.58), Color("eadfc9"))
+	sphere(drum, Vector3(0, 0.92, 0.22), Vector3.ONE * 0.16, Color(color, 0.95), true)
+	cylinder(drum, Vector3(0, 1.1, 0), 0.03, 0.22, Color(GOLD, 0.9), true, 10)
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	drum.add_child(gun)
-	box(gun, Vector3(0, 0.6, 0.42), Vector3(0.2, 0.2, 0.62), DARK, false, 0.03)
-	box(gun, Vector3(0, 0.6, 0.3), Vector3(0.3, 0.3, 0.18), Color(GOLD, 0.85), false, 0.04)
+	var barrel = cylinder(gun, Vector3(0, 0.6, 0.46), 0.08, 0.6, DARK, false, 14)
+	barrel.rotation.x = PI * 0.5
+	for coil in range(4):
+		var spring = torus(gun, Vector3(0, 0.6, 0.3 + coil * 0.08), 0.1, 0.018, Color(GOLD, 0.9), false)
+		spring.rotation.x = PI * 0.5
 	var flash = sphere(gun, Vector3(0, 0.6, 0.78), Vector3.ONE * 0.2, Color("fff2cf"), true)
 	flash.name = "Flash"
 	flash.scale = Vector3.ONE * 0.001
@@ -2511,10 +2558,9 @@ func build_power_effects() -> void:
 		root.add_child(ray)
 		# Modelled from 0 to 1 along +X: an opaque white core, a solid sun-coloured body
 		# and a soft corona around them, plus rings that ride down the beam.
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 0.34, 0.34), Color("fff6e0"), true, 0.02)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 0.72, 0.72), Rules.power_color("sun_ray"), true, 0.03)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 1.25, 1.25), Color(Rules.power_color("sun_ray"), 0.35), true, 0.04)
-		box(ray, Vector3(0.5, 0, 0), Vector3(1.0, 1.9, 1.9), Color(Color("ff9a3c"), 0.16), true, 0.05)
+		for layer in [[0.17, Color("fff6e0")], [0.36, Rules.power_color("sun_ray")], [0.62, Color(Rules.power_color("sun_ray"), 0.35)], [0.95, Color(Color("ff9a3c"), 0.16)]]:
+			var tube = cylinder(ray, Vector3(0.5, 0, 0), float(layer[0]), 1.0, layer[1], true, 20)
+			tube.rotation.z = PI * 0.5
 		for i in range(4):
 			var halo = torus(ray, Vector3(0.1 + i * 0.25, 0, 0), 0.85, 0.07, Color("ffe9a8"))
 			halo.name = "Ring%d" % i
@@ -2555,7 +2601,7 @@ func build_power_effects() -> void:
 		torus(windup, Vector3(0, 0.5, 0), 0.9, 0.05, Color(GOLD, 0.7), true)
 		for i in range(4):
 			var angle = i * TAU / 4
-			box(windup, Vector3(cos(angle) * 0.9, 0.5, sin(angle) * 0.9), Vector3(0.14, 0.5, 0.14), Color(GOLD, 0.6), true, 0.02)
+			cylinder(windup, Vector3(cos(angle) * 0.9, 0.5, sin(angle) * 0.9), 0.07, 0.5, Color(GOLD, 0.6), true, 10)
 		# Ground seal makes the cast readable before the bright discharge, even from above.
 		torus(windup, Vector3(0, 0.055, 0), 1.04, 0.022, Color(GOLD, 0.7), true)
 		for spoke in range(8):
