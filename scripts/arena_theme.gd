@@ -67,7 +67,11 @@ const BY_MAP = {
 	"farol": "oceano", "laboratorio": "oceano", "recife": "oceano",
 	"oficina": "cidade", "tempestade": "cidade",
 	"observatorio": "orbita", "santuario": "orbita", "coroa": "orbita",
+	"torre_terra": "terra", "torre_oceano": "oceano", "torre_orbita": "orbita", "torre_cidade": "cidade",
 }
+# The worlds in the order the map picker shows them, with the thumbnail of each.
+const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade"]
+const WORLD_PICTURE = "res://art/ui/maps/%s.png"
 # The road stations between the bosses take the four ground-level worlds in turn; the sky
 # deck stays the home arena.
 const ROAD_CYCLE = ["terra", "cidade", "oceano", "orbita"]

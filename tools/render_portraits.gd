@@ -56,6 +56,15 @@ func run() -> void:
 			if node.name != "Body":
 				node.hide()
 		var body: Node3D = pilot.get_node("Body")
+		# A bust, not the whole robot: frame from the top of the head down about a metre, so
+		# the face fills the avatar disc whatever the robot's height (crowns and horns too).
+		var top = 0.0
+		for node in body.find_children("*", "MeshInstance3D", true, false):
+			var box: AABB = node.global_transform * node.get_aabb()
+			top = maxf(top, box.end.y)
+		var focus = Vector3(0, top - 0.46, 0)
+		camera.position = focus + Vector3(-0.95, 0.42, -3.75).normalized() * 2.45
+		camera.look_at(focus)
 		for mood in [0, 2]:
 			Robots.set_mood(body, mood)
 			# Keep the capture away from a blink.

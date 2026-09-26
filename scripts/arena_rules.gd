@@ -296,6 +296,14 @@ static func tower_map() -> Dictionary:
 		],
 	}
 
+static func quick_map(world: String) -> Dictionary:
+	# Quick play in the world chosen before the match: the tall tower layout, dressed as that
+	# world (arena_theme.gd maps the id to it). The sky keeps the original "torre" id.
+	var layout = tower_map()
+	if world != "aurora":
+		layout.id = "torre_" + world
+	return layout
+
 static func pvp_map() -> Dictionary:
 	return {
 		"id": "colosseum", "name": "Coliseu Retangular", "tall": true, "lean": true, "outline": "colosseum", "boosters": true, "bricks": "colosseum", "barriers": [],

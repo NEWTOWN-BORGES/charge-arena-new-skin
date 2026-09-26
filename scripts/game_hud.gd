@@ -83,6 +83,10 @@ signal power_equipped(slot: int, id: String)
 signal menu_level_changed(step: int)
 # Dragging across the lobby's stage turns the pilot on its pedestal.
 signal showroom_spun(amount: float)
+# The map picker before quick play: a world tapped (preview behind), played or closed.
+signal map_previewed(world: String)
+signal map_chosen(world: String)
+signal map_picker_closed
 const UiKit = preload("res://scripts/ui_kit.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
@@ -93,6 +97,7 @@ const CYAN = UiKit.CYAN
 const CORAL = UiKit.CORAL
 # The one warm colour: the main action, chosen options and the good news.
 const SUN = UiKit.SUN
+const ArenaTheme = preload("res://scripts/arena_theme.gd")
 var menu: PanelContainer
 var menu_status: Label
 var lobby
@@ -225,6 +230,10 @@ var viewer_skin = -1
 var viewer_locked = false
 var viewer_camera: Camera3D
 var viewer_yaw = 0.5
+# Tilt of the hangar camera (drag up and down) and the fingers on the viewer, for the pinch.
+var viewer_pitch = 0.0
+var viewer_touches: Dictionary = {}
+var viewer_pinch = 0.0
 var viewer_idle = 9.0
 var viewer_clock = 0.0
 var viewer_fire_timer = 0.6
@@ -242,6 +251,11 @@ var wall_delta = [0, 0]
 var wall_delta_time = [0.0, 0.0]
 var unlock_notice: Control
 var pause_panel: PanelContainer
+var map_overlay: Control
+var map_panel: PanelContainer
+var map_title: Label
+var map_tiles: Dictionary = {}
+var chosen_world = "aurora"
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -277,6 +291,7 @@ func _ready() -> void:
 	build_pvp_menu()
 	build_levels_menu()
 	build_powers_menu()
+	build_map_picker()
 	resized.connect(layout)
 	layout()
 
@@ -320,7 +335,7 @@ func build_skins_menu() -> void:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
 	titles.add_child(label("HANGAR · PILOTOS", 28, WHITE, true))
-	titles.add_child(label("Roda com o dedo · usa + e − para ver os detalhes.", 17, MUTED))
+	titles.add_child(label("Arrasta para girar · dois dedos para zoom.", 17, MUTED))
 	skins_total = label("", 16, CYAN, true)
 	titles.add_child(skins_total)
 	skins_body = BoxContainer.new()
@@ -483,7 +498,9 @@ func frame_viewer(tall: float) -> void:
 	# What half an image has to cover, plus a little air, converted into a distance.
 	var reach: float = maxf(middle + 0.12, 0.85)
 	var back: float = reach / tan(deg_to_rad(viewer_camera.fov) * 0.5)
-	viewer_camera.transform = Transform3D(Basis(), Vector3(0, middle + 0.55, (back + 0.15) * viewer_zoom)).looking_at(Vector3(0, middle, 0), Vector3.UP)
+	var distance = (back + 0.15) * viewer_zoom
+	var tilt = 0.18 + viewer_pitch
+	viewer_camera.transform = Transform3D(Basis(), Vector3(0, middle + sin(tilt) * distance, cos(tilt) * distance)).looking_at(Vector3(0, middle, 0), Vector3.UP)
 
 func measure_viewer_pilot() -> float:
 	# How tall the model standing on the turntable actually is, in world units.
@@ -535,17 +552,51 @@ func build_viewer_pilot() -> void:
 	viewer_fire_timer = 0.35
 
 func zoom_viewer(amount: float) -> void:
-	viewer_zoom = 1.0 if is_zero_approx(amount) else clampf(viewer_zoom + amount, 0.55, 1.55)
+	if is_zero_approx(amount):
+		viewer_zoom = 1.0
+		viewer_pitch = 0.0
+	else:
+		viewer_zoom = clampf(viewer_zoom + amount, 0.35, 1.6)
 	frame_viewer(measure_viewer_pilot())
 
 func viewer_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP: zoom_viewer(-0.1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom_viewer(0.1)
-	# Touch arrives as emulated mouse motion, so one path serves phones and PC.
-	if event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+	# Two fingers pinch the zoom; one finger (or the mouse) turns the pilot and tilts the view.
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			viewer_touches[event.index] = event.position
+		else:
+			viewer_touches.erase(event.index)
+		viewer_pinch = pinch_span()
+		return
+	if event is InputEventScreenDrag:
+		viewer_touches[event.index] = event.position
+		if viewer_touches.size() >= 2:
+			var span = pinch_span()
+			if viewer_pinch > 1.0 and span > 1.0:
+				viewer_zoom = clampf(viewer_zoom * viewer_pinch / span, 0.35, 1.6)
+				frame_viewer(measure_viewer_pilot())
+			viewer_pinch = span
+			viewer_idle = 0.0
+		return
+	if event is InputEventMagnifyGesture:
+		viewer_zoom = clampf(viewer_zoom / event.factor, 0.35, 1.6)
+		frame_viewer(measure_viewer_pilot())
+		return
+	# Touch also arrives as emulated mouse motion, so one path serves phones and PC.
+	if event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT and viewer_touches.size() < 2:
 		viewer_yaw += event.relative.x * 0.012
+		viewer_pitch = clampf(viewer_pitch + event.relative.y * 0.006, -0.35, 1.1)
 		viewer_idle = 0.0
+		frame_viewer(measure_viewer_pilot())
+
+func pinch_span() -> float:
+	if viewer_touches.size() < 2:
+		return 0.0
+	var points = viewer_touches.values()
+	return (points[0] as Vector2).distance_to(points[1])
 
 func animate_viewer(dt: float) -> void:
 	viewer_clock += dt
@@ -674,7 +725,7 @@ func refresh_skins() -> void:
 	skins_total.text = "COLEÇÃO: %d / %d" % [skins_progress.unlocked_count(), Skins.CATALOG.size()]
 	skin_name.text = entry.name
 	skin_weapon.text = "ARMA  ·  " + entry.weapon.to_upper()
-	skin_bricks.text = "TIJOLOS  ·  " + entry.bricks.to_upper()
+	skin_bricks.text = "TIJOLOS  ·  CAIXAS DA EQUIPA"
 	skin_about.text = entry.about
 	# The bar tracks the whole boss collection.
 	skin_progress.visible = level > 0
@@ -943,13 +994,101 @@ func draw_level_strip() -> void:
 func play_chosen_mode() -> void:
 	match lobby.mode_id:
 		"quick":
-			play_requested.emit()
+			open_map_picker()
 		"story":
 			story_play_requested.emit()
 		"pvp":
 			open_pvp()
 		_:
 			level_selected.emit(menu_level)
+
+func build_map_picker() -> void:
+	# Before quick play: the five worlds as tiles along the bottom, the chosen one flying
+	# past behind them (the arena camera tours it), its name on top, then JOGAR.
+	map_overlay = Control.new()
+	map_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	map_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(map_overlay)
+	map_overlay.hide()
+	map_title = label("", 34, WHITE, true)
+	map_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	map_title.add_theme_color_override("font_outline_color", UiKit.NIGHT)
+	map_title.add_theme_constant_override("outline_size", 10)
+	map_overlay.add_child(map_title)
+	map_panel = PanelContainer.new()
+	map_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
+	map_overlay.add_child(map_panel)
+	var column = VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	map_panel.add_child(column)
+	column.add_child(label("ESCOLHE O MAPA", 22, WHITE, true))
+	var strip = ScrollContainer.new()
+	strip.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	strip.custom_minimum_size.y = 168
+	column.add_child(strip)
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	strip.add_child(row)
+	for world in ArenaTheme.WORLDS:
+		var tile = Button.new()
+		tile.custom_minimum_size = Vector2(118, 158)
+		tile.focus_mode = Control.FOCUS_NONE
+		row.add_child(tile)
+		var picture = TextureRect.new()
+		picture.texture = load(ArenaTheme.WORLD_PICTURE % world)
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		picture.position = Vector2(7, 7)
+		picture.size = Vector2(104, 104)
+		tile.add_child(picture)
+		var name = label(String(ArenaTheme.THEMES[world].name).to_upper().replace("ARENA ", ""), 12, WHITE, true)
+		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name.position = Vector2(4, 114)
+		name.size = Vector2(110, 40)
+		tile.add_child(name)
+		tile.pressed.connect(func(): pick_world(world))
+		map_tiles[world] = tile
+	var buttons = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	column.add_child(buttons)
+	var back_button = make_button("VOLTAR", false)
+	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	back_button.custom_minimum_size.y = 58
+	back_button.pressed.connect(close_map_picker)
+	buttons.add_child(back_button)
+	var play_button = make_button("JOGAR", true)
+	play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	play_button.custom_minimum_size.y = 58
+	play_button.pressed.connect(func(): map_chosen.emit(chosen_world))
+	buttons.add_child(play_button)
+
+func open_map_picker() -> void:
+	reset_touch()
+	lobby.hide()
+	menu.hide()
+	map_overlay.show()
+	layout()
+	pick_world(chosen_world)
+
+func close_map_picker() -> void:
+	map_overlay.hide()
+	lobby.show()
+	menu.show()
+	layout()
+	map_picker_closed.emit()
+
+func pick_world(world: String) -> void:
+	chosen_world = world
+	map_title.text = String(ArenaTheme.THEMES[world].name).to_upper()
+	for key in map_tiles:
+		var chosen: bool = key == world
+		var tile: Button = map_tiles[key]
+		for state in ["normal", "hover", "pressed"]:
+			tile.add_theme_stylebox_override(state, style(UiKit.CARD_HI if chosen else UiKit.CARD, SUN if chosen else UiKit.PANEL_EDGE, 16))
+	map_previewed.emit(world)
 
 func build_pvp_menu() -> void:
 	pvp_overlay = ColorRect.new()
@@ -1595,7 +1734,7 @@ func refresh_menu_level() -> void:
 	queue_redraw()
 
 func menu_overlay_open() -> bool:
-	return video_overlay.visible or skins_overlay.visible or pvp_overlay.visible or levels_overlay.visible or powers_overlay.visible or lobby.sheet.visible
+	return map_overlay.visible or video_overlay.visible or skins_overlay.visible or pvp_overlay.visible or levels_overlay.visible or powers_overlay.visible or lobby.sheet.visible
 
 func lobby_stage() -> Rect2:
 	# Where the lobby shows your pilot: the band between the level's name and the dock on a
@@ -1948,9 +2087,10 @@ func layout() -> void:
 		back.size = Vector2(100, 46)
 	skins_body.vertical = size.y > size.x
 	var skin_room = size.y - safe_top - safe_bottom - 48
-	viewer.custom_minimum_size = Vector2(0, clampf(skin_room * 0.42, 300, 520)) if skins_body.vertical else Vector2(480, maxf(240, skin_room - 380))
-	viewer_column.custom_minimum_size.x = 0 if skins_body.vertical else 480
-	skins_scroll.custom_minimum_size.y = maxf(120, skin_room - viewer.custom_minimum_size.y - 560) if skins_body.vertical else maxf(200, skin_room - 430)
+	# The pilot is what this page is for: the viewer takes well over half a tall screen.
+	viewer.custom_minimum_size = Vector2(0, clampf(skin_room * 0.56, 340, 820)) if skins_body.vertical else Vector2(620, maxf(300, skin_room - 300))
+	viewer_column.custom_minimum_size.x = 0 if skins_body.vertical else 620
+	skins_scroll.custom_minimum_size.y = maxf(110, skin_room - viewer.custom_minimum_size.y - 470) if skins_body.vertical else maxf(200, skin_room - 430)
 	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
 	skins_panel.size = skins_size
 	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
@@ -2026,6 +2166,14 @@ func layout() -> void:
 		for sheet_panel in [powers_panel, video_panel]:
 			sheet_panel.position = full.position
 			sheet_panel.size = full.size
+	if map_overlay != null:
+		var bottom = size.y - safe_bottom
+		var width = minf(size.x - 24, 700)
+		map_panel.size = Vector2(width, 0)
+		map_panel.size = map_panel.get_combined_minimum_size().max(Vector2(width, 0))
+		map_panel.position = Vector2((size.x - width) * 0.5, bottom - map_panel.size.y - 16)
+		map_title.position = Vector2(0, safe_top + 70)
+		map_title.size = Vector2(size.x, 44)
 	if lobby != null:
 		lobby.arrange()
 	queue_redraw()
@@ -2105,6 +2253,7 @@ func show_menu(message: String = "") -> void:
 	video_overlay.hide()
 	skins_overlay.hide()
 	pvp_overlay.hide()
+	map_overlay.hide()
 	replay.hide()
 	next_button.hide()
 	levels_button.hide()
@@ -2124,6 +2273,7 @@ func show_game(new_mode: String, local_team: int) -> void:
 	skins_overlay.hide()
 	pvp_overlay.hide()
 	levels_overlay.hide()
+	map_overlay.hide()
 	back.text = "PAUSA" if new_mode == "pve" else "MENU"
 	mode = new_mode
 	team = local_team
@@ -2491,7 +2641,9 @@ func draw_hud() -> void:
 		if not vertical:
 			write("UM DISPARO.", Vector2(size.x - 285, size.y - 126), 26, WHITE, true, 6, Color(UiKit.NIGHT, 0.7))
 			write("MIL POSSIBILIDADES.", Vector2(size.x - 285, size.y - 96), 26, UiKit.SUN_INK, true, 6, Color(UiKit.NIGHT, 0.7))
-		draw_menu_level()
+		# The pilot's name belongs to the lobby, not to the map tour behind the picker.
+		if not map_overlay.visible:
+			draw_menu_level()
 		return
 	if match_data.is_empty():
 		return

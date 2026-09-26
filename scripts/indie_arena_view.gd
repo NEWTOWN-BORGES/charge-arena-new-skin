@@ -999,6 +999,7 @@ func orient_labels() -> void:
 
 func frame_landscape(h_offset: float) -> void:
 	lobby_view = false
+	tour_view = false
 	# Wide screens keep the original lean, which reads more like a stadium seen from a seat.
 	if camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -1072,6 +1073,7 @@ var showroom_skins = [-1, -1, false]
 var showroom_turn = 0.0
 # Dragging on the stage turns the pilot; it eases back to turning on its own.
 var showroom_drag = 0.0
+var showroom_idle = 9.0
 
 func build_showroom() -> void:
 	showroom = Node3D.new()
@@ -1132,9 +1134,12 @@ func animate_showroom(dt: float) -> void:
 	if not is_instance_valid(showroom_pilot):
 		return
 	showroom_drag = move_toward(showroom_drag, 0.0, dt * 1.5)
-	showroom_turn += dt * (0.32 + showroom_drag)
-	# A pilot faces down -z; turned round to face the camera, swaying either side of it.
-	showroom_pilot.rotation.y = PI + sin(showroom_turn * 0.8) * 0.65
+	showroom_idle += dt
+	# A pilot faces down -z: turned round to face the camera. A finger turns it all the way
+	# round; left alone for a moment it goes on turning slowly by itself.
+	if showroom_idle > 2.0:
+		showroom_turn += dt * 0.35
+	showroom_pilot.rotation.y = PI + showroom_turn
 	for pilot in [showroom_pilot, showroom_boss]:
 		if not is_instance_valid(pilot):
 			continue
@@ -1145,9 +1150,32 @@ func animate_showroom(dt: float) -> void:
 func turn_showroom(amount: float) -> void:
 	showroom_turn += amount
 	showroom_drag = 0.0
+	showroom_idle = 0.0
+
+# The map picker: behind it the camera flies slowly round the chosen world, low and close,
+# drifting in and out and from side to side so every part of the scenery comes past.
+var tour_view = false
+
+func start_tour() -> void:
+	lobby_view = false
+	tour_view = true
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 44.0
+	camera.h_offset = 0.0
+	camera.v_offset = 0.0
+	place_tour_camera()
+
+func place_tour_camera() -> void:
+	var t = clock
+	var angle = t * 0.15
+	var radius = 12.5 + sin(t * 0.23) * 2.5
+	var height = 7.5 + sin(t * 0.31) * 2.5
+	camera.position = Vector3(sin(angle) * radius, height, cos(angle) * radius)
+	camera.look_at(Vector3(sin(t * 0.19) * 3.5, 0.4, cos(t * 0.13) * 4.5))
 
 func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	lobby_view = true
+	tour_view = false
 	lobby_rect = rect
 	lobby_screen = screen
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
@@ -1171,6 +1199,7 @@ func place_lobby_camera() -> void:
 
 func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 	lobby_view = false
+	tour_view = false
 	# Fit the stadium inside the viewport band between top cards and bottom controls.
 	# In menu mode, restore the original camera seat so demo maps look as they did before.
 	# In match portrait mode, frame the arena closely without cutting off the sides.
@@ -1203,6 +1232,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	if lobby_view:
 		place_lobby_camera()
 		animate_showroom(dt)
+	elif tour_view:
+		place_tour_camera()
 	# A delayed frame must not launch every queued cosmetic burst at once.
 	for job in pending:
 		job.time -= dt

@@ -122,6 +122,9 @@ func _ready() -> void:
 	get_window().size_changed.connect(fit_content_scale)
 	fit_content_scale()
 	hud.play_requested.connect(start_pve)
+	hud.map_previewed.connect(preview_world)
+	hud.map_chosen.connect(func(world): start_pve(Rules.quick_map(world)))
+	hud.map_picker_closed.connect(frame_arena)
 	hud.host_requested.connect(host_game)
 	hud.join_requested.connect(join_game)
 	hud.pvp_ai_requested.connect(start_pvp_ai)
@@ -700,8 +703,15 @@ func fit_content_scale() -> void:
 	var window = get_window()
 	window.content_scale_size = Vector2i(720, 1280) if window.size.y > window.size.x else Vector2i(1280, 720)
 
+func preview_world(world: String) -> void:
+	# The map picker shows the world it would play in, the camera touring it.
+	use_map(Rules.quick_map(world))
+	arena.start_tour()
+
 func frame_arena() -> void:
-	if hud.mode == "menu":
+	if hud.mode == "menu" and hud.map_overlay.visible:
+		arena.start_tour()
+	elif hud.mode == "menu":
 		arena.frame_lobby(hud.lobby_stage(), hud.size)
 	elif hud.vertical:
 		arena.frame_rect(hud.arena_rect, hud.size, hud.mode == "menu")
