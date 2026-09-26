@@ -14,10 +14,10 @@ const RENDER_SCALES = [0.72, 0.88, 1.0]
 const MIN_RENDER_SCALES = [0.50, 0.62, 0.72]
 # Equilibrado and Refinado may trade this much of their 3D resolution for frames before they
 # lower the frame rate, and win it back once the phone keeps up again.
-const QUALITY_MIN_SCALES = [0.50, 0.72, 0.8]
+const QUALITY_MIN_SCALES = [0.50, 0.66, 0.72]
 # Half-second windows of steady frames before stepping back up; doubled every time a step up
 # had to be undone, so a phone that cannot hold it does not see-saw.
-const RECOVER_WINDOWS = 20
+const RECOVER_WINDOWS = 12
 const CONFIG_PATH = "user://video_settings.cfg"
 var fps = 60
 # A phone starts on the performance profile; a PC has no reason to.
@@ -96,7 +96,8 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	else:
 		low_windows = 0
 		stable_windows += 1
-	var required_windows = 4 if quality > 0 else 2
+	# Three seconds of trouble, not one burst of a power, before anything is given away.
+	var required_windows = 6 if quality > 0 else 3
 	if low_windows < required_windows:
 		# Keeping up again: win back what was given away, frames first, then resolution.
 		# Without this a short heavy moment left the phone at 30 FPS for the rest of the
@@ -117,7 +118,7 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	if recovered:
 		# The last step up did not hold: wait longer before the next one.
 		recovered = false
-		recover_after = mini(recover_after * 2, 240)
+		recover_after = mini(recover_after * 2, 120)
 	# Equilibrado and Refinado preserve their exact visual profile and give up frames
 	# instead: 90 -> 60 -> 30. With 120 gone from the options, the ladder reaches all the
 	# way down rather than stopping at 60 on a phone that cannot hold it.
@@ -130,7 +131,9 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 			return true
 		if runtime_fps > 60:
 			runtime_fps = 60
-		elif runtime_fps > 30:
+		elif runtime_fps > 30 and measured_fps < 60 * 0.6:
+			# 30 only for a phone that cannot even reach the high forties: a busy moment that
+			# dips to 50 should not cost the whole match half its frames.
 			runtime_fps = 30
 		else:
 			return false

@@ -201,9 +201,14 @@ static func panel_style(color: Color = PANEL, rim: Color = PANEL_EDGE, radius: i
 	_styles[key] = s
 	return s
 
+static var _keys: Dictionary = {}
+
 static func key_styles(kind: String) -> Dictionary:
 	# A toy key: a face on a thick lip that sinks when it is pressed. `kind` is "primary"
-	# (the sun: one per screen), "toggle" (a chosen option) or "secondary".
+	# (the sun: one per screen), "toggle" (a chosen option) or "secondary". Built once per
+	# kind: fresh boxes on every call made each repaint count as a theme change.
+	if _keys.has(kind):
+		return _keys[kind]
 	var face = CARD
 	var lip = LIP
 	match kind:
@@ -225,12 +230,19 @@ static func key_styles(kind: String) -> Dictionary:
 	var focus = flat(Color.TRANSPARENT, Color(SUN, 0.8), 20)
 	focus.set_border_width_all(3)
 	focus.draw_center = false
-	return {"normal": normal, "hover": hover, "pressed": pressed, "hover_pressed": pressed, "disabled": disabled, "focus": focus}
+	_keys[kind] = {"normal": normal, "hover": hover, "pressed": pressed, "hover_pressed": pressed, "disabled": disabled, "focus": focus}
+	return _keys[kind]
 
 static func text_on(kind: String) -> Color:
 	return INK if kind == "primary" or kind == "toggle" else WHITE
 
 static func paint_key(button: Button, kind: String) -> void:
+	# Every override is a theme change, and a theme change sends the whole screen back
+	# through layout: the HUD asked for the same colours 30 times a second and that alone
+	# cost a phone more than the rest of the frame. Paint only when the kind changes.
+	if button.get_meta("key_kind", "") == kind:
+		return
+	button.set_meta("key_kind", kind)
 	var styles = key_styles(kind)
 	for state in styles:
 		button.add_theme_stylebox_override(state, styles[state])

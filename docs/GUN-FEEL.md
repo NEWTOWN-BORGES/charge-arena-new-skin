@@ -157,3 +157,25 @@ mais frequente de uma partida, passou a um efeito simples:
 - **Aquecimento de shaders:** durante a contagem de cada partida desenham-se amostras invisíveis
   dos materiais dos efeitos e de um projétil, para nada compilar a meio do jogo (adaptado do
   repositório 3.1).
+
+## 12. Revisão 3.2.2: o HUD deixa de pesar
+
+Capturas num Galaxy S23: 30 FPS no Refinado com alvo de 90 e, no Equilibrado, alvo de 30 com
+quedas durante os poderes, sobretudo a metralhadora.
+
+**A causa:** o HUD voltava a pintar o botão REPETIR 30 vezes por segundo, com caixas de estilo
+novas de cada vez. Cada pintura é uma mudança de tema, e cada mudança de tema obriga todo o
+ecrã a refazer o layout. Só isso custava ~35 ms por atualização no processador de teste, mais
+do que o resto do frame junto.
+
+**As correções:**
+
+- **Botões:** `UiKit.key_styles()` constrói as caixas uma vez por tipo e `paint_key()` só pinta
+  quando o tipo muda. No teste headless, o jogo passa de ~22 FPS para os 90 do limite, com e sem
+  metralhadora (`tests/benchmark_powers.gd`).
+- **Ajuste automático no Equilibrado e no Refinado:**
+  - espera 3 s de quedas, e não um instante de poder, antes de baixar alguma coisa;
+  - desce mais a resolução antes de tocar no limite de FPS (até 66 % no Equilibrado e 72 % no
+    Refinado);
+  - só desce para 30 FPS se o telemóvel nem chegar aos 36;
+  - recupera mais cedo.
