@@ -831,6 +831,8 @@ def bit_leg(p, out):
 def define_parts():
     import mech_cast
     mech_cast.define(part)
+    import arena_parts
+    arena_parts.define(part)
     part("bit2_head")(bit_head)
     part("bit2_torso")(bit_torso)
 

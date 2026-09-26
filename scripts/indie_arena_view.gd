@@ -18,6 +18,7 @@ const GameFeel = preload("res://scripts/game_feel.gd")
 const Robots = preload("res://scripts/robots.gd")
 const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const ArenaDressing = preload("res://scripts/arena_dressing.gd")
+const ArenaSky = preload("res://scripts/arena_sky.gd")
 const Fx = preload("res://scripts/fx.gd")
 const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
@@ -103,7 +104,7 @@ var soft_disc_nodes: Array = []
 var secondary_light: DirectionalLight3D
 var quality_level = 0
 # Camera shake: a strength that decays, added to the camera's resting place.
-var camera_home = Vector3(0, 26, 15)
+var camera_home = Vector3(0, 21.8, 18.3)
 # Shared tuning for everything the player feels; main.gd hands in the same object.
 var feel = GameFeel.new()
 # Layered, directional camera shakes: {strength, age, life, hz, dir, seed}.
@@ -407,20 +408,22 @@ func build(new_map: Dictionary = {}) -> void:
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = LANDSCAPE_SIZE
-	camera.position = Vector3(0, 26, 15)
+	camera.position = Vector3(0, 21.8, 18.3)
 	add_child(camera)
 	camera.look_at(Vector3(0, -0.15, 0))
 	camera.current = true
+	var sky_arena = String(theme.get("dressing", "")) == "sky"
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
 	# The plinth the arena floats on: a mid grey of the theme's frame, so the platform reads as
 	# a soft studio object and not a dark hole around the field.
-	platform(outer, -0.28, 0.75, theme.frame.lerp(theme.stand, 0.55))
-	var under: Array = []
-	for p in outer:
-		under.append(p * 0.97)
-	platform(under, -0.98, 0.22, theme.frame.lerp(theme.stand, 0.3))
+	if not sky_arena:
+		platform(outer, -0.28, 0.75, theme.frame.lerp(theme.stand, 0.55))
+		var under: Array = []
+		for p in outer:
+			under.append(p * 0.97)
+		platform(under, -0.98, 0.22, theme.frame.lerp(theme.stand, 0.3))
 	# Floating plinth silhouette and a painted hexagon floor without coplanar seams.
 	var court = platform(walls, 0.0, 0.28, Color.WHITE)
 	var court_mat = ShaderMaterial.new()
@@ -434,9 +437,13 @@ func build(new_map: Dictionary = {}) -> void:
 	court_mat.set_shader_parameter("team_near", CYAN)
 	court_mat.set_shader_parameter("team_far", CORAL)
 	court.material_override = court_mat
-	soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
-	ArenaDressing.perimeter(self, theme)
-	ArenaDressing.stadium(self, theme, quality_level)
+	if sky_arena:
+		# The floating sky arena: deck, hull, armoured walls and deck furniture from the kit.
+		ArenaSky.build(self, theme)
+	else:
+		soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
+		ArenaDressing.perimeter(self, theme)
+		ArenaDressing.stadium(self, theme, quality_level)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
 		build_goal(team)
@@ -945,7 +952,9 @@ func view_aspect() -> float:
 		view_bounds = measure_view_bounds()
 	return view_bounds.size.x / view_bounds.size.y
 
-const LANDSCAPE_EYE = Vector3(0, 26, 15)
+# 50 degrees down: low enough that the walls, the robots and the deck around the field show
+# their volume, high enough that the far end of the field still reads clearly.
+const LANDSCAPE_EYE = Vector3(0, 21.8, 18.3)
 
 # Whose side of the arena the camera sits on. Each player sees their own goal at the bottom:
 # in PvP the second pilot's camera is turned half round, and their stick with it.
@@ -990,11 +999,11 @@ func frame_landscape(h_offset: float) -> void:
 
 # A hair more lean than the landscape seat, no more: at 72 degrees the arena flattened
 # into something that read as 2D, and the depth is what gives this game its look.
-const PORTRAIT_EYE = Vector3(0, 26.6, 14.2)
+const PORTRAIT_EYE = Vector3(0, 22.2, 18.6)
 # A map that asks to lean is shown through a real perspective instead: the board tips
 # towards the player, the near goal comes at you and the far one falls away. The arena has
 # to be narrow for this, which is why only the tall one asks for it.
-const LEAN_DIR = Vector3(0, 0.80, 0.62)
+const LEAN_DIR = Vector3(0, 0.64, 0.77)
 const LEAN_FOV = 40.0
 const LEAN_MARGIN = 1.0
 

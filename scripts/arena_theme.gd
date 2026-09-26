@@ -6,8 +6,10 @@ extends RefCounted
 const THEMES = {
 	"aurora": {
 		"name": "Arena Aurora",
-		"floor": Color("f3f1ec"), "floor_alt": Color("eae8e1"), "seam": Color("aeb8c3"), "line": Color("ffffff"),
-		"sky_top": Color("3f97c2"), "sky_mid": Color("7cc2dc"), "sky_low": Color("d6eef6"),
+		# The floating sky arena (scripts/arena_sky.gd): a steel deck in the clouds.
+		"dressing": "sky", "deck": Color("c9d6e2"), "deck_panel": Color("5d7fa3"), "hull": Color("e9edf1"),
+		"floor": Color("eef3f7"), "floor_alt": Color("d4e5f2"), "seam": Color("3a4656"), "line": Color("ffffff"),
+		"sky_top": Color("2f7fd0"), "sky_mid": Color("5fa8e6"), "sky_low": Color("d6eef6"),
 		"block": Color("f6f2e8"), "block_alt": Color("2fc4a5"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("4f6f8a"), "crowd": [Color("2fc4a5"), Color("ff7a5c"), Color("ffc53d"), Color("f6f2e8"), Color("8f7cf0")],
 		"flag": Color("ff7a5c"),
