@@ -1273,7 +1273,7 @@ def assemble(objects, recipe, palette, offset, scale):
     if recipe.get("top"):
         place(recipe["top"], Matrix.Translation(lift))
     if recipe.get("spin"):
-        place(recipe["spin"], Matrix.Translation(centre if recipe["spin"] in ("spin_rays", "spin_halo", "spin_orbit") else lift))
+        place(recipe["spin"], Matrix.Identity(4) if recipe["spin"].endswith("2_spin") else Matrix.Translation(centre if recipe["spin"] in ("spin_rays", "spin_halo", "spin_orbit") else lift))
     for side in (-1, 1):
         pivot = (CONVERT @ Vector((side * LEG_PIVOT.x, LEG_PIVOT.y, LEG_PIVOT.z, 1))).to_3d()
         place(recipe["legs"], Matrix.Translation(pivot))

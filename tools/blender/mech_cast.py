@@ -1633,16 +1633,6 @@ def orbita_torso(p):
     sphere_panel(p, "trim", base, R, (66, 80), (-180, 180), 0.03, (24, 2), gap=0.0)
     sphere_panel(p, "trim", base, R, (-62, -42), (-180, 180), 0.03, (24, 2), gap=0.0)
     core_round(p, axis_frame((0, c.y - 0.02, c.z - R + 0.012), "-z"), 0.045)
-    # Anel orbital inclinado, preso a dois pilares com rolamentos (gira para o anel ultimate).
-    tilt = sub(base, 0, -0.03, 0, rot=(14, 0, -8))
-    arc_tube(p, "trim", tilt, R + 0.075, 0.02, -180, 180, 48, 8)
-    arc_tube(p, "metal", tilt, R + 0.075, 0.006, -180, 180, 48, 6)
-    for lon in (35, 215):
-        a = math.radians(lon)
-        out = at(tilt, math.cos(a) * (R + 0.075), 0, math.sin(a) * (R + 0.075))
-        inner = at(tilt, math.cos(a) * (R - 0.02), 0, math.sin(a) * (R - 0.02))
-        rod(p, "dark", inner, out, 0.02, 10)
-        mtube(p, "metal", frame(out, out - inner), 0.032, 0.03, 14)
     q, n = ell_point(c, (R, R, R), 28, -55)
     serial(p, plane(q, n, (math.sin(math.radians(-55)), 0, -math.cos(math.radians(-55)))), "09", 0.028)
     q, n = ell_point(c, (R, R, R), -10, 180)
@@ -1657,6 +1647,22 @@ def orbita_torso(p):
     warning(p, plane((0.0, c.y + 0.05, c.z + R + 0.121), (0, 0, 1), (1, 0, 0)), 0.035)
     waist(p, 0.76, c.y - R * 0.86, 0.12)
     pelvis(p, (0, 0.68, 0.0), (0.26, 0.16, 0.25), ORBITA["hip"].x, ORBITA["hip"].y, 0.085)
+
+
+def orbita_spin(p):
+    """Anel orbital inclinado preso ao planeta por dois pilares com rolamentos: gira em jogo."""
+    c = O_CHEST
+    R = O_PLANET
+    base = T(*c)
+    tilt = sub(base, 0, -0.03, 0, rot=(14, 0, -8))
+    arc_tube(p, "trim", tilt, R + 0.075, 0.02, -180, 180, 48, 8)
+    arc_tube(p, "metal", tilt, R + 0.075, 0.006, -180, 180, 48, 6)
+    for lon in (35, 215):
+        a = math.radians(lon)
+        out = at(tilt, math.cos(a) * (R + 0.075), 0, math.sin(a) * (R + 0.075))
+        inner = at(tilt, math.cos(a) * (R - 0.02), 0, math.sin(a) * (R - 0.02))
+        rod(p, "dark", inner, out, 0.02, 10)
+        mtube(p, "metal", frame(out, out - inner), 0.032, 0.03, 14)
 
 
 def orbita_shoulders(p):
@@ -1948,11 +1954,22 @@ def helio_head(p):
     sphere_panel(p, "shell", hs, 1.0, (-62, 26), (-24, 204), 0.2, (16, 6), gap=0.05)
     sphere_panel(p, "trim", hs, 1.0, (-68, -26), (-150, -30), 0.2, (10, 4), gap=0.05)
     screen_well(p, (c.x, c.y + 0.0, c.z - ez + 0.02), H_SCREEN, 0.05, 0.03)
+    mring(p, "dark", T(c.x, c.y + ey * 0.62 - 0.02, c.z), ex * 0.8 - 0.01, 0.01, 32, 4)
+    for side in (-1, 1):
+        mtube(p, "metal", axis_frame((side * (ex - 0.005), c.y + 0.0, c.z), "x" if side > 0 else "-x"), 0.03, 0.02, 14)
+        mbox(p, "glow", T(side * (ex - 0.01), c.y - 0.05, c.z - 0.04), (0.01, 0.02, 0.03), 0.003, 1)
+    serial(p, plane((0.0, c.y - 0.03, c.z + ez * 1.0 + 0.004), (0, 0, 1), (1, 0, 0)), "11", 0.03)
+    mbox(p, "team", T(0, c.y + ey - 0.005, c.z + 0.02), (0.03, 0.012, 0.1), 0.004, 1)
+
+
+def helio_spin(p):
+    """Coroa de raios sobre o anel com rolamento da testa: gira em jogo."""
+    c = H_HEAD
+    ex, ey, ez = H_HEAD_RADII
     # Coroa de raios num anel com rolamento sobre a testa (a coroa gira no ultimate).
     ring_y = c.y + ey * 0.62
     rr = ex * 0.8
     mring(p, "metal", T(c.x, ring_y, c.z), rr, 0.016, 32, 6)
-    mring(p, "dark", T(c.x, ring_y - 0.02, c.z), rr - 0.01, 0.01, 32, 4)
     for i in range(9):
         a = math.radians(-90 + (i - 4) * 26)
         base = Vector((c.x + math.cos(a) * rr, ring_y + 0.01, c.z + math.sin(a) * rr))
@@ -1960,11 +1977,6 @@ def helio_head(p):
         h = 0.14 if i == 4 else 0.1 - abs(i - 4) * 0.008
         lathe(p, "trim", frame(base, d), [(0.0, 0.0), (0.024, 0.0), (0.012, h * 0.6), (0.0, h)], 5)
     ball(p, "glow", (c.x, ring_y + 0.02, c.z - rr - 0.02), 0.02, 10)
-    for side in (-1, 1):
-        mtube(p, "metal", axis_frame((side * (ex - 0.005), c.y + 0.0, c.z), "x" if side > 0 else "-x"), 0.03, 0.02, 14)
-        mbox(p, "glow", T(side * (ex - 0.01), c.y - 0.05, c.z - 0.04), (0.01, 0.02, 0.03), 0.003, 1)
-    serial(p, plane((0.0, c.y - 0.03, c.z + ez * 1.0 + 0.004), (0, 0, 1), (1, 0, 0)), "11", 0.03)
-    mbox(p, "team", T(0, c.y + ey - 0.005, c.z + 0.02), (0.03, 0.012, 0.1), 0.004, 1)
 
 
 def helio_torso(p):
@@ -2121,11 +2133,18 @@ def magnus_head(p):
         hub = axis_frame((side * (ex - 0.01), c.y + 0.03, c.z + 0.02), "x" if side > 0 else "-x")
         mtube(p, "metal", hub, 0.036, 0.03, 16)
         bolts(p, sub(hub, 0, 0.016, 0), 0.024, 4, size=0.006)
-        laurel(p, (0, c.y + 0.03, c.z + 0.02), ex + 0.03, side)
     for side in (-1, 1):
         mbox(p, "glow", T(side * 0.13, c.y + 0.08, c.z - ez * 0.8), (0.03, 0.012, 0.01), 0.003, 1)
     serial(p, plane((0.0, c.y - 0.04, c.z + ez + 0.004), (0, 0, 1), (1, 0, 0)), "12", 0.032)
     mbox(p, "team", T(0, c.y + ey * 0.55, c.z - ez * 0.84), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+def magnus_spin(p):
+    """Coroa de louros à volta do elmo, presa aos cubos das fontes: gira em jogo."""
+    c = M_HEAD
+    ex = M_HEAD_RADII[0]
+    for side in (-1, 1):
+        laurel(p, (0, c.y + 0.03, 0.0), ex + 0.03, side)
 
 
 def magnus_torso(p):
@@ -2461,3 +2480,6 @@ def define(part):
     @part("magnus2_leg_r")
     def _(p):
         magnus_leg(p, 1)
+    part("orbita2_spin")(orbita_spin)
+    part("helio2_spin")(helio_spin)
+    part("magnus2_spin")(magnus_spin)

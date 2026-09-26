@@ -108,7 +108,7 @@ def assemble(objects, entry, offset=Vector((0, 0, 0)), explode=0.0):
             copy.hide_render = False
             created.append(copy)
 
-    for slot in ("head", "torso", "shoulders", "back", "arm", "gun", "top"):
+    for slot in ("head", "torso", "shoulders", "back", "arm", "gun", "top", "spin"):
         if parts.get(slot):
             place(parts[slot], Matrix.Identity(4))
     for side in (-1, 1):
