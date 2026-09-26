@@ -875,9 +875,11 @@ func _process(dt: float) -> void:
 			queue_redraw()
 	if skins_overlay.visible and is_instance_valid(viewer_pilot):
 		animate_viewer(dt)
+	if coach_at.x >= 0:
+		queue_redraw()
 	if powers_overlay != null and powers_overlay.visible:
 		demo_clock += dt
-		power_demo.queue_redraw()
+		animate_shop(dt)
 	elif skins_overlay.visible and skin_ultimate_demo != null:
 		demo_clock += dt
 		skin_ultimate_demo.queue_redraw()
@@ -1184,7 +1186,8 @@ func close_pvp() -> void:
 	pvp_overlay.hide()
 
 func build_powers_menu() -> void:
-	# Shop and kit: buy with the bricks you have destroyed, then fill the two slots.
+	# The shop: the chosen power big at the top (spin it with a finger, tap it to flip it), a
+	# three-step lesson of how it works (charge, tap, effect), the buttons, then every power.
 	powers_overlay = ColorRect.new()
 	powers_overlay.color = Color(UiKit.NIGHT, 0.94)
 	powers_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1193,7 +1196,7 @@ func build_powers_menu() -> void:
 	powers_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
 	powers_overlay.add_child(powers_panel)
 	var list = VBoxContainer.new()
-	list.add_theme_constant_override("separation", 12)
+	list.add_theme_constant_override("separation", 10)
 	powers_panel.add_child(list)
 	var header = HBoxContainer.new()
 	list.add_child(header)
@@ -1203,43 +1206,41 @@ func build_powers_menu() -> void:
 	titles.add_child(label("PODERES", 25, WHITE, true))
 	titles.add_child(label("Compra com os tijolos que destruíres e leva dois para a partida.", 14, MUTED))
 	powers_wallet = label("", 15, CYAN, true)
-	titles.add_child(powers_wallet)
-	# Fourteen cards do not fit a phone screen, so the grid scrolls inside the panel.
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size.y = 300
-	list.add_child(scroll)
-	var grid = GridContainer.new()
-	grid.columns = 3
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	scroll.add_child(grid)
-	for index in range(shop_entries().size()):
-		var card = Button.new()
-		card.custom_minimum_size = Vector2(190, 92)
-		card.focus_mode = Control.FOCUS_NONE
-		card.add_theme_stylebox_override("hover", style(UiKit.CARD_HI, UiKit.PANEL_EDGE, 16))
-		card.add_theme_stylebox_override("pressed", style(UiKit.CARD_HI, SUN, 16))
-		grid.add_child(card)
-		var face = Control.new()
-		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.draw.connect(func(): draw_power_card(face, index))
-		card.add_child(face)
-		card.pressed.connect(func(): preview_power(index))
-		power_cards.append(card)
+	header.add_child(powers_wallet)
+	# The chosen power, big, next to its name, numbers and story.
+	var hero_row = HBoxContainer.new()
+	hero_row.add_theme_constant_override("separation", 12)
+	list.add_child(hero_row)
+	power_hero = Control.new()
+	power_hero.custom_minimum_size = Vector2(150, 150)
+	power_hero.mouse_filter = Control.MOUSE_FILTER_STOP
+	power_hero.draw.connect(draw_power_hero)
+	power_hero.gui_input.connect(hero_input)
+	hero_row.add_child(power_hero)
+	var info = VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 4)
+	hero_row.add_child(info)
+	power_hero_name = label("", 24, WHITE, true)
+	info.add_child(power_hero_name)
+	power_hero_stats = label("", 13, Color("d9822b"), true)
+	info.add_child(power_hero_stats)
+	powers_detail = label("", 15, MUTED)
+	powers_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	powers_detail.custom_minimum_size = Vector2(300, 40)
+	info.add_child(powers_detail)
+	# How it works: a tap on the panel moves on to the next step.
 	power_demo = Control.new()
 	power_demo.clip_contents = true
 	power_demo.custom_minimum_size = Vector2(600, 196)
-	power_demo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	power_demo.mouse_filter = Control.MOUSE_FILTER_STOP
 	power_demo.draw.connect(draw_power_demo)
+	power_demo.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			tutorial_step = (tutorial_step + 1) % TUTORIAL_STEPS.size()
+			step_clock = 0.0
+			demo_clock = 0.0)
 	list.add_child(power_demo)
-	powers_detail = label("", 17, MUTED)
-	powers_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	powers_detail.custom_minimum_size = Vector2(600, 40)
-	list.add_child(powers_detail)
 	# A grid and not a row: four buttons at this type size do not fit across a phone, and
 	# the panel used to grow wider than the screen to hold them.
 	power_actions = GridContainer.new()
@@ -1260,14 +1261,136 @@ func build_powers_menu() -> void:
 		equip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		equip.add_theme_stylebox_override("disabled", style(UiKit.FIELD, UiKit.CARD_EDGE))
 		equip.add_theme_color_override("font_disabled_color", MUTED)
-		equip.pressed.connect(func(): power_equipped.emit(slot, String(shop_entries()[shop_index].id)))
+		equip.pressed.connect(func():
+			power_equipped.emit(slot, String(shop_entries()[shop_index].id))
+			hero_pop = 1.0)
 		actions.add_child(equip)
 		power_slot_buttons.append(equip)
 	var leave = make_button("VOLTAR", false)
 	leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leave.pressed.connect(close_powers)
 	actions.add_child(leave)
+	# Fourteen cards do not fit a phone screen, so the grid scrolls inside the panel.
+	shop_scroll = ScrollContainer.new()
+	shop_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shop_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shop_scroll.custom_minimum_size.y = 240
+	list.add_child(shop_scroll)
+	var grid = GridContainer.new()
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	shop_scroll.add_child(grid)
+	for index in range(shop_entries().size()):
+		var card = Button.new()
+		card.custom_minimum_size = Vector2(190, 92)
+		card.focus_mode = Control.FOCUS_NONE
+		card.add_theme_stylebox_override("hover", style(UiKit.CARD_HI, UiKit.PANEL_EDGE, 16))
+		card.add_theme_stylebox_override("pressed", style(UiKit.CARD_HI, SUN, 16))
+		grid.add_child(card)
+		var face = Control.new()
+		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.draw.connect(func(): draw_power_card(face, index))
+		card.add_child(face)
+		card.pressed.connect(func(): preview_power(index))
+		power_cards.append(card)
 	powers_overlay.hide()
+
+# --- the shop's show piece and lesson ------------------------------------------------------
+const TUTORIAL_STEPS = ["CARREGA", "TOCA", "EFEITO"]
+const STEP_TIME = [2.8, 2.0, 3.2]
+var power_hero: Control
+var power_hero_name: Label
+var power_hero_stats: Label
+var shop_scroll: ScrollContainer
+var tutorial_step = 0
+var step_clock = 0.0
+var hero_clock = 0.0
+var hero_spin = 0.0
+var hero_spin_speed = 0.0
+var hero_pop = 0.0
+var hero_party = 0.0
+var hero_dragging = false
+var shop_owned_seen: Array = []
+
+func animate_shop(dt: float) -> void:
+	hero_clock += dt
+	step_clock += dt
+	if step_clock >= STEP_TIME[tutorial_step]:
+		step_clock = 0.0
+		tutorial_step = (tutorial_step + 1) % TUTORIAL_STEPS.size()
+		demo_clock = 0.0
+	if not hero_dragging:
+		hero_spin += hero_spin_speed * dt
+		hero_spin_speed *= exp(-2.4 * dt)
+		if absf(hero_spin_speed) < 1.2:
+			# Settles face up again, like a coin coming to rest.
+			hero_spin = lerpf(hero_spin, roundf(hero_spin / TAU) * TAU, 1.0 - exp(-6.0 * dt))
+	hero_pop = maxf(hero_pop - dt * 2.2, 0.0)
+	hero_party = maxf(hero_party - dt * 0.8, 0.0)
+	power_hero.queue_redraw()
+	power_demo.queue_redraw()
+
+func hero_input(event: InputEvent) -> void:
+	# Drag to spin the coin, tap to flip it.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			hero_dragging = true
+			hero_spin_speed = 0.0
+		else:
+			hero_dragging = false
+			if absf(hero_spin_speed) < 0.5:
+				hero_spin_speed = 16.0
+				hero_pop = 1.0
+	elif event is InputEventMouseMotion and hero_dragging:
+		hero_spin += event.relative.x * 0.03
+		hero_spin_speed = event.relative.x * 1.6
+
+func draw_power_hero() -> void:
+	var c: Control = power_hero
+	var entry: Dictionary = shop_entries()[shop_index]
+	var id = String(entry.id)
+	var color = Color(entry.color)
+	var owned: bool = power_shop != null and power_shop.is_owned(id)
+	var center = c.size * 0.5
+	var r = minf(c.size.x, c.size.y) * 0.4
+	var bob = sin(hero_clock * 2.2) * 4.0
+	# A soft pool of the power's colour behind it, and its shadow on the floor.
+	c.draw_circle(center, r * 1.18, Color(color, 0.12 + 0.06 * sin(hero_clock * 3.0)), true, -1, smooth)
+	c.draw_set_transform(center + Vector2(0, r + 12), 0.0, Vector2(1.0, 0.22))
+	c.draw_circle(Vector2.ZERO, r * (0.78 - bob * 0.01), Color(INK, 0.4), true, -1, smooth)
+	c.draw_set_transform(Vector2.ZERO)
+	if hero_party > 0:
+		# Just bought: rays and flying bricks round the coin.
+		for i in range(12):
+			var angle = i * TAU / 12.0 + hero_clock * 0.8
+			var reach = r * (1.1 + (1.0 - hero_party) * 0.7)
+			var from = center + Vector2(cos(angle), sin(angle)) * r * 0.9
+			c.draw_line(from, center + Vector2(cos(angle), sin(angle)) * reach, Color(UiKit.SUN, hero_party), 4.0, smooth)
+		for i in range(8):
+			var angle = i * TAU / 8.0 + 0.4
+			var at = center + Vector2(cos(angle), sin(angle)) * r * (1.0 + (1.0 - hero_party) * 1.1)
+			c.draw_rect(Rect2(at - Vector2(7, 4), Vector2(14, 8)), Color(color, hero_party), true)
+	var scale_value = 1.0 + 0.16 * sin(hero_pop * PI)
+	var flip = cos(hero_spin)
+	c.draw_set_transform(center + Vector2(0, bob - 4), 0.0, Vector2(maxf(absf(flip), 0.04) * scale_value, scale_value))
+	var art = power_texture(id)
+	if flip >= 0 and art != null:
+		c.draw_texture_rect(art, Rect2(-r, -r, r * 2, r * 2), false, Color(1, 1, 1, 1.0 if owned else 0.6))
+	else:
+		# The back of the coin: its colour and a brass ring.
+		c.draw_circle(Vector2.ZERO, r * 0.9, color.darkened(0.15), true, -1, smooth)
+		c.draw_arc(Vector2.ZERO, r * 0.78, 0, TAU, 48, Color(UiKit.SUN, 0.8), 4.0, smooth)
+	c.draw_set_transform(Vector2.ZERO)
+	if not owned:
+		# A padlock on the corner until it is bought.
+		var lock = center + Vector2(r * 0.72, r * 0.62)
+		c.draw_circle(lock, 17, UiKit.PANEL, true, -1, smooth)
+		c.draw_arc(lock + Vector2(0, -4), 6, PI, TAU, 12, INK, 3.0, smooth)
+		c.draw_rect(Rect2(lock + Vector2(-8, -3), Vector2(16, 12)), INK, true)
+	centered_on(c, "arrasta para rodar", Vector2(center.x, c.size.y - 4), 10, Color(MUTED, 0.7))
 
 func shop_entries() -> Array:
 	# Only what is actually for sale. The ultimates used to be listed here too, with a
@@ -1282,8 +1405,12 @@ func sync_powers(shop) -> void:
 
 func preview_power(index: int) -> void:
 	shop_index = clampi(index, 0, shop_entries().size() - 1)
-	# Each power starts its demonstration from the top.
+	# Each power starts its lesson from the top, and the coin flips in.
 	demo_clock = 0.0
+	step_clock = 0.0
+	tutorial_step = 0
+	hero_spin_speed = 14.0
+	hero_pop = 1.0
 	refresh_powers()
 
 func refresh_powers() -> void:
@@ -1293,7 +1420,15 @@ func refresh_powers() -> void:
 	var ultimate: bool = Powers.is_ultimate(String(entry.id))
 	var owned: bool = ultimate or power_shop.is_owned(entry.id)
 	powers_wallet.text = "TIJOLOS: %d" % power_shop.bricks
-	powers_detail.text = "%s  ·  %s  ·  carga %d tijolos\n%s" % [entry.name, String(entry.kind).to_upper(), entry.charge, entry.about]
+	power_hero_name.text = String(entry.name)
+	power_hero_stats.text = "%s  ·  CARGA %d TIJOLOS  ·  RECARGA %d s" % [String(entry.kind).to_upper(), entry.charge, entry.wait]
+	powers_detail.text = String(entry.about).replace("**", "")
+	# Bought just now: the coin celebrates.
+	if owned and not shop_owned_seen.has(entry.id) and shop_owned_seen.size() > 0:
+		hero_party = 1.0
+		hero_pop = 1.0
+		hero_spin_speed = 22.0
+	shop_owned_seen = power_shop.owned.duplicate()
 	power_buy.text = "VEM COM A SKIN" if ultimate else ("COMPRADO" if owned else "COMPRAR · %d TIJOLOS" % entry.price)
 	power_buy.disabled = ultimate or owned or not power_shop.can_buy(entry.id)
 	for slot in range(power_slot_buttons.size()):
@@ -1314,11 +1449,13 @@ func draw_power_card(canvas: Control, index: int) -> void:
 	var owned: bool = ultimate or (power_shop != null and power_shop.is_owned(entry.id))
 	var slot: int = power_shop.kit.find(entry.id) if power_shop != null else -1
 	var medallion = Vector2(40, canvas.size.y * 0.5)
-	canvas.draw_circle(medallion + Vector2(0, 2), 25, Color(INK, 0.5), true, -1, smooth)
-	canvas.draw_circle(medallion, 25, Color(color, 0.14 if owned else 0.07), true, -1, smooth)
-	canvas.draw_arc(medallion, 25, 0, TAU, 40, Color(BRASS, 0.9 if owned else 0.35), 1.4, smooth)
-	canvas.draw_arc(medallion, 21, -PI * 0.75, PI * 0.15, 24, Color(CERAMIC, 0.18), 1.0, smooth)
-	power_icon(String(entry.id), medallion, color if owned else Color(color, 0.42), canvas)
+	var art = power_texture(String(entry.id))
+	if art != null:
+		# The Blender coin, a little bigger on the chosen card.
+		var r = 32.0 if index == shop_index else 29.0
+		canvas.draw_texture_rect(art, Rect2(medallion - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(1, 1, 1, 1.0 if owned else 0.5))
+	else:
+		power_icon(String(entry.id), medallion, color if owned else Color(color, 0.42), canvas)
 	var left = 76.0
 	canvas.draw_string(font_bold, Vector2(left, medallion.y - 14), String(entry.short), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, WHITE if owned else Color(WHITE, 0.55))
 	# Type pill in the family colour: coral attacks, jade defends.
@@ -1387,7 +1524,95 @@ func demo_brick_row(area: Rect2, index: int, top: bool) -> Vector2:
 	return Vector2(area.position.x + 28 + index * (area.size.x - 56) / 8.0, y)
 
 func draw_power_demo() -> void:
-	draw_demo(power_demo, String(shop_entries()[shop_index].id))
+	# The lesson, in three steps: bricks charge the key, a tap fires it, then what it does.
+	var id = String(shop_entries()[shop_index].id)
+	match tutorial_step:
+		0:
+			draw_lesson_charge(power_demo, id)
+		1:
+			draw_lesson_tap(power_demo, id)
+		_:
+			draw_demo(power_demo, id)
+	draw_lesson_steps(power_demo, id)
+
+func draw_lesson_steps(c: Control, id: String) -> void:
+	var entry: Dictionary = Powers.entry(id)
+	var color = Color(entry.color)
+	var x = 14.0
+	for step in range(TUTORIAL_STEPS.size()):
+		var text = "%d  %s" % [step + 1, TUTORIAL_STEPS[step]]
+		var width = font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 18
+		var pill = Rect2(Vector2(x, 10), Vector2(width, 22))
+		var on = step == tutorial_step
+		c.draw_style_box(style(color if on else Color(UiKit.PANEL, 0.9), Color(color, 0.8) if on else UiKit.CARD_EDGE, 11), pill)
+		if on:
+			# The step's own clock runs along the bottom of its pill.
+			var run = clampf(step_clock / STEP_TIME[step], 0, 1)
+			c.draw_line(pill.position + Vector2(8, 19), pill.position + Vector2(8 + (width - 16) * run, 19), Color(INK, 0.45), 2.0, smooth)
+		c.draw_string(font_bold, pill.position + Vector2(9, 15), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK if on else MUTED)
+		x += width + 6
+	var captions = ["Parte %d tijolos do rival e o botão enche" % int(entry.charge), "Brilhou? Toca no botão!", "%s em ação" % String(entry.name)]
+	c.draw_string(font_bold, Vector2(x + 8, 26), captions[tutorial_step], HORIZONTAL_ALIGNMENT_LEFT, c.size.x - x - 22, 12, WHITE)
+	c.draw_string(font_bold, Vector2(c.size.x - 118, c.size.y - 10), "toca para avançar", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(MUTED, 0.7))
+
+func draw_lesson_key(c: Control, center: Vector2, r: float, id: String, fill: float, ready: bool, pressed: bool) -> void:
+	# A power key as the match shows it: the ring fills with the charge, lit when ready.
+	var color = Color(Powers.entry(id).color)
+	var sink = 3.0 if pressed else 0.0
+	if ready:
+		c.draw_circle(center, r + 8 + sin(hero_clock * 8.0) * 3.0, Color(color, 0.28), true, -1, smooth)
+	c.draw_circle(center + Vector2(0, 4), r, Color(UiKit.LIP, 0.75), true, -1, smooth)
+	c.draw_circle(center + Vector2(0, sink), r, Color(UiKit.PANEL, 0.97), true, -1, smooth)
+	c.draw_circle(center + Vector2(0, sink), r - 7, color if ready else color.lerp(UiKit.PANEL, 0.7), true, -1, smooth)
+	if fill > 0 and not ready:
+		c.draw_arc(center + Vector2(0, sink), r - 3, -PI * 0.5, -PI * 0.5 + TAU * clampf(fill, 0, 1), 48, color, 4.0, smooth)
+	var art = power_texture(id)
+	if art != null:
+		var k = r * 0.62
+		c.draw_texture_rect(art, Rect2(center + Vector2(0, sink) - Vector2(k, k), Vector2(k, k) * 2.0), false, Color.WHITE if ready else Color(0.6, 0.62, 0.7, 0.85))
+
+func draw_lesson_charge(c: Control, id: String) -> void:
+	var entry: Dictionary = Powers.entry(id)
+	var color = Color(entry.color)
+	var frame = Rect2(Vector2.ZERO, c.size)
+	c.draw_style_box(style(Color(UiKit.FIELD, 0.96), UiKit.CARD_EDGE, 14), frame)
+	var area = frame.grow(-12)
+	var charge = int(entry.charge)
+	var shots = mini(charge, 9)
+	var u = clampf(step_clock / (STEP_TIME[0] * 0.85), 0, 1)
+	var broken = int(u * shots)
+	var order = [4, 3, 5, 2, 6, 1, 7, 0, 8]
+	var enemy_y = area.position.y + 50
+	var pilot = Vector2(area.get_center().x - 40, area.end.y - 16)
+	demo_bricks(c, area, CORAL, enemy_y, order.slice(0, broken))
+	demo_pilot(c, pilot, CYAN)
+	if broken < shots:
+		var target = demo_brick_at(area, enemy_y, order[broken])
+		demo_ball(c, pilot.lerp(target, fmod(u * shots, 1.0)), Color(WHITE, 0.95), 5.0)
+	var counted = charge if broken >= shots else int(round(float(broken) / shots * charge))
+	var key = Vector2(area.end.x - 46, area.end.y - 42)
+	draw_lesson_key(c, key, 32, id, float(counted) / charge, counted >= charge, false)
+	centered_on(c, "PRONTO" if counted >= charge else "%d/%d" % [counted, charge], key + Vector2(0, 46), 12, SUN if counted >= charge else WHITE)
+
+func draw_lesson_tap(c: Control, id: String) -> void:
+	var frame = Rect2(Vector2.ZERO, c.size)
+	c.draw_style_box(style(Color(UiKit.FIELD, 0.96), UiKit.CARD_EDGE, 14), frame)
+	var t = clampf(step_clock / STEP_TIME[1], 0, 1)
+	var key = c.size * Vector2(0.5, 0.56)
+	var pressed = t > 0.42 and t < 0.6
+	draw_lesson_key(c, key, 46, id, 1.0, true, pressed)
+	if t > 0.42:
+		var wave = clampf((t - 0.42) / 0.5, 0, 1)
+		c.draw_arc(key, 50 + wave * 60, 0, TAU, 48, Color(Color(Powers.entry(id).color), 1.0 - wave), 4.0, smooth)
+	# A finger comes in from the corner, taps, and leaves.
+	var rest = key + Vector2(150, 90)
+	var touch = key + Vector2(8, 12)
+	var reach = smoothstep(0.0, 0.42, t) - smoothstep(0.62, 1.0, t)
+	var tip = rest.lerp(touch, reach) + (Vector2(0, 3) if pressed else Vector2.ZERO)
+	c.draw_line(tip + Vector2(6, 10), tip + Vector2(40, 64), Color(INK, 0.35), 26.0, smooth)
+	c.draw_line(tip, tip + Vector2(34, 54), CERAMIC, 22.0, smooth)
+	c.draw_circle(tip, 11, CERAMIC, true, -1, smooth)
+	c.draw_circle(tip + Vector2(-1, -2), 5, Color(WHITE, 0.6), true, -1, smooth)
 
 func draw_demo(panel: Control, id: String) -> void:
 	# A little top-down rehearsal of a power, looping every few seconds.
@@ -2160,14 +2385,13 @@ func layout() -> void:
 	levels_panel.position = thumb_panel_position(levels_panel.size)
 	pvp_panel.size = pvp_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 	pvp_panel.position = thumb_panel_position(pvp_panel.size)
-	var shop_scroll: ScrollContainer = powers_panel.get_child(0).get_child(1)
 	var shop_grid: GridContainer = shop_scroll.get_child(0)
 	shop_grid.columns = 2 if vertical else 3
 	if is_instance_valid(power_actions):
 		power_actions.columns = 2 if vertical else 4
 	# Leave room for the header, the demonstration, the description and the buttons.
-	shop_scroll.custom_minimum_size.y = clampf(size.y - (620 if vertical else 500), 190, 430)
-	powers_detail.custom_minimum_size.x = minf(size.x - 96, 600)
+	shop_scroll.custom_minimum_size.y = clampf(size.y - (820 if vertical else 640), 170, 430)
+	powers_detail.custom_minimum_size.x = minf(size.x - 96, 600) - 162
 	power_demo.custom_minimum_size = Vector2(minf(size.x - 96, 600), 178 if vertical else 196)
 	powers_panel.size = powers_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 640) if vertical else 0.0, 0))
 	powers_panel.position = thumb_panel_position(powers_panel.size)
@@ -2350,6 +2574,9 @@ func request_power(index: int) -> void:
 		return
 	power_request = index
 	power_flash[index] = 0.22
+	if power_shop != null and not power_shop.tutorial_done:
+		power_shop.tutorial_done = true
+		power_shop.save_preferences()
 	ask_redraw()
 
 func take_power() -> int:
@@ -2865,6 +3092,7 @@ func draw_powers() -> void:
 	# One key per power: the ring is the charge, the face lights up in the power's colour
 	# when it is ready. The sigils are drawn over them by the icon layer.
 	icon_marks.clear()
+	coach_at = Vector2(-1, -1)
 	if not match_data.has("powers") or team >= match_data.powers.size():
 		return
 	var state: Dictionary = match_data.powers[team]
@@ -2910,7 +3138,10 @@ func draw_powers() -> void:
 			var wind = 1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP
 			UiKit.disc(self, center, span - 6, Color(color, 0.12 + 0.3 * wind))
 			UiKit.ring(self, center, span + 6 - wind * 10, Color(color, 0.9))
-		icon_marks.append([id, center + Vector2(0, -span * 0.26 + sink), INK if ready or pressed else Color(WHITE, 0.8), span / POWER_RADIUS])
+		# Ready: the coin in full colour. Charging: dimmed, like a key not yet lit.
+		icon_marks.append([id, center + Vector2(0, -span * 0.24 + sink), Color.WHITE if ready or pressed else Color(0.6, 0.62, 0.7, 0.85), span / POWER_RADIUS])
+		if ready and power_shop != null and not power_shop.tutorial_done:
+			coach_at = center
 		var caption = "PRONTO" if ready else "%d/%d" % [charge, cost]
 		if cool > 0:
 			# Counting down: whole seconds while there is time, tenths in the last one.
@@ -2928,59 +3159,85 @@ func draw_powers() -> void:
 		# The name goes under the button, not inside it: the ring is forty pixels across, and
 		# with the icon and the charge already in there the name was crossing the rim.
 		centered(Rules.power_label(id), center + Vector2(0, span + 19), roundi(11 * zoom), Color(WHITE, 0.95 if ready or pressed else 0.6), true, 4, Color(UiKit.NIGHT, 0.8))
+	if coach_at.x >= 0:
+		draw_power_coach(coach_at)
 
-# --- power sigils, drawn once into a sheet ---------------------------------------------------
-# Each sigil is a dozen strokes; drawn live, three keys cost some forty draw calls a frame.
-# They are painted once, white, into an offscreen sheet, and the keys stamp them from it in
-# one batch, tinted per key.
-const ICON_CELL = 88
-var icon_sheet: SubViewport
+func draw_power_coach(at: Vector2) -> void:
+	# The mini tutorial of a pilot's first matches: the first time a power lights up, a bubble
+	# over it says what to do, with an arrow bouncing at the key, until a power is used once.
+	var bounce = absf(sin(Time.get_ticks_msec() * 0.006)) * 10.0
+	var tip = at + Vector2(0, -POWER_RADIUS - 14 - bounce)
+	var text = "PODER PRONTO! TOCA AQUI"
+	var width = font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 32
+	var box = Rect2(Vector2(clampf(tip.x - width * 0.5, 12, size.x - width - 12), tip.y - 64), Vector2(width, 42))
+	draw_style_box(style(UiKit.SUN, Color(INK, 0.5), 14), box)
+	draw_string(font_bold, box.position + Vector2(16, 28), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-12, -22), tip + Vector2(12, -22)]), UiKit.SUN)
+	draw_arc(at, POWER_RADIUS + 6 + bounce * 0.6, 0, TAU, 48, Color(UiKit.SUN, 0.9 - bounce * 0.05), 4.0, smooth)
+
+# --- power icons, rendered in Blender (tools/blender/power_icons.py) -------------------------
+# Every icon is a rubber coin with its object on it. They are packed once into one atlas so the
+# keys stamp them in a single batch.
+const ICON_CELL = 128
+const POWER_ART = "res://art/ui/powers/%s.png"
+# The pilots' plain ultimates borrow the icon of the power they are built on.
+const ICON_OF = {"b_charge": "blast", "b_quick": "rapid", "b_fan": "air", "b_salvo": "volley", "b_hail": "meteors",
+	"b_spark": "thunder", "b_patch": "weld", "b_bar": "walls", "b_push": "stun", "b_slow": "freeze", "b_forge": "surge",
+	"b_aim": "magnet", "b_drill": "pierce"}
+static var power_art: Dictionary = {}
+var icon_atlas: Texture2D
 var icon_layer: Control
 var icon_cells: Dictionary = {}
 var icon_marks: Array = []
+# Where the tutorial bubble points this frame (x < 0: nowhere).
+var coach_at := Vector2(-1, -1)
+
+static func power_texture(id: String) -> Texture2D:
+	var key = String(ICON_OF.get(id, id))
+	if not power_art.has(key):
+		var path = POWER_ART % key
+		power_art[key] = load(path) if key != "" and ResourceLoader.exists(path) else null
+	return power_art[key]
 
 func build_icon_sheet() -> void:
-	var ids: Array = [""]
+	var ids: Array = []
 	for list in [Powers.CATALOG, Powers.ULTIMATES, Powers.BASIC_ULTIMATES]:
 		for entry in list:
 			if not ids.has(String(entry.id)):
 				ids.append(String(entry.id))
+	var atlas = Image.create(ICON_CELL * ids.size(), ICON_CELL, false, Image.FORMAT_RGBA8)
 	for index in range(ids.size()):
 		icon_cells[ids[index]] = index
-	icon_sheet = SubViewport.new()
-	icon_sheet.transparent_bg = true
-	icon_sheet.disable_3d = true
-	icon_sheet.size = Vector2i(ICON_CELL * ids.size(), ICON_CELL)
-	icon_sheet.render_target_update_mode = SubViewport.UPDATE_ONCE
-	var painter = Control.new()
-	painter.size = Vector2(icon_sheet.size)
-	painter.draw.connect(func():
-		for index in range(ids.size()):
-			power_icon(ids[index], Vector2(index * ICON_CELL + ICON_CELL * 0.5, ICON_CELL * 0.5), Color.WHITE, painter, 2.0, Color(1, 1, 1, 0.62)))
-	icon_sheet.add_child(painter)
-	add_child(icon_sheet)
+		var art = power_texture(ids[index])
+		if art == null:
+			continue
+		var picture: Image = art.get_image()
+		if picture.is_compressed():
+			picture.decompress()
+		picture.convert(Image.FORMAT_RGBA8)
+		picture.resize(ICON_CELL, ICON_CELL, Image.INTERPOLATE_LANCZOS)
+		atlas.blit_rect(picture, Rect2i(0, 0, ICON_CELL, ICON_CELL), Vector2i(index * ICON_CELL, 0))
+	atlas.generate_mipmaps()
+	icon_atlas = ImageTexture.create_from_image(atlas)
 	# The layer sits under every overlay, so the pause screen and the menus still cover it.
 	icon_layer = Control.new()
 	icon_layer.name = "PowerIcons"
 	icon_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# The sheet comes out of the viewport premultiplied: white strokes over clear black.
-	var blend = CanvasItemMaterial.new()
-	blend.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
-	icon_layer.material = blend
+	icon_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	icon_layer.draw.connect(draw_icon_layer)
 	add_child(icon_layer)
 	move_child(icon_layer, 0)
 
 func draw_icon_layer() -> void:
-	if icon_sheet == null or mode == "menu":
+	if icon_atlas == null or mode == "menu":
 		return
-	var sheet = icon_sheet.get_texture()
 	for mark in icon_marks:
-		var cell: int = icon_cells.get(mark[0], 0)
-		var tint: Color = mark[2]
-		var half = ICON_CELL * 0.25 * mark[3]
-		icon_layer.draw_texture_rect_region(sheet, Rect2(mark[1] - Vector2.ONE * half, Vector2.ONE * half * 2.0), Rect2(cell * ICON_CELL, 0, ICON_CELL, ICON_CELL), Color(tint.r * tint.a, tint.g * tint.a, tint.b * tint.a, tint.a))
+		if not icon_cells.has(mark[0]):
+			continue
+		var cell: int = icon_cells[mark[0]]
+		var half = POWER_RADIUS * 0.5 * mark[3]
+		icon_layer.draw_texture_rect_region(icon_atlas, Rect2(mark[1] - Vector2.ONE * half, Vector2.ONE * half * 2.0), Rect2(cell * ICON_CELL, 0, ICON_CELL, ICON_CELL), mark[2])
 
 func match_loadout(t: int, index: int) -> String:
 	# The power on that button: empty while the skin ultimates are still to come.
@@ -2993,6 +3250,12 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 	# One sigil per power, all drawn at the same weight inside a 26 px circle. `scale_value`
 	# blows the whole drawing up for the bigger keys without redrawing any of it.
 	var c: CanvasItem = canvas if canvas != null else self
+	var art = power_texture(id)
+	if art != null:
+		# The Blender coin; a power not yet owned shows faded.
+		var r = 17.0 * scale_value
+		c.draw_texture_rect(art, Rect2(center - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(1, 1, 1, color.a))
+		return
 	if not is_equal_approx(scale_value, 1.0):
 		c.draw_set_transform(center, 0.0, Vector2.ONE * scale_value)
 		power_icon(id, Vector2.ZERO, color, c, 1.0, accent)

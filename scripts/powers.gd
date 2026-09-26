@@ -114,6 +114,9 @@ var unlock_all = UNLOCK_ALL_FOR_TESTS
 var bricks = 0
 var owned: Array = STARTER_KIT.duplicate()
 var kit: Array = STARTER_KIT.duplicate()
+# The mini tutorial in the match (a bubble over the first power to light up) ends the first
+# time a power is used.
+var tutorial_done = false
 
 static func all_ids() -> Array:
 	return CATALOG.map(func(entry): return String(entry.id))
@@ -193,6 +196,7 @@ func load_preferences() -> void:
 	if saved_version < SAVE_VERSION and not FileAccess.file_exists(config_path + ".before-v3"):
 		DirAccess.copy_absolute(config_path, config_path + ".before-v3")
 	bricks = maxi(int(config.get_value("powers", "bricks", 0)), 0)
+	tutorial_done = bool(config.get_value("powers", "tutorial_done", false))
 	owned = all_ids() if unlock_all else STARTER_KIT.duplicate()
 	if unlock_all:
 		bricks = maxi(bricks, TEST_WALLET)
@@ -210,4 +214,5 @@ func save_preferences() -> Error:
 	config.set_value("powers", "bricks", bricks)
 	config.set_value("powers", "owned", owned)
 	config.set_value("powers", "kit", kit)
+	config.set_value("powers", "tutorial_done", tutorial_done)
 	return config.save(config_path)
