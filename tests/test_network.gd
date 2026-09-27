@@ -59,10 +59,12 @@ func run() -> void:
 				# The client rebuilds these from the shared clock, so they must land exactly
 				# where the map's own spec puts them at that time.
 				synced_obstacles = synced_obstacles and game.rules.obstacles[i].p.is_equal_approx(game.rules.obstacle_at(i, game.rules.obstacle_time))
+			# Each player sees their own pilot at the bottom: the guest's camera sits on team 1's side.
+			var seated = game.arena.view_team == (1 if role == "client" else 0)
 			last_state = {"ticks": ticks, "packets": game.packets_received, "fire": observed_remote_fire,
 				"boost": observed_boost, "held": observed_held, "health": synced_health, "size": synced_size,
-				"arc": on_arc, "aim": fixed_aim, "obstacles": synced_obstacles}
-			if ticks > 230 and game.packets_received > 60 and observed_remote_fire and observed_boost and observed_held and synced_health and synced_size and on_arc and fixed_aim and synced_obstacles:
+				"arc": on_arc, "aim": fixed_aim, "obstacles": synced_obstacles, "seat": seated}
+			if ticks > 230 and game.packets_received > 60 and observed_remote_fire and observed_boost and observed_held and synced_health and synced_size and on_arc and fixed_aim and synced_obstacles and seated:
 				print("NETWORK_PASS role=", role, " packets=", game.packets_received, " remote_firing=true boosted_shot=true held_round=true brick_hp_and_size=true arc=true fixed_aim=true moving_obstacles=true")
 				# Either process may start first; let the peer finish before disconnecting.
 				await create_timer(3.0 if role == "host" else 1.0).timeout

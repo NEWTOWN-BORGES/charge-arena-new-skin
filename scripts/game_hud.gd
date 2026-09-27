@@ -187,6 +187,7 @@ var pvp_panel: PanelContainer
 var levels_overlay: ColorRect
 var levels_panel: PanelContainer
 var levels_grid: GridContainer
+var levels_scroll: ScrollContainer
 var levels_progress: Label
 var level_cards: Array = []
 # Menu carousel: the level previewed behind the menu, and where a swipe started.
@@ -931,7 +932,7 @@ func _process(dt: float) -> void:
 		animate_viewer(dt)
 	# The hangar covers the whole screen: drawing the arena underneath it every frame was half
 	# of what a weaker phone spent in there.
-	var hide_world = skins_overlay.visible
+	var hide_world = skins_overlay.visible or levels_overlay.visible
 	if get_viewport().disable_3d != hide_world:
 		get_viewport().disable_3d = hide_world
 	if coach_at.x >= 0:
@@ -2067,8 +2068,11 @@ func close_powers() -> void:
 	powers_overlay.hide()
 
 func build_levels_menu() -> void:
+	# The arenas: a whole screen of its own (the 3D behind is switched off while it is open),
+	# one wide card per level with a map of its arena, the challenge, the boss and where you
+	# stand with it, in a list that scrolls under the thumb.
 	levels_overlay = ColorRect.new()
-	levels_overlay.color = Color(UiKit.NIGHT, 0.94)
+	levels_overlay.color = Color(UiKit.NIGHT, 1.0)
 	levels_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(levels_overlay)
 	levels_panel = PanelContainer.new()
@@ -2082,21 +2086,28 @@ func build_levels_menu() -> void:
 	var titles = VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
-	titles.add_child(label("CAMPANHA", 25, WHITE, true))
-	titles.add_child(label("Uma arena, um desafio e um boss por nível.", 14, MUTED))
-	levels_progress = label("", 13, CYAN, true)
+	titles.add_child(label("ARENAS", 30, WHITE, true))
+	titles.add_child(label("Cada arena tem o seu desafio e o seu boss.", 15, MUTED))
+	levels_progress = label("", 15, CYAN, true)
 	levels_progress.size_flags_vertical = Control.SIZE_SHRINK_END
 	header.add_child(levels_progress)
+	levels_scroll = ScrollContainer.new()
+	levels_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	levels_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list.add_child(levels_scroll)
 	levels_grid = GridContainer.new()
-	levels_grid.add_theme_constant_override("h_separation", 10)
-	levels_grid.add_theme_constant_override("v_separation", 10)
-	list.add_child(levels_grid)
+	levels_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	levels_grid.add_theme_constant_override("h_separation", 12)
+	levels_grid.add_theme_constant_override("v_separation", 12)
+	levels_scroll.add_child(levels_grid)
 	for index in Campaign.menu_levels():
 		var card = Button.new()
 		card.focus_mode = Control.FOCUS_NONE
-		card.add_theme_stylebox_override("normal", style(UiKit.CARD, UiKit.CARD_EDGE, 16))
-		card.add_theme_stylebox_override("hover", style(UiKit.CARD_HI, UiKit.PANEL_EDGE, 16))
-		card.add_theme_stylebox_override("pressed", style(UiKit.CARD_HI, SUN, 16))
+		card.clip_contents = true
+		card.add_theme_stylebox_override("normal", style(UiKit.CARD, UiKit.CARD_EDGE, 18))
+		card.add_theme_stylebox_override("hover", style(UiKit.CARD_HI, UiKit.PANEL_EDGE, 18))
+		card.add_theme_stylebox_override("pressed", style(UiKit.CARD_HI, SUN, 18))
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		levels_grid.add_child(card)
 		var face = Control.new()
 		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -2106,29 +2117,126 @@ func build_levels_menu() -> void:
 		card.pressed.connect(func(): choose_level(index))
 		level_cards.append(card)
 	var leave = make_button("VOLTAR", false)
+	leave.custom_minimum_size.y = 64
 	list.add_child(leave)
 	leave.pressed.connect(close_levels)
 	levels_overlay.hide()
+
+# The colour each arena is painted in on its card, by map id.
+const ARENA_TINTS = {"treino": "5fcfb7", "farol": "4f8fe0", "mina": "b0784a", "laboratorio": "8f7ae8", "oficina": "e8a92e",
+	"estufa": "5fbf6a", "recife": "ec8a72", "tempestade": "3fa8d8", "observatorio": "7a6fe0", "santuario": "8a4fc4", "coroa": "f0b429"}
+
+func arena_tint(level: Dictionary) -> Color:
+	var id = String(level.map.get("id", ""))
+	if ARENA_TINTS.has(id):
+		return Color(ARENA_TINTS[id])
+	return Color.from_hsv(fposmod(float(hash(id) % 360) / 360.0, 1.0), 0.45, 0.85)
+
+func draw_arena_map(canvas: Control, rect: Rect2, level: Dictionary, lit: bool) -> void:
+	# A little plan of the arena, seen from above with your goal at the bottom: its outline,
+	# the brick banks of both sides, the goals and the obstacles where the map puts them.
+	var map: Dictionary = level.map
+	var tint = arena_tint(level)
+	if not lit:
+		tint = tint.lerp(UiKit.EMPTY, 0.7)
+	canvas.draw_style_box(style(tint.darkened(0.55), Color.TRANSPARENT, 14), rect)
+	var field = rect.grow(-10)
+	var outline = String(map.get("outline", "stadium"))
+	var pts = PackedVector2Array()
+	var c = field.get_center()
+	var hw = field.size.x * 0.5
+	var hh = field.size.y * 0.5
+	var steps = 40
+	for i in range(steps):
+		var a = TAU * i / steps
+		var d = Vector2(cos(a), sin(a))
+		var q: Vector2
+		match outline:
+			"octagon":
+				var k = 1.0 / maxf(maxf(absf(d.x), absf(d.y)), (absf(d.x) + absf(d.y)) / 1.35)
+				q = d * k
+			"colosseum":
+				q = d
+			"lens":
+				q = Vector2(d.x * (0.65 + 0.35 * absf(d.y)), d.y)
+			"gorge":
+				q = Vector2(d.x * (1.0 - 0.3 * (1.0 - absf(d.y))), d.y)
+			_:
+				var k = 1.0 / maxf(absf(d.x), absf(d.y))
+				q = d * lerpf(k, 1.0, 0.35)
+		pts.append(c + Vector2(q.x * hw, q.y * hh))
+	canvas.draw_colored_polygon(pts, tint.darkened(0.15))
+	var rim = pts.duplicate()
+	rim.append(pts[0])
+	canvas.draw_polyline(rim, tint.lightened(0.35), 2.0, true)
+	# Centre line and circle.
+	canvas.draw_line(Vector2(field.position.x + 8, c.y), Vector2(field.end.x - 8, c.y), Color(1, 1, 1, 0.35), 1.5, true)
+	canvas.draw_arc(c, hw * 0.28, 0, TAU, 24, Color(1, 1, 1, 0.35), 1.5, true)
+	# Brick banks: yours at the bottom, the rival's at the top.
+	for side in [1.0, -1.0]:
+		var y = c.y + side * hh * 0.62
+		var color = CYAN if side > 0 else CORAL
+		for i in range(5):
+			var x = c.x + (i - 2) * hw * 0.3
+			canvas.draw_rect(Rect2(Vector2(x - hw * 0.12, y - 3), Vector2(hw * 0.24, 6)), color if lit else color.lerp(UiKit.EMPTY, 0.6))
+		canvas.draw_rect(Rect2(Vector2(c.x - hw * 0.25, c.y + side * hh * 0.86 - 2), Vector2(hw * 0.5, 4)), UiKit.SUN)
+	# Obstacles, placed from the map's own field coordinates.
+	var sx = hw / Rules.HALF_WIDTH
+	var sy = hh / Rules.HALF_LENGTH
+	for obstacle in map.get("obstacles", []):
+		var at: Vector2 = obstacle.get("center", Vector2.ZERO)
+		var p = c + Vector2(at.x * sx, at.y * sy)
+		var kind = String(obstacle.get("kind", "fixed"))
+		if kind == "orbit":
+			canvas.draw_arc(p, float(obstacle.get("travel", 1.0)) * sx, 0, TAU, 24, Color(1, 1, 1, 0.3), 1.2, true)
+		elif kind == "slide":
+			var travel = float(obstacle.get("travel", 1.0))
+			var axis: Vector2 = obstacle.get("axis", Vector2.RIGHT)
+			canvas.draw_line(p - axis * travel * sx, p + axis * travel * sx, Color(1, 1, 1, 0.3), 2.0, true)
+		UiKit.disc(canvas, p, 3.5, Color("fff4d6"))
+
+func fit_font_size(text: String, width: float, largest: int, smallest: int) -> int:
+	var font_size = largest
+	while font_size > smallest and font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width:
+		font_size -= 1
+	return font_size
 
 func draw_level_card(canvas: Control, index: int) -> void:
 	var level: Dictionary = Campaign.LEVELS[index]
 	var open = campaign_state != null and campaign_state.is_unlocked(index)
 	var done = campaign_state != null and campaign_state.is_completed(index)
-	# Wide strips in portrait (avatar on the left), tall tiles in landscape (avatar on top).
-	var wide = canvas.size.x > canvas.size.y * 1.6
 	var beaten = skins_progress != null and skins_progress.is_unlocked(level.boss)
-	portrait(Vector2(56, canvas.size.y * 0.5) if wide else Vector2(canvas.size.x * 0.5, 56), CORAL, false, level.boss, canvas, not beaten)
-	var at = Vector2(116, 34) if wide else Vector2(12, 122)
-	var status = level.tag
-	if done:
-		status = "✓ " + level.tag
-	elif not open:
-		status = "BLOQUEADO"
-	canvas.draw_string(font_bold, at, "NÍVEL %02d" % (Campaign.menu_levels().find(index) + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, SUN if done else CYAN)
-	canvas.draw_string(font_bold, at + Vector2(0, 22 if wide else 19), level.name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15 if wide else 12, WHITE)
-	canvas.draw_string(font, at + Vector2(0, 44 if wide else 37), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 12 if wide else 10, SUN if done else MUTED)
+	var size_c: Vector2 = canvas.size
+	# The arena plan on the left, as tall as the card.
+	var map_rect = Rect2(Vector2(10, 10), Vector2(size_c.y * 0.72, size_c.y - 20))
+	draw_arena_map(canvas, map_rect, level, open)
+	# The boss on the right, inside the card, in a ring of the arena's colour.
+	var boss_c = Vector2(size_c.x - 58, size_c.y * 0.5)
+	UiKit.disc(canvas, boss_c, 44, Color(arena_tint(level), 0.16))
+	UiKit.ring(canvas, boss_c, 44, Color(arena_tint(level), 0.6))
+	var picture: Texture2D = robot_portrait(level.boss, false)
+	if picture != null:
+		var tone = Color.WHITE if beaten else Color(CORAL.darkened(0.55), 1.0)
+		canvas.draw_texture_rect(picture, Rect2(boss_c - Vector2(46, 50), Vector2(92, 92)), false, tone if open else Color(0.5, 0.52, 0.56, 0.7))
+	# The words between them, sized to fit.
+	var x0 = map_rect.end.x + 14
+	var width = boss_c.x - 52 - x0
+	var number = "NÍVEL %02d" % (Campaign.menu_levels().find(index) + 1)
+	canvas.draw_string(font_bold, Vector2(x0, 30), number, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.SUN_INK if done else UiKit.MINT_LIP)
+	var name = String(level.name).to_upper()
+	canvas.draw_string(font_bold, Vector2(x0, 58), name, HORIZONTAL_ALIGNMENT_LEFT, width, fit_font_size(name, width, 21, 13), WHITE)
+	canvas.draw_string(font_bold, Vector2(x0, 80), String(level.tag), HORIZONTAL_ALIGNMENT_LEFT, width, 14, UiKit.GOLD)
+	var boss_name = "BOSS · " + String(Skins.CATALOG[level.boss].name) if level.boss < Skins.CATALOG.size() else ""
+	canvas.draw_string(font, Vector2(x0, 101), boss_name, HORIZONTAL_ALIGNMENT_LEFT, width, 13, MUTED)
+	# Where you stand: done, next to play, or locked.
+	var chip_text = "✓ CONCLUÍDA" if done else ("JOGAR  ▶" if open else "BLOQUEADA")
+	var chip_color = SUN if done else (UiKit.MINT if open else UiKit.EMPTY)
+	var chip_w = font_bold.get_string_size(chip_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22
+	var chip = Rect2(Vector2(x0, size_c.y - 36), Vector2(chip_w, 26))
+	canvas.draw_style_box(style(chip_color, Color.TRANSPARENT, 13), chip)
+	canvas.draw_string(font_bold, chip.position + Vector2(11, 18), chip_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.INK)
 	if not open:
-		canvas.draw_rect(Rect2(Vector2.ZERO, canvas.size), Color(0.02, 0.05, 0.06, 0.55))
+		canvas.draw_rect(Rect2(Vector2.ZERO, size_c), Color(UiKit.NIGHT, 0.35))
 
 func choose_level(index: int) -> void:
 	if campaign_state == null or not campaign_state.is_unlocked(index):
@@ -2553,12 +2661,14 @@ func layout() -> void:
 	move_center = move_home
 	camera_home = Vector2(size.x - 18 - CAMERA_RADIUS, safe_top + 200)
 	var menu_height = menu.get_combined_minimum_size().y
-	levels_grid.columns = 2 if vertical else 5
-	var levels_width = minf(size.x - 48, 660)
+	# The arenas fill the screen: one column of wide cards on a phone, two on a wide screen.
+	var levels_width = minf(size.x - 32, 1100)
+	levels_grid.columns = 1 if levels_width < 900 else 2
+	var card_w = (levels_width - 44 - (levels_grid.columns - 1) * 12) / levels_grid.columns
 	for card in level_cards:
-		card.custom_minimum_size = Vector2((levels_width - 46) * 0.5, 104) if vertical else Vector2(164, 172)
-	levels_panel.size = levels_panel.get_combined_minimum_size().max(Vector2(levels_width if vertical else 0.0, 0))
-	levels_panel.position = thumb_panel_position(levels_panel.size)
+		card.custom_minimum_size = Vector2(card_w, 138)
+	levels_panel.size = Vector2(levels_width, size.y - safe_top - safe_bottom - 32)
+	levels_panel.position = Vector2((size.x - levels_width) * 0.5, safe_top + 16)
 	pvp_panel.size = pvp_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 	pvp_panel.position = thumb_panel_position(pvp_panel.size)
 	var shop_grid: GridContainer = shop_scroll.get_child(0)

@@ -381,6 +381,10 @@ func use_map(layout: Dictionary) -> void:
 	arena = ArenaView.new()
 	add_child(arena)
 	arena.build(layout)
+	# A new stadium starts on team 0's side. The PvP guest joins on the PvP map, which
+	# rebuilds the stadium after its seat was turned round: without this the guest saw its
+	# own pilot at the top of the screen.
+	arena.set_view_team(local_team if mode == "client" else 0)
 	video.apply(get_viewport(), arena)
 	hud.smooth = video.smooth_hud
 	hud.queue_redraw()
