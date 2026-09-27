@@ -124,7 +124,7 @@ func run() -> void:
 	check(hud.preview_index == 0 and hud.viewer_skin == 0 and is_instance_valid(hud.viewer_pilot), "Viewer opens on equipped pilot")
 	hud.preview_skin(2)
 	await process_frame
-	check(hud.viewer_skin == 2 and hud.viewer_pilot.has_node("Body/Spin") and hud.skin_name.text == "ÓRBITA", "Previewing Órbita updates 3D model and name")
+	check(hud.viewer_skin == 2 and hud.viewer_pilot.has_node("Body/Head/CrestMount/Spin") and hud.skin_name.text == "ÓRBITA", "Previewing Órbita updates 3D model and name")
 	check(hud.skin_thumbs.size() == Skins.CATALOG.size() and hud.viewer_bricks.size() == 2, "Shows all eleven skins and two exhibition bricks")
 	check(hud.skin_action.disabled and hud.skin_action.text == "VENCE ESTE PILOTO" and hud.skin_state.text.begins_with("BLOQUEADA"), "Locked skin displays victory requirement and disabled action")
 	check(hud.skins_button.get_meta("count", "") == "1/12", "The hangar key counts one unlocked skin")
