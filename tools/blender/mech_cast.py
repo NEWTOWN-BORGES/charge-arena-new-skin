@@ -2045,11 +2045,20 @@ def helio_shoulders(p):
         # Asa de penas de latão: charneira atrás do ombro e cinco penas em leque.
         root = at(m, side * 0.02, 0.1, 0.1)
         mtube(p, "metal", axis_frame(root, "z"), 0.026, 0.05, 12)
+        # O leque abre num plano varrido para trás (40°): de frente e de lado vê-se a asa
+        # inteira, sem pás largas de mais numa vista nem lâminas grossas na outra. Cada pena
+        # nasce da charneira e cresce para fora e para cima, no plano do leque.
+        sweep = math.radians(40)
+        out_dir = Vector((side * math.cos(sweep), 0.0, math.sin(sweep)))
+        normal = out_dir.cross(Vector((0.0, 1.0, 0.0))).normalized()
         for i in range(5):
-            ang = 20 + i * 14
-            fe = sub(T(*root), rot=(-20, 0, -side * ang))
-            # Pás em leque a abrir do ombro: largas vistas de frente, finas vistas de lado.
-            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, -0.02 - i * 0.012, 0.02) @ Matrix.Diagonal((0.13, 0.85, 0.035, 1.0)), 1.0, 0.26 - i * 0.025, 12)
+            ang = math.radians(20 + i * 14)
+            d = (out_dir * math.sin(ang) + Vector((0.0, 1.0, 0.0)) * math.cos(ang)).normalized()
+            # Uma esfera unitária esticada: meio comprimento ao longo da pena, meia largura e
+            # meia espessura de lado. As de fora são mais curtas.
+            half = 0.62 - i * 0.07
+            fe = frame(root + d * (half - 0.03), d, front=normal)
+            capsule(p, "trim" if i % 2 == 0 else "metal", fe @ Matrix.Diagonal((0.075, half, 0.018, 1.0)), 1.0, 1.0, 12)
         mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
         upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
