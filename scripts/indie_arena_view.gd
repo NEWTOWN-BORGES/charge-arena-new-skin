@@ -1904,11 +1904,11 @@ func meteor_fall(at: Vector2, radius: float, warm: bool) -> void:
 	var rock = Node3D.new()
 	add_child(rock)
 	rock.position = start
-	# The rock is the Blender kit's (fx_meteor), in the rubber finish of the robots.
+	# The rock is the Blender kit's (fx_meteor): dark stone with glowing veins.
 	var stone = Node3D.new()
 	rock.add_child(stone)
 	stone.scale = Vector3.ONE * radius * 1.1
-	Robots.prop(self, stone, "fx_meteor:" + str(warm), ["fx_meteor"], {"shell": Color("5b4f78") if warm else Color("4a3f6e"), "trim": color, "dark": Color("2a3140")})
+	Robots.prop(self, stone, "fx_meteor:" + str(warm), ["fx_meteor"], {"shell": Color("3b3438") if warm else Color("342f45"), "glow": color, "dark": Color("1e1a22"), "wear": 0.6})
 	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.45, Color(color, 0.3), true)
 	var velocity = (Vector3(at.x, 0.2, at.y) - start) / fall
 	effects.append({"node": rock, "v": velocity, "ttl": fall, "life": fall, "gravity": false, "base": Vector3.ONE, "keep": true, "spin": true})
@@ -2445,9 +2445,9 @@ func build_sentry(team: int) -> Node3D:
 	# ROSCA's workshop build: a round copper drum with a toothed gear collar, a domed head
 	# with a lit lens, and a riveter barrel with a coil spring out front. Tall enough not to
 	# be taken for a bumper.
-	# The Blender kit's sentry (fx_sentry_body / fx_sentry_gun): rubber cream body with the
-	# team's band and an orange collar, a lit lens, a barrel that recoils.
-	var paint = {"shell": Color("fff4e2"), "team": color, "trim": Color("ff7a3c"), "glow": color, "dark": Color("2a3140"), "metal": Color("9aa7b5")}
+	# The Blender kit's sentry (fx_sentry_body / fx_sentry_gun): armoured gunmetal, a band of
+	# the team's energy, a lit lens, a twin barrel that recoils.
+	var paint = {"shell": Color("4f5866"), "glow": color, "dark": Color("22262f"), "metal": Color("a3aebb"), "wear": 0.55}
 	Robots.prop(self, drum, "fx_sentry_body", ["fx_sentry_body"], paint.duplicate())
 	var gun = Node3D.new()
 	gun.name = "Gun"
@@ -2652,9 +2652,10 @@ func build_power_effects() -> void:
 		var walls = Node3D.new()
 		walls.name = "Walls"
 		root.add_child(walls)
-		# Rubber blocks from the Blender kit (fx_wall_block), laid end to end along each slab.
-		var wall_paint = {"shell": Color("fff4e2"), "team": CYAN if team == 0 else CORAL, "trim": Color("ff7a3c"),
-			"glow": Rules.power_color("walls"), "dark": Color("2a3140")}
+		# Steel blocks from the Blender kit (fx_wall_block), laid end to end along each slab,
+		# with the team's energy running along them.
+		var wall_paint = {"shell": Color("5b6573"), "metal": Color("9aa7b5"), "glow": CYAN if team == 0 else CORAL,
+			"dark": Color("262b36"), "wear": 0.55}
 		for slab in Rules.team_walls(team, map):
 			var a = Vector3(slab.a.x, 0.0, slab.a.y)
 			var b = Vector3(slab.b.x, 0.0, slab.b.y)

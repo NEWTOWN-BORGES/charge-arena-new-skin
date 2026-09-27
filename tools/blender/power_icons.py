@@ -82,13 +82,11 @@ def _(p):
 
 @icon("ghost")
 def _(p):
-    p.ball("shell", (0, 0.2, -0.35), (0.92, 0.92, 0.7), detail=32)
-    p.tube("shell", (0, -0.12, -0.35), 0.46, 0.62, detail=32)
+    p.ball("team", (0, 0.2, -0.35), (0.92, 0.92, 0.7), detail=32)
+    p.tube("team", (0, -0.12, -0.35), 0.46, 0.62, detail=32)
     for x in (-0.3, 0.0, 0.3):
-        p.ball("shell", (x, -0.44, -0.35), (0.32, 0.32, 0.34))
-    for x in (-0.17, 0.17):
-        p.ball("dark", (x, 0.18, -0.64), (0.17, 0.24, 0.1))
-    p.ball("label", (0, -0.03, -0.66), (0.14, 0.1, 0.06))
+        p.ball("team", (x, -0.44, -0.35), (0.32, 0.32, 0.34))
+
 
 
 @icon("laser")
@@ -241,10 +239,7 @@ def _(p):
         ang = math.radians(k * 36 + 18)
         p.wedge("team" if k % 2 else "shell", (math.cos(ang) * 0.6, math.sin(ang) * 0.6, -0.3), (0.2, 0.3, 0.16),
                 rot=(0, 0, math.degrees(ang) - 90), taper=0.0, radius=0.02)
-    p.ball("shell", (0, 0, -0.35), (0.84, 0.84, 0.6), detail=32)
-    for x in (-0.14, 0.14):
-        p.ball("dark", (x, 0.06, -0.62), (0.1, 0.14, 0.06))
-    p.ring("dark", (0, -0.09, -0.62), 0.13, 0.025, rot=(90, 0, 0), detail=16)
+    p.ball("glow", (0, 0, -0.35), (0.84, 0.84, 0.6), detail=32)
 
 
 @icon("meteors")
@@ -336,9 +331,10 @@ def _(p):
 
 # --- scene ------------------------------------------------------------------------------
 def disc(p):
-    """The fat rubber coin every icon stands on, facing the camera."""
-    p.tube("disc", (0, 0, 0.05), 0.92, 0.3, rot=(90, 0, 0), detail=48, bevel=0.1)
-    p.ring("rim", (0, 0, -0.1), 0.9, 0.07, rot=(90, 0, 0), detail=48, sides=10)
+    """The dark metal coin every icon stands on, facing the camera, with a lit rim."""
+    p.tube("disc", (0, 0, 0.05), 0.92, 0.26, rot=(90, 0, 0), detail=48, bevel=0.04)
+    p.ring("rim", (0, 0, -0.09), 0.88, 0.035, rot=(90, 0, 0), detail=48, sides=8)
+    p.ring("dark", (0, 0, -0.08), 0.8, 0.02, rot=(90, 0, 0), detail=48, sides=6)
 
 
 def shade(hex_value, k):
@@ -348,17 +344,22 @@ def shade(hex_value, k):
 
 def materials(color):
     base = rk.hex_rgb(color)
+    # Realistic and luminous: anodised metal in the power's colour, dark gunmetal, and the
+    # energy parts lit from inside.
+    steel = (0.62, 0.65, 0.7)
+    tinted = tuple(steel[i] * 0.45 + base[i] * 0.55 for i in range(3))
+    hot = tuple(min(1.0, v * 0.7 + 0.3) for v in base)
     table = {
-        "shell": (rk.hex_rgb(CREAM), 0.42, 0.0, 0.0),
-        "team": (base, 0.4, 0.0, 0.0),
-        "label": (shade(color, 0.62), 0.45, 0.0, 0.0),
-        "disc": (base, 0.5, 0.0, 0.0),
-        "rim": (shade(color, 0.55), 0.45, 0.0, 0.0),
-        "trim": (rk.hex_rgb(ORANGE), 0.42, 0.0, 0.0),
-        "dark": (rk.hex_rgb(DARK), 0.4, 0.1, 0.0),
-        "metal": ((0.62, 0.66, 0.72), 0.3, 0.8, 0.0),
-        "glow": (tuple(min(1.0, v * 0.6 + 0.4) for v in base), 0.3, 0.0, 3.0),
-        "beam": (base, 0.3, 0.0, 1.6),
+        "shell": (tinted, 0.28, 0.85, 0.0),
+        "team": (base, 0.3, 0.2, 2.2),
+        "label": (shade(color, 0.7), 0.3, 0.8, 0.4),
+        "disc": ((0.045, 0.05, 0.06), 0.35, 0.75, 0.0),
+        "rim": (base, 0.3, 0.0, 3.0),
+        "trim": (base, 0.3, 0.2, 1.6),
+        "dark": ((0.03, 0.033, 0.04), 0.4, 0.6, 0.0),
+        "metal": (steel, 0.25, 0.95, 0.0),
+        "glow": (hot, 0.3, 0.0, 5.0),
+        "beam": (base, 0.3, 0.0, 4.0),
     }
     mats = {}
     for role, (col, rough, metal, glow) in table.items():
@@ -388,7 +389,7 @@ def stage():
     scene.view_settings.look = "None"
     world = bpy.data.worlds.new("World")
     world.use_nodes = True
-    world.node_tree.nodes["Background"].inputs[0].default_value = (0.78, 0.84, 0.9, 1)
+    world.node_tree.nodes["Background"].inputs[0].default_value = (0.55, 0.6, 0.7, 1)
     world.node_tree.nodes["Background"].inputs[1].default_value = 0.75
     scene.world = world
     sun = bpy.data.objects.new("Sun", bpy.data.lights.new("Sun", "SUN"))

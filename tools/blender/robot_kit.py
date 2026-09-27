@@ -1185,46 +1185,53 @@ def goal_arch(p, number):
 
 part("goal_arch_01")(lambda p: goal_arch(p, "01"))
 
-# --- peças dos poderes (muralhas, sentinelas, meteoros), no aspeto de borracha da ilha ---
+# --- peças dos poderes (muralhas, sentinelas, meteoros): metal a sério com energia acesa ---
 @part("fx_wall_block")
 def _(p):
-    """Um bloco da muralha que sobe do chão: 0.5 de comprimento em X, 1.1 de alto, corpo
-    creme gordo, faixa na cor da equipa, tampa laranja e um fio de luz no topo."""
-    p.box("shell", (0, 0.5, 0), (0.48, 1.0, 0.34), radius=0.09)
-    p.box("team", (0, 0.32, 0), (0.5, 0.16, 0.36), radius=0.06)
-    p.box("trim", (0, 1.04, 0), (0.46, 0.12, 0.32), radius=0.05)
-    p.box("glow", (0, 1.11, 0), (0.4, 0.03, 0.1), radius=0.012)
+    """Um bloco da muralha que sobe do chão: 0.5 de comprimento em X, 1.1 de alto. Placas de
+    aço com rebites, um friso de energia na cor da equipa e um fio de luz no topo."""
+    p.box("shell", (0, 0.5, 0), (0.48, 1.0, 0.34), radius=0.03)
+    p.box("dark", (0, 0.06, 0), (0.5, 0.12, 0.36), radius=0.02)
+    p.box("glow", (0, 0.36, -0.172), (0.4, 0.07, 0.01), radius=0.004)
+    p.box("glow", (0, 0.36, 0.172), (0.4, 0.07, 0.01), radius=0.004)
+    p.box("metal", (0, 1.03, 0), (0.5, 0.08, 0.36), radius=0.02)
+    p.box("glow", (0, 1.08, 0), (0.42, 0.025, 0.08), radius=0.008)
+    for x in (-0.18, 0.18):
+        for y in (0.2, 0.86):
+            for z in (-0.172, 0.172):
+                p.ball("metal", (x, y, z), (0.035, 0.035, 0.02), detail=8)
 
 
 @part("fx_sentry_body")
 def _(p):
-    """A sentinela: base escura, corpo creme gordo com cinta da equipa e cabeça em cúpula
-    com a lente acesa. A arma é outra peça (roda sozinha)."""
-    p.tube("dark", (0, 0.1, 0), 0.5, 0.2, detail=24, bevel=0.05)
-    p.tube("trim", (0, 0.26, 0), 0.42, 0.12, detail=24, bevel=0.04)
-    p.tube("shell", (0, 0.58, 0), 0.32, 0.52, detail=24, bevel=0.1)
-    p.ring("team", (0, 0.46, 0), 0.33, 0.045, detail=24, sides=8)
-    p.ball("shell", (0, 0.88, 0), (0.62, 0.42, 0.62), detail=24)
-    p.ball("glow", (0, 0.92, 0.24), (0.18, 0.18, 0.12))
-    p.tube("metal", (0, 1.1, 0), 0.03, 0.22, detail=8)
-    p.ball("trim", (0, 1.22, 0), (0.08, 0.08, 0.08), detail=8)
+    """A sentinela: base de aço, corpo blindado com uma cinta de energia e a cabeça com a
+    lente acesa. A arma é outra peça (roda sozinha)."""
+    p.tube("dark", (0, 0.1, 0), 0.5, 0.2, detail=8, bevel=0.02)
+    p.tube("metal", (0, 0.25, 0), 0.42, 0.1, detail=8, bevel=0.02)
+    p.tube("shell", (0, 0.56, 0), 0.32, 0.5, detail=8, bevel=0.03)
+    p.ring("glow", (0, 0.44, 0), 0.325, 0.02, detail=8, sides=4)
+    p.ball("shell", (0, 0.86, 0), (0.6, 0.36, 0.6), detail=12)
+    p.box("dark", (0, 0.9, 0.2), (0.34, 0.14, 0.14), radius=0.03)
+    p.ball("glow", (0, 0.9, 0.27), (0.12, 0.12, 0.05))
+    p.tube("metal", (0.14, 1.08, -0.1), 0.02, 0.26, detail=6)
 
 
 @part("fx_sentry_gun")
 def _(p):
-    """O cano da sentinela, a apontar para +Z à altura 0.6."""
-    p.tube("dark", (0, 0.6, 0.46), 0.085, 0.6, rot=(90, 0, 0), detail=14, bevel=0.02)
-    p.tube("team", (0, 0.6, 0.72), 0.11, 0.1, rot=(90, 0, 0), detail=14, bevel=0.02)
-    for k in range(3):
-        p.ring("metal", (0, 0.6, 0.28 + k * 0.1), 0.1, 0.02, rot=(90, 0, 0), detail=14, sides=5)
+    """O cano duplo da sentinela, a apontar para +Z à altura 0.6, com a boca acesa."""
+    for x in (-0.07, 0.07):
+        p.tube("dark", (x, 0.6, 0.46), 0.05, 0.6, rot=(90, 0, 0), detail=10, bevel=0.01)
+        p.tube("glow", (x, 0.6, 0.77), 0.035, 0.02, rot=(90, 0, 0), detail=10)
+    p.box("metal", (0, 0.6, 0.26), (0.26, 0.16, 0.2), radius=0.03)
 
 
 @part("fx_meteor")
 def _(p):
-    """Uma rocha facetada de raio 0.5, com crateras claras: o fogo à volta é do jogo."""
+    """Uma rocha facetada de raio 0.5 com veios de lava acesos: o fogo à volta é do jogo."""
     p.ball("shell", (0, 0, 0), (1.0, 0.9, 0.95), detail=7)
+    # Veios de lava a brilhar entre as faces.
     for at, k in (((0.25, 0.2, -0.3), 0.26), ((-0.3, -0.05, -0.25), 0.2), ((0.05, -0.28, -0.3), 0.18), ((-0.1, 0.32, 0.2), 0.2)):
-        p.ball("trim", at, (k, k, k * 0.6), detail=8)
+        p.ball("glow", at, (k, k, k * 0.6), detail=8)
 
 
 part("goal_arch_02")(lambda p: goal_arch(p, "02"))
