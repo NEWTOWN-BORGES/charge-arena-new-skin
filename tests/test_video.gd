@@ -76,7 +76,9 @@ func run() -> void:
 	game._physics_process(0.1)
 	check(game.rules.snapshot() == before, "PvE simulation pauses while changing graphics settings")
 	game.hud.close_video()
-	check(not game.hud.video_overlay.visible and game.local_command().fire and game.hud.move_vector == Vector2.ZERO, "Closing settings hands the pilot back, firing on its own and standing still")
+	# Tap to shoot is the default: back from the settings the gun waits for a tap (the
+	# automatic one fires on its own), and the pilot stands still.
+	check(not game.hud.video_overlay.visible and game.local_command().fire == game.game_settings.auto_fire and game.hud.move_vector == Vector2.ZERO, "Closing settings hands the pilot back, standing still and firing as the setting says")
 	game.rules.phase = "play"
 	game.arena.capture_motion(game.rules)
 	game.rules.step(0.1, [{"move": Vector2.RIGHT}, {"move": Vector2.ZERO}])

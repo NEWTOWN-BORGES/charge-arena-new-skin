@@ -31,6 +31,8 @@ COLORS = {
     "sun_ray": "ffc82e", "meteors": "9f7cff", "thunder": "3fc8f0", "singularity": "ff3f5a",
     "sentries": "ff8a3d", "bloom": "6fd35a", "plunder": "ffb52e", "surge": "ff4fb8",
     "volley": "ff7a3c", "plating": "ffb81a",
+    "sniper": "e8d84a", "cluster": "ff8a3d", "drain": "b45cff", "ricochet": "2fd8a8", "emp": "5c96ff",
+    "mortar": "ff5c3d", "dome": "4fd0f0", "slow": "6fd86f", "sponge": "ffc233", "immune": "c8d2ff",
 }
 ICONS = {}
 
@@ -327,6 +329,94 @@ def _(p):
     p.ball("shell", (0, 0.04, -0.35), (0.9, 1.2, 0.6), detail=6)
     p.ball("team", (0, 0.04, -0.4), (0.62, 0.84, 0.5), detail=6)
     p.ball("glow", (-0.1, 0.2, -0.62), (0.1, 0.16, 0.05))
+
+
+@icon("sniper")
+def _(p):
+    # A scope: a long barrel through a ring of cross-hairs.
+    p.ring("shell", (0, 0, -0.35), 0.5, 0.07, rot=(90, 0, 0), detail=40, sides=10)
+    for rot in (0, 90):
+        p.box("team", (0, 0, -0.42), (1.1, 0.07, 0.07), radius=0.02, rot=(0, 0, rot))
+    p.tube("metal", (0.1, -0.1, -0.2), 0.08, 1.1, rot=(0, 0, 60), detail=14, bevel=0.02)
+    p.ball("glow", (0, 0, -0.5), (0.14, 0.14, 0.1))
+
+
+@icon("cluster")
+def _(p):
+    p.ball("shell", (0.18, 0.08, -0.35), (0.6, 0.6, 0.6), detail=20)
+    p.ring("team", (0.18, 0.08, -0.35), 0.3, 0.05, rot=(90, 0, 20), detail=24)
+    for k in range(5):
+        a = math.radians(150 + k * 22)
+        p.wedge("glow", (0.18 + math.cos(a) * 0.62, 0.08 + math.sin(a) * 0.62, -0.35), (0.14, 0.2, 0.1), rot=(0, 0, math.degrees(a) + 90), taper=0.0, radius=0.02)
+
+
+@icon("drain")
+def _(p):
+    p.ball("dark", (-0.42, -0.3, -0.35), (0.42, 0.42, 0.42), detail=20)
+    p.ring("label", (-0.42, -0.3, -0.35), 0.28, 0.04, rot=(90, 0, 0))
+    p.ball("team", (0.4, 0.3, -0.35), (0.5, 0.5, 0.5), detail=20)
+    pts = [(-0.3, -0.18, -0.4), (-0.12, 0.1, -0.5), (0.06, -0.02, -0.5), (0.24, 0.22, -0.45)]
+    p.path("glow", pts, [0.05, 0.06, 0.06, 0.05])
+
+
+@icon("ricochet")
+def _(p):
+    pts = [(-0.62, -0.5, -0.35), (-0.3, 0.45, -0.35), (0.05, -0.45, -0.35), (0.4, 0.45, -0.35)]
+    p.path("team", pts, [0.07, 0.07, 0.07, 0.07])
+    for x, y in ((-0.3, 0.55), (0.05, -0.55)):
+        p.box("shell", (x, y, -0.3), (0.34, 0.08, 0.2), radius=0.03)
+    p.ball("glow", (0.5, 0.58, -0.4), (0.2, 0.2, 0.2))
+
+
+@icon("emp")
+def _(p):
+    p.ring("team", (0, 0, -0.3), 0.62, 0.06, rot=(90, 0, 0), detail=40)
+    p.ring("label", (0, 0, -0.3), 0.44, 0.04, rot=(90, 0, 0), detail=32)
+    bolt(p, "glow", 0.7, (0, 0, -0.45))
+
+
+@icon("mortar")
+def _(p):
+    p.tube("shell", (-0.36, -0.36, -0.3), 0.17, 0.62, rot=(0, 0, -35), detail=16, bevel=0.03)
+    p.tube("dark", (-0.46, -0.58, -0.3), 0.3, 0.12, detail=16)
+    pts = []
+    for i in range(7):
+        t = i / 6
+        pts.append((-0.2 + t * 0.8, -0.1 + 0.9 * t * (1 - t) * 1.4, -0.4))
+    p.path("label", pts, [0.03] * 7)
+    p.ball("glow", (0.6, -0.1, -0.4), (0.22, 0.22, 0.22))
+
+
+@icon("dome")
+def _(p):
+    p.ball("team", (0, -0.2, -0.3), (1.3, 1.1, 0.6), detail=32)
+    for x in (-0.36, 0.0, 0.36):
+        brick(p, (x, -0.45, -0.5), 0.7, "shell")
+    p.box("dark", (0, -0.62, -0.3), (1.3, 0.1, 0.5), radius=0.04)
+
+
+@icon("slow")
+def _(p):
+    shape = [(-0.35, 0.55), (0.35, 0.55), (0.06, 0.02), (0.35, -0.55), (-0.35, -0.55), (-0.06, 0.02)]
+    prism(p, "shell", shape, 0.24, -0.35, 0.03)
+    p.ball("glow", (0, -0.36, -0.5), (0.3, 0.14, 0.1))
+    p.ball("glow", (0, 0.34, -0.5), (0.16, 0.08, 0.1))
+
+
+@icon("sponge")
+def _(p):
+    p.box("team", (0, -0.05, -0.3), (1.0, 0.8, 0.4), radius=0.14)
+    for x, y in ((-0.25, 0.1), (0.2, 0.2), (0.05, -0.2), (-0.28, -0.25), (0.32, -0.12)):
+        p.ball("dark", (x, y, -0.5), (0.13, 0.13, 0.05), detail=10)
+    p.ball("glow", (0.45, 0.45, -0.45), (0.18, 0.18, 0.18))
+
+
+@icon("immune")
+def _(p):
+    shape = [(-0.5, 0.55), (0.5, 0.55), (0.5, -0.05), (0.0, -0.62), (-0.5, -0.05)]
+    prism(p, "shell", shape, 0.26, -0.3, 0.06)
+    p.box("glow", (0, 0.02, -0.46), (0.14, 0.62, 0.06), radius=0.03)
+    p.box("glow", (0, 0.1, -0.46), (0.5, 0.14, 0.06), radius=0.03)
 
 
 # --- scene ------------------------------------------------------------------------------

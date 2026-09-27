@@ -989,6 +989,24 @@ func play_events() -> void:
 		elif event.kind == "plunder_land":
 			arena.plunder_land(event.team)
 			play_tone("power")
+		elif event.kind == "drain":
+			arena.drain_beam(event.get("from", event.p), event.p, bool(event.get("interrupted", false)))
+			if event.get("interrupted", false):
+				play_tone("void_burst")
+		elif event.kind == "emp":
+			arena.emp_flash(event.get("target", event.p))
+		elif event.kind == "mortar_launch":
+			arena.mortar_shell(event.p, event.target, float(event.get("flight", 0.9)))
+		elif event.kind == "mortar":
+			arena.explosion(event.p, float(event.get("radius", 1.0)))
+			arena.shake_level(GameFeel.Level.POWER)
+			play_tone("blast")
+		elif event.kind == "cluster":
+			arena.burst(event.p, Rules.power_color("cluster"), false)
+			play_tone("blast", -4.0)
+		elif event.kind == "absorb":
+			arena.burst(event.p, Rules.power_color("sponge"), false)
+			play_tone("shield", -3.0, true)
 		elif event.kind == "power_ready" and event.team == local_team:
 			play_tone("ready")
 		elif event.kind in ["brick", "brick_hit"]:

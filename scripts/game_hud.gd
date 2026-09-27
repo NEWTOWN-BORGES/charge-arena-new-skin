@@ -1920,6 +1920,100 @@ func draw_demo(panel: Control, id: String) -> void:
 			var wave = clampf(u / 0.45, 0, 1)
 			if u < 0.5:
 				c.draw_arc(my_pilot, 8 + wave * 210, 0, TAU, 64, Color(color, 1.0 - wave), 3.4, smooth)
+		"sniper":
+			# A fast round straight into the rival pilot, who drops.
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			var hit = minf(u / 0.3, 1.0)
+			c.draw_line(my_pilot, my_pilot.lerp(their_pilot, hit), Color(color, 0.5), 2.0, smooth)
+			if u < 0.3:
+				demo_ball(c, my_pilot.lerp(their_pilot, hit), color, 5.0)
+			dazed = u > 0.3
+			if dazed:
+				centered_on(c, "-2 · NO CHÃO", their_pilot + Vector2(34, 0), 12, color)
+		"cluster":
+			var shell_at = my_pilot.lerp(demo_brick_row(area, 4, true), minf(u / 0.45, 1.0))
+			demo_bricks(c, area, CORAL, enemy_y, [2, 3, 5, 6] if u > 0.7 else ([4] if u > 0.45 else []))
+			demo_bricks(c, area, CYAN, mine_y)
+			if u < 0.45:
+				demo_ball(c, shell_at, color, 8.0)
+			elif u < 0.75:
+				for k in range(6):
+					var d = Vector2(0, 1).rotated(lerpf(-1.3, 1.3, k / 5.0))
+					demo_ball(c, shell_at + d * (u - 0.45) * 160.0 * Vector2(1.6, 0.4), color, 3.5)
+		"drain":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			c.draw_arc(their_pilot, 22, 0, TAU * clampf(1.0 - u, 0, 1), 32, Color(CORAL, 0.8), 3.0, smooth)
+			for k in range(6):
+				var t = fmod(u * 2.0 + k / 6.0, 1.0)
+				c.draw_circle(their_pilot.lerp(my_pilot, t), 3.0, color, true, -1, smooth)
+			centered_on(c, "ULTIMATE INTERROMPIDA", Vector2(area.get_center().x, area.get_center().y), 12, color)
+		"ricochet":
+			demo_bricks(c, area, CORAL, enemy_y, [8] if u > 0.85 else [])
+			demo_bricks(c, area, CYAN, mine_y)
+			var path = [my_pilot, Vector2(area.position.x + 14, area.get_center().y + 20), Vector2(area.end.x - 14, area.get_center().y - 10), demo_brick_at(area, enemy_y, 8)]
+			var legs = u * 3.0
+			var leg = mini(int(legs), 2)
+			for k in range(leg + 1):
+				var to = path[k + 1] if k < leg else path[k].lerp(path[k + 1], legs - leg)
+				c.draw_line(path[k], to, Color(color, 0.8), 2.4, smooth)
+		"emp":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			if u < 0.4:
+				c.draw_rect(Rect2(Vector2(area.position.x + 20, enemy_y + 12), Vector2(area.size.x - 40, 6)), Color(Rules.power_color("mirror"), 0.8), true)
+			var pulse = clampf((u - 0.3) / 0.4, 0, 1)
+			if u > 0.3 and u < 0.75:
+				c.draw_arc(their_pilot, 10 + pulse * 120, 0, TAU, 48, Color(color, 1.0 - pulse), 3.0, smooth)
+			if u > 0.45:
+				centered_on(c, "ESPELHO DESLIGADO", Vector2(area.get_center().x, area.get_center().y), 12, color)
+		"mortar":
+			demo_bricks(c, area, CORAL, enemy_y, [4] if u > 0.75 else [])
+			demo_bricks(c, area, CYAN, mine_y)
+			c.draw_rect(Rect2(Vector2(area.position.x + 30, enemy_y + 14), Vector2(area.size.x - 60, 6)), Color(Rules.power_color("walls"), 0.8), true)
+			var t = minf(u / 0.75, 1.0)
+			var target = demo_brick_at(area, enemy_y, 4)
+			var arc_at = my_pilot.lerp(target, t) + Vector2(0, -sin(t * PI) * 70.0)
+			if u < 0.75:
+				demo_ball(c, arc_at, color, 6.0)
+			else:
+				c.draw_arc(target, 10 + (u - 0.75) * 120, 0, TAU, 32, Color(color, 1.0 - (u - 0.75) * 4.0), 3.0, smooth)
+		"dome":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			c.draw_arc(Vector2(area.get_center().x, mine_y + 14), area.size.x * 0.46, PI, TAU, 48, Color(color, 0.9), 3.0, smooth)
+			for k in range(4):
+				var fall = fmod(u * 1.4 + k * 0.25, 1.0)
+				var x = area.position.x + 40 + k * (area.size.x - 80) / 3.0
+				var y = lerpf(area.position.y + 4, mine_y - 40, fall)
+				c.draw_circle(Vector2(x, y), 5.0, Rules.power_color("meteors"), true, -1, smooth)
+			centered_on(c, "ULTIMATES NÃO PASSAM", Vector2(area.get_center().x, mine_y - 54), 11, color)
+		"slow":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			var half_y = area.get_center().y
+			c.draw_rect(Rect2(Vector2(area.position.x, half_y), Vector2(area.size.x, mine_y - half_y + 10)), Color(color, 0.14), true)
+			var rival_ball = u * 2.0 if u < 0.5 else 1.0 + (u - 0.5) * 0.9
+			demo_ball(c, their_pilot.lerp(demo_brick_row(area, 4, false), clampf(rival_ball / 1.45, 0, 1)), CORAL, 5.0)
+		"sponge":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			c.draw_rect(Rect2(Vector2(area.position.x + 20, mine_y - 10), Vector2(area.size.x - 40, 20)), Color(color, 0.22), true)
+			for k in range(3):
+				var t = fmod(u + k * 0.33, 1.0)
+				if t < 0.8:
+					demo_ball(c, their_pilot.lerp(demo_brick_row(area, 2 + k * 2, false), t / 0.8), CORAL, 4.5)
+				else:
+					centered_on(c, "+1", demo_brick_row(area, 2 + k * 2, false) + Vector2(0, -16), 12, color)
+		"immune":
+			demo_bricks(c, area, CORAL, enemy_y)
+			demo_bricks(c, area, CYAN, mine_y)
+			c.draw_arc(my_pilot, 20, 0, TAU, 32, Color(color, 0.9), 3.0, smooth)
+			if u < 0.5:
+				demo_ball(c, their_pilot.lerp(my_pilot, u * 2.0), Rules.power_color("freeze"), 6.0)
+			else:
+				centered_on(c, "IMUNE", my_pilot + Vector2(40, -6), 12, color)
 		_:
 			demo_bricks(c, area, CORAL, enemy_y)
 			demo_bricks(c, area, CYAN, mine_y)
@@ -2435,7 +2529,9 @@ func layout() -> void:
 	pvp_panel.size = pvp_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 	pvp_panel.position = thumb_panel_position(pvp_panel.size)
 	var shop_grid: GridContainer = shop_scroll.get_child(0)
-	shop_grid.columns = 2 if vertical else 3
+	# Three columns whenever the panel is wide enough: twenty-four powers in two left half
+	# the window empty.
+	shop_grid.columns = 3 if minf(size.x - 48, 640) >= 600 or not vertical else 2
 	if is_instance_valid(power_actions):
 		power_actions.columns = 2 if vertical else 4
 	# Leave room for the header, the demonstration, the description and the buttons.
@@ -3190,7 +3286,7 @@ func draw_powers() -> void:
 			UiKit.disc(self, center, span - 6, Color(color, 0.12 + 0.3 * wind))
 			UiKit.ring(self, center, span + 6 - wind * 10, Color(color, 0.9))
 		# Ready: the coin in full colour. Charging: dimmed, like a key not yet lit.
-		icon_marks.append([id, center + Vector2(0, -span * 0.24 + sink), Color.WHITE if ready or pressed else Color(0.6, 0.62, 0.7, 0.85), span / POWER_RADIUS])
+		icon_marks.append([id, center + Vector2(0, -span * 0.26 + sink), INK if ready or pressed else Color(WHITE, 0.8), span / POWER_RADIUS])
 		if ready and power_shop != null and not power_shop.tutorial_done:
 			coach_at = center
 		var caption = "PRONTO" if ready else "%d/%d" % [charge, cost]
@@ -3229,14 +3325,14 @@ func draw_power_coach(at: Vector2) -> void:
 # --- power icons, rendered in Blender (tools/blender/power_icons.py) -------------------------
 # Every icon is a rubber coin with its object on it. They are packed once into one atlas so the
 # keys stamp them in a single batch.
-const ICON_CELL = 128
 const POWER_ART = "res://art/ui/powers/%s.png"
 # The pilots' plain ultimates borrow the icon of the power they are built on.
 const ICON_OF = {"b_charge": "blast", "b_quick": "rapid", "b_fan": "air", "b_salvo": "volley", "b_hail": "meteors",
 	"b_spark": "thunder", "b_patch": "weld", "b_bar": "walls", "b_push": "stun", "b_slow": "freeze", "b_forge": "surge",
 	"b_aim": "magnet", "b_drill": "pierce"}
 static var power_art: Dictionary = {}
-var icon_atlas: Texture2D
+const SIGIL_CELL = 88
+var icon_sheet: SubViewport
 var icon_layer: Control
 var icon_cells: Dictionary = {}
 var icon_marks: Array = []
@@ -3251,44 +3347,49 @@ static func power_texture(id: String) -> Texture2D:
 	return power_art[key]
 
 func build_icon_sheet() -> void:
-	var ids: Array = []
+	# The match keys keep the drawn sigils (the Blender coins are the shop's): painted once,
+	# white, into an offscreen sheet, and stamped from it in one batch, tinted per key.
+	var ids: Array = [""]
 	for list in [Powers.CATALOG, Powers.ULTIMATES, Powers.BASIC_ULTIMATES]:
 		for entry in list:
 			if not ids.has(String(entry.id)):
 				ids.append(String(entry.id))
-	var atlas = Image.create(ICON_CELL * ids.size(), ICON_CELL, false, Image.FORMAT_RGBA8)
 	for index in range(ids.size()):
 		icon_cells[ids[index]] = index
-		var art = power_texture(ids[index])
-		if art == null:
-			continue
-		var picture: Image = art.get_image()
-		if picture.is_compressed():
-			picture.decompress()
-		picture.convert(Image.FORMAT_RGBA8)
-		picture.resize(ICON_CELL, ICON_CELL, Image.INTERPOLATE_LANCZOS)
-		atlas.blit_rect(picture, Rect2i(0, 0, ICON_CELL, ICON_CELL), Vector2i(index * ICON_CELL, 0))
-	atlas.generate_mipmaps()
-	icon_atlas = ImageTexture.create_from_image(atlas)
+	icon_sheet = SubViewport.new()
+	icon_sheet.transparent_bg = true
+	icon_sheet.disable_3d = true
+	icon_sheet.size = Vector2i(SIGIL_CELL * ids.size(), SIGIL_CELL)
+	icon_sheet.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var painter = Control.new()
+	painter.size = Vector2(icon_sheet.size)
+	painter.draw.connect(func():
+		for index in range(ids.size()):
+			power_icon(ids[index], Vector2(index * SIGIL_CELL + SIGIL_CELL * 0.5, SIGIL_CELL * 0.5), Color.WHITE, painter, 2.0, Color(1, 1, 1, 0.62), true))
+	icon_sheet.add_child(painter)
+	add_child(icon_sheet)
 	# The layer sits under every overlay, so the pause screen and the menus still cover it.
 	icon_layer = Control.new()
 	icon_layer.name = "PowerIcons"
 	icon_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# The sheet comes out of the viewport premultiplied: white strokes over clear black.
+	var blend = CanvasItemMaterial.new()
+	blend.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	icon_layer.material = blend
 	icon_layer.draw.connect(draw_icon_layer)
 	add_child(icon_layer)
 	move_child(icon_layer, 0)
 
 func draw_icon_layer() -> void:
-	if icon_atlas == null or mode == "menu":
+	if icon_sheet == null or mode == "menu":
 		return
+	var sheet = icon_sheet.get_texture()
 	for mark in icon_marks:
-		if not icon_cells.has(mark[0]):
-			continue
-		var cell: int = icon_cells[mark[0]]
-		var half = POWER_RADIUS * 0.5 * mark[3]
-		icon_layer.draw_texture_rect_region(icon_atlas, Rect2(mark[1] - Vector2.ONE * half, Vector2.ONE * half * 2.0), Rect2(cell * ICON_CELL, 0, ICON_CELL, ICON_CELL), mark[2])
+		var cell: int = icon_cells.get(mark[0], 0)
+		var tint: Color = mark[2]
+		var half = SIGIL_CELL * 0.25 * mark[3]
+		icon_layer.draw_texture_rect_region(sheet, Rect2(mark[1] - Vector2.ONE * half, Vector2.ONE * half * 2.0), Rect2(cell * SIGIL_CELL, 0, SIGIL_CELL, SIGIL_CELL), Color(tint.r * tint.a, tint.g * tint.a, tint.b * tint.a, tint.a))
 
 func match_loadout(t: int, index: int) -> String:
 	# The power on that button: empty while the skin ultimates are still to come.
@@ -3297,11 +3398,11 @@ func match_loadout(t: int, index: int) -> String:
 		return String(kits[t][index])
 	return ""
 
-func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = null, scale_value: float = 1.0, accent: Color = Color(BRASS, 0.85)) -> void:
+func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = null, scale_value: float = 1.0, accent: Color = Color(BRASS, 0.85), sigil: bool = false) -> void:
 	# One sigil per power, all drawn at the same weight inside a 26 px circle. `scale_value`
 	# blows the whole drawing up for the bigger keys without redrawing any of it.
 	var c: CanvasItem = canvas if canvas != null else self
-	var art = power_texture(id)
+	var art = null if sigil else power_texture(id)
 	if art != null:
 		# The Blender coin; a power not yet owned shows faded.
 		var r = 17.0 * scale_value
@@ -3309,7 +3410,7 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 		return
 	if not is_equal_approx(scale_value, 1.0):
 		c.draw_set_transform(center, 0.0, Vector2.ONE * scale_value)
-		power_icon(id, Vector2.ZERO, color, c, 1.0, accent)
+		power_icon(id, Vector2.ZERO, color, c, 1.0, accent, sigil)
 		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var brass = accent
@@ -3481,6 +3582,61 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 			c.draw_polyline(PackedVector2Array([center + Vector2(-12, 0), center + Vector2(-7, -9), center + Vector2(7, -9), center + Vector2(12, 0)]), color, 2.2, smooth)
 			c.draw_line(center + Vector2(-12, 0), center + Vector2(12, 0), brass, 1.6, smooth)
 			c.draw_polyline(PackedVector2Array([center + Vector2(9, -16), center + Vector2(4, -11), center + Vector2(11, -7)]), brass, 2.0, smooth)
+		"sniper":
+			# Marksman: cross-hairs on a long round.
+			c.draw_arc(center, 10.0, 0, TAU, 28, color, 2.0, smooth)
+			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+				c.draw_line(center + d * 6.0, center + d * 13.0, color, 2.0, smooth)
+			c.draw_circle(center, 2.4, brass, true, -1, smooth)
+		"cluster":
+			# Cluster: a shell with its shards flying back.
+			c.draw_circle(center + Vector2(3, 0), 5.5, color, true, -1, smooth)
+			for k in range(5):
+				var angle = PI * 0.7 + k * 0.3
+				var d = Vector2(cos(angle), sin(angle))
+				c.draw_circle(center + Vector2(3, 0) + d * 11.0, 1.8, brass, true, -1, smooth)
+		"drain":
+			# Drain: a stream pulled from one ring into another.
+			c.draw_arc(center + Vector2(-8, 5), 4.5, 0, TAU, 16, Color(color, 0.6), 1.6, smooth)
+			c.draw_circle(center + Vector2(8, -5), 5.0, color, true, -1, smooth)
+			c.draw_polyline(PackedVector2Array([center + Vector2(-5, 2), center + Vector2(-1, -3), center + Vector2(2, 0), center + Vector2(5, -4)]), brass, 2.0, smooth)
+		"ricochet":
+			# Ricochet: a zig-zag path off three walls.
+			c.draw_polyline(PackedVector2Array([center + Vector2(-12, 10), center + Vector2(-5, -9), center + Vector2(2, 9), center + Vector2(9, -9)]), color, 2.4, smooth)
+			c.draw_circle(center + Vector2(11, -11), 2.8, brass, true, -1, smooth)
+		"emp":
+			# EMP: a bolt inside a broken ring.
+			c.draw_arc(center, 11.0, 0.3, TAU - 0.3, 28, color, 2.0, smooth)
+			c.draw_polyline(PackedVector2Array([center + Vector2(2, -9), center + Vector2(-4, 1), center + Vector2(2, 1), center + Vector2(-2, 9)]), brass, 2.4, smooth)
+		"mortar":
+			# Mortar: an arc over a wall onto its mark.
+			c.draw_rect(Rect2(center + Vector2(-2, 2), Vector2(4, 9)), Color(brass, 0.7), true)
+			var arc = PackedVector2Array()
+			for k in range(9):
+				var t = k / 8.0
+				arc.append(center + Vector2(lerpf(-12, 12, t), 8.0 - 20.0 * t * (1.0 - t) * 2.0))
+			c.draw_polyline(arc, color, 2.0, smooth)
+			c.draw_circle(center + Vector2(12, 8), 2.8, color, true, -1, smooth)
+		"dome":
+			# Dome: a half shell over a row of bricks.
+			c.draw_arc(center + Vector2(0, 6), 12.0, PI, TAU, 24, color, 2.4, smooth)
+			c.draw_line(center + Vector2(-12, 6), center + Vector2(12, 6), brass, 2.0, smooth)
+			for x in [-7.0, 0.0, 7.0]:
+				c.draw_rect(Rect2(center + Vector2(x - 2.5, 1), Vector2(5, 4)), Color(color, 0.7), true)
+		"slow":
+			# Slow field: an hourglass.
+			c.draw_polyline(PackedVector2Array([center + Vector2(-8, -11), center + Vector2(8, -11), center + Vector2(-8, 11), center + Vector2(8, 11), center + Vector2(-8, -11)]), color, 2.0, smooth)
+			c.draw_circle(center + Vector2(0, 6), 2.6, brass, true, -1, smooth)
+		"sponge":
+			# Sponge: a block full of holes swallowing a round.
+			c.draw_rect(Rect2(center + Vector2(-10, -7), Vector2(20, 14)), Color(color, 0.8), false, 2.0)
+			for hole in [Vector2(-5, -2), Vector2(3, -3), Vector2(-1, 3), Vector2(6, 3)]:
+				c.draw_circle(center + hole, 1.6, brass, true, -1, smooth)
+		"immune":
+			# Immunity: a shield with a cross.
+			c.draw_polyline(PackedVector2Array([center + Vector2(-10, -10), center + Vector2(10, -10), center + Vector2(10, 1), center + Vector2(0, 12), center + Vector2(-10, 1), center + Vector2(-10, -10)]), color, 2.2, smooth)
+			c.draw_line(center + Vector2(0, -5), center + Vector2(0, 5), brass, 2.4, smooth)
+			c.draw_line(center + Vector2(-5, 0), center + Vector2(5, 0), brass, 2.4, smooth)
 		_:
 			# An empty slot: the skin ultimate, still to come.
 			var star = PackedVector2Array()

@@ -35,6 +35,27 @@ const CATALOG = [
 		"about": "Sete segundos com as tuas balas a curvar na direcção do tijolo inimigo mais próximo da rota delas. Salva o tiro que ia passar de raspão; não dispara por ti, uma bala apontada ao lado errado continua errada."},
 	{"id": "pierce", "short": "PERFURA", "name": "PERFURANTE", "kind": "ataque", "charge": 10, "wait": 17, "price": 400, "color": "ff8f6b",
 		"about": "Seis segundos com as balas a atravessar o tijolo que partem e a seguir caminho. Contra uma muralha de quatro fileiras, um tiro certeiro abre um corredor em vez de uma mossa."},
+	# The second shelf: answers to the ultimates and halves of combinations.
+	{"id": "sniper", "short": "CERTEIRO", "name": "TIRO CERTEIRO", "kind": "ataque", "charge": 8, "wait": 14, "price": 260, "color": "f5f07a",
+		"about": "Uma bala ao dobro da velocidade que tira 3 vidas ao tijolo e não ricocheteia. Se apanhar o piloto rival, tira-lhe 2 vidas e deixa-o no chão 1,2 segundos — o tempo certo para ele não disparar a ultimate que estava a carregar."},
+	{"id": "cluster", "short": "FRAGMENTA", "name": "FRAGMENTAÇÃO", "kind": "ataque", "charge": 7, "wait": 13, "price": 220, "color": "ffa35c",
+		"about": "Um obus lento que rebenta no primeiro sítio em que toca e lança seis estilhaços em leque para trás, um ricochete cada. Contra muralhas levantadas, os estilhaços voltam a entrar por cima."},
+	{"id": "drain", "short": "DRENO", "name": "DRENO", "kind": "ataque", "charge": 8, "wait": 18, "price": 380, "color": "c46bff",
+		"about": "Rouba 4 de carga à ultimate do rival e passa-a para a tua. Usado durante os dois segundos em que ele carrega a ultimate, interrompe-a: perde a ultimate e o tempo de espera."},
+	{"id": "ricochet", "short": "RICOCHETE", "name": "RICOCHETE", "kind": "ataque", "charge": 6, "wait": 11, "price": 180, "color": "5cf0c8",
+		"about": "Uma bala com quatro ricochetes extra que passa a tirar 2 vidas depois da primeira parede. Com o Íman, curva para os tijolos escondidos atrás dos pilares."},
+	{"id": "emp", "short": "EMP", "name": "PULSO EMP", "kind": "ataque", "charge": 10, "wait": 22, "price": 440, "color": "7fb2ff",
+		"about": "Desliga tudo o que o rival tem ligado — espelho, muralhas, couraça, espinhos, íman, cúpula, sobrecarga — e atrasa 5 segundos as habilidades dele. A resposta a uma defesa montada."},
+	{"id": "mortar", "short": "MORTEIRO", "name": "MORTEIRO", "kind": "ataque", "charge": 9, "wait": 16, "price": 340, "color": "ff7a5c",
+		"about": "Um tiro em arco por cima de muralhas, espelho e barreiras que cai no tijolo mais forte do fundo da muralha rival: 2 de dano em área. O espelho não o devolve e as muralhas não o param."},
+	{"id": "dome", "short": "CÚPULA", "name": "CÚPULA", "kind": "defesa", "charge": 8, "wait": 20, "price": 360, "color": "8fe8ff",
+		"about": "Seis segundos com a tua muralha debaixo de uma cúpula que anula todo o dano das ultimates: sol, meteoros, trovoada e as ondas da singularidade. Não pára as balas normais — é para a hora da ultimate."},
+	{"id": "slow", "short": "LENTO", "name": "CAMPO LENTO", "kind": "defesa", "charge": 7, "wait": 17, "price": 300, "color": "a0f0a0",
+		"about": "Seis segundos com as balas do rival a andar a metade da velocidade na tua metade do campo. Trava a metralhadora, a rajada e a sobrecarga, e dá tempo para te pores à frente."},
+	{"id": "sponge", "short": "ESPONJA", "name": "ESPONJA", "kind": "defesa", "charge": 7, "wait": 18, "price": 320, "color": "ffd35c",
+		"about": "Cinco segundos em que a tua muralha absorve as balas do rival em vez de levar dano, e cada bala absorvida carrega +1 em todos os teus botões. Quanto mais ele disparar, mais depressa chega a tua ultimate."},
+	{"id": "immune", "short": "IMUNE", "name": "IMUNIDADE", "kind": "defesa", "charge": 6, "wait": 18, "price": 240, "color": "f0f0ff",
+		"about": "Limpa o gelo de imediato — é a única habilidade que funciona congelado — e deixa-te imune a gelo e atordoamento durante 6 segundos: pulso de choque, tiro certeiro e o chão das ultimates."},
 ]
 # One ultimate per skin (see Skins.CATALOG["ultimate"]). They are never bought: the skin
 # brings its own, in the third slot, and all of them spend two seconds charging up first.

@@ -2,8 +2,8 @@
   "sample_rate": 32000,
   "channels": 2,
   "bits": 16,
-  "asset_count": 83,
-  "total_bytes": 6114372,
+  "asset_count": 93,
+  "total_bytes": 6985212,
   "maximum_peak_dbfs": -2.05,
   "assets": [
     {
@@ -586,6 +586,76 @@
       "peak_dbfs": -2.4,
       "rms_dbfs": -17.07,
       "sha256": "fc84a057157589e5a3e936e531d74f3987af3d4400991f410b322826b3280830"
+    },
+    {
+      "name": "ability_sniper.wav",
+      "seconds": 0.52,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -23.22,
+      "sha256": "34ab85d81c698cba70193e1d6d70be712c8443a5a878dbeafc2353e8515e4600"
+    },
+    {
+      "name": "ability_cluster.wav",
+      "seconds": 0.52,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -17.95,
+      "sha256": "ac01f31cdab81041aee7f572de3249ddb4761f8e2d20d1c6b174d3377ba87bdf"
+    },
+    {
+      "name": "ability_drain.wav",
+      "seconds": 0.72,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -13.26,
+      "sha256": "7e16c8ddf9c9f14465cc89712b872d157a4d2cabd82b8cfb104de4a8a1eac567"
+    },
+    {
+      "name": "ability_ricochet.wav",
+      "seconds": 0.52,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -17.55,
+      "sha256": "4e9b02d7668e02bf635e7ab58799836a17f249b05041b53617f594d514504627"
+    },
+    {
+      "name": "ability_emp.wav",
+      "seconds": 0.72,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -21.63,
+      "sha256": "f445f06c9bda6292d95b0270e2a325fa36e32319a7eb61924b85607ec9dd6908"
+    },
+    {
+      "name": "ability_mortar.wav",
+      "seconds": 0.82,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -16.69,
+      "sha256": "75fb375c8532cc86e5549e2acbd6fbbac98e8fb95ec227c03f788fcd34961a1c"
+    },
+    {
+      "name": "ability_dome.wav",
+      "seconds": 0.82,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -15.75,
+      "sha256": "0d9a76577e0d0aa01548ae33c3e068066ac11a6de04b4ed8cc94ef2de3d39b32"
+    },
+    {
+      "name": "ability_slow.wav",
+      "seconds": 0.82,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -16.34,
+      "sha256": "06a3c4cc5e7bf892781706516b965691161bc53a2e75191ce5370bffdc4c2ec1"
+    },
+    {
+      "name": "ability_sponge.wav",
+      "seconds": 0.52,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -18.72,
+      "sha256": "774dc8d9502d38cc93c2b6ff34993b1381b58bb503dad04d53828e2f306ceccb"
+    },
+    {
+      "name": "ability_immune.wav",
+      "seconds": 0.82,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -17.18,
+      "sha256": "5a88a5e4cfacb650444cc80bed8ea6083c91ae6092dbb52d2cc249e779c4e83c"
     }
   ]
 }

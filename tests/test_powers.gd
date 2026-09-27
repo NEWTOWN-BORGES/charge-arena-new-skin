@@ -92,7 +92,7 @@ func run() -> void:
 	# Charges: one per destroyed enemy brick, capped at each power's own cost.
 	var r = playing()
 	check(r.powers.size() == 2 and r.powers[0].charge == [0, 0, 0] and r.powers[0].destroyed == 0, "A match starts with every power empty")
-	check([cost(r, 0), cost(r, 1), cost(r, 2)] == [4, 6, 7] and Powers.CATALOG.size() == 14, "The fourteen powers charge at their own cost: blast 4, machine gun 6, air burst 7")
+	check([cost(r, 0), cost(r, 1), cost(r, 2)] == [4, 6, 7] and Powers.CATALOG.size() == 24 and Powers.CATALOG.filter(func(e): return e.kind == "ataque").size() >= 11, "The twenty-four powers charge at their own cost: blast 4, machine gun 6, air burst 7")
 	for i in range(3):
 		var index = first_brick(r, 1)
 		r.damage_brick(index, Rules.BRICK_LIVES, 0, r.bricks[index].p)

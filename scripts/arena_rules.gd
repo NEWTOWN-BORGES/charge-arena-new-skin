@@ -134,6 +134,24 @@ const TURRET_INTERVAL = FIRE_INTERVAL * 2.2
 const TURRET_SPOTS = [Vector2(-3.1, 0.0), Vector2(3.1, 0.0)]
 # Bloom heals two lives, and a brick already whole grows past the usual three.
 const BLOOM_HEAL = 2
+# The second shelf of the shop: six to attack and four to defend, each an answer to
+# something (an ultimate, a buff, a pilot) or half of a combination.
+const SNIPER_SPEED = 2.1
+const SNIPER_DAMAGE = 3
+const SNIPER_STUN = 1.2
+const CLUSTER_SHARDS = 6
+const CLUSTER_SPEED = 0.8
+const DRAIN_STEAL = 4
+const RICOCHET_EXTRA = 4
+const EMP_DELAY = 5.0
+const MORTAR_FLIGHT = 0.9
+const MORTAR_RADIUS = 1.05
+const MORTAR_DAMAGE = 2
+const DOME_SECONDS = 6.0
+const SLOW_SECONDS = 6.0
+const SLOW_FACTOR = 0.5
+const SPONGE_SECONDS = 5.0
+const IMMUNE_SECONDS = 6.0
 const BRICK_MAX_LIVES = 5
 const EXPLOSION_RADIUS = 1.65
 const EXPLOSION_DAMAGE = 2
@@ -198,7 +216,7 @@ const PIERCE_SECONDS = 6.0
 const THORNS_SECONDS = 8.0
 const THORNS_BITE = 1
 # How many numbers each side's power state takes in a network packet.
-const POWER_FIELDS = 21
+const POWER_FIELDS = 28
 # A shot ends on a target or after MAX_BOUNCES ricochets: walls, shields, boosters,
 # barriers and bumpers all reflect it. This lifetime is only a safety net for a shot caught in a repeating path
 # that would otherwise bounce for the rest of the match.
@@ -233,6 +251,8 @@ var timer = 2.5
 var winner = -1
 var next_id = 0
 var events: Array = []
+# True while an ultimate is striking the wall, so a dome can take the blow.
+var ultimate_blow = false
 var elapsed = 0.0
 var ai_target_angle = 0.0
 var ai_next_scan = 0.0
@@ -537,7 +557,8 @@ static func new_power_state() -> Dictionary:
 		"laser_time": 0.0, "laser_tick": 0.0, "mirror_time": 0.0, "walls_time": 0.0,
 		"surge_time": 0.0, "plating_time": 0.0, "plunder_time": 0.0,
 		"freeze_time": 0.0, "magnet_time": 0.0, "pierce_time": 0.0, "thorns_time": 0.0,
-		"ultimate_windup": 0.0, "ultimate_time": 0.0, "ultimate_tick": 0.0, "ultimate_shots": 0, "ultimate_id": ""}
+		"ultimate_windup": 0.0, "ultimate_time": 0.0, "ultimate_tick": 0.0, "ultimate_shots": 0, "ultimate_id": "",
+		"dome_time": 0.0, "slow_time": 0.0, "sponge_time": 0.0, "immune_time": 0.0, "mortar_time": 0.0, "mortar_x": 0.0, "mortar_y": 0.0}
 
 static func power_color(id: String) -> Color:
 	var entry: Dictionary = Powers.entry(id)
@@ -763,8 +784,12 @@ func step(dt: float, commands: Array) -> void:
 		# accumulated float residue would otherwise buy it one extra round.
 		var burst_left: float = powers[team].rapid_time - dt
 		powers[team].rapid_time = 0.0 if burst_left < dt * 0.5 else burst_left
-		for timer_name in ["ghost_time", "mirror_time", "walls_time", "surge_time", "plating_time", "freeze_time", "magnet_time", "pierce_time", "thorns_time"]:
+		for timer_name in ["ghost_time", "mirror_time", "walls_time", "surge_time", "plating_time", "freeze_time", "magnet_time", "pierce_time", "thorns_time", "dome_time", "slow_time", "sponge_time", "immune_time"]:
 			powers[team][timer_name] = maxf(0.0, powers[team][timer_name] - dt)
+		if powers[team].mortar_time > 0:
+			powers[team].mortar_time = maxf(0.0, powers[team].mortar_time - dt)
+			if powers[team].mortar_time <= 0:
+				mortar_land(team)
 		if powers[team].plunder_time > 0:
 			# The two walls land the moment the flight ends, and that is when the lives
 			# change hands: swapping them at take-off would give the theft away early.
@@ -836,7 +861,10 @@ func step(dt: float, commands: Array) -> void:
 					explode(ball)
 				balls.erase(ball)
 			else:
-				advance_ball(ball, dt, true)
+				# Slow field: the rival's rounds crawl through the defended half.
+				var defender: int = 1 - int(ball.owner)
+				var slowed: bool = powers[defender].slow_time > 0 and signf(ball.p.y) == signf(players[defender].p.y)
+				advance_ball(ball, dt * (SLOW_FACTOR if slowed else 1.0), true)
 
 func can_fire(team: int, dt: float = 0.0) -> bool:
 	# Whether a shot asked for on the tick about to run would leave the barrel. A tap is
@@ -855,7 +883,8 @@ func can_activate_power(team: int, index: int) -> bool:
 		return false
 	# Frozen solid: the pilot still walks and still shoots, both at half of nothing, but
 	# the kit is shut. Five seconds without a power is what makes the frost worth its cost.
-	if powers[team].freeze_time > 0:
+	if powers[team].freeze_time > 0 and power_id(team, index) != "immune":
+		# Immunity is the one way out of the frost, so it answers even frozen.
 		return false
 	# The bricks open it once; after that it is the clock that says when it comes back.
 	if powers[team].cool[index] > 0:
@@ -904,7 +933,8 @@ func activate_power(team: int, index: int) -> bool:
 			weld_bricks(team)
 		"freeze":
 			# The frost is set on the pilot that has to live with it, not on the one casting.
-			powers[1 - team].freeze_time = FREEZE_SECONDS
+			if powers[1 - team].immune_time <= 0:
+				powers[1 - team].freeze_time = FREEZE_SECONDS
 			events.append({"kind": "freeze", "team": 1 - team, "p": players[1 - team].p, "seconds": FREEZE_SECONDS})
 		"magnet":
 			powers[team].magnet_time = MAGNET_SECONDS
@@ -914,6 +944,46 @@ func activate_power(team: int, index: int) -> bool:
 		"thorns":
 			powers[team].thorns_time = THORNS_SECONDS
 			events.append({"kind": "thorns", "team": team, "p": p.p, "seconds": THORNS_SECONDS})
+		"sniper":
+			# One round, twice as fast, three lives and no ricochet; a pilot it hits goes down.
+			spawn_ball(team, assist_heading(team), 4, SNIPER_DAMAGE)
+			balls.back().v *= SNIPER_SPEED
+			balls.back().bounces = MAX_BOUNCES
+			p.cooldown = FIRE_INTERVAL
+			events.append({"kind": "shot", "p": p.p, "team": team, "power": 4})
+		"cluster":
+			# A slow shell that bursts into shards on whatever it touches first.
+			spawn_ball(team, assist_heading(team), 5, 1)
+			balls.back().v *= CLUSTER_SPEED
+			p.cooldown = FIRE_INTERVAL
+			events.append({"kind": "shot", "p": p.p, "team": team, "power": 5})
+		"drain":
+			drain_ultimate(team)
+		"ricochet":
+			# A round with four ricochets to spare, twice as hard once it has bounced.
+			spawn_ball(team, assist_heading(team), 6, 1)
+			balls.back().bounces = -RICOCHET_EXTRA
+			p.cooldown = FIRE_INTERVAL
+			events.append({"kind": "shot", "p": p.p, "team": team, "power": 6})
+		"emp":
+			emp_pulse(team)
+		"mortar":
+			launch_mortar(team)
+		"dome":
+			powers[team].dome_time = DOME_SECONDS
+			events.append({"kind": "dome", "team": team, "p": p.p, "seconds": DOME_SECONDS})
+		"slow":
+			powers[team].slow_time = SLOW_SECONDS
+			events.append({"kind": "slow_field", "team": team, "p": p.p, "seconds": SLOW_SECONDS})
+		"sponge":
+			powers[team].sponge_time = SPONGE_SECONDS
+			events.append({"kind": "sponge", "team": team, "p": p.p, "seconds": SPONGE_SECONDS})
+		"immune":
+			# Shakes off the frost and the daze, and nothing puts it down again for a while.
+			powers[team].immune_time = IMMUNE_SECONDS
+			powers[team].freeze_time = 0.0
+			p.stun = 0.0
+			events.append({"kind": "immune", "team": team, "p": p.p, "seconds": IMMUNE_SECONDS})
 		_:
 			if Powers.is_ultimate(id):
 				# Ultimates take two seconds of glow before they land.
@@ -1055,7 +1125,8 @@ func fire_ultimate(team: int) -> void:
 		"b_push":
 			shock_pulse(team)
 		"b_slow":
-			powers[1 - team].freeze_time = FREEZE_SECONDS * 1.2
+			if powers[1 - team].immune_time <= 0:
+				powers[1 - team].freeze_time = FREEZE_SECONDS * 1.2
 			events.append({"kind": "freeze", "team": 1 - team, "p": players[1 - team].p, "seconds": FREEZE_SECONDS * 1.2})
 		"b_forge":
 			state.surge_time = SURGE_SECONDS * 0.7
@@ -1071,6 +1142,7 @@ func fire_ultimate(team: int) -> void:
 			events.append({"kind": "plating", "team": team, "p": players[team].p, "seconds": PLATING_SECONDS, "gain": PLATING_SOAK})
 
 func sun_ray_bite(team: int) -> void:
+	ultimate_blow = true
 	# A band as wide as four bricks, straight out of the pilot and past the wall.
 	var origin: Vector2 = players[team].p
 	var heading: Vector2 = forward_direction(team, players[team].angle)
@@ -1087,6 +1159,7 @@ func sun_ray_bite(team: int) -> void:
 		if absf(offset.dot(side)) > SUN_RAY_HALF_WIDTH + brick_extent.x:
 			continue
 		damage_brick(index, SUN_RAY_DAMAGE, team, brick.p, true)
+	ultimate_blow = false
 	var enemy = 1 - team
 	var to_enemy: Vector2 = players[enemy].p - origin
 	if to_enemy.dot(heading) > 0 and absf(to_enemy.dot(side)) <= SUN_RAY_HALF_WIDTH:
@@ -1117,10 +1190,12 @@ func sky_strike(team: int, kind: String, damage: int, radius: float) -> void:
 
 func sky_hit(team: int, kind: String, damage: int, radius: float, at: Vector2) -> void:
 	var enemy = 1 - team
+	ultimate_blow = true
 	for index in range(bricks.size()):
 		var brick: Dictionary = bricks[index]
 		if brick.alive and brick.team != team and brick.p.distance_to(at) <= radius + brick_extent.x:
 			damage_brick(index, damage, team, brick.p, true)
+	ultimate_blow = false
 	if players[enemy].p.distance_to(at) <= radius:
 		ultimate_hit_player(enemy, damage, players[enemy].p)
 	events.append({"kind": kind, "team": team, "p": at, "radius": radius})
@@ -1254,7 +1329,9 @@ func shock_wave(team: int) -> void:
 		var bite: int = SHOCK_FRONT if int(rank) == 0 else (SHOCK_SECOND if int(rank) == 1 else SHOCK_REST)
 		for index in rows[rank]:
 			marks.append({"p": bricks[index].p, "bite": bite})
+			ultimate_blow = true
 			damage_brick(index, bite, team, bricks[index].p)
+			ultimate_blow = false
 	ultimate_hit_player(enemy, SHOCK_PLAYER, players[enemy].p)
 	for ball in balls:
 		if ball.get("held", false):
@@ -1406,7 +1483,8 @@ func shock_pulse(team: int) -> void:
 	# Sweeps the field clean and leaves the rival on the floor for a few seconds.
 	var enemy = 1 - team
 	balls.clear()
-	players[enemy].stun = maxf(players[enemy].stun, STUN_POWER_SECONDS)
+	if powers[enemy].immune_time <= 0:
+		players[enemy].stun = maxf(players[enemy].stun, STUN_POWER_SECONDS)
 	obstacle_stun = maxf(obstacle_stun, STUN_POWER_SECONDS)
 	events.append({"kind": "shock", "team": team, "p": players[team].p})
 	events.append({"kind": "stun", "team": enemy, "p": players[enemy].p})
@@ -1444,6 +1522,84 @@ static func team_walls(team: int, layout: Dictionary = {}) -> Array:
 		slabs.append({"a": Vector2(left, y), "b": Vector2(middle - WALL_SPLIT_GAP * 0.5, y)})
 		slabs.append({"a": Vector2(middle + WALL_SPLIT_GAP * 0.5, y), "b": Vector2(right, y)})
 	return slabs
+
+func drain_ultimate(team: int) -> void:
+	# Pulls charge out of the rival's ultimate into your own, and breaks a wind-up in half:
+	# the answer to an ultimate you can see coming.
+	var enemy = 1 - team
+	var steal: int = mini(DRAIN_STEAL, int(powers[enemy].charge[POWER_SLOTS - 1]))
+	powers[enemy].charge[POWER_SLOTS - 1] -= steal
+	var cost = power_charge_cost(team, POWER_SLOTS - 1)
+	if cost > 0:
+		powers[team].charge[POWER_SLOTS - 1] = mini(int(powers[team].charge[POWER_SLOTS - 1]) + steal, cost)
+	var broke: bool = powers[enemy].ultimate_windup > 0
+	if broke:
+		powers[enemy].ultimate_windup = 0.0
+		powers[enemy].ultimate_id = ""
+	events.append({"kind": "drain", "team": team, "p": players[team].p, "from": players[enemy].p, "stolen": steal, "interrupted": broke})
+
+func emp_pulse(team: int) -> void:
+	# Switches off everything the rival has running and sets the kit back: mirror, walls,
+	# plating, thorns, magnet, piercing, ghost rounds, overload, the new shields.
+	var enemy = 1 - team
+	for timer_name in ["mirror_time", "walls_time", "plating_time", "thorns_time", "magnet_time", "pierce_time", "ghost_time", "surge_time", "dome_time", "slow_time", "sponge_time", "immune_time", "rapid_time", "laser_time"]:
+		powers[enemy][timer_name] = 0.0
+	for slot in range(POWER_SLOTS - 1):
+		powers[enemy].cool[slot] += EMP_DELAY
+	events.append({"kind": "emp", "team": team, "p": players[team].p, "target": players[enemy].p})
+
+func launch_mortar(team: int) -> void:
+	# A shell lobbed over walls, mirror and barriers onto the rival's toughest brick at the
+	# back of the wall.
+	var enemy = 1 - team
+	var best: int = -1
+	var best_score: float = -INF
+	for index in range(bricks.size()):
+		var brick: Dictionary = bricks[index]
+		if not brick.alive or brick.team != enemy:
+			continue
+		var score: float = brick.hp * 10.0 + absf(brick.p.y)
+		if score > best_score:
+			best_score = score
+			best = index
+	var at: Vector2 = bricks[best].p if best >= 0 else goal_center(enemy) * 0.8
+	powers[team].mortar_time = MORTAR_FLIGHT
+	powers[team].mortar_x = at.x
+	powers[team].mortar_y = at.y
+	players[team].cooldown = FIRE_INTERVAL
+	events.append({"kind": "mortar_launch", "team": team, "p": players[team].p, "target": at, "flight": MORTAR_FLIGHT})
+
+func mortar_land(team: int) -> void:
+	var at = Vector2(powers[team].mortar_x, powers[team].mortar_y)
+	for index in range(bricks.size()):
+		var brick: Dictionary = bricks[index]
+		if brick.alive and brick.team != team and brick.p.distance_to(at) <= MORTAR_RADIUS:
+			damage_brick(index, MORTAR_DAMAGE, team, brick.p, true)
+	var enemy = 1 - team
+	if players[enemy].p.distance_to(at) <= MORTAR_RADIUS:
+		damage_player(enemy, MORTAR_DAMAGE, at)
+	events.append({"kind": "mortar", "team": team, "p": at, "radius": MORTAR_RADIUS})
+
+func cluster_burst(ball: Dictionary) -> void:
+	# The shell breaks into shards that fan out from where it struck, one bounce each.
+	var back: Vector2 = -ball.v.normalized()
+	for k in range(CLUSTER_SHARDS):
+		var heading: Vector2 = back.rotated(lerpf(-1.3, 1.3, k / float(CLUSTER_SHARDS - 1)))
+		while balls.size() >= MAX_BALLS:
+			balls.remove_at(0)
+		balls.append({"id": next_id, "owner": ball.owner, "p": ball.p + heading * 0.2, "v": heading * BALL_SPEED * 0.85, "bounces": MAX_BOUNCES - 1, "boosted": false, "damage": 1, "ttl": 0.9, "power": 7, "ghost": false})
+		next_id += 1
+	events.append({"kind": "cluster", "team": ball.owner, "p": ball.p})
+
+func absorb_ball(ball: Dictionary, defender: int) -> void:
+	# The sponge swallows the round and turns it into charge for every button.
+	for index in range(POWER_SLOTS):
+		var cost = power_charge_cost(defender, index)
+		if cost > 0 and powers[defender].charge[index] < cost:
+			powers[defender].charge[index] += 1
+			if powers[defender].charge[index] == cost:
+				events.append({"kind": "power_ready", "power": index, "team": defender, "p": players[defender].p})
+	events.append({"kind": "absorb", "team": defender, "p": ball.p})
 
 func rebuild_bricks(team: int) -> void:
 	# Bring fallen bricks back whole, starting with the ones closest to the goal.
@@ -1553,6 +1709,10 @@ func damage_brick(index: int, damage: int, owner: int, at: Vector2, mark: bool =
 	var brick: Dictionary = bricks[index]
 	if not brick.alive or brick.team == owner:
 		return
+	if ultimate_blow and powers[brick.team].dome_time > 0:
+		# The dome takes what an ultimate throws at the wall under it.
+		events.append({"kind": "brick_hit", "p": at, "team": brick.team, "soaked": true, "bite": 0, "brick_id": index, "heading": incoming, "defense_open": false})
+		return
 	# Crystal plating soaks a life off every blow that lands, whatever threw it.
 	var bite: int = maxi(0, damage - (PLATING_SOAK if powers[brick.team].plating_time > 0 else 0))
 	brick.hp = maxi(0, brick.hp - bite)
@@ -1568,7 +1728,7 @@ func ultimate_hit_player(team: int, damage: int, at: Vector2) -> void:
 	# What an ultimate does to a pilot it catches: the damage, and then a moment on the
 	# floor. Worth more than the life it takes, most of the time.
 	damage_player(team, damage, at)
-	if players[team].stun < ULTIMATE_STUN:
+	if players[team].stun < ULTIMATE_STUN and powers[team].immune_time <= 0:
 		players[team].stun = ULTIMATE_STUN
 		events.append({"kind": "stun", "p": at, "team": team})
 
@@ -1577,7 +1737,7 @@ func damage_player(team: int, damage: int, at: Vector2) -> void:
 		return
 	players[team].hp = maxi(0, players[team].hp - damage)
 	events.append({"kind": "player_hit", "p": at, "team": team})
-	if players[team].hp <= 0:
+	if players[team].hp <= 0 and powers[team].immune_time <= 0:
 		players[team].stun = STUN_SECONDS
 		events.append({"kind": "stun", "p": at, "team": team})
 
@@ -1830,6 +1990,10 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 			return {"kind": kind, "target": target, "damage": ball.get("damage", 1)}
 		match kind:
 			"brick":
+				if not preview and powers[bricks[target].team].sponge_time > 0:
+					absorb_ball(ball, bricks[target].team)
+					balls.erase(ball)
+					return {"kind": "absorbed", "target": target}
 				if powers[bricks[target].team].mirror_time > 0:
 					# The cape hands the shot back as a boosted round: faster, harder and
 					# out of ricochets, so it has to find a target on the way home.
@@ -1859,6 +2023,8 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					continue
 				if ball.get("power", 0) == 1:
 					explode(ball)
+				elif ball.get("power", 0) == 5 and not preview:
+					cluster_burst(ball)
 				balls.erase(ball)
 				return {"kind": kind, "target": target}
 			"turret":
@@ -1873,8 +2039,16 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 				# own shots are excluded from collision detection above.
 				if ball.get("power", 0) == 1:
 					explode(ball)
+				elif ball.get("power", 0) == 4:
+					# The marksman's round puts the pilot down.
+					damage_player(target, 2, ball.p)
+					if not preview and powers[target].immune_time <= 0 and players[target].stun < SNIPER_STUN:
+						players[target].stun = SNIPER_STUN
+						events.append({"kind": "stun", "p": ball.p, "team": target})
 				else:
 					damage_player(target, 1, ball.p)
+					if ball.get("power", 0) == 5 and not preview:
+						cluster_burst(ball)
 				balls.erase(ball)
 				return {"kind": kind, "target": target}
 			"goal":
@@ -1886,8 +2060,16 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 				balls.clear()
 				return {"kind": kind, "target": target}
 			"wall", "boost", "obstacle":
+				if ball.get("power", 0) == 5 and not preview:
+					# The shell does not bounce: it bursts on the first thing it meets.
+					cluster_burst(ball)
+					balls.erase(ball)
+					return {"kind": "spent"}
 				# Every surface reflects, up to MAX_BOUNCES: after that the shot fades.
 				ball.bounces += 1
+				if ball.get("power", 0) == 6:
+					# The ricochet round hits harder with every surface behind it.
+					ball.damage = 2
 				if ball.bounces > MAX_BOUNCES:
 					# Out of ricochets: the shot fades against this surface.
 					if preview:
@@ -2199,7 +2381,8 @@ func network_snapshot() -> Dictionary:
 		power_data.append_array([state.charge[0], state.charge[1], state.charge[2], state.cool[0], state.cool[1], state.cool[2], state.destroyed, state.rapid_time,
 			state.ghost_time, state.laser_time, state.mirror_time, state.walls_time, state.surge_time, state.plating_time,
 			state.plunder_time, state.freeze_time, state.magnet_time, state.pierce_time, state.thorns_time,
-			state.ultimate_windup, state.ultimate_time])
+			state.ultimate_windup, state.ultimate_time, state.dome_time, state.slow_time, state.sponge_time, state.immune_time,
+			state.mortar_time, state.mortar_x, state.mortar_y])
 	# Sentries: team, place, health and reload, so the client draws and predicts the same.
 	var turret_data = PackedFloat32Array()
 	for turret in turrets:
@@ -2252,6 +2435,13 @@ func apply_network_snapshot(data: Dictionary) -> bool:
 		powers[team].thorns_time = clampf(power_data[base + 18], 0, THORNS_SECONDS)
 		powers[team].ultimate_windup = clampf(power_data[base + 19], 0, ULTIMATE_WINDUP)
 		powers[team].ultimate_time = clampf(power_data[base + 20], 0, maxf(THUNDER_SECONDS, SINGULARITY_PULL))
+		powers[team].dome_time = clampf(power_data[base + 21], 0, DOME_SECONDS)
+		powers[team].slow_time = clampf(power_data[base + 22], 0, SLOW_SECONDS)
+		powers[team].sponge_time = clampf(power_data[base + 23], 0, SPONGE_SECONDS)
+		powers[team].immune_time = clampf(power_data[base + 24], 0, IMMUNE_SECONDS)
+		powers[team].mortar_time = clampf(power_data[base + 25], 0, MORTAR_FLIGHT)
+		powers[team].mortar_x = power_data[base + 26]
+		powers[team].mortar_y = power_data[base + 27]
 		powers[team].ultimate_id = power_id(team, 2)
 		var angle = clampf(player_data[team * 4], -track_limit, track_limit)
 		players[team].angle = angle

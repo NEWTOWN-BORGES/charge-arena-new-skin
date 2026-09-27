@@ -328,6 +328,57 @@ def plating():
     return mix(shimmer(0.7, [69, 76], 0.9, 4), clank(1200, 0.4) * 0.3, boom(0.3, 90, 50, 12) * 0.4)
 
 
+# --- the second shelf ---------------------------------------------------------------------
+def ability_sniper():
+    crack = band(noise(0.12), 1500, 7000) * env(0.12, 0.001, 45)
+    return mix(crack, boom(0.4, 160, 60, 10) * 0.7, at(0.5, whoosh(0.3, 3000, 800, rise=False) * 0.4, 0.05))
+
+
+def ability_cluster():
+    return mix(boom(0.5, 110, 50, 8) * 0.7, band(noise(0.3), 300, 2500) * env(0.3, 0.003, 12) * 0.6, clank(600, 0.25) * 0.3)
+
+
+def ability_drain():
+    t = t_of(0.7)
+    suck = hum(0.7, 140, 0.8, -0.6) * env(0.7, 0.05, 3.5)
+    return mix(lowpass(suck, 1200) * 0.7, whoosh(0.6, 2500, 250, rise=False) * 0.6)
+
+
+def ability_ricochet():
+    out = np.zeros(int(SR * 0.5))
+    for k, f in enumerate((900, 1100, 1300)):
+        out += at(0.5, clank(f, 0.15) * 0.35, k * 0.1)
+    return mix(out, whoosh(0.4, 600, 2500) * 0.4)
+
+
+def ability_emp():
+    return mix(boom(0.7, 90, 35, 5) * 0.9, crackle(0.6, 900, 900, 6000, 5) * 0.6, lowpass(hum(0.5, 60, 1.0), 900) * env(0.5, 0.005, 6) * 0.5)
+
+
+def ability_mortar():
+    thump = boom(0.4, 90, 45, 9)
+    return mix(thump, at(0.8, whoosh(0.6, 1500, 400, rise=False) * 0.5, 0.1))
+
+
+def ability_dome():
+    return mix(shimmer(0.8, [55, 62, 67], 1.0, 3), whoosh(0.7, 200, 1500) * 0.5, boom(0.4, 80, 50, 8) * 0.4)
+
+
+def ability_slow():
+    t = t_of(0.8)
+    wobble = hum(0.8, 90, 0.6, -0.4) * (0.7 + 0.3 * np.sin(2 * np.pi * 4 * t)) * env(0.8, 0.05, 3)
+    return mix(lowpass(wobble, 900) * 0.8, whoosh(0.7, 1200, 200, rise=False) * 0.4)
+
+
+def ability_sponge():
+    squelch = lowpass(noise(0.4), 700) * env(0.4, 0.01, 9)
+    return mix(squelch * 0.8, boom(0.35, 120, 70, 12) * 0.5, shimmer(0.5, [64, 71], 0.4, 6))
+
+
+def ability_immune():
+    return mix(shimmer(0.8, [60, 67, 72, 76], 1.0, 3), boom(0.3, 100, 60, 12) * 0.3, whoosh(0.6, 300, 2000) * 0.3)
+
+
 SOUNDS = {
     "charging": charging, "unleash": unleash, "power": power, "ready": ready,
     "ability_blast": ability_blast, "ability_rapid": ability_rapid, "ability_air": ability_air,
@@ -338,6 +389,10 @@ SOUNDS = {
     "sun_ray": sun_ray, "meteor": meteor, "thunder": thunder, "singularity": singularity,
     "void_wave": void_wave, "void_burst": void_burst, "sentries": sentries, "sentry": sentry,
     "bloom": bloom, "plunder": plunder, "surge": surge, "volley": volley, "plating": plating,
+    "ability_sniper": ability_sniper, "ability_cluster": ability_cluster, "ability_drain": ability_drain,
+    "ability_ricochet": ability_ricochet, "ability_emp": ability_emp, "ability_mortar": ability_mortar,
+    "ability_dome": ability_dome, "ability_slow": ability_slow, "ability_sponge": ability_sponge,
+    "ability_immune": ability_immune,
 }
 
 
@@ -345,6 +400,11 @@ def refresh_audit():
     path = os.path.join(OUT, "audit.json")
     with open(path) as f:
         audit = json.load(f)
+    known = {asset["name"] for asset in audit["assets"]}
+    for name in SOUNDS:
+        if name + ".wav" not in known:
+            audit["assets"].append({"name": name + ".wav"})
+    audit["asset_count"] = len(audit["assets"])
     for asset in audit["assets"]:
         file = os.path.join(OUT, asset["name"])
         with wave.open(file) as w:

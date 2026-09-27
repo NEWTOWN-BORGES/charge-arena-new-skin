@@ -106,7 +106,9 @@ func run() -> void:
 	check(hud.move_id == -1, "Touches over the stadium do not grab the stick")
 	touch(hud, 0, hud.move_home, true)
 	check(hud.move_id == 0, "The thumb grabs the stick in the vertical layout")
-	check(game.local_command().fire, "The pilot fires by itself in the vertical layout")
+	game.game_settings.auto_fire = true
+	check(game.local_command().fire, "With automatic fire on, the pilot fires by itself in the vertical layout")
+	game.game_settings.auto_fire = false
 	touch(hud, 0, hud.move_home, false)
 	check(hud.move_center == hud.move_home and hud.move_id == -1, "Releasing returns the stick to its resting place")
 

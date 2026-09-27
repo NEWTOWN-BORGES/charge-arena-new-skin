@@ -2,6 +2,16 @@ extends RefCounted
 ## Baked stereo cues; no synthesis or disk access on a gameplay frame.
 const TRACKS = {
 	"ability_air": preload("res://audio/sfx/premium/ability_air.wav"),
+	"ability_sniper": preload("res://audio/sfx/premium/ability_sniper.wav"),
+	"ability_cluster": preload("res://audio/sfx/premium/ability_cluster.wav"),
+	"ability_drain": preload("res://audio/sfx/premium/ability_drain.wav"),
+	"ability_ricochet": preload("res://audio/sfx/premium/ability_ricochet.wav"),
+	"ability_emp": preload("res://audio/sfx/premium/ability_emp.wav"),
+	"ability_mortar": preload("res://audio/sfx/premium/ability_mortar.wav"),
+	"ability_dome": preload("res://audio/sfx/premium/ability_dome.wav"),
+	"ability_slow": preload("res://audio/sfx/premium/ability_slow.wav"),
+	"ability_sponge": preload("res://audio/sfx/premium/ability_sponge.wav"),
+	"ability_immune": preload("res://audio/sfx/premium/ability_immune.wav"),
 	"ability_blast": preload("res://audio/sfx/premium/ability_blast.wav"),
 	"ability_freeze": preload("res://audio/sfx/premium/ability_freeze.wav"),
 	"ability_ghost": preload("res://audio/sfx/premium/ability_ghost.wav"),
