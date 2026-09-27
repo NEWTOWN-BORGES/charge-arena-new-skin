@@ -1554,7 +1554,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var swell: float = POWER_BALL_SCALE[clampi(kind, 0, POWER_BALL_SCALE.size() - 1)]
 		var charged = ball.get("boosted", false) or ball.get("amplified", false)
 		var orb: MeshInstance3D = node.get_node("Orb")
-		orb.scale = Vector3.ONE * (1.04 if charged else 0.78) * swell
+		# Small rubber balls: three quarters of the old energy orb.
+		orb.scale = Vector3.ONE * (0.8 if charged else 0.6) * swell
 		orb.material_override.set_shader_parameter("tint", color)
 		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
 		# The comet tail: short-lived glows left behind every frame by the GPU batch.
