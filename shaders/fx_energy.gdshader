@@ -1,0 +1,41 @@
+shader_type spatial;
+// The light of the powers and ultimates: every ring, beam, shell and bolt they are built from
+// is drawn as energy rather than a flat solid - added light, brightest on the edges it is seen
+// through, with a hot white core where it faces the camera and a live turbulence running
+// through it. `fade` dims it out as the effect ends.
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+
+uniform vec4 tint : source_color = vec4(0.5, 0.9, 1.0, 1.0);
+uniform float strength = 1.0;
+uniform float fade = 1.0;
+varying vec3 world_pos;
+
+float hash3(vec3 p) {
+	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+float noise3(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y);
+	float b = mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y);
+	return mix(a, b, f.z);
+}
+
+void vertex() {
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	float facing = abs(dot(normalize(NORMAL), VIEW));
+	float edge = pow(1.0 - facing, 1.6);
+	float core = pow(facing, 4.0);
+	float flow = noise3(world_pos * 3.2 + vec3(0.0, TIME * 2.6, TIME * 1.4));
+	float fine = noise3(world_pos * 9.0 - vec3(TIME * 3.0, 0.0, TIME * 2.0));
+	float live = 0.65 + 0.5 * flow + 0.25 * fine;
+	vec3 hot = mix(tint.rgb, vec3(1.0, 0.98, 0.94), 0.7);
+	// Layers of the same effect add up, so each one is kept well below white on its own.
+	ALBEDO = tint.rgb * (0.32 + 1.05 * edge) * live + hot * core * 0.22;
+	ALPHA = clamp(strength * fade * (0.5 + 0.4 * live), 0.0, 1.0);
+}

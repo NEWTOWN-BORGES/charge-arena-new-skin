@@ -3,8 +3,13 @@ extends RefCounted
 const SURFACES = {
 	"ceramic": [preload("res://art/materials/ceramic_albedo.png"), preload("res://art/materials/ceramic_roughness.png"), preload("res://art/materials/ceramic_normal.png")],
 	"alloy": [preload("res://art/materials/alloy_albedo.png"), preload("res://art/materials/alloy_roughness.png"), preload("res://art/materials/alloy_normal.png")],
-	"graphite": [preload("res://art/materials/graphite_albedo.png"), preload("res://art/materials/graphite_roughness.png"), preload("res://art/materials/graphite_normal.png")]
+	"graphite": [preload("res://art/materials/graphite_albedo.png"), preload("res://art/materials/graphite_roughness.png"), preload("res://art/materials/graphite_normal.png")],
+	"panel": [preload("res://art/materials/panel_albedo.png"), preload("res://art/materials/panel_roughness.png"), preload("res://art/materials/panel_normal.png")],
+	"grass": [preload("res://art/materials/grass_albedo.png"), preload("res://art/materials/grass_roughness.png"), preload("res://art/materials/grass_normal.png")],
+	"stone": [preload("res://art/materials/stone_albedo.png"), preload("res://art/materials/stone_roughness.png"), preload("res://art/materials/stone_normal.png")]
 }
+# How many metres one tile of each texture covers in the world.
+const TILE_METRES = {"panel": 2.0, "alloy": 1.5, "graphite": 1.2, "grass": 2.5, "stone": 3.0}
 static var studio_sky: Sky
 
 # The exposure and the colour push of version 3.8, the light the player chose.
@@ -82,8 +87,9 @@ static func fog(env: Environment, spec: Dictionary) -> void:
 	env.fog_sky_affect = 0.0
 
 static func surface(mat: StandardMaterial3D, quality: int) -> void:
-	# The studio finish: clean semi-matte paint with soft highlights, no grain or grime. Leve
-	# lights per vertex, which keeps the soft volume for almost nothing.
+	# Real surfaces for the worlds: every material gets the texture of what it is (painted
+	# plates, brushed metal, dark rubber, grass, rock), projected in world space so nothing
+	# stretches and one texture serves every colour. Leve lights per vertex and stays plain.
 	var luminous = bool(mat.get_meta("always_unshaded", false))
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if luminous else (BaseMaterial3D.SHADING_MODE_PER_VERTEX if quality == 0 else BaseMaterial3D.SHADING_MODE_PER_PIXEL)
 	if luminous:
@@ -92,13 +98,38 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 		mat.emission_energy_multiplier = 1.2 if mat.albedo_color.a >= 0.7 else 0.6
 		return
 	if mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED: return
-	var kind = "alloy" if mat.metallic > 0.5 else ("graphite" if mat.albedo_color.v < 0.35 else "ceramic")
+	var kind = surface_kind(mat)
 	mat.set_meta("surface_finish", kind)
-	mat.albedo_texture = null
-	mat.roughness_texture = null
-	mat.normal_enabled = false
-	mat.normal_texture = null
-	mat.roughness = 0.5 if kind == "graphite" else (0.34 if kind == "alloy" else 0.42)
-	mat.metallic = 0.82 if kind == "alloy" else (0.25 if kind == "graphite" else 0.0)
-	mat.metallic_specular = 0.5
+	mat.roughness = {"graphite": 0.5, "alloy": 0.26, "grass": 0.85, "stone": 0.8}.get(kind, 0.34)
+	mat.metallic = 0.85 if kind == "alloy" else (0.2 if kind == "graphite" else (0.15 if kind == "panel" else 0.0))
+	mat.metallic_specular = 0.55
 	mat.clearcoat_enabled = false
+	if quality == 0 or not SURFACES.has(kind):
+		mat.albedo_texture = null
+		mat.roughness_texture = null
+		mat.normal_enabled = false
+		mat.normal_texture = null
+		return
+	var maps: Array = SURFACES[kind]
+	mat.albedo_texture = maps[0]
+	mat.roughness_texture = maps[1]
+	mat.normal_enabled = true
+	mat.normal_texture = maps[2]
+	mat.normal_scale = 0.9
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3.ONE / float(TILE_METRES.get(kind, 2.0))
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+
+static func surface_kind(mat: StandardMaterial3D) -> String:
+	var c: Color = mat.albedo_color
+	if mat.metallic > 0.5:
+		return "alloy"
+	if c.v < 0.35:
+		return "graphite"
+	# Greens are grass; warm earth tones (cliffs, dirt, sand, rocks) are stone.
+	if c.h > 0.18 and c.h < 0.45 and c.s > 0.3:
+		return "grass"
+	if c.h > 0.03 and c.h < 0.16 and c.s > 0.2 and c.s < 0.75:
+		return "stone"
+	return "panel"

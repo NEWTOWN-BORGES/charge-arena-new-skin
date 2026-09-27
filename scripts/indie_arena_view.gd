@@ -1599,6 +1599,10 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			effect.v.y -= dt * 6
 		effect.node.position += effect.v * dt
 		var remaining = clampf(effect.ttl / effect.life, 0.001, 1)
+		if not effect.has("energy") and not effect.get("combat_finish", false) and not effect.get("pooled", false) and effect.get("lamp", 0.0) <= 0.0:
+			effect.energy = energize(effect.node)
+		for glow_material in effect.get("energy", []):
+			glow_material.set_shader_parameter("fade", remaining if effect.get("grow", false) or effect.get("keep", false) else 1.0)
 		if effect.get("combat_finish", false):
 			CombatFinish.animate(effect, remaining)
 		if effect.get("lamp", 0.0) > 0.0:
@@ -1609,7 +1613,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		elif effect.get("grow", false):
 			# Blast ring: opens outwards and fades instead of shrinking away.
 			effect.node.scale = effect.base * lerpf(0.25, 1.0, 1.0 - remaining)
-			effect.node.material_override = material(Color(effect.tint, snappedf(remaining, 0.1) * 0.9), true)
+			if effect.energy.is_empty():
+				effect.node.material_override = material(Color(effect.tint, snappedf(remaining, 0.1) * 0.9), true)
 		else:
 			effect.node.scale = effect.base * remaining
 		if effect.gravity:
@@ -1635,6 +1640,28 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 				effect.node.queue_free()
 			effects.remove_at(effect_index)
 
+
+const ENERGY = preload("res://shaders/fx_energy.gdshader")
+
+func energize(node: Node) -> Array:
+	# Turn the flat lit pieces of an effect (rings, beams, shells, bolts) into energy: see
+	# shaders/fx_energy.gdshader. Returns the materials, so the effect can fade them out.
+	var made: Array = []
+	var meshes: Array = node.find_children("*", "MeshInstance3D", true, false)
+	if node is MeshInstance3D:
+		meshes.append(node)
+	for piece in meshes:
+		var flat = piece.material_override
+		if not (flat is StandardMaterial3D) or not bool(flat.get_meta("always_unshaded", false)):
+			continue
+		var glow = ShaderMaterial.new()
+		glow.shader = ENERGY
+		var color: Color = flat.albedo_color
+		glow.set_shader_parameter("tint", Color(color.r, color.g, color.b, 1.0))
+		glow.set_shader_parameter("strength", maxf(color.a, 0.35))
+		piece.material_override = glow
+		made.append(glow)
+	return made
 
 func warm_shaders() -> void:
 	if not is_instance_valid(camera):
@@ -2624,7 +2651,13 @@ func update_power_effects(rules, dt: float) -> void:
 				charging.scale.y = 1.25 + 0.15 * sin(clock * 18)
 			for part in charging.get_children():
 				if part is MeshInstance3D:
-					part.material_override = material(Color(glow, snappedf(0.35 + 0.45 * wind, 0.05)), true)
+					var energy = part.material_override
+					if not (energy is ShaderMaterial and energy.shader == ENERGY):
+						energy = ShaderMaterial.new()
+						energy.shader = ENERGY
+						part.material_override = energy
+					energy.set_shader_parameter("tint", glow)
+					energy.set_shader_parameter("strength", 0.45 + 0.55 * wind)
 			if fmod(clock, 0.14) < dt:
 				# Embers pulled up into the pilot, faster as the moment approaches.
 				var ring_at = pilot + Vector2(cos(clock * 5.0), sin(clock * 5.0)) * lerpf(2.4, 0.8, wind)
@@ -2815,6 +2848,11 @@ func build_power_effects() -> void:
 			box(limb, Vector3(0.5, 0, 0), Vector3(1.0, 0.16, 0.16), Color(Rules.power_color("laser"), 0.85), true, 0.02)
 			box(limb, Vector3(0.5, 0, 0), Vector3(1.0, 0.34, 0.34), Color(Rules.power_color("laser"), 0.22), true, 0.02)
 		beam.hide()
+		# Everything these standing effects are built from is energy, not flat colour (the
+		# steel walls excepted).
+		for piece in root.get_children():
+			if piece.name != "Walls":
+				energize(piece)
 
 
 func world_at(screen: Vector2) -> Vector2:

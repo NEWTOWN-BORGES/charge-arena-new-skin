@@ -1,7 +1,8 @@
 shader_type spatial;
-// Robot parts in the studio look: smooth semi-matte paint with broad soft highlights on the
-// bevels, graphite chassis, polished metal joints, matte rubber and lit sensors. No ink line
-// and no grunge: a maintained competition machine under studio light.
+// Robot parts in the studio look, with real surfaces: glossy lacquered paint with a clear coat,
+// polished metal, graphite chassis and lit sensors. A fine grain in the finish (orange peel on
+// the paint, brushing on the metal) and a rim of light on the silhouettes keep them from
+// reading as matte rubber.
 render_mode diffuse_burley, specular_schlick_ggx;
 
 // Colour and finish come from the vertices (see robots.gd): rgb is the paint in linear
@@ -29,8 +30,25 @@ vec3 studio(vec3 paint, float finish) {
 	return x * ((min(peak, 0.72) + over / (1.0 + over / 0.24)) / max(peak, 1e-4));
 }
 
+varying vec3 model_normal;
+
 void vertex() {
 	model_position = VERTEX;
+	model_normal = NORMAL;
+}
+
+float hash3(vec3 p) {
+	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+float grain(vec3 p) {
+	// Value noise: the grain of the finish.
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y);
+	float b = mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y);
+	return mix(a, b, f.z);
 }
 
 void fragment() {
@@ -42,9 +60,15 @@ void fragment() {
 	bool dark = finish >= 0.48 && finish < 0.65;
 	// A breath of dust towards the feet grounds the figure without dirtying it.
 	float grime = smoothstep(0.5, 0.0, model_position.y) * 0.06 * (0.5 + wear);
-	ALBEDO = paint * (1.0 - grime);
-	METALLIC = metal ? 0.82 : (dark ? 0.3 : 0.0);
-	ROUGHNESS = metal ? 0.3 : (rubber ? 0.85 : (dark ? 0.52 : 0.4));
-	SPECULAR = rubber ? 0.3 : 0.5;
-	EMISSION = glow ? paint * 1.8 : vec3(0.0);
+	// Fine grain: orange peel on the paint, brushed streaks on the metal.
+	float fine = grain(model_position * 90.0);
+	float streak = grain(model_position * vec3(6.0, 140.0, 6.0));
+	float texture_amount = metal ? streak : fine;
+	ALBEDO = paint * (1.0 - grime) * (0.96 + 0.06 * texture_amount);
+	METALLIC = metal ? 0.9 : (dark ? 0.35 : 0.0);
+	ROUGHNESS = (metal ? 0.18 : (rubber ? 0.55 : (dark ? 0.34 : 0.2))) + (texture_amount - 0.5) * (metal ? 0.12 : 0.06);
+	SPECULAR = rubber ? 0.35 : 0.62;
+	// A clear-coat sheen on the silhouettes: the lacquer catching the sky.
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	EMISSION = glow ? paint * 1.8 : vec3(0.9, 0.95, 1.0) * rim * (rubber ? 0.03 : 0.1);
 }
