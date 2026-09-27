@@ -2486,7 +2486,9 @@ func layout_vertical(menu_height: float) -> void:
 		arena_rect = Rect2(left, top, size.x - left - 10, maxf(menu.position.y - 44 - top, 120))
 	else:
 		# Top match info band sits comfortably below the header buttons (bar_y = safe_top + 48)
-		var bar_y = safe_top + 48.0
+		# Measured from the buttons themselves: their theme makes them taller than asked, and
+		# a fixed offset let them sit over the rival's card.
+		var bar_y = maxf(safe_top + 48.0, maxf(back.get_rect().end.y, video_button.get_rect().end.y) + 6.0)
 		# Tall enough for a face you can actually see: the avatar is 40 across now.
 		var card_h = 96.0
 		var score_w = clampf(size.x * 0.25, 116.0, 150.0)

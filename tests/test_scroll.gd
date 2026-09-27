@@ -83,10 +83,8 @@ func run() -> void:
 	var bar: Control = hud.skin_progress
 	bar.visible = true
 	await settle()
-	for attempt in range(24):
-		if column.get_global_rect().has_point(bar.get_global_rect().get_center()): break
-		column.scroll_vertical += 40
-		await process_frame
+	column.ensure_control_visible(bar)
+	await settle()
 	check(bar.is_visible_in_tree() and bar.size.x > 100 and column.get_global_rect().has_point(bar.get_global_rect().get_center()), "The progress bar is showing inside the scrolling window")
 	check(gestures.find_scroll(bar.get_global_rect().get_center()) == column, "A drag starting on the progress bar still scrolls the column")
 	# Closing the panel drops the gesture instead of leaving it aimed at a hidden list.
@@ -102,10 +100,15 @@ func run() -> void:
 	await settle()
 	var slider: Control = hud.music_volume
 	var options: ScrollContainer = hud.options_scroll
+	# The volume is at the foot of the list: scrolled to, as a player would.
+	options.ensure_control_visible(slider)
+	await settle()
 	var on_slider: Vector2 = slider.get_global_rect().get_center()
 	check(options.get_global_rect().has_point(on_slider), "The volume slider sits inside the options list")
 	check(gestures.find_scroll(on_slider) == null, "A drag starting on the volume slider is left to the slider")
-	check(gestures.find_scroll(options.get_global_rect().get_center()) == options, "Elsewhere in the panel the list still takes the drag")
+	# On a caption, away from any slider or menu, the list takes the drag.
+	var caption: Control = slider.get_parent().get_child(0)
+	check(gestures.find_scroll(caption.get_global_rect().get_center()) == options, "Elsewhere in the panel the list still takes the drag")
 	hud.close_video()
 	print("SCROLL_RESULT ", checks - failures, "/", checks, " passed")
 	quit(1 if failures > 0 else 0)
