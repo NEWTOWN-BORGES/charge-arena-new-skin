@@ -1623,6 +1623,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if effect.get("spin", false):
 			effect.node.rotate_x(dt * 7.5)
 			effect.node.rotate_z(dt * 5.5)
+		if effect.get("spin_y", false):
+			effect.node.rotate_y(dt * 3.0)
 		if effect.get("blink", false):
 			# Lightning does not fade: it stutters and is gone.
 			effect.node.visible = fmod(effect.ttl, 0.07) > 0.025
@@ -1658,7 +1660,7 @@ func energize(node: Node) -> Array:
 		glow.shader = ENERGY
 		var color: Color = flat.albedo_color
 		glow.set_shader_parameter("tint", Color(color.r, color.g, color.b, 1.0))
-		glow.set_shader_parameter("strength", maxf(color.a, 0.35))
+		glow.set_shader_parameter("strength", color.a)
 		piece.material_override = glow
 		made.append(glow)
 	return made
@@ -2121,14 +2123,12 @@ func bloom_flash(positions: Array, heal: int) -> void:
 		var halo = torus(self, Vector3(at.x, 0.42, at.y), 0.38, 0.045, Color(color, 0.85), true)
 		effects.append({"node": halo, "v": Vector3(0, 1.3, 0), "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE * 1.5, "grow": true, "tint": color})
 		if index % 2 == 1 and effects.size() < effect_limit:
-			var sprout = Node3D.new()
-			add_child(sprout)
-			sprout.position = Vector3(at.x, 0.7, at.y)
-			for side in [-1.0, 1.0]:
-				var leaf = sphere(sprout, Vector3(side * 0.16, 0.08, 0), Vector3(0.3, 0.07, 0.16), color, true)
-				leaf.rotation.z = side * 0.5
-			sphere(sprout, Vector3(0, 0.2, 0), Vector3.ONE * 0.1, pale, true)
-			effects.append({"node": sprout, "v": Vector3(0, 1.1, 0), "ttl": 0.7, "life": 0.7, "gravity": false, "base": Vector3.ONE * 1.3})
+			# A shaft of green light stands up out of the brick as it heals.
+			var shaft = cylinder(self, Vector3(at.x, 1.0, at.y), 0.2, 2.0, Color(color, 0.55), true, 14)
+			effects.append({"node": shaft, "v": Vector3(0, 0.6, 0), "ttl": 0.75, "life": 0.75, "gravity": false, "base": Vector3.ONE, "keep": true})
+			if fx != null:
+				for k in range(3):
+					fx.emit("glow", Vector3(at.x + randf_range(-0.2, 0.2), 0.5, at.y + randf_range(-0.2, 0.2)), Vector3(0, randf_range(1.6, 2.6), 0), Color(pale, 0.9), 0.18, 0.02, 0.8)
 		if index % 2 == 0:
 			gain_mark(at, heal, color)
 
@@ -2143,6 +2143,10 @@ func surge_flash(at: Vector2) -> void:
 		var ring = torus(self, Vector3(at.x, 0.36 + step * 0.2, at.y), 0.5, 0.07, Color(color, 0.9), true)
 		ring.scale = Vector3.ONE * 0.25
 		effects.append({"node": ring, "v": Vector3(0, 0.7, 0), "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE * 3.2, "grow": true, "tint": color})
+	if effects.size() < effect_limit:
+		# A column of overload round the pilot, thinning out as it fades.
+		var aura = cylinder(self, Vector3(at.x, 1.1, at.y), 0.75, 2.2, Color(color, 0.5), true, 24)
+		effects.append({"node": aura, "v": Vector3(0, 0.4, 0), "ttl": 0.8, "life": 0.8, "gravity": false, "base": Vector3.ONE, "keep": true})
 	emitter(Vector3(at.x, 0.7, at.y), GOLD, 26, 0.9, 3.4, 70.0, 0.3, -1.6, Vector3.UP)
 	flash(Vector3(at.x, 1.3, at.y), color, 5.0, 0.6, 12.0)
 	shake(0.35)
@@ -2154,6 +2158,13 @@ func volley_flash(at: Vector2, heading: Vector2) -> void:
 	if effects.size() < effect_limit:
 		var arc = torus(self, Vector3(at.x, 0.45, at.y), 0.7, 0.05, Color(color, 0.85), true)
 		effects.append({"node": arc, "v": Vector3.ZERO, "ttl": 0.32, "life": 0.32, "gravity": false, "base": Vector3.ONE * 2.6, "grow": true, "tint": color})
+	# Five lances of light down the fan, gone as fast as they came.
+	for k in range(5):
+		if effects.size() >= effect_limit:
+			break
+		var dir = heading.rotated(lerpf(-0.42, 0.42, k / 4.0))
+		var lance = segment(self, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 0.8, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 4.2, 0.09, 0.09, Color(color, 0.8), true)
+		effects.append({"node": lance, "v": Vector3(dir.x, 0, dir.y) * 3.0, "ttl": 0.22, "life": 0.22, "gravity": false, "base": Vector3.ONE, "keep": true})
 	flash(Vector3(at.x, 0.9, at.y), color, 3.2, 0.3, 8.0)
 	for lane in [-0.45, 0.0, 0.45]:
 		if effects.size() >= effect_limit:
@@ -2390,6 +2401,18 @@ func plating_flash(team: int) -> void:
 	if count == 0:
 		return
 	middle /= count
+	# A faceted crystal of light rises over every other brick of the wall.
+	for i in range(brick_nodes.size()):
+		var node: Node3D = brick_nodes[i]
+		if not node.visible or (i < brick_nodes.size() / 2) != (team == 0) or i % 2 != 0 or effects.size() >= effect_limit:
+			continue
+		var crystal = Node3D.new()
+		add_child(crystal)
+		crystal.position = node.position + Vector3(0, 0.75, 0)
+		cone(crystal, Vector3(0, 0.14, 0), 0.14, 0.28, Color(color, 0.85), true, 6)
+		var under = cone(crystal, Vector3(0, -0.1, 0), 0.14, 0.2, Color(pale, 0.85), true, 6)
+		under.rotation.x = PI
+		effects.append({"node": crystal, "v": Vector3(0, 0.25, 0), "ttl": 0.9, "life": 0.9, "gravity": false, "base": Vector3.ONE, "keep": true, "spin_y": true})
 	var sheet = torus(self, Vector3(middle.x, 0.45, middle.y), 1.0, 0.08, Color(pale, 0.9), true)
 	effects.append({"node": sheet, "v": Vector3.ZERO, "ttl": 0.7, "life": 0.7, "gravity": false, "base": Vector3.ONE * 7.0, "grow": true, "tint": color})
 	flash(Vector3(middle.x, 1.2, middle.y), color, 5.0, 0.6, 13.0)
@@ -2421,16 +2444,11 @@ func plunder_flash(team: int) -> void:
 		add_child(curtain)
 		curtain.position = Vector3(0, 0, side * Rules.HALF_LENGTH * 0.7)
 		var span: float = Rules.side_x(map.get("outline", "hex"), Rules.narrow_of(map)) * 2.0
-		var rope = cylinder(curtain, Vector3(0, 1.2, 0), 0.04, span, Color("c2472e", 0.9), false, 8)
-		rope.rotation.z = PI * 0.5
-		var coins = int(span / 0.55)
-		for k in range(coins):
-			var x = -span * 0.5 + (k + 0.5) * span / coins
-			var coin = cylinder(curtain, Vector3(x, 0.45 + 0.55 * abs(sin(k * 1.7)), 0), 0.2, 0.05, Color(color, 0.95), true, 16)
-			coin.rotation = Vector3(PI * 0.5, 0, k * 0.6)
-		var hook = torus(curtain, Vector3(0, 0.75, 0), 0.4, 0.06, Color(color, 0.95), true)
-		hook.rotation.x = PI * 0.5
-		hook.scale = Vector3(1.0, 1.0, 1.4)
+		# A wall of light sweeping across the arena: a bright leading edge on top, a veil
+		# under it and a glow where it touches the floor.
+		box(curtain, Vector3(0, 0.85, 0), Vector3(span, 1.7, 0.1), Color(color, 0.45), true, 0.02)
+		box(curtain, Vector3(0, 0.85, 0), Vector3(span, 1.9, 0.35), Color(color, 0.18), true, 0.02)
+		segment(curtain, Vector3(-span * 0.5, 1.72, 0), Vector3(span * 0.5, 1.72, 0), 0.08, 0.08, Color(pale, 0.95), true)
 		box(curtain, Vector3(0, 0.05, 0), Vector3(span, 0.04, 1.6), Color(pale, 0.5), true, 0.02)
 		effects.append({"node": curtain, "v": Vector3(0, 0, -side * 9.0), "ttl": 0.62, "life": 0.62, "gravity": false, "base": Vector3.ONE, "keep": true})
 		emitter(Vector3(0, 0.6, side * Rules.HALF_LENGTH * 0.7), pale, 22, 0.7, 3.0, 85.0, 0.34, -1.2, Vector3.UP)

@@ -1,9 +1,10 @@
 shader_type spatial;
 // The light of the powers and ultimates: every ring, beam, shell and bolt they are built from
-// is drawn as energy rather than a flat solid - added light, brightest on the edges it is seen
-// through, with a hot white core where it faces the camera and a live turbulence running
-// through it. `fade` dims it out as the effect ends.
-render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+// is drawn as energy rather than a flat solid - saturated light, densest on the edges it is
+// seen through, a hot pale core where it faces the camera and a live turbulence running
+// through it. Blended rather than added, so it still reads over the bright arenas, where
+// added light washes out. `fade` dims it out as the effect ends.
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 
 uniform vec4 tint : source_color = vec4(0.5, 0.9, 1.0, 1.0);
 uniform float strength = 1.0;
@@ -34,8 +35,11 @@ void fragment() {
 	float flow = noise3(world_pos * 3.2 + vec3(0.0, TIME * 2.6, TIME * 1.4));
 	float fine = noise3(world_pos * 9.0 - vec3(TIME * 3.0, 0.0, TIME * 2.0));
 	float live = 0.65 + 0.5 * flow + 0.25 * fine;
-	vec3 hot = mix(tint.rgb, vec3(1.0, 0.98, 0.94), 0.7);
-	// Layers of the same effect add up, so each one is kept well below white on its own.
-	ALBEDO = tint.rgb * (0.32 + 1.05 * edge) * live + hot * core * 0.22;
-	ALPHA = clamp(strength * fade * (0.5 + 0.4 * live), 0.0, 1.0);
+	// Saturated body, a bright centre where it faces the camera, soft edges: a beam of light,
+	// not a milky tube.
+	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
+	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.45), 0.0, 1.0);
+	vec3 hot = mix(vivid, vec3(1.0, 0.98, 0.92), 0.75);
+	ALBEDO = mix(vivid * (0.8 + 0.45 * live), hot, clamp(core * 0.7, 0.0, 1.0));
+	ALPHA = clamp(strength * fade * (0.22 + 0.7 * core + 0.35 * edge * live), 0.0, 1.0);
 }
