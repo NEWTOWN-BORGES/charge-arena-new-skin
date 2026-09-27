@@ -10,7 +10,13 @@ const TOWER_HALF_WIDTH = 5.3
 # Everything scales together, so the arena keeps its character — only its proportions change.
 const TALL_NARROW = 0.71
 const HALF_WIDTH = 6.0 * MAP_SCALE
-const HALF_LENGTH = 6.93 * MAP_SCALE
+const BASE_HALF_LENGTH = 6.93 * MAP_SCALE
+# The field's half length. A map may stretch it ("stretch" in its layout); the arena being
+# played sets it, and the renderer and the rules read the same value.
+static var HALF_LENGTH: float = BASE_HALF_LENGTH
+
+static func apply_stretch(layout: Dictionary) -> void:
+	HALF_LENGTH = BASE_HALF_LENGTH * float(layout.get("stretch", 1.0))
 const GOAL_RADIUS = 1.65
 # The pilot's rail is an ellipse, not a circle: wide across the arena and shallow into it.
 # A circle of radius 2.6 could never put the pilot further than 2.6 from the middle, no
@@ -234,7 +240,7 @@ const AI_LEVELS = [
 	{"fire_gap": 0.0, "move": 1.0, "dodge": true, "power_gap": 0.5, "ultimate_wait": 2.5, "charge_tick": 0.55, "ultimate_gap": 9.0, "ultimate_rate": 2.0},
 ]
 const AI_POWER_GAP = 5.0
-const WALLS = [Vector2(0, -HALF_LENGTH), Vector2(HALF_WIDTH, -HALF_LENGTH / 2), Vector2(HALF_WIDTH, HALF_LENGTH / 2), Vector2(0, HALF_LENGTH), Vector2(-HALF_WIDTH, HALF_LENGTH / 2), Vector2(-HALF_WIDTH, -HALF_LENGTH / 2)]
+const WALLS = [Vector2(0, -BASE_HALF_LENGTH), Vector2(HALF_WIDTH, -BASE_HALF_LENGTH / 2), Vector2(HALF_WIDTH, BASE_HALF_LENGTH / 2), Vector2(0, BASE_HALF_LENGTH), Vector2(-HALF_WIDTH, BASE_HALF_LENGTH / 2), Vector2(-HALF_WIDTH, -BASE_HALF_LENGTH / 2)]
 # Inner rounded walls: half thickness of the visible barrier.
 const BARRIER_RADIUS = 0.16
 
@@ -326,6 +332,24 @@ static func quick_map(world: String) -> Dictionary:
 		layout.id = "torre_" + world
 	return layout
 
+static func test_map() -> Dictionary:
+	# The test arena: longer (stretch), a wall five rows deep, blockers in front of each wall
+	# to find a lane around, and two gold boost bumpers in the middle that a straight shot can
+	# reach - a round that bounces off one leaves boosted. Just the floor, nothing around it.
+	return {
+		"id": "teste", "name": "Arena de Teste", "tall": true, "lean": true, "outline": "colosseum", "stretch": 1.15,
+		"boosters": true, "bricks": "deep", "barriers": [], "bare": true,
+		"obstacles": [
+			{"kind": "fixed", "center": Vector2(-3.2, 1.8), "radius": 0.5, "boost": true},
+			{"kind": "fixed", "center": Vector2(3.2, -1.8), "radius": 0.5, "boost": true},
+			{"kind": "fixed", "center": Vector2(-2.6, 3.4), "radius": 0.42},
+			{"kind": "fixed", "center": Vector2(2.6, 3.4), "radius": 0.42},
+			{"kind": "fixed", "center": Vector2(-2.6, -3.4), "radius": 0.42},
+			{"kind": "fixed", "center": Vector2(2.6, -3.4), "radius": 0.42},
+			{"kind": "orbit", "center": Vector2(0, 0), "travel": 1.0, "frequency": 0.4, "phase": 0.0, "radius": 0.4},
+		],
+	}
+
 static func pvp_map() -> Dictionary:
 	return {
 		"id": "colosseum", "name": "Coliseu Retangular", "tall": true, "lean": true, "outline": "colosseum", "boosters": true, "bricks": "colosseum", "barriers": [],
@@ -338,6 +362,7 @@ static func pvp_map() -> Dictionary:
 
 func set_map(new_map: Dictionary) -> void:
 	map = new_map
+	apply_stretch(map)
 	walls = map_outline(map)
 	boost_centers = booster_centers(map)
 	barriers = map_barriers(map)
@@ -632,7 +657,7 @@ func reset_round() -> void:
 	var specs: Array = obstacle_specs
 	for i in range(specs.size()):
 		var pos = obstacle_at(i, 0)
-		obstacles.append({"id": i, "p": pos, "previous": pos, "v": Vector2.ZERO, "radius": specs[i].get("radius", OBSTACLE_RADIUS)})
+		obstacles.append({"id": i, "p": pos, "previous": pos, "v": Vector2.ZERO, "radius": specs[i].get("radius", OBSTACLE_RADIUS), "boost": specs[i].get("boost", false)})
 	phase = "countdown"
 	timer = 2.5
 	events.clear()
@@ -686,6 +711,11 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 				# Four unbroken rows in front of the goal: a lane has to be carved first,
 				# and carving one takes four bricks and not two.
 				for row in range(4):
+					for column in range(14):
+						add_brick(result, team, -1 if column < 7 else 1, Vector2((column - 6.5) * 0.72, goal.y - sign_y * (3.7 + row * 0.38)), 0.0, lives)
+			"deep":
+				# Five unbroken rows (the test arena): one more to carve through than "wall".
+				for row in range(5):
 					for column in range(14):
 						add_brick(result, team, -1 if column < 7 else 1, Vector2((column - 6.5) * 0.72, goal.y - sign_y * (3.7 + row * 0.38)), 0.0, lives)
 			"arc":
@@ -1885,6 +1915,7 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 		var travel: Vector2 = ball.v * remaining
 		var best = 1.01
 		var kind = ""
+		var struck_boost := false
 		var target = -1
 		var normal = Vector2.ZERO
 		var surface_velocity = Vector2.ZERO
@@ -1944,6 +1975,7 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 			if t >= 0 and t < best:
 				best = t
 				kind = "obstacle"
+				struck_boost = obstacle.get("boost", false)
 				normal = (start + travel * t - (obstacle_start + movement * t)).normalized()
 				surface_velocity = movement / remaining if preview else (obstacle.v if sweep_obstacles else Vector2.ZERO)
 		# Curved lateral accelerators reflect on their surface normal, not on a flat wall.
@@ -2095,6 +2127,9 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					ball.v = ((ball.v - surface_velocity).bounce(normal) + surface_velocity).normalized() * shot_speed
 				else:
 					ball.v = ball.v.bounce(normal)
+				if kind == "obstacle" and struck_boost:
+					# A gold bumper boosts like the side accelerators.
+					kind = "boost"
 				if kind == "boost":
 					ball.v = ball.v.normalized() * BALL_SPEED * BOOST_SPEED
 					ball.boosted = true

@@ -17,6 +17,7 @@ const MODES = [
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
+	{"id": "test", "name": "ARENA DE TESTE", "about": "Mais comprida, mais tijolos, bumpers dourados"},
 ]
 const RAIL_KEY = Vector2(88, 88)
 # The shortcut bar under the dock on a phone: four keys the full width of the screen.
@@ -313,6 +314,9 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 			UiKit.box(c, Rect2(at + Vector2(-8, -11), Vector2(16, 12)), color, Color.TRANSPARENT, true)
 			UiKit.fill(c, Rect2(at + Vector2(-1.5, 1), Vector2(3, 6)), color)
 			UiKit.box(c, Rect2(at + Vector2(-7, 7), Vector2(14, 4)), color, Color.TRANSPARENT, true)
+		"test":
+			UiKit.ring(c, at, 11, UiKit.SUN)
+			UiKit.disc(c, at, 6, UiKit.SUN)
 		"pvp":
 			c.draw_line(at + Vector2(-9, -9), at + Vector2(9, 9), UiKit.CORAL, 4.0, true)
 			c.draw_line(at + Vector2(9, -9), at + Vector2(-9, 9), UiKit.CYAN, 4.0, true)

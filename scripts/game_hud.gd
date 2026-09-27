@@ -21,6 +21,7 @@ func power_button_radius(index: int) -> float:
 const POWER_GAP = 100.0
 const POWER_RISE = 176.0
 const Powers = preload("res://scripts/powers.gd")
+signal test_arena_requested
 signal pvp_ai_requested
 signal play_requested
 signal host_requested
@@ -1065,6 +1066,8 @@ func play_chosen_mode() -> void:
 			story_play_requested.emit()
 		"pvp":
 			open_pvp()
+		"test":
+			test_arena_requested.emit()
 		_:
 			level_selected.emit(menu_level)
 

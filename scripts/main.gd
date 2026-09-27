@@ -130,6 +130,7 @@ func _ready() -> void:
 	hud.host_requested.connect(host_game)
 	hud.join_requested.connect(join_game)
 	hud.pvp_ai_requested.connect(start_pvp_ai)
+	hud.test_arena_requested.connect(func(): start_pve(Rules.test_map()))
 	hud.menu_requested.connect(request_menu)
 	hud.resume_requested.connect(resume_pve)
 	hud.quit_requested.connect(return_to_menu)

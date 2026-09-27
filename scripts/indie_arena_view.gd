@@ -384,6 +384,7 @@ func platform(outline: Array, height: float, depth: float, color: Color) -> Mesh
 func build(new_map: Dictionary = {}) -> void:
 	prepare_fx_pool()
 	map = new_map if not new_map.is_empty() else Rules.default_map()
+	Rules.apply_stretch(map)
 	walls = Rules.map_outline(map)
 	theme = ArenaTheme.for_map(map)
 	var environment = WorldEnvironment.new()
@@ -431,7 +432,8 @@ func build(new_map: Dictionary = {}) -> void:
 	camera.current = true
 	# Each world builds its own ground around the field (arena_theme.gd names it); a theme
 	# without one falls back to the studio plinth and stands.
-	var dressing = String(theme.get("dressing", ""))
+	# A bare map (the test arena) is just the floor: no plinth, no world around it.
+	var dressing = "bare" if map.get("bare", false) else String(theme.get("dressing", ""))
 	var outer: Array = []
 	for p in walls:
 		outer.append(p * Vector2(1.16, 1.07))
@@ -468,9 +470,11 @@ func build(new_map: Dictionary = {}) -> void:
 	# kept in `world_nodes` so they can be exported to be baked.
 	var first_world_node = get_child_count()
 	var baked_world = ArenaDiorama.baked_path(String(map.get("id", "")))
-	if dressing != "" and dressing != "diorama" and not bake_export and ResourceLoader.exists(baked_world):
+	if dressing != "" and dressing != "diorama" and dressing != "bare" and not bake_export and ResourceLoader.exists(baked_world):
 		dressing = "baked"
 	match dressing:
+		"bare":
+			pass
 		"baked":
 			ArenaDiorama.build(self, theme, baked_world)
 		"sky":
@@ -764,7 +768,9 @@ func build_obstacles() -> void:
 	# Painted guides are opaque, pre-blended with the floor, so they merge with the static
 	# geometry instead of costing a transparent draw each.
 	var color = theme.line
-	for spec in map.get("obstacles", []):
+	# The same specs the rules use: narrowed on a tall map, so the painted guides and the base
+	# of a fixed pillar sit where the pillar really is.
+	for spec in Rules.map_obstacles(map):
 		var kind: String = spec.get("kind", "fixed")
 		var radius: float = spec.get("radius", Rules.OBSTACLE_RADIUS)
 		var center: Vector2 = spec.get("center", Vector2.ZERO)
@@ -797,6 +803,12 @@ func build_obstacles() -> void:
 		# An industrial hex pylon from the kit; fixed pillars wear the accent colour, moving
 		# bumpers the theme's block colour. Its three-armed cap (Core) turns while it runs.
 		var paint = {"shell": theme.block_alt, "trim": theme.accent if kind == "fixed" else theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": theme.line, "team": theme.line}
+		if spec.get("boost", false):
+			# A boost bumper: gold and lit, with bright rings on the floor, so it reads as the
+			# thing to aim at, not one more thing in the way.
+			paint = {"shell": GOLD, "trim": Color("fff1a8"), "dark": theme.frame, "metal": Color("ffd23f"), "glow": Color("fff4c2"), "team": GOLD}
+			torus(self, Vector3(center.x, 0.03, center.y), radius + 0.22, 0.035, Color("ffd23f"), true)
+			torus(self, Vector3(center.x, 0.03, center.y), radius + 0.38, 0.02, Color("ffe98a"), true)
 		var shell = Node3D.new()
 		node.add_child(shell)
 		shell.scale = Vector3(radius / 0.44, 1.0, radius / 0.44)
