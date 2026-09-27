@@ -85,9 +85,8 @@ func run() -> void:
 		arena.set_skin(0, skin)
 		var unit: Node3D = arena.units[0]
 		var rigged = unit.has_node("Body/LegL") and unit.has_node("Body/LegR") and unit.has_node("Body/Gun/Flash") and unit.has_node("Stun")
-		game.rules.players[0].cooldown = 0.0
-		arena.update_state(game.rules, 0, 1.0 / 60)
-		game.rules.players[0].cooldown = 1.0
+		# A shot is an event now (shot_feedback), not a jump in the cooldown.
+		arena.shot_feedback(0, true)
 		arena.update_state(game.rules, 0, 1.0 / 60)
 		check(rigged and unit.get_node("Body/Gun/Flash").scale.x > 0.2, "Skin %d has every animated part and fires muzzle flash" % skin)
 		if skin == 5:

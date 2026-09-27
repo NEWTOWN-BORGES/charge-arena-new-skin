@@ -344,7 +344,9 @@ func run() -> void:
 	var pellets: int = game.rules.balls.filter(func(b): return b.power == 3).size()
 	check(game.rules.powers[0].cool[1] > 0 and pellets == Rules.AIR_PELLETS, "A button press fires the power in the match (%d balas do leque)" % pellets)
 	check(Rules.power_label("") == "ULTIMATE" and Rules.power_label("sun_ray") == "SOL", "An empty third slot reads ULTIMATE; a skin with one names it")
-	check(game.audio_voices.any(func(v): return v.playing and v.stream == game.tones.power), "Using a power has its own sound")
+	# Each power plays its own cue (the fan: ability_air); the generic one is the fallback.
+	var cue = game.tones.get("ability_air", game.tones.power)
+	check(game.audio_voices.any(func(v): return v.playing and v.stream == cue), "Using a power has its own sound")
 	for voice in game.audio_voices:
 		voice.stop()
 	check(game.tones.has("blast") and game.tones.has("ready") and game.tones.blast != game.tones.power and game.tones.ready != game.tones.power, "The blast and the ready chime are separate sounds")
