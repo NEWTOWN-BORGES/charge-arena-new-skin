@@ -1381,8 +1381,8 @@ func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 func place_lobby_camera() -> void:
 	var focus = SHOWROOM + Vector3(0, PEDESTAL_TOP + 0.95, 0)
 	var tan_half = tan(deg_to_rad(LOBBY_FOV) * 0.5)
-	# Far enough that the pilot fills about two thirds of the band it is shown in.
-	var distance = LOBBY_PILOT_HEIGHT / 0.62 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
+	# The pilot fills most of its band: it is what the lobby is for.
+	var distance = LOBBY_PILOT_HEIGHT / 0.8 / (2.0 * tan_half) * (lobby_screen.y / maxf(lobby_rect.size.y, 1.0))
 	var yaw = sin(clock * 0.2) * 0.12 - 0.12
 	camera.position = focus + Vector3(sin(yaw), 0.34, cos(yaw)).normalized() * distance
 	camera.look_at(focus)

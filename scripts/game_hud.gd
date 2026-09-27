@@ -198,7 +198,7 @@ var skins_panel: PanelContainer
 var skins_button: Button
 var powers_button: Button
 var news_text = ""
-const MENU_HINT = "Toque: arrasta para mover · o disparo é automático · PC: A/D"
+const MENU_HINT = "Toque no TIRO para disparar · arrasta para mover · PC: A/D"
 var powers_overlay: ColorRect
 var powers_panel: PanelContainer
 var powers_wallet: Label
@@ -729,6 +729,8 @@ func refresh_news() -> void:
 	# main action stays where the thumb rests.
 	menu_status.text = news_text if news_text != "" else MENU_HINT
 	menu_status.add_theme_color_override("font_color", UiKit.SUN_INK if news_text != "" else MUTED)
+	# With nothing new to say the line goes away instead of repeating the controls.
+	menu_status.visible = news_text != ""
 	# The rail keys carry the counts, and a red dot while something waits behind them.
 	if lobby != null:
 		lobby.refresh()
@@ -925,12 +927,12 @@ func show_pause(value: bool) -> void:
 	queue_redraw()
 
 func make_button(text: String, primary: bool) -> Button:
-	# 64 px is a comfortable thumb target on a phone, and reads well on a monitor too.
+	# 72 px: a big, easy thumb target on a phone, and it still reads well on a monitor.
 	var b = Button.new()
 	b.text = text
-	b.custom_minimum_size.y = 64
+	b.custom_minimum_size.y = 72
 	b.add_theme_font_override("font", font_title)
-	b.add_theme_font_size_override("font_size", 22)
+	b.add_theme_font_size_override("font_size", 24)
 	paint_button(b, primary)
 	return b
 
@@ -980,19 +982,19 @@ func build_menu() -> void:
 	var level_row = HBoxContainer.new()
 	level_row.add_theme_constant_override("separation", 6)
 	list.add_child(level_row)
-	var level_caption = label("IA", 13, MUTED, true)
+	var level_caption = label("IA", 15, MUTED, true)
 	level_caption.custom_minimum_size.x = 30
 	level_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level_row.add_child(level_caption)
 	var levels = ButtonGroup.new()
 	for level in range(GameSettings.DIFFICULTIES.size()):
 		var pick = make_button(GameSettings.DIFFICULTIES[level], false)
-		pick.custom_minimum_size.y = 46
+		pick.custom_minimum_size.y = 56
 		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pick.toggle_mode = true
 		pick.button_group = levels
 		pick.focus_mode = Control.FOCUS_NONE
-		pick.add_theme_font_size_override("font_size", 16)
+		pick.add_theme_font_size_override("font_size", 19)
 		# The chosen level is a mint key sunk into its lip; the others stand up.
 		var chosen: Dictionary = UiKit.key_styles("toggle")
 		pick.add_theme_stylebox_override("pressed", chosen.pressed)
@@ -1007,8 +1009,8 @@ func build_menu() -> void:
 	list.add_child(play_row)
 	play_row.add_child(lobby.build_mode_card())
 	campaign_button = make_button("JOGAR", true)
-	campaign_button.custom_minimum_size = Vector2(196, 84)
-	campaign_button.add_theme_font_size_override("font_size", 32)
+	campaign_button.custom_minimum_size = Vector2(220, 96)
+	campaign_button.add_theme_font_size_override("font_size", 38)
 	play_row.add_child(campaign_button)
 	campaign_button.pressed.connect(play_chosen_mode)
 	add_child(lobby)
@@ -2136,7 +2138,7 @@ func lobby_stage() -> Rect2:
 	# Where the lobby shows your pilot: the band between the level's name and the dock on a
 	# phone, the room right of the dock on a wide screen.
 	if vertical:
-		return Rect2(arena_rect.position.x, arena_rect.position.y, arena_rect.size.x, arena_rect.size.y - 96)
+		return Rect2(arena_rect.position.x, arena_rect.position.y, arena_rect.size.x, arena_rect.size.y - 84)
 	var left = menu.get_rect().end.x + 20
 	return Rect2(left, 70, size.x - left - 20, size.y - 190)
 
@@ -2177,10 +2179,9 @@ func draw_menu_level() -> void:
 	var pilot_skin: int = skins_progress.selected if skins_progress != null else 0
 	var entry: Dictionary = Skins.CATALOG[clampi(pilot_skin, 0, Skins.CATALOG.size() - 1)]
 	var x = stage.get_center().x
-	centered(String(entry.name), Vector2(x, stage.end.y + 38), 42, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
+	centered(String(entry.name), Vector2(x, stage.end.y + 36), 44, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
 	var tagline = String(entry.get("weapon", "")).to_upper()
-	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 12, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
-	centered("arrasta para rodar  ·  toca no HANGAR para mudar", Vector2(x, stage.end.y + 80), 11, Color(WHITE, 0.6), false, 4, Color(UiKit.NIGHT, 0.8))
+	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 13, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
 
 func open_levels() -> void:
 	reset_touch()
@@ -2610,13 +2611,13 @@ func layout_vertical(menu_height: float) -> void:
 	# counter takes the left corner instead of landing on top of them.
 	fps_label.position = Vector2(mid - 120, bottom - 46) if mode == "menu" else Vector2(30, bottom - 26)
 	menu.size = Vector2(minf(size.x - 32, 600), menu_height)
-	menu.position = Vector2((size.x - menu.size.x) * 0.5, maxf(safe_top + 150, bottom - menu.size.y - 44))
+	# In the lobby the dock stands on the bar of shortcut keys; in a match it has the bottom.
+	var under = lobby.NAV_HEIGHT + 26.0 if mode == "menu" else 44.0
+	menu.position = Vector2((size.x - menu.size.x) * 0.5, maxf(safe_top + 150, bottom - menu.size.y - under))
 	if mode == "menu":
-		# The previewed level's name sits under the top bar, the rail of shortcuts down the
-		# left, and the stadium takes all the rest down to the page dots over the dock.
-		var top = safe_top + 96
-		var left = 16.0 + lobby.RAIL_KEY.x + 8.0
-		arena_rect = Rect2(left, top, size.x - left - 10, maxf(menu.position.y - 44 - top, 120))
+		# Under the top bar the pilot has the whole width, down to its name over the dock.
+		var top = safe_top + 100
+		arena_rect = Rect2(10, top, size.x - 20, maxf(menu.position.y - 20 - top, 120))
 	else:
 		# Top match info band sits comfortably below the header buttons (bar_y = safe_top + 48)
 		# Measured from the buttons themselves: their theme makes them taller than asked, and
@@ -3084,9 +3085,9 @@ func draw_hud() -> void:
 	if mode == "menu":
 		# Flavour for the menu alone. In a match that strip belongs to the stick's caption and
 		# to the frame counter, and the three of them were landing on top of each other.
-		write("ARENA 01   /   AURORA", Vector2(34, bottom - 24), 10, MUTED, true)
-		write("ENCONTRA O TEU ÂNGULO", Vector2(size.x - 204, bottom - 24), 10, MUTED, true)
 		if not vertical:
+			write("ARENA 01   /   AURORA", Vector2(34, bottom - 24), 10, MUTED, true)
+			write("ENCONTRA O TEU ÂNGULO", Vector2(size.x - 204, bottom - 24), 10, MUTED, true)
 			write("UM DISPARO.", Vector2(size.x - 285, size.y - 126), 26, WHITE, true, 6, Color(UiKit.NIGHT, 0.7))
 			write("MIL POSSIBILIDADES.", Vector2(size.x - 285, size.y - 96), 26, UiKit.SUN_INK, true, 6, Color(UiKit.NIGHT, 0.7))
 		# The pilot's name belongs to the lobby, not to the map tour behind the picker.

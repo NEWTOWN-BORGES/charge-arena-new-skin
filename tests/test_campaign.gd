@@ -195,7 +195,9 @@ func run() -> void:
 	var menu_buttons = hud.menu.find_children("*", "Button", true, false).filter(func(b): return b.visible)
 	var lowest = menu_buttons.all(func(b): return b.get_global_rect().end.y <= hud.campaign_button.get_global_rect().end.y + 0.5)
 	check(lowest and hud.campaign_button.size.y >= 60, "JOGAR is the largest button and sits on the lowest row")
-	check(hud.campaign_button.get_global_rect().end.y > hud.size.y - 110, "In portrait the main action sits in the bottom thumb zone")
+	# The shortcut bar takes the very bottom; JOGAR stands right on top of it.
+	var play_end = hud.campaign_button.get_global_rect().end.y
+	check(play_end > hud.size.y * 0.78 and play_end <= hud.lobby.navbar.get_global_rect().position.y, "In portrait the main action sits in the bottom thumb zone, over the shortcut bar")
 	check(hud.lobby.mode_id == "quick" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick") and hud.lobby.sheet_cards.has("campaign") and not hud.lobby.sheet_cards.has("story"), "The lobby starts on quick play, the arenas one tap away, the story mode out for now")
 	# The arenas already won are played from ARENAS, level by level.
 	hud.lobby.choose_mode("campaign")

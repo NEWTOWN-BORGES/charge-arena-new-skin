@@ -1,7 +1,8 @@
 extends Control
-## The lobby around the previewed arena: your profile and wallet on top, a rail of shortcuts
-## down the left (hangar, powers, story, PvP), and in the dock at the bottom the mode you
-## will play, the AI level and one big PLAY key. The mode card opens a sheet with the four
+## The lobby around the previewed arena: your profile and wallet on top, the pilot big in the
+## middle, and at the bottom the dock (the AI level, the mode you will play and one big PLAY
+## key) over a bar of large shortcut keys (hangar, powers, arenas, PvP). On a wide screen the
+## shortcuts stand in a rail down the left instead. The mode card opens a sheet with the four
 ## ways to play; PLAY then starts whichever is chosen.
 const UiKit = preload("res://scripts/ui_kit.gd")
 const Skins = preload("res://scripts/skins.gd")
@@ -18,6 +19,8 @@ const MODES = [
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
 ]
 const RAIL_KEY = Vector2(88, 88)
+# The shortcut bar under the dock on a phone: four keys the full width of the screen.
+const NAV_HEIGHT = 96.0
 
 var hud
 var mode_id = "quick"
@@ -29,6 +32,7 @@ var story_news = false
 var profile: Button
 var gear: Button
 var rail: VBoxContainer
+var navbar: HBoxContainer
 var rail_keys: Dictionary = {}
 var mode_card: Button
 var sheet: ColorRect
@@ -56,7 +60,10 @@ func _ready() -> void:
 	rail = VBoxContainer.new()
 	rail.add_theme_constant_override("separation", 12)
 	add_child(rail)
-	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["pvp", "PvP"]]:
+	navbar = HBoxContainer.new()
+	navbar.add_theme_constant_override("separation", 10)
+	add_child(navbar)
+	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["story", "ARENAS"], ["pvp", "PvP"]]:
 		var key = Button.new()
 		key.custom_minimum_size = RAIL_KEY
 		key.focus_mode = Control.FOCUS_NONE
@@ -64,10 +71,11 @@ func _ready() -> void:
 		key.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		key.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key.add_theme_font_override("font", UiKit.strong_font())
-		key.add_theme_font_size_override("font_size", 12)
+		key.add_theme_font_size_override("font_size", 14)
+		key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		for state in ["normal", "hover", "pressed"]:
 			var style: StyleBoxFlat = UiKit.key_styles("secondary")[state].duplicate()
-			style.content_margin_top = 54 if state != "pressed" else 58
+			style.content_margin_top = 58 if state != "pressed" else 62
 			style.content_margin_left = 4
 			style.content_margin_right = 4
 			key.add_theme_stylebox_override(state, style)
@@ -78,13 +86,14 @@ func _ready() -> void:
 	rail_keys.hangar.pressed.connect(func(): hud.open_skins())
 	rail_keys.powers.pressed.connect(func(): hud.open_powers())
 	rail_keys.pvp.pressed.connect(func(): hud.open_pvp())
+	rail_keys.story.pressed.connect(func(): hud.open_levels())
 	build_sheet()
 
 func build_mode_card() -> Button:
 	# Lives in the dock (the HUD's menu panel); drawn here because it reads lobby state.
 	mode_card = Button.new()
 	mode_card.focus_mode = Control.FOCUS_NONE
-	mode_card.custom_minimum_size = Vector2(0, 84)
+	mode_card.custom_minimum_size = Vector2(0, 96)
 	mode_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mode_card.tooltip_text = "Escolher o modo de jogo"
 	for state in ["normal", "hover", "pressed"]:
@@ -158,11 +167,23 @@ func mode_entry() -> Dictionary:
 func arrange() -> void:
 	var top: float = hud.safe_top + 14.0
 	profile.position = Vector2(16, top)
-	profile.size = Vector2(minf(330.0, size.x * 0.46), 64)
-	gear.position = Vector2(size.x - 80, top)
-	gear.size = Vector2(64, 64)
-	var rail_top = (hud.safe_top + 196.0) if hud.vertical else top + 92.0
-	rail.position = Vector2(16, rail_top)
+	profile.size = Vector2(minf(380.0, size.x * 0.52), 76)
+	gear.position = Vector2(size.x - 88, top)
+	gear.size = Vector2(72, 72)
+	# A phone keeps the shortcuts in a bar of big keys under the dock, so nothing stands in
+	# front of the pilot; a wide screen keeps them in the rail down the left.
+	var bar: Container = navbar if hud.vertical else rail
+	for kind in ["hangar", "powers", "story", "pvp"]:
+		var key: Button = rail_keys[kind]
+		if key.get_parent() != bar:
+			key.get_parent().remove_child(key)
+			bar.add_child(key)
+		key.custom_minimum_size = Vector2(0, NAV_HEIGHT) if hud.vertical else RAIL_KEY
+	navbar.visible = hud.vertical
+	rail.visible = not hud.vertical
+	navbar.position = Vector2(16, size.y - hud.safe_bottom - NAV_HEIGHT - 12)
+	navbar.size = Vector2(size.x - 32, NAV_HEIGHT)
+	rail.position = Vector2(16, top + 92.0)
 	rail.size = Vector2(RAIL_KEY.x, 0)
 	var panel_width = minf(size.x - 48, 560)
 	sheet_panel.size = Vector2(panel_width, 0)
@@ -178,6 +199,7 @@ func refresh() -> void:
 	var buyable = shop != null and not shop.affordable().is_empty()
 	rail_keys.hangar.text = "HANGAR"
 	rail_keys.powers.text = "PODERES"
+	rail_keys.story.text = "ARENAS"
 	rail_keys.hangar.set_meta("dot", fresh)
 	rail_keys.powers.set_meta("dot", buyable)
 	rail_keys.hangar.set_meta("count", "%d/%d" % [skins.unlocked_count() if skins != null else 0, Skins.CATALOG.size()])
@@ -197,7 +219,7 @@ func _draw() -> void:
 	var text = str(bricks)
 	var f = UiKit.title_font()
 	var width = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 62
-	var chip = Rect2(gear.position.x - width - 12, gear.position.y + 8, width, 48)
+	var chip = Rect2(gear.position.x - width - 12, gear.position.y + 12, width, 48)
 	UiKit.plate(self, chip, Color(UiKit.PANEL, 0.9), UiKit.PANEL_EDGE, 4.0)
 	brick_glyph(self, chip.position + Vector2(24, 24), 1.0)
 	draw_string(f, chip.position + Vector2(44, 33), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
@@ -210,19 +232,19 @@ func brick_glyph(c: CanvasItem, at: Vector2, k: float) -> void:
 func draw_profile() -> void:
 	var skins = hud.skins_progress
 	var skin: int = skins.selected if skins != null else 0
-	var at = Vector2(36, 32)
-	UiKit.disc(profile, at, 26, UiKit.FIELD)
+	var at = Vector2(40, 38)
+	UiKit.disc(profile, at, 30, UiKit.FIELD)
 	var picture: Texture2D = hud.robot_portrait(skin, false)
 	if picture != null:
-		profile.draw_texture_rect(picture, Rect2(at - Vector2(31, 35), Vector2(62, 62)), false)
-	UiKit.ring(profile, at, 26, Color(UiKit.CYAN, 0.8))
+		profile.draw_texture_rect(picture, Rect2(at - Vector2(36, 40), Vector2(72, 72)), false)
+	UiKit.ring(profile, at, 30, Color(UiKit.CYAN, 0.8))
 	var name = String(Skins.CATALOG[clampi(skin, 0, Skins.CATALOG.size() - 1)].name)
-	profile.draw_string(UiKit.title_font(), Vector2(72, 28), name, HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 86, 21, UiKit.WHITE)
+	profile.draw_string(UiKit.title_font(), Vector2(82, 32), name, HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, UiKit.WHITE)
 	var state = hud.campaign_state
 	var done: int = state.completed.size() if state != null else 0
 	var total: int = Campaign.menu_levels().size()
-	profile.draw_string(UiKit.strong_font(), Vector2(72, 46), "CAMPANHA %d/%d" % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.MUTED)
-	var bar = Rect2(72, 51, profile.size.x - 90, 6)
+	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), "CAMPANHA %d/%d" % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
+	var bar = Rect2(82, 59, profile.size.x - 100, 7)
 	UiKit.box(profile, bar, UiKit.FIELD, Color.TRANSPARENT, true)
 	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxi(total, 1), 0, 1), bar.size.y)), UiKit.SUN, Color.TRANSPARENT, true)
 
@@ -231,15 +253,20 @@ func draw_gear() -> void:
 	var c = gear.size * 0.5 + Vector2(0, -2 if not gear.button_pressed else 1)
 	for i in range(8):
 		var angle = i * TAU / 8.0
-		gear.draw_set_transform(c, angle, Vector2.ONE)
+		gear.draw_set_transform(c, angle, Vector2.ONE * 1.15)
 		UiKit.box(gear, Rect2(-4, -17, 8, 9), UiKit.WHITE, Color.TRANSPARENT, true)
 	gear.draw_set_transform(Vector2.ZERO)
-	UiKit.disc(gear, c, 12, UiKit.WHITE)
-	UiKit.disc(gear, c, 5, UiKit.CARD)
+	UiKit.disc(gear, c, 14, UiKit.WHITE)
+	UiKit.disc(gear, c, 6, UiKit.CARD)
 
 func draw_rail_icon(key: Button, kind: String) -> void:
 	var c = Vector2(key.size.x * 0.5, 30 + (3 if key.button_pressed else 0))
 	var ink = UiKit.WHITE
+	# The icons are drawn at rail size; the phone's bar keys are bigger, so are their icons.
+	var grow = 1.35 if key.size.x > RAIL_KEY.x + 20 else 1.0
+	if grow > 1.0:
+		c.y += 4
+		key.draw_set_transform(c * (1.0 - grow), 0.0, Vector2.ONE * grow)
 	match kind:
 		"hangar":
 			# A TV head with two eyes.
@@ -263,6 +290,7 @@ func draw_rail_icon(key: Button, kind: String) -> void:
 			for side in [-1.0, 1.0]:
 				key.draw_line(c + Vector2(-13 * side, -13), c + Vector2(13 * side, 13), UiKit.CORAL if side > 0 else UiKit.CYAN, 5.0, true)
 			UiKit.disc(key, c, 4, ink)
+	key.draw_set_transform(Vector2.ZERO)
 	if key.has_meta("count"):
 		var count: String = key.get_meta("count")
 		var f = UiKit.strong_font()
@@ -292,9 +320,9 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 func draw_mode_card() -> void:
 	var entry = mode_entry()
 	var sink = 3.0 if mode_card.button_pressed else 0.0
-	mode_glyph(mode_card, Vector2(40, 38 + sink), entry.id, UiKit.SUN)
+	mode_glyph(mode_card, Vector2(42, 46 + sink), entry.id, UiKit.SUN)
 	var f = UiKit.strong_font()
-	mode_card.draw_string(f, Vector2(76, 24 + sink), "MODO  ▾", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.MUTED)
+	mode_card.draw_string(f, Vector2(80, 28 + sink), "MODO  ▾", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
 	var name: String = entry.name
 	var about: String = entry.about
 	var room = mode_card.size.x - 84
@@ -333,8 +361,8 @@ func draw_mode_card() -> void:
 		UiKit.ring(mode_card, boss_at, 30, UiKit.CORAL if not beaten else UiKit.SUN)
 		mode_card.draw_string(f, boss_at + Vector2(-16, 40), "POSTO" if station else "BOSS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UiKit.CORAL)
 		room -= 80
-	mode_card.draw_string(UiKit.title_font(), Vector2(76, 50 + sink), name, HORIZONTAL_ALIGNMENT_LEFT, room, 22, UiKit.WHITE)
-	mode_card.draw_string(UiKit.body_font(), Vector2(76, 70 + sink), about, HORIZONTAL_ALIGNMENT_LEFT, room, 13, UiKit.MUTED)
+	mode_card.draw_string(UiKit.title_font(), Vector2(80, 56 + sink), name, HORIZONTAL_ALIGNMENT_LEFT, room, 24, UiKit.WHITE)
+	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), about, HORIZONTAL_ALIGNMENT_LEFT, room, 14, UiKit.MUTED)
 
 func draw_sheet_card(card: Button, entry: Dictionary) -> void:
 	var chosen: bool = entry.id == mode_id
