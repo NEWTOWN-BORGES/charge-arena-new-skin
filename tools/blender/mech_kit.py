@@ -550,17 +550,18 @@ def bit_head(p):
         mbox(p, "dark", sub(base, -w / 2 - 0.002, -0.06 + i * 0.022, 0.05), (0.012, 0.01, 0.06), 0.003, 1)
 
 
-def bit_torso(p):
-    # --- pescoço: placas de montagem, veio, rolamento, vedante, conduta e batente ---
-    neck_y0, neck_y1 = 1.39, 1.535
-    mbox(p, "dark", Matrix.Translation((0, neck_y0 + 0.012, 0.02)), (0.27, 0.024, 0.24), 0.01, 1)
-    mbox(p, "dark", Matrix.Translation((0, neck_y1, 0.02)), (0.28, 0.02, 0.25), 0.01, 1)
-    mtube(p, "metal", Matrix.Translation((0, (neck_y0 + neck_y1) / 2, 0.02)), 0.05, neck_y1 - neck_y0, 14)
-    mring(p, "metal", Matrix.Translation((0, 1.49, 0.02)), 0.085, 0.015, 22, 5)
-    mtube(p, "rubber", Matrix.Translation((0, 1.452, 0.02)), 0.078, 0.036, 18)
-    bolts(p, Matrix.Translation((0, neck_y0 + 0.024, 0.02)), 0.105, 6, size=0.012)
-    mbox(p, "dark", Matrix.Translation((0.075, neck_y0 + 0.04, -0.055)), (0.025, 0.03, 0.025), 0.005, 1)
-    cable(p, [(0.08, 1.41, 0.12), (0.1, 1.47, 0.14), (0.09, 1.53, 0.13)], 0.012)
+def bit_torso(p, with_neck=True):
+    if with_neck:
+        # --- pescoço: placas de montagem, veio, rolamento, vedante, conduta e batente ---
+        neck_y0, neck_y1 = 1.39, 1.535
+        mbox(p, "dark", Matrix.Translation((0, neck_y0 + 0.012, 0.02)), (0.27, 0.024, 0.24), 0.01, 1)
+        mbox(p, "dark", Matrix.Translation((0, neck_y1, 0.02)), (0.28, 0.02, 0.25), 0.01, 1)
+        mtube(p, "metal", Matrix.Translation((0, (neck_y0 + neck_y1) / 2, 0.02)), 0.05, neck_y1 - neck_y0, 14)
+        mring(p, "metal", Matrix.Translation((0, 1.49, 0.02)), 0.085, 0.015, 22, 5)
+        mtube(p, "rubber", Matrix.Translation((0, 1.452, 0.02)), 0.078, 0.036, 18)
+        bolts(p, Matrix.Translation((0, neck_y0 + 0.024, 0.02)), 0.105, 6, size=0.012)
+        mbox(p, "dark", Matrix.Translation((0.075, neck_y0 + 0.04, -0.055)), (0.025, 0.03, 0.025), 0.005, 1)
+        cable(p, [(0.08, 1.41, 0.12), (0.1, 1.47, 0.14), (0.09, 1.53, 0.13)], 0.012)
     # --- chassis do tronco ---
     chest = Vector((0, 1.16, 0.02))
     mbox(p, "dark", Matrix.Translation(chest), (0.58, 0.46, 0.42), 0.05)
@@ -828,6 +829,61 @@ def bit_leg(p, out):
     foot(p, Matrix.Translation((0, ground, 0.0)), length=0.46, width=0.3, out=out)
 
 
+
+BH_TOP = 1.76  # topo do BIT sem pescoço
+
+
+def bit_hull(p):
+    """BIT sem pescoço: o tronco sobe numa só caixa alta, um monitor com pernas. O ecrã-cara
+    fica no alto da frente, sob a pala; ilhargas altas correm do peito ao tampo, e o telémetro,
+    o lidar e a antena passam para o casco."""
+    bit_torso(p, with_neck=False)
+    w, d = 0.64, 0.46
+    face_y = 1.54
+    HEADS["bit3_hull"] = {"top": round(BH_TOP + 0.03, 3), "center": face_y, "aspect": round(SCREEN[0] / SCREEN[1], 3)}
+    mbox(p, "dark", Matrix.Translation((0, 1.52, 0.02)), (w - 0.07, 0.42, d - 0.06), 0.05, 2)
+    for side in (-1, 1):
+        mbox(p, "shell", Matrix.Translation((side * (w / 2 - 0.02), 1.34, 0.03)), (0.05, 0.84, d - 0.12), 0.025)
+    mbox(p, "shell", Matrix.Translation((0, BH_TOP - 0.02, 0.03)), (w - 0.02, 0.05, d - 0.08), 0.03)
+    mbox(p, "shell", Matrix.Translation((0, 1.55, 0.24)), (w - 0.1, 0.36, 0.045), 0.025)
+    front = -0.2
+    base = Matrix.Translation((0, face_y, 0.0))
+    mbox(p, "trim", sub(Matrix.Translation((0, BH_TOP - 0.05, front)), rot=(-8, 0, 0)), (w + 0.02, 0.075, 0.1), 0.03)
+    for side in (-1, 1):
+        mbox(p, "shell", Matrix.Translation((side * (SCREEN[0] / 2 + 0.05), face_y - 0.01, front + 0.01)), (0.07, 0.26, 0.08), 0.022)
+    mbox(p, "shell", Matrix.Translation((0, face_y - 0.135, front + 0.01)), (w - 0.06, 0.05, 0.08), 0.022)
+    mbox(p, "dark", Matrix.Translation((0, face_y, front + 0.045)), (SCREEN[0] + 0.04, SCREEN[1] + 0.04, 0.05), 0.012, 1)
+    ring_m = Matrix.Translation((0, face_y, front + 0.005))
+    for dy in (-1, 1):
+        mbox(p, "metal", sub(ring_m, 0, dy * (SCREEN[1] / 2 + 0.008), 0), (SCREEN[0] + 0.03, 0.012, 0.012), 0.004, 1)
+    for dx in (-1, 1):
+        mbox(p, "metal", sub(ring_m, dx * (SCREEN[0] / 2 + 0.008), 0, 0), (0.012, SCREEN[1] + 0.03, 0.012), 0.004, 1)
+    p.screen((0, face_y, front + 0.015), SCREEN, bulge=0.012)
+    mbox(p, "team", Matrix.Translation((0, BH_TOP + 0.007, 0.0)), (0.09, 0.012, d - 0.2), 0.004, 1)
+    top_m = Matrix.Translation((0, BH_TOP + 0.006, 0.03))
+    for u in (-1, 1):
+        for wv in (-1, 1):
+            screw(p, top_m, u * (w / 2 - 0.06), wv * ((d - 0.1) / 2 - 0.04))
+    mount = Matrix.Translation((w / 2 + 0.03, face_y + 0.03, -0.06))
+    mbox(p, "dark", mount, (0.05, 0.11, 0.13), 0.014)
+    lens = sub(Matrix.Translation((w / 2 + 0.06, face_y + 0.04, -0.13)), rot=(-90, 0, 0))
+    mtube(p, "trim", lens, 0.042, 0.1, 16, bevel=0.006)
+    mtube(p, "metal", sub(lens, 0, 0.053, 0), 0.034, 0.012, 16)
+    mtube(p, "screen", sub(lens, 0, 0.057, 0), 0.03, 0.006, 16)
+    mtube(p, "glow", sub(lens, 0, 0.061, 0), 0.011, 0.004, 12)
+    lid = Matrix.Translation((-0.15, BH_TOP + 0.025, 0.07))
+    mtube(p, "dark", lid, 0.07, 0.045, 18, bevel=0.008)
+    mring(p, "glow", lid, 0.071, 0.006, 22, 4)
+    mtube(p, "metal", sub(lid, 0, 0.03, 0), 0.052, 0.018, 16, bevel=0.004)
+    ant = Vector((0.19, BH_TOP, 0.15))
+    mtube(p, "metal", Matrix.Translation(ant + Vector((0, 0.012, 0))), 0.028, 0.03, 10, bevel=0.005)
+    rod(p, "dark", ant + Vector((0, 0.02, 0)), ant + Vector((0.02, 0.24, 0.02)), 0.008, 6)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=5, radius=0.024)
+    p.add("glow", bm, Matrix.Translation(ant + Vector((0.02, 0.255, 0.02))))
+    serial(p, plane((0.13, 1.5, 0.2635), (0, 0, 1), (1, 0, 0)), "01", 0.04)
+    mbox(p, "glow", sub(Matrix.Translation((-w / 2 - 0.004, face_y + 0.06, -0.1)), rot=(0, 0, 90)), (0.03, 0.012, 0.018), 0.004, 1)
+
 def define_parts():
     import mech_cast
     mech_cast.define(part)
@@ -837,6 +893,7 @@ def define_parts():
     env_parts.define(part)
     part("bit2_head")(bit_head)
     part("bit2_torso")(bit_torso)
+    part("bit3_hull")(bit_hull)
 
     @part("bit2_shoulders")
     def _(p):

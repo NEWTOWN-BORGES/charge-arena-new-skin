@@ -1438,10 +1438,11 @@ def faisca_head(p):
     mbox(p, "team", T(0, c.y + ey + 0.002, c.z - 0.04), (0.02, 0.01, 0.1), 0.004, 1)
 
 
-def faisca_torso(p):
+def faisca_torso(p, with_neck=True):
     c = F_CHEST
     top, bottom = F_TORSO[-1][0], F_TORSO[0][0]
-    neck(p, c.y + top - 0.005, F_HEAD.y - F_HEAD_RADII[1] + 0.02, 0.062, 0.0, plate=(0.2, 0.18))
+    if with_neck:
+        neck(p, c.y + top - 0.005, F_HEAD.y - F_HEAD_RADII[1] + 0.02, 0.062, 0.0, plate=(0.2, 0.18))
     flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, F_DEPTH, 1.0))
     inner = [(y, r - 0.035) for y, r in F_TORSO]
     lathe(p, "dark", flat, [(0.0, bottom)] + [(r, y) for y, r in inner] + [(0.0, top)], 26)
@@ -1625,10 +1626,11 @@ def orbita_head(p):
     mbox(p, "team", T(0, c.y + r * 0.6, c.z - r * 0.8), (0.1, 0.012, 0.03), 0.004, 1)
 
 
-def orbita_torso(p):
+def orbita_torso(p, with_neck=True):
     c = O_CHEST
     R = O_PLANET
-    neck(p, c.y + R * 0.9, O_HEAD.y - O_HEAD_R + 0.02, 0.065, 0.02, plate=(0.2, 0.18))
+    if with_neck:
+        neck(p, c.y + R * 0.9, O_HEAD.y - O_HEAD_R + 0.02, 0.065, 0.02, plate=(0.2, 0.18))
     base = T(*c)
     ball(p, "dark", c, R - 0.035, 22)
     # Planeta em gomos com faixas de latitude; o núcleo é um anel de luz na frente.
@@ -1822,10 +1824,11 @@ def eclipse_head(p):
     mbox(p, "team", T(0, c.y + ey - 0.004, c.z), (0.03, 0.012, 0.12), 0.004, 1)
 
 
-def eclipse_torso(p):
+def eclipse_torso(p, with_neck=True):
     c = E_CHEST
     top, bottom = E_TORSO[-1][0], E_TORSO[0][0]
-    neck(p, c.y + top - 0.005, E_HEAD.y - E_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
+    if with_neck:
+        neck(p, c.y + top - 0.005, E_HEAD.y - E_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
     flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.82, 1.0))
     lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in E_TORSO] + [(0.0, top)], 26)
     for lo, yr in (((-150, -102), (-0.22, 0.2)), ((-78, -30), (-0.22, 0.2)), ((-26, 26), (-0.22, -0.01)),
@@ -2006,10 +2009,11 @@ def helio_spin(p):
     ball(p, "glow", (c.x, ring_y + 0.02, c.z - rr - 0.02), 0.02, 10)
 
 
-def helio_torso(p):
+def helio_torso(p, with_neck=True):
     c = H_CHEST
     top, bottom = H_TORSO[-1][0], H_TORSO[0][0]
-    neck(p, c.y + top - 0.005, H_HEAD.y - H_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
+    if with_neck:
+        neck(p, c.y + top - 0.005, H_HEAD.y - H_HEAD_RADII[1] + 0.02, 0.064, 0.0, plate=(0.2, 0.18))
     flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.84, 1.0))
     lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in H_TORSO] + [(0.0, top)], 26)
     for lo, yr in (((-150, -110), (-0.22, 0.21)), ((-70, -30), (-0.22, 0.21)), ((-26, 26), (-0.22, -0.01)),
@@ -2174,10 +2178,11 @@ def magnus_spin(p):
         laurel(p, (0, c.y + 0.03, 0.0), ex + 0.03, side)
 
 
-def magnus_torso(p):
+def magnus_torso(p, with_neck=True):
     c = M_CHEST
     top, bottom = M_TORSO[-1][0], M_TORSO[0][0]
-    neck(p, c.y + top - 0.005, M_HEAD.y - M_HEAD_RADII[1] + 0.02, 0.075, 0.0, plate=(0.24, 0.22))
+    if with_neck:
+        neck(p, c.y + top - 0.005, M_HEAD.y - M_HEAD_RADII[1] + 0.02, 0.075, 0.0, plate=(0.24, 0.22))
     flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.82, 1.0))
     lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in M_TORSO] + [(0.0, top)], 28)
     for lo, yr in (((-150, -106), (-0.22, 0.22)), ((-74, -30), (-0.22, 0.22)), ((-24, 24), (-0.22, 0.0)),
@@ -2611,6 +2616,196 @@ def broto_hull(p):
     waist(p, 0.74, c.y - H / 2 + 0.02, 0.12)
     pelvis(p, (0, 0.66, 0.0), (0.26, 0.16, 0.26), BROTO["hip"].x, BROTO["hip"].y, 0.085)
 
+
+# ======================================================================================
+# Propostas: os restantes sem pescoço. A cabeça cresce do próprio tronco, no mesmo contorno
+# (um sólido de revolução que continua o perfil do peito para cima), com o rosto na frente.
+# ======================================================================================
+def dome_hull(p, c, depth, profile, window, face_y, screen, crown_role="shell"):
+    """Continua o tronco para cima num só casco: estrutura escura, coroa em duas metades,
+    faces à volta e, à frente, a janela do rosto com o ecrã recuado. `window` =
+    (lon0, lon1, y0, y1) relativo a `c`. Devolve o referencial achatado e a frente do ecrã."""
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, depth, 1.0))
+    y_start, y_top = profile[0][0], profile[-1][0]
+    lathe(p, "dark", flat, [(0.0, y_start)] + [(r - 0.035, y) for y, r in profile] + [(0.0, y_top)], 26)
+    lon0, lon1, wy0, wy1 = window
+    rev_panel(p, crown_role, flat, profile, (wy1, y_top), (-88, 88), 0.034, (10, 8), gap=0.012)
+    rev_panel(p, crown_role, flat, profile, (wy1, y_top), (92, 268), 0.034, (10, 8), gap=0.012)
+    rev_panel(p, "shell", flat, profile, (y_start, wy1), (lon1, lon0 + 360), 0.034, (16, 8), gap=0.012)
+    rev_panel(p, "trim", flat, profile, (y_start, wy0), (lon0, lon1), 0.034, (8, 4), gap=0.012)
+    front = c.z - profile_radius(profile, face_y) * depth
+    # The glass sits just inside the shell, in front of the dark structure.
+    screen_well(p, (c.x, c.y + face_y, front + 0.006), screen, 0.05, 0.01)
+    return flat, front
+
+
+FH_PROFILE = [(0.12, 0.2), (0.2, 0.225), (0.28, 0.222), (0.36, 0.195), (0.43, 0.145), (0.48, 0.075), (0.5, 0.0)]
+FH_SCREEN = (0.24, 0.07)
+
+
+def faisca_hull(p):
+    """FAÍSCA em bala: o corpo em gota sobe e fecha-se numa ogiva com a fenda do visor que
+    varre; os para-raios nascem do alto do casco."""
+    faisca_torso(p, with_neck=False)
+    c = F_CHEST
+    face_y = 0.3
+    mk.HEADS["faisca3_hull"] = {"top": round(c.y + 0.55, 3), "center": round(c.y + face_y, 3), "aspect": round(FH_SCREEN[0] / FH_SCREEN[1], 3)}
+    flat, front = dome_hull(p, c, F_DEPTH, FH_PROFILE, (-128, -52, 0.25, 0.35), face_y, FH_SCREEN)
+    for dy in (-1, 1):
+        mbox(p, "metal", T(0, c.y + face_y + dy * 0.045, front + 0.012), (0.24, 0.012, 0.014), 0.004, 1)
+    rev_panel(p, "trim", flat, [(y, r + 0.006) for y, r in FH_PROFILE], (0.355, 0.385), (-180, 180), 0.02, (24, 2))
+    for side in (-1, 1):
+        base = T(side * 0.05, c.y + 0.47, c.z + 0.03)
+        lean = sub(base, rot=(28, 0, -side * 14))
+        for i, rr in enumerate((0.03, 0.025, 0.02)):
+            mtube(p, "shell" if i % 2 == 0 else "trim", sub(lean, 0, 0.012 + i * 0.02, 0), rr, 0.016, 14, bevel=0.003)
+        mtube(p, "dark", sub(lean, 0, 0.035, 0), 0.009, 0.08, 8)
+        extruded(p, "trim", sub(sub(lean, 0, 0.07, 0), rot=(0, 90, 0)) @ Matrix.Diagonal((1.3, 1.3, 1.3, 1.0)), BOLT, 0.018)
+        ball(p, "glow", at(lean, 0, 0.07 + 0.25, 0.0), 0.016, 8)
+    for side in (-1, 1):
+        q, n = rev_point(c, FH_PROFILE, F_DEPTH, 90 + side * 75, 0.3)
+        mbox(p, "glow", frame(q, n), (0.012, 0.03, 0.03), 0.004, 1)
+    mbox(p, "team", T(0, c.y + 0.5, c.z - 0.02), (0.02, 0.012, 0.1), 0.004, 1)
+
+
+EH_PROFILE = [(0.12, 0.245), (0.2, 0.24), (0.28, 0.22), (0.36, 0.18), (0.44, 0.12), (0.5, 0.06), (0.53, 0.0)]
+EH_SCREEN = (0.21, 0.075)
+
+
+def eclipse_hull(p):
+    """ECLIPSE em grande elmo: a couraça sobe num elmo de cavaleiro com a fenda do visor sob
+    a sobrancelha em V; os chifres nascem dos lados do casco e o halo fica atrás."""
+    eclipse_torso(p, with_neck=False)
+    c = E_CHEST
+    face_y = 0.3
+    mk.HEADS["eclipse3_hull"] = {"top": round(c.y + 0.56, 3), "center": round(c.y + face_y, 3), "aspect": round(EH_SCREEN[0] / EH_SCREEN[1], 3)}
+    flat, front = dome_hull(p, c, 0.82, EH_PROFILE, (-126, -54, 0.26, 0.34), face_y, EH_SCREEN)
+    for dy in (-1, 1):
+        mbox(p, "metal", T(0, c.y + face_y + dy * 0.047, front + 0.012), (0.21, 0.012, 0.014), 0.004, 1)
+    for side in (-1, 1):
+        brow = sub(T(side * 0.062, c.y + face_y + 0.072, front + 0.004), rot=(-12, 0, side * 20))
+        mbox(p, "trim", brow, (0.13, 0.032, 0.036), 0.01)
+        screw(p, sub(brow, side * 0.038, 0.0, -0.019, rot=(-90, 0, 0)), 0, 0, 0.006)
+    mbox(p, "glow", T(0, c.y + face_y + 0.13, front + 0.03), (0.022, 0.055, 0.01), 0.004, 1)
+    # Crista do elmo: uma lâmina a correr do alto para trás.
+    rev_panel(p, "trim", flat, [(y, r + 0.008) for y, r in EH_PROFILE], (0.3, 0.53), (86, 94), 0.03, (2, 8))
+    for side in (-1, 1):
+        r = profile_radius(EH_PROFILE, 0.36)
+        pivot = Vector((side * (r - 0.01), c.y + 0.36, c.z + 0.01))
+        mtube(p, "metal", axis_frame(pivot, "x" if side > 0 else "-x"), 0.04, 0.03, 16)
+        bolts(p, sub(axis_frame(pivot, "x" if side > 0 else "-x"), 0, 0.016, 0), 0.028, 4, size=0.006)
+        mring(p, "metal", axis_frame(pivot + Vector((side * 0.03, 0, 0)), "x"), 0.045, 0.013, 16, 5)
+        prev = None
+        steps = 14
+        for i in range(steps + 1):
+            t = i / steps
+            q = pivot + Vector((side * (0.03 + 0.17 * math.sin(t * 1.4)), 0.42 * math.sin(t * 1.35), 0.12 * math.sin(t * 2.6) - 0.1 * t))
+            rr = 0.05 * (1.0 - t) + 0.008
+            ball(p, "trim", q, rr, 12)
+            if prev is not None:
+                rod(p, "trim", prev, q, rr, 12)
+            prev = q
+        ball(p, "glow", prev, 0.015, 8)
+
+
+HH_PROFILE = [(0.12, 0.235), (0.2, 0.21), (0.27, 0.165), (0.33, 0.142), (0.39, 0.142), (0.44, 0.16), (0.47, 0.18), (0.49, 0.18)]
+HH_SCREEN = (0.15, 0.1)
+
+
+def helio_hull(p):
+    """HÉLIO em ânfora: o tronco estreita num gargalo onde está o rosto e abre-se numa boca de
+    onde nasce um sol, rodeado pela coroa de raios."""
+    helio_torso(p, with_neck=False)
+    c = H_CHEST
+    face_y = 0.35
+    mk.HEADS["helio3_hull"] = {"top": round(c.y + 0.75, 3), "center": round(c.y + face_y, 3), "aspect": round(HH_SCREEN[0] / HH_SCREEN[1], 3)}
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.84, 1.0))
+    y0, y1 = HH_PROFILE[0][0], HH_PROFILE[-1][0]
+    lathe(p, "dark", flat, [(0.0, y0)] + [(r - 0.03, y) for y, r in HH_PROFILE] + [(0.0, y1 - 0.03)], 26)
+    rev_panel(p, "shell", flat, HH_PROFILE, (y0, 0.29), (-180, 180), 0.03, (24, 6), gap=0.0)
+    rev_panel(p, "shell", flat, HH_PROFILE, (0.29, 0.43), (-50, 230), 0.03, (16, 6), gap=0.012)
+    rev_panel(p, "trim", flat, HH_PROFILE, (0.43, y1), (-180, 180), 0.03, (24, 3), gap=0.0)
+    front = c.z - profile_radius(HH_PROFILE, face_y) * 0.84
+    screen_well(p, (0, c.y + face_y, front + 0.006), HH_SCREEN, 0.05, 0.01)
+    mring(p, "metal", sub(flat, 0, 0.29, 0), profile_radius(HH_PROFILE, 0.29) + 0.004, 0.012, 30, 5)
+    mring(p, "trim", sub(flat, 0, y1, 0), 0.185, 0.022, 32, 8)
+    # O sol a nascer da boca da ânfora e a coroa de raios à volta.
+    ball(p, "glow", (0, c.y + y1 + 0.07, c.z), 0.11, 20)
+    mring(p, "metal", T(0, c.y + y1 + 0.02, c.z), 0.15, 0.012, 30, 5)
+    for i in range(12):
+        a = math.radians(i * 30 + 15)
+        base = Vector((math.cos(a) * 0.17, c.y + y1 + 0.01, c.z + math.sin(a) * 0.17 * 0.84))
+        d = Vector((math.cos(a) * 0.5, 1.0, math.sin(a) * 0.5)).normalized()
+        h = 0.16 if i % 2 == 0 else 0.1
+        lathe(p, "trim" if i % 2 == 0 else "metal", frame(base, d), [(0.0, 0.0), (0.026, 0.0), (0.012, h * 0.6), (0.0, h)], 5)
+    # Asas da ânfora: duas pegas curvas do gargalo ao bojo.
+    for side in (-1, 1):
+        pts = [Vector((side * 0.15, c.y + 0.42, c.z)), Vector((side * 0.27, c.y + 0.4, c.z)), Vector((side * 0.29, c.y + 0.3, c.z)), Vector((side * 0.22, c.y + 0.2, c.z))]
+        for a, b in zip(pts, pts[1:]):
+            rod(p, "trim", a, b, 0.018, 10)
+            ball(p, "trim", b, 0.018, 10)
+    for side in (-1, 1):
+        mbox(p, "glow", T(side * 0.1, c.y + face_y - 0.075, front + 0.02), (0.02, 0.01, 0.01), 0.003, 1)
+
+
+MH_PROFILE = [(0.12, 0.305), (0.2, 0.3), (0.27, 0.27), (0.33, 0.22), (0.38, 0.15), (0.41, 0.08), (0.42, 0.0)]
+MH_SCREEN = (0.3, 0.1)
+
+
+def magnus_hull(p):
+    """MAGNUS campeão: o peito enorme sobe numa cúpula larga, com o visor largo numa máscara,
+    a crista em leque no alto e os louros dos lados."""
+    magnus_torso(p, with_neck=False)
+    c = M_CHEST
+    face_y = 0.24
+    mk.HEADS["magnus3_hull"] = {"top": round(c.y + 0.55, 3), "center": round(c.y + face_y, 3), "aspect": round(MH_SCREEN[0] / MH_SCREEN[1], 3)}
+    flat, front = dome_hull(p, c, 0.82, MH_PROFILE, (-132, -48, 0.19, 0.29), face_y, MH_SCREEN)
+    for dy in (-1, 1):
+        mbox(p, "trim", T(0, c.y + face_y + dy * 0.066, front + 0.006), (0.36, 0.028, 0.03), 0.01)
+    for side in (-1, 1):
+        mbox(p, "glow", T(side * 0.15, c.y + face_y + 0.1, front + 0.03), (0.04, 0.012, 0.01), 0.003, 1)
+    crest = [(-0.14, 0.0), (0.14, 0.0), (0.11, 0.07), (0.03, 0.14), (-0.08, 0.13), (-0.14, 0.06)]
+    extruded(p, "trim", sub(T(0, c.y + 0.4, c.z + 0.02), rot=(0, 90, 0)), crest, 0.03)
+    mbox(p, "dark", T(0, c.y + 0.41, c.z + 0.02), (0.05, 0.024, 0.26), 0.006, 1)
+    for side in (-1, 1):
+        laurel(p, (0, c.y + 0.3, c.z + 0.02), 0.3, side, leaves=8)
+        hub = axis_frame((side * 0.27, c.y + 0.3, c.z + 0.02), "x" if side > 0 else "-x")
+        mtube(p, "metal", hub, 0.04, 0.03, 16)
+        bolts(p, sub(hub, 0, 0.016, 0), 0.028, 4, size=0.006)
+    mbox(p, "team", T(0, c.y + 0.35, c.z - 0.2), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+def orbita_hull(p):
+    """ÓRBITA planeta: o próprio planeta é a cabeça, com o rosto numa máscara à frente e a
+    cúpula do observatório pousada no polo, com a parabólica."""
+    orbita_torso(p, with_neck=False)
+    c = O_CHEST
+    R = O_PLANET
+    face_y = 0.12
+    fz = c.z - math.sqrt(R * R - face_y * face_y) - 0.012
+    mk.HEADS["orbita3_hull"] = {"top": round(c.y + R + 0.2, 3), "center": round(c.y + face_y, 3), "aspect": round(O_SCREEN[0] / O_SCREEN[1], 3)}
+    screen_well(p, (0, c.y + face_y, fz), (0.22, 0.11), 0.04, 0.012)
+    mbox(p, "trim", T(0, c.y + face_y + 0.078, fz + 0.012), (0.3, 0.04, 0.05), 0.016)
+    mbox(p, "trim", T(0, c.y + face_y - 0.075, fz + 0.02), (0.26, 0.035, 0.05), 0.016)
+    for side in (-1, 1):
+        mbox(p, "trim", T(side * 0.14, c.y + face_y, fz + 0.016), (0.04, 0.19, 0.05), 0.016)
+    # A cúpula do observatório no polo: dois gomos com a fenda, debruns, base em anel.
+    d = T(0, c.y + R - 0.05, c.z)
+    ball(p, "dark", (0, c.y + R - 0.05, c.z), 0.17, 18)
+    sphere_panel(p, "shell", d, 0.2, (0, 86), (-80, 70), 0.03, (12, 6), gap=0.01)
+    sphere_panel(p, "shell", d, 0.2, (0, 86), (110, 260), 0.03, (12, 6), gap=0.01)
+    for side in (-1, 1):
+        meridian_arc(p, "trim", (0, c.y + R - 0.05, c.z), 0.204, 90 + side * 20, 0, 84, 0.01)
+    mring(p, "trim", d, 0.205, 0.018, 32, 6)
+    arm = Vector((-0.2, c.y + R + 0.02, c.z + 0.02))
+    mtube(p, "metal", axis_frame(arm, "-x"), 0.03, 0.03, 14)
+    rod(p, "metal", arm + Vector((-0.015, 0, 0)), arm + Vector((-0.08, 0.08, 0.0)), 0.01, 8)
+    dish = frame(arm + Vector((-0.09, 0.1, -0.01)), (-0.5, 0.6, -0.62))
+    lathe(p, "trim", dish, [(0.0, 0.0), (0.06, 0.006), (0.11, 0.024), (0.12, 0.036), (0.114, 0.04), (0.06, 0.012), (0.0, 0.005)], 22)
+    rod(p, "metal", at(dish, 0, 0.01, 0), at(dish, 0, 0.1, 0), 0.006, 6)
+    ball(p, "glow", at(dish, 0, 0.105, 0), 0.014, 8)
+    mbox(p, "team", T(0, c.y + R + 0.15, c.z - 0.1), (0.1, 0.012, 0.03), 0.004, 1)
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -2619,6 +2814,11 @@ def define(part):
     part("batida3_hull")(batida_hull)
     part("rosca3_hull")(rosca_hull)
     part("broto3_hull")(broto_hull)
+    part("faisca3_hull")(faisca_hull)
+    part("eclipse3_hull")(eclipse_hull)
+    part("helio3_hull")(helio_hull)
+    part("magnus3_hull")(magnus_hull)
+    part("orbita3_hull")(orbita_hull)
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
     part("salvo2_shoulders")(salvo_shoulders)
