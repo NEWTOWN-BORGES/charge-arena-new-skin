@@ -63,8 +63,6 @@ void fragment() {
 	base = mix(base, line_color.rgb, paint * 0.85);
 	ALBEDO = base;
 	METALLIC = 0.0;
-	// Glazed plates: a real sheen on each tile, a fine grain in the glaze, matte seams.
-	float glaze = texture(surface_grain, p * 0.35).r;
-	ROUGHNESS = mix(0.28 + glaze * 0.1, 0.75, seam) - paint * 0.08;
-	SPECULAR = 0.6;
+	ROUGHNESS = mix(0.62, 0.8, seam) - paint * 0.15;
+	SPECULAR = 0.45;
 }
