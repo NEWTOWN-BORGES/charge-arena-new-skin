@@ -5,7 +5,9 @@ shader_type spatial;
 // basis y = (size at birth, size at death, gravity), basis z = (drag, stretch, rise).
 // INSTANCE_CUSTOM = (birth time, lifetime, seed, spin). COLOR = tint.
 // kind: 0 glow, 1 spark (stretched along its motion), 2 star, 3 ring on the floor.
-render_mode unshaded, blend_add, depth_draw_never, cull_disabled, skip_vertex_transform, shadows_disabled;
+// Blended, not added: added light vanishes over the bright arenas. Each particle is a
+// saturated colour with a hot core, so embers and sparks read on any floor.
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, skip_vertex_transform, shadows_disabled;
 
 uniform float now = 0.0;
 uniform int kind = 0;
@@ -75,6 +77,10 @@ void fragment() {
 		core = pow(max(1.0 - d * 1.8, 0.0), 2.0);
 	}
 	float fade = kind == 3 ? pow(1.0 - age_k, 1.5) : (1.0 - age_k) * smoothstep(0.0, 0.08, age_k + 0.02);
-	ALBEDO = mix(tint.rgb, vec3(1.0), core * 0.4) * 1.2;
-	ALPHA = clamp(shape * fade * tint.a, 0.0, 1.0);
+	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
+	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.4), 0.0, 1.0);
+	// Sparks flicker as they fly.
+	float flicker = kind == 1 ? 0.8 + 0.2 * sin(TIME * 40.0 + age_k * 25.0) : 1.0;
+	ALBEDO = mix(vivid, vec3(1.0, 0.98, 0.92), clamp(core * 0.75, 0.0, 1.0)) * flicker;
+	ALPHA = clamp((shape * 0.85 + core * 0.4) * fade * tint.a, 0.0, 1.0);
 }

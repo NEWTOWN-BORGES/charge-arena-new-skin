@@ -69,7 +69,7 @@ func run() -> void:
 		for mood in [0, 2]:
 			Robots.set_mood(body, mood)
 			# Keep the capture away from a blink.
-			var face: ShaderMaterial = body.get_node("Robot_screen").material_override
+			var face: ShaderMaterial = (body.get_node_or_null("Head/Robot_screen") if body.has_node("Head/Robot_screen") else body.get_node("Robot_screen")).material_override
 			face.set_shader_parameter("seed", 1.5 - Time.get_ticks_msec() / 1000.0)
 			await process_frame
 			await RenderingServer.frame_post_draw

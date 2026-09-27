@@ -139,6 +139,8 @@ func run() -> void:
 		streams.append(stream)
 	check(streams.all(func(a): return streams.count(a) == 1), "No two weapons share a sound")
 	arena.set_skin(0, 4)
+	# The default is tap to shoot now; the automatic gun fires without a tap.
+	game.game_settings.auto_fire = true
 	game.rules.players[0].cooldown = 0
 	game._physics_process(1.0 / 60)
 	check(game.audio_voices.any(func(v): return v.stream == game.tones["shot_4"]), "Firing as the Bigorna plays the drill sound")

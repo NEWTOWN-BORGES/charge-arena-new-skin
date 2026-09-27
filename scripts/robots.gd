@@ -191,13 +191,21 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	var shape = head(String(parts.head))
 	var lift = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.top) - HEAD_TOP, 0))
 	var centre = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.center) - HEAD_CENTER, 0))
+	# The trunk is one piece; the head (with whatever sits on it) turns on the neck and the
+	# free arm swings from the shoulder, each on a joint of its own (Body/Head, Body/Arm).
 	var core: Array = []
-	for slot in ["head", "torso", "shoulders", "back", "arm"]:
+	for slot in ["torso", "shoulders", "back"]:
 		if String(parts.get(slot, "")) != "":
 			core.append([parts[slot], Transform3D.IDENTITY])
+	_mount(view, body, plan.key + ":core", core, paint)
+	var head_parts: Array = []
+	if String(parts.get("head", "")) != "":
+		head_parts.append([parts.head, Transform3D.IDENTITY])
 	if String(parts.get("top", "")) != "":
-		core.append([parts.top, lift])
-	_mount(view, body, plan.key + ":body", core, paint)
+		head_parts.append([parts.top, lift])
+	var head_joint = _joint(view, body, "Head", plan.key + ":head", head_parts, paint, true)
+	if String(parts.get("arm", "")) != "":
+		_joint(view, body, "Arm", plan.key + ":arm", [[parts.arm, Transform3D.IDENTITY]], paint, false)
 	var hip: Vector3 = plan.hip
 	for side in [-1, 1]:
 		var leg = Node3D.new()
@@ -217,7 +225,13 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	flash.name = "Flash"
 	var crest = String(parts.get("spin", ""))
 	if crest != "":
-		var holder: Node3D = body
+		# The crest rides on the head: a mount that undoes the neck's offset, so the crest
+		# keeps its modelled place and turns with the head.
+		var crest_base = Node3D.new()
+		crest_base.name = "CrestMount"
+		crest_base.position = -head_joint.position
+		head_joint.add_child(crest_base)
+		var holder: Node3D = crest_base
 		var inverse = Transform3D.IDENTITY
 		# v2 crests are modelled in place on their own robot, so they need no offset.
 		var offset: Transform3D = Transform3D.IDENTITY if crest.ends_with("2_spin") else (centre if crest in CENTRED_SPINS else lift)
@@ -226,7 +240,7 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 			holder = Node3D.new()
 			holder.name = "KeyMount"
 			holder.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), offset * DISC_SPINS[crest])
-			body.add_child(holder)
+			crest_base.add_child(holder)
 			inverse = holder.transform.affine_inverse()
 		var spin = Node3D.new()
 		spin.name = "Spin"
@@ -288,8 +302,34 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 		nodes.append(node)
 	return nodes
 
+static func _joint(view, body: Node3D, joint_name: String, key: String, placed: Array, paint: Dictionary, below: bool) -> Node3D:
+	# A jointed piece: mounted in body space, then its node moved to the pivot (the bottom of
+	# a head, the top of an arm) and its meshes moved back, so rotating the node turns the
+	# piece about that joint.
+	var joint = Node3D.new()
+	joint.name = joint_name
+	body.add_child(joint)
+	if placed.is_empty():
+		return joint
+	var meshes = _mount(view, joint, key, placed, paint)
+	var bounds := AABB()
+	var first = true
+	for node in meshes:
+		if node is MeshInstance3D and node.mesh != null:
+			var box: AABB = node.mesh.get_aabb()
+			bounds = box if first else bounds.merge(box)
+			first = false
+	var centre = bounds.get_center()
+	var pivot = Vector3(centre.x, bounds.position.y + bounds.size.y * 0.12, centre.z) if below else Vector3(centre.x, bounds.end.y - bounds.size.y * 0.12, centre.z)
+	joint.position = pivot
+	for node in meshes:
+		node.position -= pivot
+	return joint
+
 static func _face(body: Node3D) -> ShaderMaterial:
-	var screen: MeshInstance3D = body.get_node_or_null("Robot_screen")
+	var screen: MeshInstance3D = body.get_node_or_null("Head/Robot_screen")
+	if screen == null:
+		screen = body.get_node_or_null("Robot_screen")
 	return screen.material_override if screen != null else ShaderMaterial.new()
 
 static func set_mood(body: Node3D, mood: int) -> void:

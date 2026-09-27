@@ -931,9 +931,9 @@ const STATION_SKIN = 100
 
 func spin_parts(body: Node3D, time: float) -> void:
 	# Crests on the robots (a crown, a halo, an orbit) turn slowly.
-	var spin: Node3D = body.get_node_or_null("Spin")
+	var spin: Node3D = body.get_node_or_null("Head/CrestMount/Spin")
 	if spin == null:
-		spin = body.get_node_or_null("KeyMount/Spin")
+		spin = body.get_node_or_null("Head/CrestMount/KeyMount/Spin")
 	if spin != null:
 		spin.rotation.y = time * 1.6
 
@@ -1244,6 +1244,16 @@ func live_on_pedestal(pilot: Node3D, offset: float) -> void:
 		var side = -1.0 if i == 0 else 1.0
 		legs[i].rotation.x = stride * side - crouch * 0.35
 		legs[i].rotation.z = side * crouch * 0.22
+	# The head turns further than the body and dips when it crouches; the free arm swings
+	# with the steps and comes up to brace while it fires.
+	var head: Node3D = body.get_node_or_null("Head")
+	if head != null:
+		head.rotation.y = lerpf(head.rotation.y, look * 0.9, 0.15)
+		head.rotation.x = lerpf(head.rotation.x, crouch * 0.18 - aim * 0.06 + sin(clock * 2.2 + offset) * 0.03, 0.2)
+	var arm: Node3D = body.get_node_or_null("Arm")
+	if arm != null:
+		arm.rotation.x = lerpf(arm.rotation.x, -stride * 0.9 - aim * 0.7 - crouch * 0.25, 0.2)
+		arm.rotation.z = lerpf(arm.rotation.z, -crouch * 0.2, 0.2)
 	if t < 4.4 or t >= 6.6:
 		gun.get_node("Flash").scale = Vector3.ONE * 0.001
 		gun.rotation.x = lerpf(gun.rotation.x, 0.0, 0.15)
@@ -1467,6 +1477,14 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		spin_parts(body, clock)
 		body.get_node("LegL").rotation.x = sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
 		body.get_node("LegR").rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
+		# The head glances about and wobbles when stunned; the free arm swings against the legs.
+		var head: Node3D = body.get_node_or_null("Head")
+		if head != null:
+			head.rotation.y = sin(clock * 0.9 + team * 2.0) * 0.14 + (sin(clock * 14.0) * 0.2 if data.stun > 0 else 0.0)
+			head.rotation.x = sin(clock * 2.2 + team) * 0.03
+		var arm: Node3D = body.get_node_or_null("Arm")
+		if arm != null:
+			arm.rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.4 + sin(clock * 2.2) * 0.04
 		var overload: Node3D = node.get_node_or_null("Surge")
 		if overload != null:
 			overload.visible = rules.powers[team].surge_time > 0
@@ -2014,9 +2032,12 @@ func meteor_fall(at: Vector2, radius: float, warm: bool) -> void:
 	# The rock is the Blender kit's (fx_meteor): dark stone with glowing veins.
 	var stone = Node3D.new()
 	rock.add_child(stone)
-	stone.scale = Vector3.ONE * radius * 1.1
+	stone.scale = Vector3.ONE * radius * 1.6
 	Robots.prop(self, stone, "fx_meteor:" + str(warm), ["fx_meteor"], {"shell": Color("3b3438") if warm else Color("342f45"), "glow": color, "dark": Color("1e1a22"), "wear": 0.6})
-	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 1.45, Color(color, 0.3), true)
+	sphere(rock, Vector3.ZERO, Vector3.ONE * radius * 2.1, Color(color, 0.35), true)
+	# The target lights up on the floor while the rock is on its way: you see where it lands.
+	var target = torus(self, Vector3(at.x, 0.08, at.y), radius * 1.6, 0.05, Color(color, 0.9), true)
+	effects.append({"node": target, "v": Vector3.ZERO, "ttl": fall, "life": fall, "gravity": false, "base": Vector3.ONE, "keep": true})
 	var velocity = (Vector3(at.x, 0.2, at.y) - start) / fall
 	effects.append({"node": rock, "v": velocity, "ttl": fall, "life": fall, "gravity": false, "base": Vector3.ONE, "keep": true, "spin": true})
 	# The tail: embers left behind along the way down.
@@ -2060,6 +2081,10 @@ func thunder_bolt(at: Vector2, radius: float) -> void:
 	pending.append({"time": 0.27, "call": func(): thunder_stroke(at, color, hot, 0.62, 0.08)})
 	pending.append({"time": 0.37, "call": func(): thunder_stroke(at, color, hot, 0.34, 0.06)})
 	pending.append({"time": 0.16, "call": func(): thunder_land(at, radius, color, hot)})
+	# A column of charged air stays over the spot a moment after the strokes, so the strike
+	# is read even by an eye that blinked through the flashes.
+	var column = cylinder(self, Vector3(at.x, BOLT_TOP * 0.5, at.y), radius * 0.45, BOLT_TOP, Color(color, 0.45), true, 16)
+	effects.append({"node": column, "v": Vector3.ZERO, "ttl": 0.6, "life": 0.6, "gravity": false, "base": Vector3.ONE, "keep": true})
 
 func thunder_stroke(at: Vector2, color: Color, hot: Color, weight: float, life: float) -> void:
 	# One flash of the column. The thicknesses run heavy at the top and fine at the ground,
@@ -2145,8 +2170,8 @@ func surge_flash(at: Vector2) -> void:
 		effects.append({"node": ring, "v": Vector3(0, 0.7, 0), "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE * 3.2, "grow": true, "tint": color})
 	if effects.size() < effect_limit:
 		# A column of overload round the pilot, thinning out as it fades.
-		var aura = cylinder(self, Vector3(at.x, 1.1, at.y), 0.75, 2.2, Color(color, 0.5), true, 24)
-		effects.append({"node": aura, "v": Vector3(0, 0.4, 0), "ttl": 0.8, "life": 0.8, "gravity": false, "base": Vector3.ONE, "keep": true})
+		var aura = cylinder(self, Vector3(at.x, 1.1, at.y), 0.8, 2.4, Color(color, 0.7), true, 24)
+		effects.append({"node": aura, "v": Vector3(0, 0.4, 0), "ttl": 1.1, "life": 1.1, "gravity": false, "base": Vector3.ONE, "keep": true})
 	emitter(Vector3(at.x, 0.7, at.y), GOLD, 26, 0.9, 3.4, 70.0, 0.3, -1.6, Vector3.UP)
 	flash(Vector3(at.x, 1.3, at.y), color, 5.0, 0.6, 12.0)
 	shake(0.35)
@@ -2163,8 +2188,8 @@ func volley_flash(at: Vector2, heading: Vector2) -> void:
 		if effects.size() >= effect_limit:
 			break
 		var dir = heading.rotated(lerpf(-0.42, 0.42, k / 4.0))
-		var lance = segment(self, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 0.8, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 4.2, 0.09, 0.09, Color(color, 0.8), true)
-		effects.append({"node": lance, "v": Vector3(dir.x, 0, dir.y) * 3.0, "ttl": 0.22, "life": 0.22, "gravity": false, "base": Vector3.ONE, "keep": true})
+		var lance = segment(self, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 0.8, Vector3(at.x, 0.55, at.y) + Vector3(dir.x, 0, dir.y) * 4.6, 0.16, 0.16, Color(color, 0.9), true)
+		effects.append({"node": lance, "v": Vector3(dir.x, 0, dir.y) * 3.0, "ttl": 0.32, "life": 0.32, "gravity": false, "base": Vector3.ONE, "keep": true})
 	flash(Vector3(at.x, 0.9, at.y), color, 3.2, 0.3, 8.0)
 	for lane in [-0.45, 0.0, 0.45]:
 		if effects.size() >= effect_limit:

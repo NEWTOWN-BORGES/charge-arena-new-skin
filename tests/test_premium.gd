@@ -25,7 +25,7 @@ func run():
 		var pilot = view.build_player(View.CYAN, 0, skin)
 		var body = pilot.get_node("Body")
 		var valid = true
-		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Robot_screen"]:
+		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Head/Robot_screen", "Head", "Arm"]:
 			valid = valid and body.has_node(part)
 		check(valid, "Skin %d keeps animated body, legs, weapon, muzzle and face" % skin)
 		check(not body.has_node("Robot_outline"), "Skin %d has no ink hull in the studio look" % skin)

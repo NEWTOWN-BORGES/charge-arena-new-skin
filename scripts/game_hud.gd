@@ -59,7 +59,7 @@ var fire_control = 0
 var fire_size = 1.0
 var fire_x = 0.95
 var fire_y = 0.99
-var auto_fire = true
+var auto_fire = false
 var fire_id = -1
 # Taps on the fire key since the match last read them: every one is a shot.
 var fire_taps = 0
@@ -623,6 +623,14 @@ func animate_viewer(dt: float) -> void:
 	var body: Node3D = viewer_pilot.get_node("Body")
 	body.position.y = sin(viewer_clock * 2.2) * 0.02
 	arena_view.spin_parts(body, viewer_clock)
+	# Alive on the turntable: the head looks about, the free arm breathes.
+	var head: Node3D = body.get_node_or_null("Head")
+	if head != null:
+		head.rotation.y = sin(viewer_clock * 0.7) * 0.3
+		head.rotation.x = sin(viewer_clock * 1.3) * 0.05
+	var arm: Node3D = body.get_node_or_null("Arm")
+	if arm != null:
+		arm.rotation.x = sin(viewer_clock * 1.1) * 0.12
 	var gun: Node3D = body.get_node("Gun")
 	var flash: Node3D = gun.get_node("Flash")
 	viewer_fire_timer -= dt

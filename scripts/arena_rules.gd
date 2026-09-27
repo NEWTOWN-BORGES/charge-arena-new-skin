@@ -35,6 +35,8 @@ const ASSIST_STEPS = 12
 const SPEED = 5.0
 const BALL_SPEED = 15.5
 const FIRE_INTERVAL = 0.42
+# Tap to shoot: a shot per tap, as fast as the fingers go (the automatic gun keeps its pace).
+const TAP_INTERVAL = 0.14
 const PLAYER_LIVES = 5
 const STUN_SECONDS = 0.5
 # How far across the far end of the arena the pilot's aim sweeps as it walks its rail.
@@ -796,6 +798,8 @@ func step(dt: float, commands: Array) -> void:
 			# While the lance is lit, the lance is the gun. The pilot used to keep firing
 			# ordinary rounds underneath it, and those are what people saw ricocheting.
 			shoot(team)
+			if cmd.get("manual", false):
+				p.cooldown = minf(p.cooldown, TAP_INTERVAL * (FREEZE_FIRE if powers[team].freeze_time > 0 else 1.0))
 	var pace: Dictionary = ai_profile if not ai_profile.is_empty() else AI_LEVELS[clampi(ai_level, 0, AI_LEVELS.size() - 1)]
 	if not ai_profile.is_empty() or bool(commands[1].get("_ai", false)):
 		# A pilot winds its kit up with the clock as well as with the bricks it

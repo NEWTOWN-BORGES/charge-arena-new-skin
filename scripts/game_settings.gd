@@ -13,7 +13,8 @@ var camera_feedback = 1
 var haptics = true
 # Effects intensity: Full, or Reduced (fewer particles, no light flashes) for comfort.
 var effects_full = true
-var auto_fire = true
+# Tap to shoot by default: every tap on the fire button is one shot.
+var auto_fire = false
 var fire_control = 0
 var fire_size = 1.0
 var fire_x = 0.95
@@ -35,7 +36,8 @@ func load_preferences() -> void:
 	camera_feedback = clampi(int(config.get_value("game", "camera_feedback", 1)), 0, 2)
 	haptics = bool(config.get_value("game", "haptics", true))
 	effects_full = bool(config.get_value("game", "effects_full", true))
-	auto_fire = bool(config.get_value("game", "auto_fire", true))
+	# Saves from before the tap-to-shoot default (no "fire_default" stamp) move to it once.
+	auto_fire = bool(config.get_value("game", "auto_fire", false)) if int(config.get_value("game", "fire_default", 0)) >= 2 else false
 	fire_control = clampi(int(config.get_value("game", "fire_control", 0)), 0, 1)
 	fire_size = clampf(float(config.get_value("game", "fire_size", 1.0)), 0.7, 1.5)
 	fire_x = clampf(float(config.get_value("game", "fire_x", 0.95)), 0.0, 1.0)
@@ -52,6 +54,7 @@ func save_preferences() -> Error:
 	config.set_value("game", "haptics", haptics)
 	config.set_value("game", "effects_full", effects_full)
 	config.set_value("game", "auto_fire", auto_fire)
+	config.set_value("game", "fire_default", 2)
 	config.set_value("game", "sfx_volume", sfx_volume)
 	config.set_value("game", "fire_control", fire_control)
 	config.set_value("game", "fire_size", fire_size)

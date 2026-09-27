@@ -32,7 +32,7 @@ var remote_power = -1
 # own cadence, so ten quick taps are ten shots; holding the finger down does not keep
 # firing. Per team: the host keeps the guest's taps the same way it keeps its own.
 const FIRE_BUFFER_MS = 900
-const MAX_QUEUED_SHOTS = 10
+const MAX_QUEUED_SHOTS = 24
 var queued_shots: Array = [0, 0]
 var queued_until: Array = [0, 0]
 var pending_clicks = 0
@@ -1056,7 +1056,7 @@ func local_command() -> Dictionary:
 		for click in range(clicks):
 			queue_shot(local_team)
 		fire = fire or take_queued_shot(local_team)
-	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": clicks > 0, "clicks": clicks, "power": read_power()}
+	return {"move": Vector2(clampf(move.x, -1, 1), 0), "fire": fire, "tap": clicks > 0, "clicks": clicks, "manual": not game_settings.auto_fire, "power": read_power()}
 
 func queue_shot(team: int) -> void:
 	queued_shots[team] = mini(int(queued_shots[team]) + 1, MAX_QUEUED_SHOTS)
