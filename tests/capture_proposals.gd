@@ -56,6 +56,7 @@ func run() -> void:
 		tiles.append(await shot())
 		var entry: Dictionary = Robots.cast()[skin]
 		var saved: Dictionary = entry.parts.duplicate()
+		var saved_palette: Dictionary = entry.palette.duplicate()
 		entry.parts["head"] = ""
 		entry.parts["top"] = ""
 		var eyes: String = entry.eye_style
@@ -65,6 +66,8 @@ func run() -> void:
 				var kv = pair.split("=")
 				if kv[0] == "eyes":
 					entry.eye_style = kv[1]
+				elif kv[0].begins_with("pal_"):
+					entry.palette[kv[0].substr(4)] = kv[1]
 				else:
 					entry.parts[kv[0]] = kv[1]
 		else:
@@ -83,6 +86,7 @@ func run() -> void:
 			pose(arena, cam, view[0], view[1])
 			tiles.append(await shot())
 		entry.parts = saved
+		entry.palette = saved_palette
 		entry.eye_style = eyes
 		Robots._merged.clear()
 		var sheet = Image.create(TILE * tiles.size(), TILE, false, tiles[0].get_format())

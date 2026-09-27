@@ -3286,6 +3286,408 @@ def faisca4_hull(p):
         mring(p, "glow", sub(T(side * 0.1, 0.8, 0.07), rot=(90, 0, 0)), 0.031, 0.005, 14, 4)
     hip_axles(p, hip.y, 0.1, hip.x, 0.058)
 
+
+# ======================================================================================
+# Quinta geração: recriações fiéis das referências do jogador - blocos grossos de arestas
+# chanfradas, poucas formas grandes, antebraços enormes, pernas curtas e fortes.
+# ======================================================================================
+def cbox(p, role, at_, size, chamfer=0.03, rot=(0, 0, 0), taper=None):
+    """Bloco de arestas chanfradas (bisel plano), o traço das referências."""
+    m = sub(T(*at_), rot=rot) if not isinstance(at_, Matrix) else at_
+    mbox(p, role, m, size, chamfer, 1, taper)
+
+
+def beam(p, role, a, b, width, depth, chamfer=0.03, pad=0.0, front=(0, 0, -1)):
+    """Bloco chanfrado de `a` a `b` (o comprimento ao longo do Y local)."""
+    a, b = Vector(a), Vector(b)
+    m = frame(a.lerp(b, 0.5), b - a, front=front)
+    mbox(p, role, m, (width, (b - a).length + pad, depth), chamfer, 1)
+    return m
+
+
+def fist(p, m, scale=1.0, role="dark"):
+    """Punho de blocos: palma, quatro dedos dobrados e o polegar, num referencial com o Y local
+    ao longo do antebraço."""
+    k = scale
+    mbox(p, role, sub(m, 0, 0.0, 0.0), (0.2 * k, 0.14 * k, 0.2 * k), 0.025 * k, 1)
+    for i in range(4):
+        mbox(p, role, sub(m, -0.075 * k + i * 0.05 * k, 0.1 * k, -0.02 * k), (0.045 * k, 0.08 * k, 0.16 * k), 0.012 * k, 1)
+    mbox(p, role, sub(m, 0.12 * k, 0.02 * k, -0.06 * k, rot=(0, 0, -30)), (0.06 * k, 0.1 * k, 0.07 * k), 0.012 * k, 1)
+
+
+def block_claw_foot(p, ground, role="shell", toe_role="dark", k=1.0, z=0.0):
+    """Pé de garras: calcanhar, dois dedos à frente e um atrás, em blocos chanfrados."""
+    mbox(p, role, T(0, ground + 0.07 * k, z + 0.02), (0.18 * k, 0.1 * k, 0.16 * k), 0.025, 1)
+    for side in (-1, 1):
+        cbox(p, toe_role, (side * 0.055 * k, ground + 0.035 * k, z - 0.12 * k), (0.07 * k, 0.07 * k, 0.2 * k), 0.02, rot=(0, side * 12, 0))
+        cbox(p, role, (side * 0.055 * k, ground + 0.075 * k, z - 0.1 * k), (0.075 * k, 0.03 * k, 0.12 * k), 0.012, rot=(0, side * 12, 0))
+    cbox(p, toe_role, (0, ground + 0.035 * k, z + 0.13 * k), (0.07 * k, 0.07 * k, 0.12 * k), 0.02)
+
+
+# --------------------------------------------------------------------------------------
+# ECLIPSE 5 (referência: o tanque verde "08"): tronco largo e curvado, a cabeça enterrada à
+# frente dos ombros com a fenda dos olhos sob uma pala, ombreiras em bloco, punhos enormes,
+# pernas curtas e grossas com botas pesadas.
+# --------------------------------------------------------------------------------------
+E5 = {"elbow_l": Vector((-0.6, 1.08, 0.02)), "wrist_l": Vector((-0.64, 0.78, -0.12)), "elbow_r": Vector((0.6, 1.08, -0.02))}
+
+
+def eclipse5_torso(p):
+    mk.HEADS["eclipse5_torso"] = {"top": 1.7, "center": 1.53, "aspect": round(0.38 / 0.062, 3)}
+    cbox(p, "dark", (0, 0.86, 0.02), (0.36, 0.12, 0.28), 0.03)
+    cbox(p, "shell", (0, 0.99, 0.03), (0.6, 0.22, 0.46), 0.05)
+    mbox(p, "dark", T(0, 1.1, 0.03), (0.62, 0.03, 0.48), 0.01, 1)
+    cbox(p, "shell", (0, 1.27, 0.06), (0.82, 0.38, 0.58), 0.08)
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.2, 1.24, -0.245), (0.36, 0.26, 0.07), 0.03, rot=(0, -side * 8, 0))
+    mbox(p, "dark", T(0, 1.24, -0.25), (0.02, 0.24, 0.06), 0.004, 1)
+    cbox(p, "trim", (0, 1.12, -0.24), (0.3, 0.035, 0.05), 0.01)
+    serial(p, plane((0.2, 1.22, -0.288), (0, 0, -1), (-1, 0, 0)), "10", 0.07, role="label")
+    # A cabeça enterrada à frente, entre os ombros: núcleo escuro, faces, tampo e a pala.
+    cbox(p, "dark", (0, 1.53, -0.02), (0.52, 0.28, 0.44), 0.04)
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.265, 1.53, -0.02), (0.06, 0.29, 0.46), 0.018)
+    cbox(p, "shell", (0, 1.675, -0.02), (0.58, 0.06, 0.48), 0.025)
+    cbox(p, "shell", (0, 1.625, -0.2), (0.6, 0.1, 0.2), 0.03)
+    cbox(p, "shell", (0, 1.435, -0.19), (0.54, 0.11, 0.18), 0.03)
+    p.screen((0, 1.535, -0.245), (0.38, 0.062), bulge=0.004)
+    arc_tube(p, "dark", axis_frame((0.12, 1.705, 0.1), "z"), 0.11, 0.02, 0, 180, 18, 6)
+    mtube(p, "dark", axis_frame((-0.12, 1.715, -0.1), "y"), 0.025, 0.025, 10)
+    # Mochila com respiradouros e dois espigões curtos.
+    cbox(p, "shell", (0, 1.3, 0.4), (0.5, 0.32, 0.16), 0.04)
+    vents(p, sub(T(0, 1.3, 0.482), rot=(90, 0, 0)), 4, 0.34, depth=0.01, spacing=0.05)
+    for side in (-1, 1):
+        lathe(p, "trim", frame(Vector((side * 0.16, 1.46, 0.42)), Vector((side * 0.3, 1, 0.4)).normalized()), [(0.0, 0.0), (0.04, 0.0), (0.0, 0.16)], 6)
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.42, 1.38, 0.02), (0.08, 0.2, 0.22), 0.02)
+    cbox(p, "dark", (0, 0.76, 0.0), (0.32, 0.14, 0.28), 0.03)
+    hip_axles(p, ECLIPSE["hip"].y, 0.15, ECLIPSE["hip"].x, 0.08)
+
+
+def eclipse5_shoulders(p):
+    for side in (-1, 1):
+        e = E5["elbow_l"] if side < 0 else E5["elbow_r"]
+        cbox(p, "shell", (side * 0.58, 1.5, 0.02), (0.38, 0.34, 0.46), 0.06)
+        cbox(p, "trim", (side * 0.58, 1.675, 0.02), (0.26, 0.03, 0.36), 0.01)
+        cbox(p, "trim", (side * 0.775, 1.5, 0.02), (0.02, 0.2, 0.3), 0.006)
+        cbox(p, "dark", (side * 0.58, 1.3, 0.02), (0.22, 0.1, 0.26), 0.02)
+        rod(p, "dark", (side * 0.59, 1.28, 0.02), e, 0.075, 12)
+        ball(p, "dark", e, 0.095, 14)
+
+
+def eclipse5_arm(p):
+    e, w = E5["elbow_l"], E5["wrist_l"]
+    m = beam(p, "shell", e, w, 0.33, 0.34, 0.05, pad=0.08)
+    cbox(p, "trim", sub(m, 0, (w - e).length * 0.3, 0), (0.34, 0.05, 0.35), 0.012)
+    fist(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.12, 0), 1.5)
+    e = E5["elbow_r"]
+    muzzle = ECLIPSE["muzzle"]
+    d = (muzzle - e).normalized()
+    m = beam(p, "shell", e, e + d * 0.48, 0.34, 0.35, 0.05, pad=0.04, front=(0, 1, 0))
+    cbox(p, "trim", sub(m, 0, 0.12, 0), (0.35, 0.05, 0.36), 0.012)
+    cbox(p, "dark", sub(m, 0, 0.26, 0), (0.26, 0.05, 0.26), 0.02)
+
+
+def eclipse5_gun(p):
+    e = E5["elbow_r"]
+    muzzle = ECLIPSE["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, (0.5 + L) / 2, 0), 0.075, L - 0.5, 18, bevel=0.006)
+    cbox(p, "dark", sub(m, 0, L - 0.05, 0), (0.18, 0.1, 0.18), 0.03)
+    mring(p, "glow", sub(m, 0, L - 0.11, 0), 0.08, 0.008, 18, 4)
+
+
+def eclipse5_leg(p, out):
+    g = -ECLIPSE["hip"].y
+    leg_hub(p, out, 0.08)
+    cbox(p, "dark", (0, -0.1, 0), (0.14, 0.12, 0.16), 0.02)
+    cbox(p, "shell", (0, -0.2, 0.0), (0.3, 0.26, 0.32), 0.045)
+    mtube(p, "dark", axis_frame((0, -0.36, -0.01), "x"), 0.085, 0.26, 16)
+    cbox(p, "trim", (0, -0.37, -0.14), (0.2, 0.12, 0.08), 0.02)
+    cbox(p, "shell", (0, -0.52, 0.0), (0.34, 0.24, 0.36), 0.05, taper=(0.86, 0.86))
+    mbox(p, "dark", T(out * 0.171, -0.52, 0.02), (0.01, 0.03, 0.16), 0.004, 1)
+    cbox(p, "dark", (0, g + 0.07, -0.05), (0.38, 0.14, 0.5), 0.04)
+    cbox(p, "dark", (0, g + 0.055, -0.32), (0.34, 0.11, 0.12), 0.03)
+
+
+# --------------------------------------------------------------------------------------
+# MAGNUS 5 (referência: o laranja de braços em cápsula): tronco pequeno, cabeça em cubo com
+# uma face lisa e um olho só, orelha com antena; braços enormes em cápsula até aos joelhos com
+# faixas e discos, punhos de pedra; pernas finas com faixas.
+# --------------------------------------------------------------------------------------
+M5_HEAD = Vector((0.0, 1.62, -0.02))
+
+
+def magnus5_torso(p):
+    cbox(p, "shell", (0, 1.2, 0.02), (0.36, 0.34, 0.3), 0.05)
+    cbox(p, "trim", (0, 1.2, -0.13), (0.22, 0.2, 0.04), 0.03)
+    cbox(p, "dark", (0, 1.4, 0.02), (0.18, 0.08, 0.16), 0.02)
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.24, 1.3, 0.02), (0.14, 0.18, 0.2), 0.03)
+    cbox(p, "dark", (0, 0.96, 0.02), (0.22, 0.16, 0.2), 0.03)
+    cbox(p, "shell", (0, 0.82, 0.0), (0.34, 0.14, 0.26), 0.04)
+    cbox(p, "trim", (0, 0.82, -0.135), (0.2, 0.08, 0.02), 0.01)
+    hip_axles(p, MAGNUS["hip"].y, 0.17, MAGNUS["hip"].x, 0.07)
+
+
+def magnus5_head(p):
+    c = M5_HEAD
+    mk.HEADS["magnus5_head"] = {"top": round(c.y + 0.22, 3), "center": round(c.y, 3), "aspect": 1.0}
+    mbox(p, "shell", T(*c), (0.38, 0.42, 0.38), 0.07, 3)
+    # A faixa do cimo e a face lisa amarela com o olho.
+    cbox(p, "trim", (c.x, c.y + 0.12, c.z), (0.1, 0.2, 0.39), 0.015)
+    mbox(p, "trim", T(c.x, c.y - 0.02, c.z - 0.18), (0.3, 0.3, 0.04), 0.05, 3)
+    mtube(p, "metal", axis_frame((0, c.y - 0.02, c.z - 0.2), "-z"), 0.04, 0.02, 18)
+    p.screen((0, c.y - 0.02, c.z - 0.212), (0.06, 0.06), bulge=0.004)
+    # A orelha com a antena, do lado esquerdo.
+    ear = T(c.x - 0.21, c.y + 0.02, c.z + 0.04)
+    mbox(p, "shell", ear, (0.08, 0.16, 0.14), 0.03, 2)
+    mtube(p, "dark", axis_frame((c.x - 0.255, c.y + 0.05, c.z + 0.02), "-x"), 0.02, 0.02, 10)
+    rod(p, "dark", (c.x - 0.22, c.y + 0.1, c.z + 0.07), (c.x - 0.24, c.y + 0.36, c.z + 0.06), 0.008, 6)
+    ball(p, "trim", (c.x - 0.24, c.y + 0.37, c.z + 0.06), 0.018, 8)
+    mbox(p, "team", T(c.x + 0.1, c.y + 0.211, c.z), (0.08, 0.012, 0.2), 0.004, 1)
+
+
+def magnus5_shoulders(p):
+    for side in (-1, 1):
+        mtube(p, "dark", axis_frame((side * 0.3, 1.36, 0.02), "x" if side > 0 else "-x"), 0.09, 0.14, 16)
+
+
+def pill_arm(p, side, top, bottom, r=0.2):
+    x = side * 0.5
+    capsule(p, "shell", T(x, (top + bottom) / 2, 0.02), r, top - bottom, 22)
+    for y, role, h in ((bottom + 0.2, "trim", 0.05), (bottom + 0.12, "label", 0.03)):
+        mtube(p, role, T(x, y, 0.02), r + 0.004, h, 22)
+    mtube(p, "label", axis_frame((x + side * 0.004, top - 0.18, 0.02 - r + 0.002), "-z"), 0.06, 0.006, 20)
+    mring(p, "dark", axis_frame((x, top - 0.36, 0.02 - r + 0.002), "-z"), 0.07, 0.008, 22, 4)
+    mtube(p, "trim", axis_frame((x, top - 0.36, 0.02 - r + 0.004), "-z"), 0.066, 0.006, 20)
+    mbox(p, "dark", T(x, top - 0.02, 0.02), (0.06, 0.012, 0.16), 0.004, 1)
+    # O punho de pedra.
+    for dx, dy, dz, s in ((0, -0.02, 0, 0.2), (side * 0.05, -0.1, -0.05, 0.14), (-side * 0.06, -0.09, 0.05, 0.13)):
+        cbox(p, "dark", (x + dx * 1.3, bottom + dy * 1.3, 0.02 + dz * 1.3), (s * 1.35, s * 1.1, s * 1.35), 0.035, rot=(dz * 60, 0, dx * 90))
+
+
+def magnus5_arm(p):
+    pill_arm(p, -1, 1.5, 0.52)
+    pill_arm(p, 1, 1.5, 0.52)
+
+
+def magnus5_gun(p):
+    m = axis_frame((0.5, 0.46, -0.2), "-z")
+    mtube(p, "dark", sub(m, 0, 0.12, 0), 0.05, 0.28, 16, bevel=0.005)
+    mring(p, "trim", sub(m, 0, 0.24, 0), 0.055, 0.012, 16, 4)
+    mtube(p, "glow", sub(m, 0, 0.262, 0), 0.03, 0.004, 12)
+
+
+def magnus5_leg(p, out):
+    g = -MAGNUS["hip"].y
+    leg_hub(p, out, 0.06)
+    cbox(p, "shell", (0, -0.14, 0.0), (0.16, 0.22, 0.16), 0.03)
+    cbox(p, "trim", (0, -0.22, 0.0), (0.165, 0.05, 0.165), 0.012)
+    mtube(p, "dark", axis_frame((0, -0.29, 0.0), "x"), 0.06, 0.16, 14)
+    cbox(p, "shell", (0, -0.34, -0.02), (0.15, 0.08, 0.14), 0.03)
+    mtube(p, "label", axis_frame((0, -0.34, -0.092), "-z"), 0.035, 0.005, 16)
+    cbox(p, "trim", (0, -0.45, 0.0), (0.15, 0.16, 0.15), 0.03)
+    cbox(p, "label", (0, -0.535, 0.0), (0.155, 0.03, 0.155), 0.01)
+    cbox(p, "shell", (0, g + 0.04, -0.02), (0.15, 0.08, 0.2), 0.035)
+
+
+# --------------------------------------------------------------------------------------
+# ÓRBITA 5 (referência: a cabeça-TV creme e laranja): cabeça em caixa com a janela do olho,
+# a lente-telescópio de lado e uma escotilha no tampo; tronco pequeno; braços finos com
+# antebraços grandes em bloco; coxas claras, canelas grandes e pés de garras.
+# --------------------------------------------------------------------------------------
+O5_HEAD = Vector((0.0, 1.7, -0.02))
+O5 = {"elbow_l": Vector((-0.4, 1.12, 0.02)), "wrist_l": Vector((-0.42, 0.84, -0.06)), "elbow_r": Vector((0.4, 1.12, -0.02))}
+
+
+def orbita5_torso(p):
+    mtube(p, "dark", T(0, 1.42, 0.02), 0.07, 0.12, 14)
+    for y in (1.37, 1.4, 1.43, 1.46):
+        mring(p, "dark", T(0, y, 0.02), 0.08, 0.012, 16, 4)
+    cbox(p, "trim", (0, 1.24, 0.02), (0.4, 0.2, 0.32), 0.04)
+    cbox(p, "shell", (0, 1.13, 0.02), (0.36, 0.06, 0.3), 0.02)
+    cbox(p, "dark", (0, 1.02, 0.02), (0.3, 0.14, 0.24), 0.03)
+    cbox(p, "trim", (0, 0.92, -0.01), (0.36, 0.14, 0.28), 0.035)
+    mbox(p, "dark", T(0.08, 0.93, -0.152), (0.08, 0.05, 0.01), 0.004, 1)
+    warning(p, plane((-0.08, 0.93, -0.152), (0, 0, -1), (-1, 0, 0)), 0.04)
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.26, 1.28, 0.02), (0.1, 0.14, 0.16), 0.02)
+    cbox(p, "dark", (0, 0.76, 0.0), (0.26, 0.12, 0.22), 0.03)
+    hip_axles(p, ORBITA["hip"].y, 0.13, ORBITA["hip"].x, 0.065)
+
+
+def orbita5_head(p):
+    c = O5_HEAD
+    mk.HEADS["orbita5_head"] = {"top": round(c.y + 0.3, 3), "center": round(c.y, 3), "aspect": round(0.3 / 0.26, 3)}
+    mbox(p, "trim", T(c.x, c.y + 0.04, c.z), (0.58, 0.46, 0.52), 0.08, 3)
+    mbox(p, "shell", T(c.x, c.y - 0.2, c.z), (0.56, 0.07, 0.5), 0.03, 2)
+    # A janela do olho: vidro escuro com moldura, o olho lá dentro.
+    mbox(p, "dark", T(c.x - 0.03, c.y + 0.04, c.z - 0.25), (0.36, 0.32, 0.04), 0.05, 2)
+    p.screen((c.x - 0.03, c.y + 0.04, c.z - 0.272), (0.3, 0.26), bulge=0.012)
+    mbox(p, "metal", T(c.x - 0.03, c.y + 0.04, c.z - 0.247), (0.4, 0.36, 0.02), 0.055, 2)
+    # A lente-telescópio no lado direito: tambores, anel e a lente.
+    side = axis_frame((c.x + 0.29, c.y + 0.0, c.z + 0.02), "x")
+    mtube(p, "dark", sub(side, 0, 0.02, 0), 0.13, 0.04, 26)
+    mtube(p, "trim", sub(side, 0, 0.07, 0), 0.1, 0.07, 24, bevel=0.01)
+    mtube(p, "shell", sub(side, 0, 0.13, 0), 0.07, 0.07, 22, bevel=0.008)
+    mtube(p, "metal", sub(side, 0, 0.175, 0), 0.05, 0.03, 20)
+    mtube(p, "glow", sub(side, 0, 0.192, 0), 0.03, 0.004, 16)
+    mring(p, "dark", sub(side, 0, 0.19, 0), 0.036, 0.006, 16, 4)
+    # A escotilha no tampo e o bloco da antena atrás.
+    mbox(p, "metal", T(c.x - 0.04, c.y + 0.275, c.z - 0.02), (0.28, 0.02, 0.18), 0.01, 1)
+    cbox(p, "shell", (c.x + 0.2, c.y + 0.25, c.z + 0.14), (0.12, 0.14, 0.1), 0.02)
+    mbox(p, "team", T(c.x - 0.04, c.y + 0.287, c.z + 0.12), (0.1, 0.01, 0.05), 0.004, 1)
+
+
+def orbita5_shoulders(p):
+    for side in (-1, 1):
+        e = O5["elbow_l"] if side < 0 else O5["elbow_r"]
+        mtube(p, "dark", axis_frame((side * 0.3, 1.3, 0.02), "x" if side > 0 else "-x"), 0.06, 0.08, 14)
+        rod(p, "dark", (side * 0.34, 1.3, 0.02), e, 0.03, 10)
+        ball(p, "dark", e, 0.05, 12)
+
+
+def orbita5_arm(p):
+    e, w = O5["elbow_l"], O5["wrist_l"]
+    m = beam(p, "shell", e, w, 0.19, 0.2, 0.03, pad=0.08)
+    warning(p, plane(at(m, 0, 0.0, -0.101), at(m, 0, 0, -1) - at(m), at(m, -1, 0, 0) - at(m)), 0.05)
+    mtube(p, "metal", frame(at(m, -0.096, 0.02, 0), at(m, -1, 0, 0) - at(m)), 0.04, 0.01, 18)
+    fist(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.08, 0), 0.9)
+    e = O5["elbow_r"]
+    muzzle = ORBITA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = beam(p, "shell", e, e + d * 0.4, 0.2, 0.21, 0.03, pad=0.04, front=(0, 1, 0))
+    warning(p, plane(at(m, 0, 0.0, 0.106), at(m, 0, 0, 1) - at(m), at(m, 1, 0, 0) - at(m)), 0.05)
+
+
+def orbita5_gun(p):
+    e = O5["elbow_r"]
+    muzzle = ORBITA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "trim", sub(m, 0, (0.44 + L) / 2, 0), 0.05, L - 0.44, 16, bevel=0.005)
+    mtube(p, "dark", sub(m, 0, L - 0.03, 0), 0.065, 0.06, 18)
+    mtube(p, "glow", sub(m, 0, L, 0), 0.04, 0.004, 14)
+
+
+def orbita5_leg(p, out):
+    g = -ORBITA["hip"].y
+    leg_hub(p, out, 0.06)
+    cbox(p, "trim", (0, -0.13, -0.01), (0.2, 0.22, 0.2), 0.035)
+    cbox(p, "dark", (0, -0.26, 0.0), (0.12, 0.08, 0.12), 0.02)
+    mtube(p, "dark", axis_frame((0, -0.3, 0.0), "x"), 0.07, 0.2, 16)
+    cbox(p, "shell", (0, -0.43, 0.0), (0.22, 0.24, 0.24), 0.04)
+    mtube(p, "dark", axis_frame((out * 0.12, -0.46, 0.02), "x" if out > 0 else "-x"), 0.045, 0.03, 14)
+    cbox(p, "dark", (0, g + 0.13, 0.0), (0.1, 0.06, 0.1), 0.02)
+    block_claw_foot(p, g, "shell", "shell", 1.1)
+
+
+# --------------------------------------------------------------------------------------
+# BATIDA 5 (referência: o branco de cabeça em cubo): cabeça em cubo grande com o losango e
+# marcas de canto, sensores de lado e o cano-antena atrás; peito em V com a vareta; mochila;
+# antebraços grandes com punhos coloridos; pernas com faixas e pés de garras.
+# --------------------------------------------------------------------------------------
+B5_HEAD = Vector((-0.02, 1.72, -0.04))
+B5 = {"elbow_l": Vector((-0.42, 1.08, 0.02)), "wrist_l": Vector((-0.44, 0.76, -0.08)), "elbow_r": Vector((0.42, 1.08, -0.02))}
+
+
+def batida5_torso(p):
+    cbox(p, "dark", (0, 1.25, 0.04), (0.44, 0.3, 0.34), 0.04)
+    # Peito em V: uma couraça branca larga, com o bico para baixo e as juntas cinzentas.
+    cbox(p, "trim", (0, 1.3, -0.1), (0.52, 0.22, 0.14), 0.04, rot=(6, 0, 0))
+    cbox(p, "trim", (0, 1.17, -0.12), (0.2, 0.16, 0.1), 0.03, rot=(6, 0, 45))
+    for side in (-1, 1):
+        cbox(p, "metal", (side * 0.2, 1.16, -0.02), (0.1, 0.12, 0.16), 0.02)
+    rod(p, "dark", (-0.1, 1.36, -0.16), (-0.13, 1.52, -0.2), 0.012, 6)
+    cbox(p, "dark", (0, 1.08, 0.02), (0.26, 0.12, 0.22), 0.03)
+    cbox(p, "trim", (0, 0.96, 0.0), (0.3, 0.12, 0.24), 0.035)
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.28, 1.3, 0.02), (0.1, 0.16, 0.18), 0.02)
+    # A mochila do lado direito com o cabo.
+    cbox(p, "metal", (0.12, 1.36, 0.28), (0.24, 0.3, 0.14), 0.03)
+    cbox(p, "dark", (0.12, 1.36, 0.36), (0.14, 0.18, 0.02), 0.01)
+    cable(p, [(0.22, 1.25, 0.3), (0.3, 1.12, 0.24), (0.3, 1.02, 0.12)], 0.012)
+    cbox(p, "dark", (0, 0.8, 0.0), (0.26, 0.12, 0.22), 0.03)
+    hip_axles(p, BATIDA["hip"].y, 0.13, BATIDA["hip"].x, 0.065)
+
+
+def batida5_head(p):
+    c = B5_HEAD
+    mk.HEADS["batida5_head"] = {"top": round(c.y + 0.27, 3), "center": round(c.y, 3), "aspect": 1.0}
+    cbox(p, "trim", (c.x, c.y, c.z), (0.6, 0.5, 0.54), 0.08)
+    # O losango na face, cor da equipa do piloto, e as marcas de canto.
+    face = c.z - 0.271
+    for k in range(4):
+        a = k * 90 + 45
+        d = (math.cos(math.radians(a)), math.sin(math.radians(a)))
+        mbox(p, "shell", sub(T(c.x - 0.03 + d[0] * 0.045, c.y + d[1] * 0.045, face), rot=(0, 0, a + 90)), (0.07, 0.022, 0.008), 0.004, 1)
+        mbox(p, "glow", sub(T(c.x - 0.03 + d[0] * 0.022, c.y + d[1] * 0.022, face), rot=(0, 0, a + 90)), (0.03, 0.012, 0.009), 0.003, 1)
+    for u, v, rot in ((-0.23, 0.19, 45), (0.23, 0.19, -45), (-0.23, -0.19, -45), (0.23, -0.19, 45)):
+        mbox(p, "shell", sub(T(c.x + u, c.y + v, face), rot=(0, 0, rot)), (0.035, 0.012, 0.006), 0.003, 1)
+    # Os sensores do lado direito e o cano-antena atrás.
+    for dy, rr in ((0.1, 0.045), (-0.02, 0.035)):
+        mtube(p, "metal", axis_frame((c.x + 0.305, c.y + dy, c.z - 0.06), "x"), rr, 0.02, 18)
+        mtube(p, "dark", axis_frame((c.x + 0.315, c.y + dy, c.z - 0.06), "x"), rr * 0.5, 0.012, 14)
+    cbox(p, "metal", (c.x + 0.31, c.y - 0.12, c.z + 0.02), (0.03, 0.06, 0.14), 0.01)
+    pipe = Vector((c.x + 0.25, c.y + 0.0, c.z + 0.22))
+    mtube(p, "trim", T(pipe.x, pipe.y + 0.2, pipe.z), 0.03, 0.4, 14, bevel=0.004)
+    mtube(p, "shell", T(pipe.x, pipe.y + 0.05, pipe.z), 0.032, 0.08, 14)
+    mtube(p, "dark", T(pipe.x, pipe.y + 0.41, pipe.z), 0.034, 0.04, 14)
+    mbox(p, "team", T(c.x, c.y + 0.231, c.z + 0.05), (0.1, 0.012, 0.2), 0.004, 1)
+
+
+def batida5_shoulders(p):
+    for side in (-1, 1):
+        e = B5["elbow_l"] if side < 0 else B5["elbow_r"]
+        mbox(p, "trim", T(side * 0.36, 1.36, 0.02), (0.22, 0.2, 0.26), 0.07, 2)
+        cbox(p, "trim", (side * 0.41, 1.2, 0.02), (0.16, 0.24, 0.18), 0.035)
+        ball(p, "metal", e, 0.06, 12)
+
+
+def batida5_arm(p):
+    e, w = B5["elbow_l"], B5["wrist_l"]
+    m = beam(p, "trim", e, w, 0.25, 0.27, 0.04, pad=0.08)
+    cbox(p, "shell", sub(m, 0, (w - e).length * 0.36, 0), (0.26, 0.11, 0.28), 0.02)
+    warning(p, plane(at(m, 0, (w - e).length * 0.36, -0.141), at(m, 0, 0, -1) - at(m), at(m, -1, 0, 0) - at(m)), 0.04)
+    fist(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.1, 0), 1.1, "metal")
+    e = B5["elbow_r"]
+    muzzle = BATIDA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = beam(p, "trim", e, e + d * 0.44, 0.26, 0.28, 0.04, pad=0.04, front=(0, 1, 0))
+    cbox(p, "shell", sub(m, 0, 0.12, 0), (0.27, 0.11, 0.29), 0.02)
+    for k in range(4):
+        a = k * 90 + 45
+        dd = (math.cos(math.radians(a)), math.sin(math.radians(a)))
+        mbox(p, "dark", sub(m, dd[0] * 0.03, 0.12 + dd[1] * 0.03, 0.146, rot=(0, 0, a + 90)), (0.045, 0.012, 0.006), 0.003, 1)
+
+
+def batida5_gun(p):
+    e = B5["elbow_r"]
+    muzzle = BATIDA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "metal", sub(m, 0, (0.46 + L) / 2, 0), 0.05, L - 0.46, 16, bevel=0.005)
+    mtube(p, "shell", sub(m, 0, L - 0.04, 0), 0.062, 0.07, 18)
+    mtube(p, "glow", sub(m, 0, L, 0), 0.036, 0.004, 14)
+
+
+def batida5_leg(p, out):
+    g = -BATIDA["hip"].y
+    leg_hub(p, out, 0.058)
+    cbox(p, "trim", (0, -0.15, -0.01), (0.22, 0.26, 0.24), 0.04)
+    for i in range(2):
+        mbox(p, "shell", T(0, -0.14 - i * 0.02, -0.112), (0.06, 0.008, 0.006), 0.002, 1)
+    mtube(p, "metal", axis_frame((out * 0.1, -0.3, 0.0), "x" if out > 0 else "-x"), 0.04, 0.02, 14)
+    cbox(p, "trim", (0, -0.42, 0.0), (0.22, 0.22, 0.24), 0.04)
+    cbox(p, "shell", (0, -0.52, 0.0), (0.225, 0.07, 0.245), 0.015)
+    cbox(p, "metal", (0, g + 0.12, 0.0), (0.1, 0.06, 0.1), 0.02)
+    block_claw_foot(p, g, "metal", "dark", 1.0)
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -3300,6 +3702,14 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
+    for robot in ("eclipse5", "magnus5", "orbita5", "batida5"):
+        for slot in ("torso", "head", "shoulders", "arm", "gun"):
+            fn = globals().get(robot + "_" + slot)
+            if fn is not None:
+                part(robot + "_" + slot)(fn)
+        legfn = globals()[robot + "_leg"]
+        part(robot + "_leg_l")(lambda q, fn=legfn: fn(q, -1))
+        part(robot + "_leg_r")(lambda q, fn=legfn: fn(q, 1))
     part("eclipse4_hull")(eclipse4_hull)
     part("batida4_hull")(batida4_hull)
     part("orbita4_hull")(orbita4_hull)
