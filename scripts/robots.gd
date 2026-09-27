@@ -254,6 +254,10 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	face.set_shader_parameter("aspect", float(shape.aspect))
 	face.set_shader_parameter("seed", float(hash(plan.key) % 997) * 0.01 + randf() * 3.0)
 	face.set_shader_parameter("mouth", 1.0 if plan.mouth else 0.0)
+	# A robot may tint the glass of its screen (the roster's "glass"); the rest keep it dark.
+	var glass = String(plan.palette.get("glass", ""))
+	if glass != "":
+		face.set_shader_parameter("glass", Color(glass))
 
 static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> void:
 	# Every wall is the same arena brick, whoever defends it: a soft rubbery block in the

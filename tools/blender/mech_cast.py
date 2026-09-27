@@ -3697,6 +3697,130 @@ def batida5_leg(p, out):
     cbox(p, "metal", (0, g + 0.12, 0.0), (0.1, 0.06, 0.1), 0.02)
     block_claw_foot(p, g, "metal", "dark", 1.0)
 
+
+# --------------------------------------------------------------------------------------
+# ÓRBITA 6 (referência: a cabeça-TV creme e laranja), segunda tentativa: formas redondas,
+# cabeça grande com ecrã escuro e um olho em ponto, conjunto redondo da lente do lado direito,
+# pescoço mecânico, tronco pequeno, antebraços laranja arredondados, pés de três dedos.
+# --------------------------------------------------------------------------------------
+O6_HEAD = Vector((0.0, 1.66, -0.02))
+O6 = {"elbow_l": Vector((-0.38, 1.1, 0.02)), "wrist_l": Vector((-0.4, 0.8, -0.04)), "elbow_r": Vector((0.38, 1.1, -0.02))}
+
+
+def soft(p, role, at_, size, r=0.05, rot=(0, 0, 0)):
+    """Bloco de cantos redondos (o traço macio desta referência)."""
+    mbox(p, role, sub(T(*at_), rot=rot), size, r, 3)
+
+
+def orbita6_torso(p):
+    # Pescoço mecânico: coluna escura, dois pistões e o colar sob a cabeça.
+    mtube(p, "dark", T(0, 1.4, 0.02), 0.06, 0.16, 14)
+    for side in (-1, 1):
+        piston(p, (side * 0.08, 1.33, 0.06), (side * 0.1, 1.47, 0.04), 0.016)
+    mtube(p, "dark", T(0, 1.47, 0.0), 0.15, 0.04, 22, bevel=0.008)
+    # Tronco pequeno creme, cinta escura e bacia creme de rebordo laranja.
+    soft(p, "trim", (0, 1.24, 0.03), (0.36, 0.2, 0.28), 0.06)
+    soft(p, "shell", (0, 1.24, -0.115), (0.2, 0.1, 0.03), 0.015)
+    cbox(p, "dark", (0, 1.1, 0.03), (0.26, 0.1, 0.22), 0.03)
+    for side in (-1, 1):
+        mtube(p, "dark", axis_frame((side * 0.1, 1.08, -0.06), "-z"), 0.03, 0.04, 12)
+    soft(p, "trim", (0, 0.96, 0.0), (0.34, 0.14, 0.26), 0.05)
+    soft(p, "shell", (0, 0.9, -0.01), (0.36, 0.04, 0.28), 0.015)
+    warning(p, plane((0.0, 0.97, -0.131), (0, 0, -1), (-1, 0, 0)), 0.045)
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.24, 1.28, 0.03), (0.08, 0.12, 0.14), 0.02)
+    cbox(p, "dark", (0, 0.78, 0.0), (0.24, 0.1, 0.2), 0.03)
+    hip_axles(p, ORBITA["hip"].y, 0.13, ORBITA["hip"].x, 0.065)
+
+
+def orbita6_head(p):
+    c = O6_HEAD
+    mk.HEADS["orbita6_head"] = {"top": round(c.y + 0.3, 3), "center": round(c.y + 0.03, 3), "aspect": round(0.3 / 0.26, 3)}
+    # A caixa grande: creme em cima e à frente, faixa laranja em baixo.
+    soft(p, "trim", (c.x, c.y + 0.05, c.z), (0.6, 0.46, 0.52), 0.1)
+    soft(p, "shell", (c.x, c.y - 0.19, c.z), (0.6, 0.1, 0.52), 0.05)
+    mbox(p, "dark", T(c.x, c.y - 0.135, c.z), (0.61, 0.012, 0.53), 0.004, 1)
+    # O ecrã grande e escuro, recuado numa moldura creme, com o olho em ponto.
+    soft(p, "dark", (c.x - 0.05, c.y + 0.04, c.z - 0.24), (0.38, 0.34, 0.06), 0.06)
+    p.screen((c.x - 0.05, c.y + 0.04, c.z - 0.272), (0.32, 0.28), bulge=0.014)
+    for dx, dy, w, h in ((0, 0.19, 0.44, 0.04), (0, -0.11, 0.44, 0.04), (-0.215, 0.04, 0.04, 0.34), (0.115, 0.04, 0.04, 0.34)):
+        soft(p, "trim", (c.x - 0.05 + dx, c.y + dy, c.z - 0.262), (w, h, 0.04), 0.018)
+    # O conjunto redondo do lado direito: disco escuro, tambor creme, anel laranja e a lente.
+    side = axis_frame((c.x + 0.3, c.y + 0.01, c.z + 0.03), "x")
+    mtube(p, "dark", sub(side, 0, 0.02, 0), 0.2, 0.05, 32, bevel=0.012)
+    mring(p, "metal", sub(side, 0, 0.045, 0), 0.18, 0.014, 32, 5)
+    mtube(p, "trim", sub(side, 0, 0.11, 0), 0.13, 0.12, 28, bevel=0.02)
+    mtube(p, "shell", sub(side, 0, 0.19, 0), 0.105, 0.06, 26, bevel=0.012)
+    mtube(p, "trim", sub(side, 0, 0.25, 0), 0.085, 0.07, 24, bevel=0.012)
+    mtube(p, "metal", sub(side, 0, 0.3, 0), 0.06, 0.04, 22)
+    mtube(p, "label", sub(side, 0, 0.322, 0), 0.042, 0.006, 20)
+    mring(p, "dark", sub(side, 0, 0.326, 0), 0.024, 0.006, 14, 4)
+    for dz in (-1, 1):
+        cbox(p, "dark", (c.x + 0.33, c.y - 0.2, c.z + 0.03 + dz * 0.07), (0.05, 0.12, 0.04), 0.01)
+    # O tampo: placa cinzenta-azulada e o bloco laranja no canto de trás, à direita.
+    soft(p, "metal", (c.x - 0.03, c.y + 0.285, c.z + 0.0), (0.34, 0.03, 0.28), 0.012)
+    soft(p, "shell", (c.x + 0.22, c.y + 0.26, c.z + 0.14), (0.12, 0.12, 0.12), 0.03)
+    soft(p, "shell", (c.x + 0.28, c.y + 0.29, c.z + 0.16), (0.06, 0.1, 0.06), 0.02)
+    mbox(p, "team", T(c.x - 0.03, c.y + 0.302, c.z + 0.1), (0.12, 0.01, 0.04), 0.004, 1)
+    for u in (-1, 1):
+        screw(p, T(c.x + u * 0.2, c.y + 0.281, c.z - 0.2), 0, 0, 0.008)
+
+
+def orbita6_shoulders(p):
+    for side in (-1, 1):
+        e = O6["elbow_l"] if side < 0 else O6["elbow_r"]
+        mtube(p, "dark", axis_frame((side * 0.29, 1.3, 0.03), "x" if side > 0 else "-x"), 0.06, 0.08, 14)
+        piston(p, (side * 0.33, 1.3, 0.03), e, 0.022)
+        rod(p, "dark", (side * 0.33, 1.3, 0.07), e + Vector((0, 0.02, 0.04)), 0.012, 8)
+        ball(p, "dark", e, 0.05, 12)
+
+
+def orbita6_arm(p):
+    e, w = O6["elbow_l"], O6["wrist_l"]
+    m = frame(e.lerp(w, 0.5), w - e, front=(0.3, 0, -1))
+    L = (w - e).length
+    mbox(p, "shell", m, (0.25, L + 0.16, 0.27), 0.07, 3)
+    warning(p, plane(at(m, 0, 0.02, -0.137), at(m, 0, 0, -1) - at(m), at(m, -1, 0, 0) - at(m)), 0.05)
+    mtube(p, "metal", frame(at(m, -0.126, 0.0, 0), at(m, -1, 0, 0) - at(m)), 0.055, 0.014, 18)
+    hand(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.12, 0.0, rot=(0, -90, 180)), fingers=4, scale=1.3, curl=0.5)
+    e = O6["elbow_r"]
+    muzzle = ORBITA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e + d * 0.2, d, front=(0, 1, 0))
+    mbox(p, "shell", m, (0.25, 0.48, 0.27), 0.07, 3)
+    warning(p, plane(at(m, 0, 0.0, 0.137), at(m, 0, 0, 1) - at(m), at(m, 1, 0, 0) - at(m)), 0.05)
+
+
+def orbita6_gun(p):
+    e = O6["elbow_r"]
+    muzzle = ORBITA["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, (0.42 + L) / 2, 0), 0.045, L - 0.42, 16, bevel=0.005)
+    mtube(p, "trim", sub(m, 0, L - 0.04, 0), 0.06, 0.07, 18, bevel=0.008)
+    mtube(p, "glow", sub(m, 0, L, 0), 0.035, 0.004, 14)
+
+
+def orbita6_leg(p, out):
+    g = -ORBITA["hip"].y
+    leg_hub(p, out, 0.06)
+    soft(p, "trim", (0, -0.15, -0.03), (0.26, 0.28, 0.16), 0.05)
+    soft(p, "trim", (out * 0.12, -0.15, 0.03), (0.04, 0.24, 0.16), 0.015)
+    cbox(p, "dark", (0, -0.13, 0.06), (0.12, 0.22, 0.1), 0.02)
+    for v in (-1, 1):
+        screw(p, sub(T(out * 0.07, -0.15 + v * 0.08, -0.112), rot=(-90, 0, 0)), 0, 0, 0.008)
+    mtube(p, "dark", axis_frame((0, -0.31, 0.0), "x"), 0.07, 0.24, 16)
+    soft(p, "shell", (0, -0.45, 0.0), (0.27, 0.28, 0.29), 0.07)
+    soft(p, "shell", (0, -0.36, -0.13), (0.2, 0.08, 0.06), 0.02)
+    mtube(p, "dark", axis_frame((out * 0.14, -0.46, 0.02), "x" if out > 0 else "-x"), 0.06, 0.035, 16)
+    mtube(p, "dark", axis_frame((0, g + 0.12, 0.0), "x"), 0.045, 0.14, 14)
+    # Pé de três dedos abertos, laranja.
+    soft(p, "shell", (0, g + 0.06, 0.02), (0.2, 0.09, 0.18), 0.035)
+    for a in (-30, 30):
+        soft(p, "shell", (math.sin(math.radians(a)) * 0.13, g + 0.035, -0.15), (0.1, 0.07, 0.28), 0.03, rot=(0, -a, 0))
+    soft(p, "shell", (0, g + 0.035, 0.17), (0.1, 0.07, 0.18), 0.03)
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -3711,7 +3835,7 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
-    for robot in ("eclipse5", "magnus5", "orbita5", "batida5"):
+    for robot in ("eclipse5", "magnus5", "orbita5", "batida5", "orbita6"):
         for slot in ("torso", "head", "shoulders", "arm", "gun"):
             fn = globals().get(robot + "_" + slot)
             if fn is not None:
