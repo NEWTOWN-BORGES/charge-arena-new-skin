@@ -235,7 +235,7 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 		var holder: Node3D = crest_base
 		var inverse = Transform3D.IDENTITY
 		# v2 crests are modelled in place on their own robot, so they need no offset.
-		var offset: Transform3D = Transform3D.IDENTITY if crest.ends_with("2_spin") else (centre if crest in CENTRED_SPINS else lift)
+		var offset: Transform3D = Transform3D.IDENTITY if (crest.ends_with("2_spin") or crest.ends_with("3_spin")) else (centre if crest in CENTRED_SPINS else lift)
 		if DISC_SPINS.has(crest):
 			# Turn in the disc's own plane: a mount tipped onto its side, the Spin inside it.
 			holder = Node3D.new()

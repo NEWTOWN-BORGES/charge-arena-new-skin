@@ -64,6 +64,12 @@ func run() -> void:
 			var box: AABB = node.global_transform * node.get_aabb()
 			top = maxf(top, box.end.y)
 		var focus = Vector3(0, top - 0.46, 0)
+		# A hull without a neck can carry tall things (a halo, a sun) far above its face:
+		# frame it by the face instead, so the face never drops out of the disc.
+		var parts: Dictionary = Robots.recipe(job[0]).parts
+		if String(parts.head) == "":
+			var shape = Robots.head(String(parts.torso))
+			focus.y = minf(focus.y, float(shape.center) * body.scale.y - 0.08)
 		camera.position = focus + Vector3(-0.95, 0.42, -3.75).normalized() * 2.45
 		camera.look_at(focus)
 		for mood in [0, 2]:

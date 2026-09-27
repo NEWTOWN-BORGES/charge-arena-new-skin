@@ -2639,35 +2639,6 @@ def dome_hull(p, c, depth, profile, window, face_y, screen, crown_role="shell"):
     return flat, front
 
 
-FH_PROFILE = [(0.12, 0.2), (0.2, 0.225), (0.28, 0.222), (0.36, 0.195), (0.43, 0.145), (0.48, 0.075), (0.5, 0.0)]
-FH_SCREEN = (0.24, 0.07)
-
-
-def faisca_hull(p):
-    """FAÍSCA em bala: o corpo em gota sobe e fecha-se numa ogiva com a fenda do visor que
-    varre; os para-raios nascem do alto do casco."""
-    faisca_torso(p, with_neck=False)
-    c = F_CHEST
-    face_y = 0.3
-    mk.HEADS["faisca3_hull"] = {"top": round(c.y + 0.55, 3), "center": round(c.y + face_y, 3), "aspect": round(FH_SCREEN[0] / FH_SCREEN[1], 3)}
-    flat, front = dome_hull(p, c, F_DEPTH, FH_PROFILE, (-128, -52, 0.25, 0.35), face_y, FH_SCREEN)
-    for dy in (-1, 1):
-        mbox(p, "metal", T(0, c.y + face_y + dy * 0.045, front + 0.012), (0.24, 0.012, 0.014), 0.004, 1)
-    rev_panel(p, "trim", flat, [(y, r + 0.006) for y, r in FH_PROFILE], (0.355, 0.385), (-180, 180), 0.02, (24, 2))
-    for side in (-1, 1):
-        base = T(side * 0.05, c.y + 0.47, c.z + 0.03)
-        lean = sub(base, rot=(28, 0, -side * 14))
-        for i, rr in enumerate((0.03, 0.025, 0.02)):
-            mtube(p, "shell" if i % 2 == 0 else "trim", sub(lean, 0, 0.012 + i * 0.02, 0), rr, 0.016, 14, bevel=0.003)
-        mtube(p, "dark", sub(lean, 0, 0.035, 0), 0.009, 0.08, 8)
-        extruded(p, "trim", sub(sub(lean, 0, 0.07, 0), rot=(0, 90, 0)) @ Matrix.Diagonal((1.3, 1.3, 1.3, 1.0)), BOLT, 0.018)
-        ball(p, "glow", at(lean, 0, 0.07 + 0.25, 0.0), 0.016, 8)
-    for side in (-1, 1):
-        q, n = rev_point(c, FH_PROFILE, F_DEPTH, 90 + side * 75, 0.3)
-        mbox(p, "glow", frame(q, n), (0.012, 0.03, 0.03), 0.004, 1)
-    mbox(p, "team", T(0, c.y + 0.5, c.z - 0.02), (0.02, 0.012, 0.1), 0.004, 1)
-
-
 EH_PROFILE = [(0.12, 0.245), (0.2, 0.24), (0.28, 0.22), (0.36, 0.18), (0.44, 0.12), (0.5, 0.06), (0.53, 0.0)]
 EH_SCREEN = (0.21, 0.075)
 
@@ -2729,15 +2700,8 @@ def helio_hull(p):
     screen_well(p, (0, c.y + face_y, front + 0.006), HH_SCREEN, 0.05, 0.01)
     mring(p, "metal", sub(flat, 0, 0.29, 0), profile_radius(HH_PROFILE, 0.29) + 0.004, 0.012, 30, 5)
     mring(p, "trim", sub(flat, 0, y1, 0), 0.185, 0.022, 32, 8)
-    # O sol a nascer da boca da ânfora e a coroa de raios à volta.
+    # O sol a nascer da boca da ânfora; a coroa de raios à volta gira (helio_crown).
     ball(p, "glow", (0, c.y + y1 + 0.07, c.z), 0.11, 20)
-    mring(p, "metal", T(0, c.y + y1 + 0.02, c.z), 0.15, 0.012, 30, 5)
-    for i in range(12):
-        a = math.radians(i * 30 + 15)
-        base = Vector((math.cos(a) * 0.17, c.y + y1 + 0.01, c.z + math.sin(a) * 0.17 * 0.84))
-        d = Vector((math.cos(a) * 0.5, 1.0, math.sin(a) * 0.5)).normalized()
-        h = 0.16 if i % 2 == 0 else 0.1
-        lathe(p, "trim" if i % 2 == 0 else "metal", frame(base, d), [(0.0, 0.0), (0.026, 0.0), (0.012, h * 0.6), (0.0, h)], 5)
     # Asas da ânfora: duas pegas curvas do gargalo ao bojo.
     for side in (-1, 1):
         pts = [Vector((side * 0.15, c.y + 0.42, c.z)), Vector((side * 0.27, c.y + 0.4, c.z)), Vector((side * 0.29, c.y + 0.3, c.z)), Vector((side * 0.22, c.y + 0.2, c.z))]
@@ -2748,63 +2712,145 @@ def helio_hull(p):
         mbox(p, "glow", T(side * 0.1, c.y + face_y - 0.075, front + 0.02), (0.02, 0.01, 0.01), 0.003, 1)
 
 
-MH_PROFILE = [(0.12, 0.305), (0.2, 0.3), (0.27, 0.27), (0.33, 0.22), (0.38, 0.15), (0.41, 0.08), (0.42, 0.0)]
-MH_SCREEN = (0.3, 0.1)
+def helio_crown(p):
+    """A coroa de raios na boca da ânfora do HÉLIO: gira em jogo à volta do sol."""
+    c = H_CHEST
+    y1 = HH_PROFILE[-1][0]
+    mring(p, "metal", T(0, c.y + y1 + 0.02, 0.0), 0.15, 0.012, 30, 5)
+    for i in range(12):
+        a = math.radians(i * 30 + 15)
+        base = Vector((math.cos(a) * 0.17, c.y + y1 + 0.01, math.sin(a) * 0.17))
+        d = Vector((math.cos(a) * 0.5, 1.0, math.sin(a) * 0.5)).normalized()
+        h = 0.16 if i % 2 == 0 else 0.1
+        lathe(p, "trim" if i % 2 == 0 else "metal", frame(base, d), [(0.0, 0.0), (0.026, 0.0), (0.012, h * 0.6), (0.0, h)], 5)
+
+
+
+FH_PROFILE = [(0.2, 0.2), (0.27, 0.205), (0.34, 0.2), (0.4, 0.175), (0.44, 0.145), (0.5, 0.125), (0.56, 0.1), (0.6, 0.07)]
+FH_SCREEN = (0.22, 0.07)
+
+
+def faisca_hull(p):
+    """FAÍSCA vela de ignição: sobre o peito, a porca sextavada; por cima, o isolador branco
+    com os anéis, o visor que varre na barriga do isolador, e no topo o elétrodo onde salta a
+    faísca."""
+    faisca_torso(p, with_neck=False)
+    c = F_CHEST
+    face_y = 0.3
+    mk.HEADS["faisca3_hull"] = {"top": round(c.y + 0.78, 3), "center": round(c.y + face_y, 3), "aspect": round(FH_SCREEN[0] / FH_SCREEN[1], 3)}
+    # A porca: sextavado de metal com chanfros, a ligar o peito ao isolador.
+    mtube(p, "metal", T(0, c.y + 0.2, c.z), 0.235, 0.09, 6, bevel=0.012)
+    mring(p, "dark", T(0, c.y + 0.155, c.z), 0.2, 0.012, 24, 4)
+    mring(p, "trim", T(0, c.y + 0.25, c.z), 0.205, 0.014, 26, 5)
+    flat, front = dome_hull(p, c, 1.0, FH_PROFILE, (-126, -54, 0.27, 0.34), face_y, FH_SCREEN)
+    for dy in (-1, 1):
+        mbox(p, "metal", T(0, c.y + face_y + dy * 0.045, front + 0.012), (0.22, 0.012, 0.014), 0.004, 1)
+    # Os anéis do isolador, em azul.
+    for y in (0.43, 0.48, 0.53):
+        mring(p, "trim", T(0, c.y + y, c.z), profile_radius(FH_PROFILE, y) + 0.008, 0.016, 26, 6)
+    # O terminal, o elétrodo em gancho e a faísca a saltar entre os dois.
+    top = c.y + 0.6
+    mtube(p, "metal", T(0, top + 0.03, c.z), 0.055, 0.06, 16, bevel=0.008)
+    mtube(p, "metal", T(0, top + 0.075, c.z), 0.035, 0.03, 6, bevel=0.004)
+    rod(p, "metal", (0.05, top + 0.04, c.z), (0.1, top + 0.1, c.z), 0.014, 8)
+    rod(p, "metal", (0.1, top + 0.1, c.z), (0.1, top + 0.2, c.z), 0.014, 8)
+    rod(p, "metal", (0.1, top + 0.2, c.z), (0.02, top + 0.2, c.z), 0.014, 8)
+    extruded(p, "glow", sub(T(0.01, top + 0.09, c.z), rot=(0, 90, 0)) @ Matrix.Diagonal((0.55, 0.55, 0.55, 1.0)), BOLT, 0.016)
+    ball(p, "glow", (0.015, top + 0.16, c.z), 0.02, 10)
+    for side in (-1, 1):
+        q, n = rev_point(c, FH_PROFILE, 1.0, 90 + side * 75, face_y)
+        mbox(p, "glow", frame(q, n), (0.012, 0.03, 0.03), 0.004, 1)
+    mbox(p, "team", T(0, c.y + 0.2455, c.z - 0.12), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+MH_PROFILE = [(0.22, 0.2), (0.28, 0.27), (0.34, 0.31), (0.42, 0.335), (0.5, 0.345), (0.54, 0.345)]
+MH_SCREEN = (0.28, 0.1)
 
 
 def magnus_hull(p):
-    """MAGNUS campeão: o peito enorme sobe numa cúpula larga, com o visor largo numa máscara,
-    a crista em leque no alto e os louros dos lados."""
+    """MAGNUS taça de campeão: o peito é o pé da taça e a cabeça é o bojo, com o rosto numa
+    máscara, asas douradas dos lados, o bordo dourado e uma estrela a sair lá de dentro."""
     magnus_torso(p, with_neck=False)
     c = M_CHEST
-    face_y = 0.24
-    mk.HEADS["magnus3_hull"] = {"top": round(c.y + 0.55, 3), "center": round(c.y + face_y, 3), "aspect": round(MH_SCREEN[0] / MH_SCREEN[1], 3)}
-    flat, front = dome_hull(p, c, 0.82, MH_PROFILE, (-132, -48, 0.19, 0.29), face_y, MH_SCREEN)
+    depth = 0.9
+    face_y = 0.38
+    mk.HEADS["magnus3_hull"] = {"top": round(c.y + 0.85, 3), "center": round(c.y + face_y, 3), "aspect": round(MH_SCREEN[0] / MH_SCREEN[1], 3)}
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, depth, 1.0))
+    y0, y1 = MH_PROFILE[0][0], MH_PROFILE[-1][0]
+    lathe(p, "dark", flat, [(0.0, y0)] + [(r - 0.035, y) for y, r in MH_PROFILE] + [(0.0, y1 - 0.02)], 28)
+    # O pé da taça: gargalo dourado entre o peito e o bojo.
+    lathe(p, "trim", flat, [(0.16, 0.16), (0.2, 0.18), (0.14, 0.2), (0.16, 0.23), (0.0, 0.23)], 26)
+    lon0, lon1 = -130, -50
+    rev_panel(p, "shell", flat, MH_PROFILE, (y0, 0.33), (-180, 180), 0.034, (24, 6), gap=0.0)
+    rev_panel(p, "shell", flat, MH_PROFILE, (0.33, 0.45), (lon1, lon0 + 360), 0.034, (18, 6), gap=0.012)
+    rev_panel(p, "trim", flat, MH_PROFILE, (0.45, y1), (-180, 180), 0.034, (24, 3), gap=0.0)
+    mring(p, "trim", sub(flat, 0, 0.33, 0), profile_radius(MH_PROFILE, 0.33) + 0.006, 0.014, 32, 5)
+    mring(p, "trim", sub(flat, 0, y1, 0), 0.35, 0.026, 36, 8)
+    front = c.z - profile_radius(MH_PROFILE, face_y) * depth
+    screen_well(p, (0, c.y + face_y, front + 0.006), MH_SCREEN, 0.05, 0.01)
     for dy in (-1, 1):
-        mbox(p, "trim", T(0, c.y + face_y + dy * 0.066, front + 0.006), (0.36, 0.028, 0.03), 0.01)
+        mbox(p, "trim", T(0, c.y + face_y + dy * 0.066, front + 0.004), (0.34, 0.026, 0.03), 0.01)
+    # O fundo da taça e a estrela do Penta a erguer-se lá de dentro.
+    mtube(p, "dark", T(0, c.y + y1 - 0.02, c.z), 0.32, 0.02, 30)
+    star = sub(T(0, c.y + y1 + 0.13, c.z), rot=(0, 0, 0))
+    extruded(p, "trim", star, star_points(0.15, 0.065), 0.05)
+    extruded(p, "glow", sub(star, 0, 0, -0.027), star_points(0.1, 0.043), 0.012)
+    mtube(p, "metal", T(0, c.y + y1 + 0.0, c.z), 0.03, 0.06, 12)
+    # As asas da taça: duas pegas douradas em C.
     for side in (-1, 1):
-        mbox(p, "glow", T(side * 0.15, c.y + face_y + 0.1, front + 0.03), (0.04, 0.012, 0.01), 0.003, 1)
-    crest = [(-0.14, 0.0), (0.14, 0.0), (0.11, 0.07), (0.03, 0.14), (-0.08, 0.13), (-0.14, 0.06)]
-    extruded(p, "trim", sub(T(0, c.y + 0.4, c.z + 0.02), rot=(0, 90, 0)), crest, 0.03)
-    mbox(p, "dark", T(0, c.y + 0.41, c.z + 0.02), (0.05, 0.024, 0.26), 0.006, 1)
+        pts = [Vector((side * 0.31, c.y + 0.48, c.z)), Vector((side * 0.44, c.y + 0.5, c.z)), Vector((side * 0.47, c.y + 0.41, c.z)),
+               Vector((side * 0.41, c.y + 0.33, c.z)), Vector((side * 0.3, c.y + 0.31, c.z))]
+        for a, b in zip(pts, pts[1:]):
+            rod(p, "trim", a, b, 0.024, 12)
+            ball(p, "trim", b, 0.024, 12)
     for side in (-1, 1):
-        laurel(p, (0, c.y + 0.3, c.z + 0.02), 0.3, side, leaves=8)
-        hub = axis_frame((side * 0.27, c.y + 0.3, c.z + 0.02), "x" if side > 0 else "-x")
-        mtube(p, "metal", hub, 0.04, 0.03, 16)
-        bolts(p, sub(hub, 0, 0.016, 0), 0.028, 4, size=0.006)
-    mbox(p, "team", T(0, c.y + 0.35, c.z - 0.2), (0.1, 0.012, 0.03), 0.004, 1)
+        mbox(p, "glow", T(side * 0.16, c.y + face_y + 0.1, front + 0.02), (0.04, 0.012, 0.01), 0.003, 1)
+    mbox(p, "team", T(0, c.y + y1 + 0.03, c.z + 0.2), (0.1, 0.012, 0.03), 0.004, 1)
+
+
+OH_C = Vector((0.0, 1.17, 0.02))
+OH_R = 0.27
 
 
 def orbita_hull(p):
-    """ÓRBITA planeta: o próprio planeta é a cabeça, com o rosto numa máscara à frente e a
-    cúpula do observatório pousada no polo, com a parabólica."""
+    """ÓRBITA observatório: a cúpula grande assenta no planeta e é a cabeça; pela fenda aberta
+    sai o telescópio, e a lente dele é o olho. A parabólica ao lado, o anel continua a girar."""
     orbita_torso(p, with_neck=False)
-    c = O_CHEST
-    R = O_PLANET
-    face_y = 0.12
-    fz = c.z - math.sqrt(R * R - face_y * face_y) - 0.012
-    mk.HEADS["orbita3_hull"] = {"top": round(c.y + R + 0.2, 3), "center": round(c.y + face_y, 3), "aspect": round(O_SCREEN[0] / O_SCREEN[1], 3)}
-    screen_well(p, (0, c.y + face_y, fz), (0.22, 0.11), 0.04, 0.012)
-    mbox(p, "trim", T(0, c.y + face_y + 0.078, fz + 0.012), (0.3, 0.04, 0.05), 0.016)
-    mbox(p, "trim", T(0, c.y + face_y - 0.075, fz + 0.02), (0.26, 0.035, 0.05), 0.016)
-    for side in (-1, 1):
-        mbox(p, "trim", T(side * 0.14, c.y + face_y, fz + 0.016), (0.04, 0.19, 0.05), 0.016)
-    # A cúpula do observatório no polo: dois gomos com a fenda, debruns, base em anel.
-    d = T(0, c.y + R - 0.05, c.z)
-    ball(p, "dark", (0, c.y + R - 0.05, c.z), 0.17, 18)
-    sphere_panel(p, "shell", d, 0.2, (0, 86), (-80, 70), 0.03, (12, 6), gap=0.01)
-    sphere_panel(p, "shell", d, 0.2, (0, 86), (110, 260), 0.03, (12, 6), gap=0.01)
-    for side in (-1, 1):
-        meridian_arc(p, "trim", (0, c.y + R - 0.05, c.z), 0.204, 90 + side * 20, 0, 84, 0.01)
-    mring(p, "trim", d, 0.205, 0.018, 32, 6)
-    arm = Vector((-0.2, c.y + R + 0.02, c.z + 0.02))
+    c = OH_C
+    r = OH_R
+    tilt = math.radians(19)
+    axis = Vector((0.0, math.sin(tilt), -math.cos(tilt)))
+    eye = c + Vector((0.0, 0.1, 0.0)) + axis * (r + 0.178)
+    mk.HEADS["orbita3_hull"] = {"top": round(c.y + r + 0.05, 3), "center": round(eye.y, 3), "aspect": 1.0}
+    d = T(*c)
+    ball(p, "dark", c, r - 0.03, 22)
+    sphere_panel(p, "shell", d, r, (2, 86), (-78, 98), 0.032, (14, 7), gap=0.01)
+    sphere_panel(p, "shell", d, r, (2, 86), (102, 258), 0.032, (14, 7), gap=0.01)
+    for lon in (-102, -78):
+        meridian_arc(p, "trim", c, r + 0.004, lon, 2, 84, 0.012)
+    mring(p, "trim", sub(d, 0, 0.005, 0), r + 0.006, 0.022, 36, 6)
+    bolts(p, sub(d, 0, 0.03, 0), r + 0.004, 16, size=0.008)
+    # O telescópio: tubo, anéis, para-sol e a lente redonda que é o olho.
+    base = c + Vector((0.0, 0.1, 0.0))
+    tube = frame(base + axis * (r - 0.04), axis)
+    mtube(p, "trim", sub(tube, 0, 0.05, 0), 0.095, 0.3, 22, bevel=0.008)
+    for v in (-0.05, 0.06, 0.14):
+        mring(p, "metal", sub(tube, 0, v, 0), 0.098, 0.012, 22, 5)
+    mtube(p, "dark", sub(tube, 0, 0.2, 0), 0.115, 0.05, 24, caps=False)
+    mring(p, "trim", sub(tube, 0, 0.225, 0), 0.114, 0.018, 26, 6)
+    bolts(p, sub(tube, 0, 0.232, 0), 0.114, 6, size=0.008)
+    p.screen(tuple(base + axis * (r + 0.178)), (0.13, 0.13), bulge=0.012, rot=(19, 0, 0))
+    # A parabólica no lado esquerdo da cúpula.
+    arm = Vector((-r - 0.005, c.y + 0.1, c.z + 0.02))
     mtube(p, "metal", axis_frame(arm, "-x"), 0.03, 0.03, 14)
-    rod(p, "metal", arm + Vector((-0.015, 0, 0)), arm + Vector((-0.08, 0.08, 0.0)), 0.01, 8)
-    dish = frame(arm + Vector((-0.09, 0.1, -0.01)), (-0.5, 0.6, -0.62))
+    rod(p, "metal", arm + Vector((-0.015, 0, 0)), arm + Vector((-0.08, 0.09, 0.0)), 0.01, 8)
+    dish = frame(arm + Vector((-0.09, 0.11, -0.01)), (-0.5, 0.6, -0.62))
     lathe(p, "trim", dish, [(0.0, 0.0), (0.06, 0.006), (0.11, 0.024), (0.12, 0.036), (0.114, 0.04), (0.06, 0.012), (0.0, 0.005)], 22)
     rod(p, "metal", at(dish, 0, 0.01, 0), at(dish, 0, 0.1, 0), 0.006, 6)
     ball(p, "glow", at(dish, 0, 0.105, 0), 0.014, 8)
-    mbox(p, "team", T(0, c.y + R + 0.15, c.z - 0.1), (0.1, 0.012, 0.03), 0.004, 1)
+    mtube(p, "dark", T(0, c.y + r - 0.005, c.z + 0.02), 0.035, 0.05, 12)
+    ball(p, "glow", (0, c.y + r + 0.03, c.z + 0.02), 0.02, 10)
+    mbox(p, "team", T(0, c.y + r * 0.7, c.z + r * 0.72), (0.1, 0.012, 0.03), 0.004, 1)
 
 # ======================================================================================
 def define(part):
@@ -2817,6 +2863,7 @@ def define(part):
     part("faisca3_hull")(faisca_hull)
     part("eclipse3_hull")(eclipse_hull)
     part("helio3_hull")(helio_hull)
+    part("helio3_spin")(helio_crown)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
     part("salvo2_head")(salvo_head)

@@ -2,7 +2,7 @@ extends SceneTree
 # Design proposals for robots without a neck, shown before they enter the game: for each
 # robot, today's look and the proposal from four sides and a close-up of the face (needs a
 # GPU; omit --headless). The roster is only changed in memory.
-# Usage: godot -s tests/capture_proposals.gd -- <output prefix> [skin:hull ...]
+# Usage: godot -s tests/capture_proposals.gd -- <output prefix> [skin:hull[:eyes] ...]
 const TILE = 480
 const PROPOSALS = {0: "bit3_hull", 2: "orbita3_hull", 5: "eclipse3_hull", 7: "faisca3_hull", 10: "helio3_hull", 11: "magnus3_hull"}
 const Robots = preload("res://scripts/robots.gd")
@@ -31,7 +31,7 @@ func run() -> void:
 	var jobs: Dictionary = {}
 	for value in args.slice(1):
 		var bits = String(value).split(":")
-		jobs[int(bits[0])] = bits[1]
+		jobs[int(bits[0])] = bits[1] + (":" + bits[2] if bits.size() > 2 else "")
 	if jobs.is_empty():
 		jobs = PROPOSALS
 	root.size = Vector2i(TILE, TILE)
@@ -57,7 +57,11 @@ func run() -> void:
 		var saved: Dictionary = entry.parts.duplicate()
 		entry.parts["head"] = ""
 		entry.parts["top"] = ""
-		entry.parts["torso"] = jobs[skin]
+		var job: PackedStringArray = String(jobs[skin]).split(":")
+		entry.parts["torso"] = job[0]
+		var eyes: String = entry.eye_style
+		if job.size() > 1:
+			entry.eye_style = job[1]
 		# Crests modelled around the old head are left out of the proposal; the hull carries its own.
 		if skin != 2:
 			entry.parts["spin"] = ""
@@ -69,6 +73,7 @@ func run() -> void:
 			pose(arena, cam, view[0], view[1])
 			tiles.append(await shot())
 		entry.parts = saved
+		entry.eye_style = eyes
 		Robots._merged.clear()
 		var sheet = Image.create(TILE * tiles.size(), TILE, false, tiles[0].get_format())
 		for i in range(tiles.size()):
