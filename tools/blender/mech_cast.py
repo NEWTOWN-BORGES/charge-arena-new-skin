@@ -4837,6 +4837,149 @@ def eclipse8_claw(p):
     mk.finger(p, thumb, (0.06, 0.05), (10, 30), width=0.03, role="dark", tip="metal")
 
 
+# --------------------------------------------------------------------------------------
+# BATIDA 11: a DJ, feita como os doze v2 - cascos curvos em gomos com juntas, torneados e a
+# mecânica à vista. Cabeça em tambor deitado (um rádio-leitor): ecrã à frente numa moldura,
+# colunas de som torneadas nas duas pontas, pega em arco e antena. Tronco em pipo com a coluna
+# de som no peito, pescoço, cintura e bacia v2; ombreiras-coluna com grelha; antebraço
+# esquerdo em cascos com mão de quatro dedos; megafone no direito; pernas redondas.
+# --------------------------------------------------------------------------------------
+B11 = {"hip": Vector((0.2, 0.7, 0.0)), "shoulder_y": 1.34, "bracket": 0.25, "elbow_l": Vector((-0.48, 1.04, 0.02)),
+       "wrist_l": Vector((-0.51, 0.77, -0.1)), "elbow_r": Vector((0.48, 1.04, -0.02)), "muzzle": Vector((0.44, 0.86, -1.0)),
+       "bearing": 0.095, "drum": 0.075, "armor_size": (0.12, 0.11), "hand": 1.3, "fingers": 4}
+B11_CHEST = Vector((0.0, 1.18, 0.02))
+B11_TORSO = [(-0.24, 0.15), (-0.18, 0.2), (-0.08, 0.245), (0.04, 0.265), (0.14, 0.26), (0.21, 0.225), (0.26, 0.15)]
+B11_HEAD = Vector((0.0, 1.72, -0.01))
+B11_HEAD_R = 0.16
+B11_SCREEN = (0.26, 0.14)
+
+
+def batida11_head(p):
+    c, r = B11_HEAD, B11_HEAD_R
+    mk.HEADS["batida11_head"] = {"top": round(c.y + r + 0.12, 3), "center": round(c.y, 3), "aspect": round(B11_SCREEN[0] / B11_SCREEN[1], 3)}
+    drum = axis_frame(c, "x")
+    mtube(p, "dark", drum, r - 0.03, 0.4, 24)
+    # Casco do tambor em gomos, com a janela da frente aberta para o ecrã.
+    for lo in ((-60, 20), (25, 115), (120, 200), (205, 240)):
+        cyl_panel(p, "shell", drum, r, 0.36, lo, 0.03, (10, 2), gap=0.012)
+    for dx in (-0.17, 0.17):
+        mring(p, "trim", axis_frame((c.x + dx, c.y, c.z), "x"), r + 0.004, 0.014, 28, 6)
+    # Moldura, vidro recuado e o ecrã.
+    face = T(c.x, c.y, c.z - r + 0.03)
+    mbox(p, "dark", face, (0.32, 0.2, 0.06), 0.02)
+    mbox(p, "trim", sub(face, 0, 0, -0.022), (0.33, 0.21, 0.02), 0.02, 2)
+    p.screen((c.x, c.y, c.z - r - 0.004), B11_SCREEN, bulge=0.01)
+    for u in (-1, 1):
+        for v in (-1, 1):
+            screw(p, plane((c.x + u * 0.15, c.y + v * 0.09, c.z - r - 0.012), (0, 0, -1), (1, 0, 0)), 0, 0, 0.007)
+    # Colunas de som nas pontas: cone torneado, anel de borracha, grelha e parafusos.
+    for side in (-1, 1):
+        end = axis_frame((side * 0.2, c.y, c.z), "x" if side > 0 else "-x")
+        lathe(p, "trim", end, [(r - 0.005, 0.0), (r + 0.01, 0.02), (r - 0.01, 0.05), (0.0, 0.052)], 28, True)
+        mring(p, "rubber", sub(end, 0, 0.05, 0), 0.11, 0.014, 26, 6)
+        lathe(p, "dark", sub(end, 0, 0.03, 0), [(0.1, 0.02), (0.05, 0.0), (0.02, 0.012), (0.0, 0.012)], 22, True)
+        ball(p, "metal", at(end, 0, 0.045, 0), 0.028, 12)
+        bolts(p, sub(end, 0, 0.05, 0), 0.13, 6, size=0.008)
+        mring(p, "glow", sub(end, 0, 0.056, 0), 0.085, 0.006, 24, 4)
+    # Pega em arco com as charneiras, antena e o autocolante.
+    for side in (-1, 1):
+        mbox(p, "dark", T(side * 0.13, c.y + r + 0.01, c.z + 0.02), (0.05, 0.05, 0.06), 0.012)
+        mtube(p, "metal", axis_frame((side * 0.13, c.y + r + 0.02, c.z + 0.02), "x"), 0.012, 0.07, 8)
+    arc_tube(p, "trim", axis_frame((0, c.y + r + 0.02, c.z + 0.02), "z"), 0.13, 0.018, 0, 180, 24, 8)
+    rod(p, "metal", (0.1, c.y + r - 0.02, c.z + 0.1), (0.13, c.y + r + 0.16, c.z + 0.12), 0.008, 6)
+    ball(p, "glow", (0.13, c.y + r + 0.17, c.z + 0.12), 0.018, 10)
+    serial(p, plane((0.0, c.y - 0.06, c.z + r + 0.001), (0, 0, 1), (1, 0, 0)), "04", 0.036)
+
+
+def batida11_torso(p, with_neck=True):
+    c = B11_CHEST
+    top, bottom = B11_TORSO[-1][0], B11_TORSO[0][0]
+    if with_neck:
+        neck(p, c.y + top - 0.005, B11_HEAD.y - B11_HEAD_R + 0.01, 0.06, 0.0, plate=(0.2, 0.18))
+    flat = T(*c) @ Matrix.Diagonal((1.0, 1.0, 0.86, 1.0))
+    lathe(p, "dark", flat, [(0.0, bottom)] + [(r - 0.035, y) for y, r in B11_TORSO] + [(0.0, top)], 26)
+    for lo, yr in (((-150, -115), (-0.22, 0.23)), ((-65, -30), (-0.22, 0.23)), ((-112, -68), (-0.22, -0.06)),
+                   ((-112, -68), (0.19, 0.23)), ((-26, 30), (-0.22, 0.23)), ((34, 146), (-0.22, 0.23)), ((150, 206), (-0.22, 0.23))):
+        rev_panel(p, "shell", flat, B11_TORSO, yr, lo, 0.034, (10, 8), gap=0.012)
+    mring(p, "trim", sub(flat, 0, bottom + 0.03, 0), profile_radius(B11_TORSO, bottom + 0.03) + 0.004, 0.016, 26, 5)
+    mring(p, "trim", sub(flat, 0, top - 0.03, 0), profile_radius(B11_TORSO, top - 0.03) + 0.004, 0.014, 26, 5)
+    # A coluna de som no peito: cone escuro, suspensão, cúpula e o anel aceso.
+    spk = axis_frame((0, c.y + 0.065, c.z - 0.265 * 0.86 + 0.02), "-z")
+    mtube(p, "trim", spk, 0.13, 0.03, 28, bevel=0.006)
+    lathe(p, "dark", sub(spk, 0, 0.012, 0), [(0.115, 0.0), (0.06, -0.035), (0.03, -0.03), (0.0, -0.03)], 26, True)
+    mring(p, "rubber", sub(spk, 0, 0.016, 0), 0.105, 0.012, 26, 6)
+    ball(p, "metal", at(spk, 0, -0.01, 0), 0.03, 12)
+    mring(p, "glow", sub(spk, 0, 0.018, 0), 0.122, 0.005, 28, 4)
+    bolts(p, sub(spk, 0, 0.016, 0), 0.122, 8, size=0.008)
+    q, n = rev_point(c, B11_TORSO, 0.86, -130, 0.12)
+    serial(p, plane(q, n, (math.sin(math.radians(-130)), 0, -math.cos(math.radians(-130)))), "04", 0.028)
+    q, n = rev_point(c, B11_TORSO, 0.86, 90, -0.1)
+    charging_port(p, plane(q, n, (0, 0, 1)), 0.042, 0.026)
+    q, n = rev_point(c, B11_TORSO, 0.86, 90, 0.1)
+    warning(p, plane(q, n, (1, 0, 0)), 0.04)
+    # Gira-discos às costas: prato, braço e a agulha.
+    deck = axis_frame((0, c.y + 0.04, c.z + 0.265 * 0.86 + 0.02), "z")
+    mtube(p, "dark", deck, 0.14, 0.03, 26)
+    mtube(p, "trim", sub(deck, 0, 0.02, 0), 0.125, 0.008, 26)
+    mtube(p, "metal", sub(deck, 0, 0.03, 0), 0.02, 0.02, 10)
+    rod(p, "metal", at(deck, 0.1, 0.03, 0.1), at(deck, -0.03, 0.03, 0.06), 0.006, 6)
+    waist(p, 0.8, c.y + bottom + 0.02, 0.115)
+    pelvis(p, (0, 0.72, 0.0), (0.26, 0.15, 0.25), B11["hip"].x, B11["hip"].y, 0.084)
+
+
+def b11_pauldron(p, side, drum, pin, elbow):
+    m = T(drum.x + side * 0.012, drum.y + 0.02, 0.01)
+    a0, a1 = (-90, 90) if side > 0 else (90, 270)
+    sphere_panel(p, "shell", m, 0.15, (18, 88), (a0 - 30, a1 + 30), 0.03, (12, 5), gap=0.01)
+    sphere_panel(p, "trim", m, 0.155, (2, 16), (a0 - 25, a1 + 25), 0.026, (12, 2), gap=0.006)
+    grille = axis_frame(drum + Vector((side * 0.13, 0.03, 0.0)), "x" if side > 0 else "-x")
+    mtube(p, "dark", grille, 0.07, 0.02, 20)
+    for k in range(3):
+        mring(p, "metal", sub(grille, 0, 0.012, 0), 0.02 + k * 0.02, 0.004, 18, 4)
+    bolts(p, sub(grille, 0, 0.01, 0), 0.075, 6, size=0.007)
+
+
+B11["pauldron"] = b11_pauldron
+
+
+def batida11_shoulders(p):
+    v10_shoulders(p, B11)
+
+
+def batida11_arm(p):
+    def armor(q, m, length):
+        for lo in ((-80, 80), (100, 260)):
+            cyl_panel(q, "shell", sub(m, 0, length * 0.42, 0), 0.1, length * 0.55, lo, 0.03, (10, 2), gap=0.012, radius_top=0.095)
+        lathe(q, "trim", sub(m, 0, length * 0.72, 0), [(0.09, 0.0), (0.108, 0.0), (0.125, 0.06), (0.12, 0.07), (0.075, 0.07), (0.09, 0.0)], 22)
+        mbox(q, "glow", sub(m, 0, length * 0.45, 0.103), (0.04, 0.012, 0.01), 0.003, 1)
+    v10_forearm(p, B11, armor)
+
+    def gun_armor(q, m):
+        lathe(q, "shell", m, [(0.0, 0.07), (0.07, 0.08), (0.1, 0.14), (0.105, 0.3), (0.095, 0.4), (0.0, 0.42)], 24)
+        for v in (0.15, 0.36):
+            mring(q, "trim", sub(m, 0, v, 0), 0.104, 0.013, 24, 5)
+    v10_gun_forearm(p, dict(B11, ring_at=0.44, ring_r=0.08), gun_armor)
+
+
+def batida11_gun(p):
+    # Megafone: garganta escura, campânula torneada a abrir, aro e o diafragma aceso.
+    e, muzzle = B11["elbow_r"], B11["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, 0.5, 0), 0.05, 0.08, 16)
+    lathe(p, "trim", m, [(0.04, 0.54), (0.045, 0.62), (0.07, L - 0.2), (0.12, L - 0.04), (0.125, L)], 24)
+    mring(p, "shell", sub(m, 0, L - 0.005, 0), 0.125, 0.014, 26, 6)
+    mtube(p, "glow", sub(m, 0, L - 0.12, 0), 0.06, 0.008, 18)
+    bolts(p, sub(m, 0, 0.6, 0), 0.05, 5, size=0.007)
+
+
+def batida11_leg(p, out):
+    def shoes(q, m, o, ankle):
+        foot(q, m, length=0.4, width=0.25, out=o, toes=2, armor="shell", heel="trim")
+    leg(p, out, B11["hip"].y, knee_y=-0.26, ankle_up=0.17, width=0.95, knee_w=0.108, knee_r=0.058, foot_fn=shoes,
+        thigh_fn=round_thigh(k=0.95), shin_fn=round_shin(k=0.95, r_bottom=0.09, r_top=0.115), thigh_top=0.03, guard=False, shin_top=-0.21)
+
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -4851,6 +4994,10 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("helio6_wings")(helio6_wings)
     part("orbita9_3_spin")(orbita9_spin)
+    for slot in ("head", "torso", "shoulders", "arm", "gun"):
+        part("batida11_" + slot)(globals()["batida11_" + slot])
+    part("batida11_leg_l")(lambda q: batida11_leg(q, -1))
+    part("batida11_leg_r")(lambda q: batida11_leg(q, 1))
     for robot in ("batida10", "magnus10", "faisca10", "orbita10"):
         for slot in ("shoulders", "arm", "gun"):
             fn = globals().get(robot + "_" + slot)
