@@ -90,8 +90,10 @@ func run() -> void:
 		arena.update_state(game.rules, 0, 1.0 / 60)
 		check(rigged and unit.get_node("Body/Gun/Flash").scale.x > 0.2, "Skin %d has every animated part and fires muzzle flash" % skin)
 		if skin == 5:
-			# Eclipse has no neck: its face is in the hull.
-			var face: ShaderMaterial = unit.get_node("Body/Robot_screen").material_override
+			# Eclipse's face is the visor of its helmet (or, on a fused hull, in the trunk).
+			var screen = unit.get_node_or_null("Body/Head/Robot_screen")
+			if screen == null: screen = unit.get_node("Body/Robot_screen")
+			var face: ShaderMaterial = screen.material_override
 			check(face.get_shader_parameter("style") == arena.Robots.EYES.find("slant"), "Eclipse's eyes are stern slants on its screen")
 		var themed = range(80).all(func(i): return arena.brick_nodes[i].get_meta("skin") == (skin if i < 40 else 0))
 		var lit = arena.brick_nodes.all(func(b): return b.has_node("HP0") and b.has_node("HP1") and b.has_node("HP2"))

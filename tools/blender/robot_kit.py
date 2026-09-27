@@ -1306,7 +1306,10 @@ def sync_heads():
     start = text.index('"heads": {')
     end = text.index("\n\t},", start)
     old = json.loads("{" + text[start:end] + "\n\t}}")["heads"]
-    fused = lambda name: name.endswith("2_head") or name.endswith("_hull")
+    # Also any head or trunk a robot of the cast wears (the blueprint heads, a trunk with the
+    # face in it), so the game knows where its face is.
+    worn = {entry["parts"].get(slot, "") for entry in json.loads(text)["cast"] for slot in ("head", "torso")}
+    fused = lambda name: name.endswith("2_head") or name.endswith("_hull") or name in worn
     heads = {name: value for name, value in old.items() if not fused(name)}
     heads.update({name: value for name, value in sorted(HEADS.items()) if fused(name)})
     lines = ",\n".join('\t\t"%s": %s' % (name, json.dumps(value)) for name, value in heads.items())

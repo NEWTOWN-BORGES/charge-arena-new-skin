@@ -3845,8 +3845,10 @@ def batida7_head(p):
     cbox(p, "dark", (c.x, c.y - h / 2 + 0.01, c.z), (w - 0.1, 0.03, d - 0.08), 0.01)
     # O losango vermelho e as quatro marcas de canto.
     # O losango: quatro quadrados rodados, com a cruz de folga entre eles.
-    for dx, dy in ((0.045, 0.0), (-0.045, 0.0), (0.0, 0.045), (0.0, -0.045)):
+    # No meio, o ecrã do rosto em losango: o olho do jogo acende-se dentro dele.
+    for dx, dy in ((0.07, 0.0), (-0.07, 0.0), (0.0, 0.07), (0.0, -0.07)):
         mbox(p, "hazard", sub(T(c.x - 0.02 + dx, c.y + 0.01 + dy, front - 0.006), rot=(0, 0, 45)), (0.05, 0.05, 0.008), 0.003, 1)
+    p.screen((c.x - 0.02, c.y + 0.01, front - 0.004), (0.1, 0.1), bulge=0.002, rot=(0, 0, 45))
     for u, v in ((-1, 1), (1, 1), (-1, -1), (1, -1)):
         mbox(p, "hazard", sub(T(c.x + u * (w / 2 - 0.08), c.y + v * (h / 2 - 0.08), front - 0.006), rot=(0, 0, 45 * u * v)), (0.05, 0.014, 0.006), 0.002, 1)
     # O distintivo laranja no canto de baixo, à esquerda de quem vê.
@@ -4081,6 +4083,510 @@ def eclipse6_wings(p):
             extruded(p, "dark", basis, [wrist, ring[i], ring[i + 1]], 0.012)
 
 
+# --------------------------------------------------------------------------------------
+# ECLIPSE 8: o executor. Alto e anguloso, sem ovo, sem asas, sem chifres: elmo pequeno e
+# afiado enterrado numa gola alta, visor em V sob uma sobrancelha carregada, peito em cunha
+# (largo em cima, cintura estreita) com o núcleo do eclipse (disco negro e coroa acesa),
+# ombreiras em lâminas sobrepostas, garra comprida, canhão com o anel do eclipse na boca e
+# pernas altas com joelheiras em bico e grevas largas.
+# --------------------------------------------------------------------------------------
+E8 = {"hip": Vector((0.2, 0.88, 0.0)), "elbow_l": Vector((-0.6, 1.2, 0.02)), "wrist_l": Vector((-0.64, 0.88, -0.1)),
+      "elbow_r": Vector((0.6, 1.2, -0.02)), "muzzle": Vector((0.52, 1.0, -1.12)), "head": Vector((0.0, 1.84, -0.03))}
+
+
+def eclipse8_head(p):
+    c = E8["head"]
+    mk.HEADS["eclipse8_head"] = {"top": round(c.y + 0.17, 3), "center": round(c.y, 3), "aspect": round(0.26 / 0.05, 3)}
+    # Crânio escuro, faces laterais inclinadas e o tampo em bico para a frente.
+    cbox(p, "dark", (c.x, c.y, c.z + 0.02), (0.28, 0.26, 0.32), 0.03)
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.15, c.y + 0.01, c.z + 0.02), (0.04, 0.27, 0.34), 0.012, rot=(0, 0, side * 6))
+    cbox(p, "shell", (0, c.y + 0.14, c.z + 0.02), (0.3, 0.05, 0.36), 0.015, taper=(0.7, 1.0))
+    extruded(p, "shell", T(0, c.y + 0.155, c.z - 0.17) @ Matrix.Rotation(math.radians(-90), 4, "X"), [(-0.1, 0.0), (0.1, 0.0), (0.0, -0.1)], 0.03)
+    # Sobrancelha em V carregada sobre o visor.
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.07, c.y + 0.065, c.z - 0.16), (0.16, 0.045, 0.06), 0.01, rot=(0, 0, side * 16))
+    p.screen((0, c.y + 0.015, c.z - 0.152), (0.26, 0.05), bulge=0.003)
+    # Máscara em cunha até ao queixo em bico.
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.075, c.y - 0.07, c.z - 0.14), (0.14, 0.1, 0.06), 0.012, rot=(0, side * 18, -side * 12))
+    for side in (-1, 1):
+        mbox(p, "glow", T(side * 0.04, c.y - 0.075, c.z - 0.176), (0.012, 0.05, 0.004), 0.002, 1)
+
+
+def eclipse8_torso(p, with_neck=True):
+    hip = E8["hip"]
+    # Cintura estreita, pistões e o abdómen em cintas que alargam para cima.
+    cbox(p, "dark", (0, 0.9, 0.0), (0.3, 0.12, 0.26), 0.03)
+    hip_axles(p, hip.y, 0.14, hip.x, 0.07)
+    for side in (-1, 1):
+        piston(p, Vector((side * 0.1, 0.94, 0.08)), Vector((side * 0.14, 1.14, 0.08)))
+    mtube(p, "metal", axis_frame((0, 0.97, 0.0), "y"), 0.1, 0.12, 16)
+    for i, w in enumerate((0.3, 0.36, 0.42)):
+        cbox(p, "shell" if i % 2 == 0 else "dark", (0, 1.02 + i * 0.07, -0.02), (w, 0.06, 0.28 + i * 0.03), 0.015)
+    # Peito em cunha: largo nos ombros, estreito em baixo.
+    cbox(p, "dark", (0, 1.4, 0.03), (0.66, 0.36, 0.42), 0.04, taper=(1.25, 1.05))
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.17, 1.43, -0.17), (0.3, 0.3, 0.08), 0.02, rot=(8, side * 14, side * -8), taper=(1.3, 1.0))
+        cbox(p, "trim", (side * 0.3, 1.55, -0.14), (0.14, 0.03, 0.06), 0.006, rot=(0, side * 14, side * -8))
+    cbox(p, "shell", (0, 1.62, 0.0), (0.86, 0.1, 0.46), 0.03, taper=(0.9, 0.95))
+    # O núcleo do eclipse: disco negro, coroa acesa e raios curtos à volta.
+    core = T(0, 1.37, -0.235) @ Matrix.Rotation(math.radians(90), 4, "X")
+    mtube(p, "dark", core, 0.095, 0.03, 24)
+    mring(p, "glow", sub(core, 0, -0.012, 0), 0.105, 0.009, 28, 6)
+    for i in range(8):
+        a = math.radians(i * 45 + 22.5)
+        q = (math.cos(a) * 0.14, 1.37 + math.sin(a) * 0.14, -0.232)
+        cbox(p, "trim", q, (0.018, 0.05, 0.012), 0.004, rot=(0, 0, math.degrees(a) - 90))
+    # Gola alta dos lados da cabeça: o elmo fica enterrado nela.
+    for side in (-1, 1):
+        cbox(p, "shell", (side * 0.22, 1.76, 0.02), (0.1, 0.24, 0.36), 0.02, rot=(0, 0, -side * 12), taper=(0.7, 0.85))
+    cbox(p, "shell", (0, 1.74, 0.17), (0.36, 0.2, 0.08), 0.02, rot=(-12, 0, 0))
+    cbox(p, "dark", (0, 1.7, 0.0), (0.2, 0.08, 0.2), 0.02)
+    # Costas: espinha em lâminas e dois escapes.
+    for i in range(4):
+        cbox(p, "shell", (0, 1.58 - i * 0.12, 0.27 - i * 0.015), (0.08, 0.1, 0.06), 0.01, rot=(-10, 0, 0))
+    for side in (-1, 1):
+        cbox(p, "dark", (side * 0.18, 1.42, 0.26), (0.14, 0.26, 0.1), 0.02)
+        vents(p, sub(T(side * 0.18, 1.42, 0.312), rot=(90, 0, 0)), 3, 0.1, depth=0.008, spacing=0.06)
+
+
+def eclipse8_shoulders(p):
+    for side in (-1, 1):
+        e = E8["elbow_l"] if side < 0 else E8["elbow_r"]
+        ball(p, "dark", Vector((side * 0.45, 1.52, 0.02)), 0.1, 14)
+        # Ombreira em três lâminas sobrepostas, a descer para fora.
+        # Ombreira maciça, inclinada para fora, com a aba de baixo e a aresta clara.
+        cbox(p, "dark", (side * 0.52, 1.58, 0.02), (0.26, 0.22, 0.34), 0.03)
+        cbox(p, "shell", (side * 0.6, 1.66, 0.02), (0.38, 0.26, 0.46), 0.05, rot=(0, 0, -side * 12), taper=(0.78, 0.86))
+        cbox(p, "shell", (side * 0.66, 1.49, 0.02), (0.32, 0.08, 0.42), 0.02, rot=(0, 0, -side * 18))
+        cbox(p, "trim", (side * 0.66, 1.448, 0.02), (0.3, 0.012, 0.4), 0.004, rot=(0, 0, -side * 18))
+        cbox(p, "trim", (side * 0.6, 1.66, -0.235), (0.24, 0.02, 0.012), 0.004, rot=(0, 0, -side * 12))
+        mbox(p, "glow", T(side * 0.6, 1.62, -0.236), (0.1, 0.012, 0.004), 0.002, 1)
+        # Braço de cima: estrutura escura e placa exterior.
+        rod(p, "dark", Vector((side * 0.52, 1.46, 0.02)), e, 0.065, 12)
+        beam(p, "shell", Vector((side * 0.56, 1.44, 0.02)), e + Vector((0, 0.08, 0)), 0.1, 0.16, 0.02)
+        ball(p, "metal", e, 0.075, 14)
+
+
+def eclipse8_arm(p):
+    # Braço livre: antebraço em lâmina e a garra comprida de três dedos.
+    e, w = E8["elbow_l"], E8["wrist_l"]
+    m = beam(p, "dark", e, w, 0.12, 0.13, 0.02, pad=0.04)
+    beam(p, "shell", e + Vector((-0.02, -0.04, 0)), w + Vector((-0.02, 0.06, 0)), 0.16, 0.18, 0.03)
+    L = (w - e).length
+    extruded(p, "trim", m @ Matrix.Translation((-0.09, 0, 0)) @ Matrix.Rotation(math.radians(90), 4, "Y"), [(0.05, -L * 0.4), (0.05, L * 0.3), (-0.02, L * 0.55)], 0.015)
+    cbox(p, "glow", sub(m, 0, -L * 0.1, -0.092), (0.03, 0.12, 0.006), 0.003)
+    # Garra: palma escura e três dedos compridos em dois segmentos, pontas de metal.
+    hand = frame(w, w - e, front=(0.3, 0, -1))
+    cbox(p, "dark", sub(hand, 0, 0.07, 0), (0.15, 0.1, 0.13), 0.02)
+    cbox(p, "shell", sub(hand, 0, 0.06, -0.06), (0.16, 0.08, 0.03), 0.01)
+    for i in (-1, 0, 1):
+        f1 = sub(hand, i * 0.05, 0.12, -0.01, rot=(-12, 0, -i * 10))
+        cbox(p, "dark", sub(f1, 0, 0.07, 0), (0.035, 0.14, 0.04), 0.01)
+        f2 = sub(f1, 0, 0.14, 0, rot=(-28, 0, 0))
+        cbox(p, "dark", sub(f2, 0, 0.05, 0), (0.03, 0.1, 0.035), 0.008)
+        lathe(p, "metal", sub(f2, 0, 0.1, 0, rot=(-20, 0, 0)), [(0.0, 0.0), (0.018, 0.0), (0.0, 0.09)], 8)
+    cbox(p, "dark", sub(hand, 0.09, 0.1, -0.04, rot=(0, 0, 30)), (0.035, 0.1, 0.04), 0.01)
+    # Antebraço do canhão.
+    e = E8["elbow_r"]
+    d = (E8["muzzle"] - e).normalized()
+    m = beam(p, "shell", e, e + d * 0.42, 0.2, 0.2, 0.03, pad=0.04, front=(0, 1, 0))
+    cbox(p, "trim", sub(m, 0, 0.1, 0), (0.21, 0.03, 0.21), 0.008)
+
+
+def eclipse8_gun(p):
+    e = E8["elbow_r"]
+    muzzle = E8["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, (0.4 + L) / 2, 0), 0.06, L - 0.4, 16, bevel=0.005)
+    cbox(p, "shell", sub(m, 0, 0.5, 0), (0.16, 0.2, 0.16), 0.02, taper=(0.8, 0.8))
+    # A boca do canhão é um pequeno eclipse: disco negro e a coroa acesa.
+    mtube(p, "dark", sub(m, 0, L - 0.04, 0), 0.1, 0.05, 20)
+    mring(p, "glow", sub(m, 0, L - 0.012, 0), 0.105, 0.01, 24, 6)
+
+
+def eclipse8_leg(p, out):
+    g = -E8["hip"].y
+    leg_hub(p, out, 0.07)
+    # Coxa: estrutura escura e placa angulosa à frente.
+    beam(p, "dark", (0, -0.04, 0), (0, -0.36, -0.02), 0.14, 0.16, 0.02)
+    cbox(p, "shell", (0, -0.2, -0.05), (0.22, 0.3, 0.14), 0.025, taper=(1.15, 1.1))
+    cbox(p, "shell", (out * 0.12, -0.18, 0.0), (0.04, 0.26, 0.2), 0.01)
+    cbox(p, "trim", (out * 0.143, -0.18, 0.0), (0.008, 0.2, 0.14), 0.003)
+    # Joelho: tambor e joelheira em bico para a frente.
+    mtube(p, "metal", axis_frame((0, -0.4, -0.02), "x"), 0.06, 0.18, 16)
+    extruded(p, "shell", T(0, -0.4, -0.12) @ Matrix.Rotation(math.radians(90), 4, "Y"), [(-0.04, 0.09), (-0.04, -0.09), (0.13, 0.0)], 0.17)
+    # Greva larga em baixo, a abrir para o pé.
+    beam(p, "dark", (0, -0.44, 0.0), (0, -0.76, 0.02), 0.12, 0.13, 0.02)
+    cbox(p, "shell", (0, -0.6, -0.04), (0.23, 0.3, 0.18), 0.025, taper=(0.8, 0.8), rot=(180, 0, 0))
+    cbox(p, "trim", (0, -0.72, -0.12), (0.22, 0.03, 0.03), 0.006)
+    mbox(p, "glow", T(0, -0.56, -0.123), (0.05, 0.012, 0.004), 0.002, 1)
+    # Tornozelo e o pé em cunha, com calcanhar.
+    mtube(p, "metal", axis_frame((0, g + 0.11, 0.02), "x"), 0.045, 0.14, 14)
+    cbox(p, "dark", (0, g + 0.03, -0.02), (0.22, 0.06, 0.32), 0.015)
+    extruded(p, "shell", T(0, g + 0.04, 0) @ Matrix.Rotation(math.radians(90), 4, "Y"), [(-0.13, 0.0), (0.26, 0.0), (0.26, 0.03), (0.04, 0.12), (-0.13, 0.12)], 0.2)
+    cbox(p, "trim", (0, g + 0.1, -0.12), (0.21, 0.01, 0.12), 0.003, rot=(-24, 0, 0))
+
+
+# --------------------------------------------------------------------------------------
+# FAÍSCA 9: corredora esguia e alta. Cabeça estreita e alta com o visor em fenda, para-raios
+# em ziguezague no alto e isoladores nas orelhas; peito estreito com o raio aceso, cintura em
+# bobina, bobina de Tesla às costas, braços finos e o emissor-bobina. Mantém as pernas de
+# gafanhoto (faisca2_leg).
+# --------------------------------------------------------------------------------------
+F9 = {"elbow_l": Vector((-0.4, 1.12, 0.02)), "wrist_l": Vector((-0.43, 0.86, -0.08)), "elbow_r": Vector((0.4, 1.12, -0.02)),
+      "muzzle": Vector((0.42, 0.95, -0.98)), "head": Vector((0.0, 1.8, -0.02))}
+
+
+def faisca9_head(p):
+    c = F9["head"]
+    mk.HEADS["faisca9_head"] = {"top": round(c.y + 0.2, 3), "center": round(c.y, 3), "aspect": round(0.18 / 0.055, 3)}
+    cbox(p, "dark", (c.x, c.y, c.z + 0.01), (0.2, 0.32, 0.24), 0.03)
+    cbox(p, "shell", (c.x, c.y + 0.06, c.z), (0.24, 0.24, 0.27), 0.05)
+    cbox(p, "shell", (c.x, c.y - 0.12, c.z - 0.01), (0.2, 0.08, 0.24), 0.03, taper=(1.15, 1.05))
+    cbox(p, "trim", (c.x, c.y + 0.0, c.z - 0.13), (0.22, 0.09, 0.03), 0.012)
+    p.screen((c.x, c.y + 0.0, c.z - 0.147), (0.18, 0.055), bulge=0.003)
+    cbox(p, "trim", (c.x, c.y + 0.185, c.z), (0.08, 0.02, 0.2), 0.006)
+    for side in (-1, 1):
+        for i in range(3):
+            mtube(p, "metal" if i % 2 else "shell", axis_frame((side * (0.13 + i * 0.022), c.y + 0.04, c.z), "x" if side > 0 else "-x"), 0.05 - i * 0.01, 0.02, 14)
+    # Para-raios em ziguezague no alto da cabeça.
+    extruded(p, "trim", T(c.x + 0.02, c.y + 0.19, c.z) @ Matrix.Diagonal((0.9, 0.9, 1.0, 1.0)), BOLT, 0.02)
+    ball(p, "glow", Vector((c.x + 0.02, c.y + 0.37, c.z)), 0.022, 10)
+
+
+def faisca9_torso(p, with_neck=True):
+    hip = FAISCA["hip"]
+    cbox(p, "dark", (0, 0.84, 0.0), (0.3, 0.14, 0.24), 0.03)
+    hip_axles(p, hip.y, 0.13, hip.x, 0.07)
+    cbox(p, "shell", (0, 0.9, -0.03), (0.26, 0.1, 0.2), 0.03, taper=(1.2, 1.0))
+    # Cintura em bobina.
+    mtube(p, "dark", axis_frame((0, 1.04, 0.0), "y"), 0.075, 0.24, 14)
+    for i in range(5):
+        mring(p, "trim", axis_frame((0, 0.95 + i * 0.045, 0.0), "y"), 0.085, 0.012, 18, 6)
+    # Peito estreito em escudo, com o raio aceso.
+    cbox(p, "dark", (0, 1.36, 0.02), (0.42, 0.3, 0.3), 0.04)
+    cbox(p, "shell", (0, 1.38, -0.02), (0.46, 0.3, 0.26), 0.06, taper=(1.12, 1.0))
+    cbox(p, "shell", (0, 1.19, -0.02), (0.3, 0.1, 0.22), 0.03, taper=(1.4, 1.0))
+    extruded(p, "glow", T(0.015, 1.27, -0.155) @ Matrix.Diagonal((0.9, 0.9, 1.0, 1.0)), BOLT, 0.012)
+    cbox(p, "trim", (0, 1.53, -0.02), (0.4, 0.03, 0.26), 0.008)
+    cbox(p, "dark", (0, 1.6, 0.0), (0.12, 0.08, 0.12), 0.015)
+    # Bobina de Tesla às costas.
+    mtube(p, "dark", axis_frame((0, 1.34, 0.19), "y"), 0.06, 0.34, 14)
+    for i in range(4):
+        mring(p, "glow" if i == 3 else "trim", axis_frame((0, 1.22 + i * 0.07, 0.19), "y"), 0.07 + (i == 3) * 0.02, 0.012, 18, 6)
+    lathe(p, "metal", axis_frame((0, 1.51, 0.19), "y"), [(0.0, 0.0), (0.05, 0.0), (0.0, 0.1)], 12)
+
+
+def faisca9_shoulders(p):
+    for side in (-1, 1):
+        e = F9["elbow_l"] if side < 0 else F9["elbow_r"]
+        top = Vector((side * 0.3, 1.46, 0.02))
+        ball(p, "dark", top, 0.07, 12)
+        cbox(p, "shell", (side * 0.33, 1.52, 0.02), (0.16, 0.08, 0.2), 0.03, rot=(0, 0, -side * 18))
+        cbox(p, "trim", (side * 0.4, 1.49, 0.02), (0.02, 0.06, 0.18), 0.005, rot=(0, 0, -side * 18))
+        beam(p, "dark", top, e, 0.07, 0.08, 0.015)
+        beam(p, "shell", top.lerp(e, 0.2), top.lerp(e, 0.8), 0.1, 0.11, 0.025)
+        ball(p, "metal", e, 0.055, 12)
+
+
+def faisca9_arm(p):
+    e, w = F9["elbow_l"], F9["wrist_l"]
+    m = beam(p, "shell", e, w, 0.11, 0.12, 0.03, pad=0.02)
+    L = (w - e).length
+    for i in range(2):
+        mbox(p, "glow", sub(m, 0, -L * 0.1 + i * 0.06, -0.062), (0.05, 0.012, 0.004), 0.002, 1)
+    cbox(p, "trim", sub(m, 0, L * 0.4, 0), (0.12, 0.03, 0.13), 0.006)
+    fist(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.08, 0), 0.75)
+    e = F9["elbow_r"]
+    d = (F9["muzzle"] - e).normalized()
+    m = beam(p, "shell", e, e + d * 0.36, 0.13, 0.13, 0.03, pad=0.03, front=(0, 1, 0))
+    cbox(p, "trim", sub(m, 0, 0.1, 0), (0.14, 0.025, 0.14), 0.006)
+
+
+def faisca9_gun(p):
+    e = F9["elbow_r"]
+    muzzle = F9["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, (0.36 + L) / 2, 0), 0.04, L - 0.36, 14)
+    for i in range(4):
+        mring(p, "glow" if i % 2 else "trim", sub(m, 0, 0.45 + i * 0.08, 0), 0.06, 0.012, 16, 6)
+    lathe(p, "metal", sub(m, 0, L - 0.08, 0), [(0.03, 0.0), (0.06, 0.06), (0.05, 0.08)], 14)
+
+
+# --------------------------------------------------------------------------------------
+# ÓRBITA 9: astronauta. Capacete redondo com o rosto num vidro largo, antena e discos de
+# ouvido; peito em caixa arredondada com mostradores, um anel orbital inclinado à volta da
+# cintura com duas luas, ombros em esfera com o seu anel, mochila-propulsor, braço-telescópio
+# e pernas robustas com botas lunares.
+# --------------------------------------------------------------------------------------
+O9 = {"hip": Vector((0.2, 0.7, 0.0)), "elbow_l": Vector((-0.5, 1.12, 0.02)), "wrist_l": Vector((-0.53, 0.84, -0.1)),
+      "elbow_r": Vector((0.5, 1.12, -0.02)), "muzzle": Vector((0.46, 0.95, -1.04)), "head": Vector((0.0, 1.76, -0.01))}
+
+
+def orbita9_head(p):
+    c = O9["head"]
+    r = 0.21
+    mk.HEADS["orbita9_head"] = {"top": round(c.y + r + 0.1, 3), "center": round(c.y, 3), "aspect": round(0.26 / 0.18, 3)}
+    ball(p, "shell", c, r, 24)
+    cbox(p, "dark", (c.x, c.y, c.z - 0.12), (0.3, 0.22, 0.14), 0.07)
+    p.screen((c.x, c.y, c.z - 0.195), (0.26, 0.18), bulge=0.03)
+    mring(p, "trim", T(c.x, c.y, c.z - 0.19) @ Matrix.Rotation(math.radians(90), 4, "X"), 0.16, 0.014, 28, 6)
+    mtube(p, "trim", axis_frame((c.x, c.y - r + 0.02, c.z), "y"), r * 0.8, 0.05, 22)
+    for side in (-1, 1):
+        mtube(p, "trim", axis_frame((side * (r - 0.01), c.y, c.z), "x" if side > 0 else "-x"), 0.075, 0.05, 18)
+        mtube(p, "glow", axis_frame((side * (r + 0.04), c.y, c.z), "x" if side > 0 else "-x"), 0.03, 0.01, 12)
+    rod(p, "metal", Vector((c.x + 0.08, c.y + r - 0.03, c.z + 0.04)), Vector((c.x + 0.12, c.y + r + 0.1, c.z + 0.06)), 0.01, 6)
+    ball(p, "glow", Vector((c.x + 0.12, c.y + r + 0.11, c.z + 0.06)), 0.024, 10)
+
+
+def orbita9_torso(p, with_neck=True):
+    hip = O9["hip"]
+    cbox(p, "dark", (0, 0.78, 0.0), (0.34, 0.14, 0.28), 0.04)
+    hip_axles(p, hip.y, 0.14, hip.x, 0.075)
+    cbox(p, "dark", (0, 0.96, 0.02), (0.36, 0.2, 0.3), 0.05)
+    cbox(p, "shell", (0, 1.3, 0.02), (0.62, 0.42, 0.44), 0.1)
+    cbox(p, "trim", (0, 1.3, -0.205), (0.36, 0.24, 0.03), 0.03)
+    for i, x in enumerate((-0.09, 0.0, 0.09)):
+        mtube(p, "glow" if i == 1 else "dark", T(x, 1.34, -0.225) @ Matrix.Rotation(math.radians(90), 4, "X"), 0.03, 0.014, 14)
+    for i in range(3):
+        mbox(p, "dark", T(0, 1.24 - i * 0.03, -0.224), (0.2, 0.01, 0.004), 0.002, 1)
+    cbox(p, "dark", (0, 1.54, 0.0), (0.2, 0.06, 0.2), 0.02)
+    # Mochila-propulsor.
+    cbox(p, "shell", (0, 1.32, 0.3), (0.44, 0.34, 0.16), 0.05)
+    for side in (-1, 1):
+        mtube(p, "dark", axis_frame((side * 0.13, 1.1, 0.32), "-y"), 0.06, 0.1, 16)
+        mtube(p, "glow", axis_frame((side * 0.13, 1.04, 0.32), "-y"), 0.04, 0.01, 14)
+
+
+def orbita9_spin(p):
+    # O anel orbital inclinado à volta da cintura, com duas luas.
+    ring = T(0, 1.02, 0.02) @ Matrix.Rotation(math.radians(16), 4, "Z") @ Matrix.Rotation(math.radians(8), 4, "X")
+    mring(p, "trim", ring, 0.36, 0.02, 40, 8)
+    for ang, role, rad in ((200, "glow", 0.045), (330, "metal", 0.035)):
+        a = math.radians(ang)
+        ball(p, role, (ring @ Vector((math.cos(a) * 0.36, 0.0, math.sin(a) * 0.36, 1.0))).to_3d(), rad, 12)
+
+
+def orbita9_shoulders(p):
+    for side in (-1, 1):
+        e = O9["elbow_l"] if side < 0 else O9["elbow_r"]
+        c = Vector((side * 0.44, 1.42, 0.02))
+        ball(p, "shell", c, 0.15, 20)
+        mring(p, "trim", axis_frame(c, "x"), 0.155, 0.014, 26, 6)
+        rod(p, "dark", c, e, 0.05, 10)
+        ball(p, "dark", e, 0.07, 14)
+
+
+def orbita9_arm(p):
+    e, w = O9["elbow_l"], O9["wrist_l"]
+    m = beam(p, "shell", e, w, 0.17, 0.18, 0.07, pad=0.04)
+    cbox(p, "trim", sub(m, 0, (w - e).length * 0.35, 0), (0.18, 0.03, 0.19), 0.01)
+    fist(p, sub(frame(w, w - e, front=(0.3, 0, -1)), 0, 0.1, 0), 0.95)
+    e = O9["elbow_r"]
+    d = (O9["muzzle"] - e).normalized()
+    m = beam(p, "shell", e, e + d * 0.38, 0.18, 0.18, 0.07, pad=0.03, front=(0, 1, 0))
+    cbox(p, "trim", sub(m, 0, 0.12, 0), (0.19, 0.03, 0.19), 0.01)
+
+
+def orbita9_gun(p):
+    # Telescópio em três troços, lente acesa na boca.
+    e = O9["elbow_r"]
+    muzzle = O9["muzzle"]
+    d = (muzzle - e).normalized()
+    m = frame(e, d, front=(0, 1, 0))
+    L = (muzzle - e).length
+    for i, (r, a, b) in enumerate(((0.075, 0.38, 0.6), (0.062, 0.6, 0.8), (0.05, 0.8, L - 0.02))):
+        mtube(p, "trim" if i % 2 else "dark", sub(m, 0, (a + b) / 2, 0), r, b - a, 18)
+    mtube(p, "glow", sub(m, 0, L - 0.012, 0), 0.042, 0.01, 16)
+
+
+def orbita9_leg(p, out):
+    g = -O9["hip"].y
+    leg_hub(p, out, 0.07)
+    cbox(p, "dark", (0, -0.12, 0.0), (0.14, 0.2, 0.16), 0.03)
+    cbox(p, "shell", (0, -0.14, -0.02), (0.22, 0.2, 0.22), 0.07)
+    ball(p, "dark", Vector((0, -0.28, 0.0)), 0.08, 14)
+    mtube(p, "trim", axis_frame((0, -0.28, 0.0), "x"), 0.07, 0.2, 16)
+    mtube(p, "shell", axis_frame((0, -0.43, 0.0), "y"), 0.12, 0.22, 20, radius2=0.1, bevel=0.02)
+    mring(p, "trim", axis_frame((0, -0.48, 0.0), "y"), 0.125, 0.012, 22, 6)
+    # Bota lunar: cano largo, biqueira redonda e a sola escura.
+    cbox(p, "shell", (0, g + 0.1, -0.04), (0.24, 0.14, 0.34), 0.07)
+    cbox(p, "trim", (0, g + 0.13, -0.16), (0.2, 0.04, 0.1), 0.02)
+    cbox(p, "dark", (0, g + 0.025, -0.04), (0.26, 0.05, 0.36), 0.02)
+
+
+# --------------------------------------------------------------------------------------
+# Detalhe mecânico dos robôs novos: a silhueta em blocos da planta com a mecânica peça a peça
+# dos v2 - rolamentos aparafusados nas juntas, pistões, cabos, parafusos nos painéis,
+# números de série e avisos. Cada função junta-se à peça com o mesmo nome (ver define).
+# --------------------------------------------------------------------------------------
+def joint(p, c, side, r=0.07, w=0.05):
+    bearing(p, axis_frame(Vector(c), "x" if side > 0 else "-x"), r, w)
+
+
+def front_screws(p, c, half_w, half_h, z, size=0.008):
+    m = plane((c[0], c[1], z), (0, 0, -1), (1, 0, 0))
+    for u in (-half_w, half_w):
+        for v in (-half_h, half_h):
+            screw(p, m, u, v, size)
+
+
+def label(p, c, text, h=0.045, normal=(0, 0, -1), right=(-1, 0, 0)):
+    serial(p, plane(c, normal, right), text, h, role="label")
+
+
+def eclipse8_torso_detail(p):
+    for side in (-1, 1):
+        joint(p, (side * 0.4, 1.52, 0.02), side, 0.075, 0.05)
+        piston(p, (side * 0.24, 1.26, 0.14), (side * 0.15, 0.97, 0.1), 0.018)
+        cable(p, [(side * 0.08, 1.7, 0.14), (side * 0.14, 1.62, 0.26), (side * 0.2, 1.52, 0.3), (side * 0.22, 1.3, 0.3)])
+        front_screws(p, (side * 0.17, 1.43), 0.1, 0.1, -0.215)
+        vents(p, plane((side * 0.225, 1.08, 0.0), (side, 0, 0), (0, 0, 1)) @ Matrix.Rotation(math.radians(90), 4, "X"), 3, 0.12, depth=0.008, spacing=0.035)
+    label(p, (-0.26, 1.33, -0.214), "08")
+    warning(p, plane((0, 1.2, 0.292), (0, 0, 1), (1, 0, 0)), 0.06)
+
+
+def eclipse8_shoulders_detail(p):
+    for side in (-1, 1):
+        e = E8["elbow_l"] if side < 0 else E8["elbow_r"]
+        piston(p, (side * 0.5, 1.44, 0.12), e + Vector((0, 0.12, 0.1)), 0.018)
+        cable(p, [(side * 0.46, 1.5, -0.06), (side * 0.56, 1.36, -0.08), e + Vector((0, 0.1, -0.08))])
+        for i in range(3):
+            screw(p, plane((side * (0.5 + i * 0.07), 1.66 + (0.02 if side > 0 else 0.02) - i * 0.015 * 1.0, -0.232), (0, 0, -1), (1, 0, 0)), 0, 0, 0.009)
+        joint(p, e, side, 0.06, 0.08)
+
+
+def eclipse8_arm_detail(p):
+    e, w = E8["elbow_l"], E8["wrist_l"]
+    d = (w - e).normalized()
+    bearing(p, frame(w, d), 0.07, 0.03)
+    piston(p, e + Vector((0.0, -0.04, 0.1)), w + Vector((0.0, 0.08, 0.08)), 0.016)
+    cable(p, [e + Vector((0.07, -0.05, 0.02)), e.lerp(w, 0.5) + Vector((0.1, 0, 0.0)), w + Vector((0.07, 0.06, 0.0))])
+    e = E8["elbow_r"]
+    d = (E8["muzzle"] - e).normalized()
+    bearing(p, frame(e + d * 0.44, d), 0.1, 0.04)
+    cable(p, [e + Vector((0.1, 0.0, 0.05)), e + d * 0.3 + Vector((0.12, 0.02, 0.0)), e + d * 0.52 + Vector((0.07, 0.04, 0.0))])
+
+
+def eclipse8_leg_detail(p, out):
+    for side in (-1, 1):
+        joint(p, (side * 0.1, -0.4, -0.02), side, 0.055, 0.03)
+    piston(p, (0, -0.1, 0.1), (0, -0.62, 0.1), 0.02)
+    cable(p, [(out * 0.08, -0.04, 0.06), (out * 0.12, -0.2, 0.08), (out * 0.1, -0.38, 0.06)])
+    front_screws(p, (0, -0.2), 0.07, 0.1, -0.125)
+    bolts(p, axis_frame((out * 0.075, E8["hip"].y * -1 + 0.11, 0.02), "x" if out > 0 else "-x"), 0.03, 5, size=0.008)
+
+
+def faisca9_torso_detail(p):
+    for side in (-1, 1):
+        joint(p, (side * 0.25, 1.46, 0.02), side, 0.06, 0.04)
+        piston(p, (side * 0.14, 1.22, 0.1), (side * 0.12, 0.9, 0.08), 0.014)
+        front_screws(p, (side * 0.14, 1.38), 0.05, 0.09, -0.155, 0.007)
+    cable(p, [(0.05, 1.62, 0.06), (0.1, 1.55, 0.14), (0.06, 1.48, 0.18)])
+    cable(p, [(-0.05, 1.62, 0.06), (-0.1, 1.55, 0.14), (-0.06, 1.48, 0.18)])
+    label(p, (-0.13, 1.26, -0.145), "07", 0.04)
+
+
+def faisca9_shoulders_detail(p):
+    for side in (-1, 1):
+        e = F9["elbow_l"] if side < 0 else F9["elbow_r"]
+        piston(p, (side * 0.3, 1.4, 0.08), e + Vector((0, 0.1, 0.07)), 0.013)
+        joint(p, e, side, 0.045, 0.07)
+
+
+def faisca9_arm_detail(p):
+    e, w = F9["elbow_l"], F9["wrist_l"]
+    bearing(p, frame(w, (w - e).normalized()), 0.05, 0.025)
+    cable(p, [e + Vector((0.05, -0.04, 0.05)), e.lerp(w, 0.6) + Vector((0.07, 0, 0.04)), w + Vector((0.05, 0.05, 0.02))], 0.008)
+
+
+def orbita9_torso_detail(p):
+    for side in (-1, 1):
+        joint(p, (side * 0.3, 1.42, 0.02), side, 0.07, 0.05)
+        piston(p, (side * 0.16, 1.1, -0.12), (side * 0.13, 0.86, -0.1), 0.016)
+        cable(p, [(side * 0.12, 1.56, 0.05), (side * 0.16, 1.5, 0.2), (side * 0.14, 1.44, 0.3)])
+        vents(p, plane((side * 0.312, 1.3, 0.02), (side, 0, 0), (0, 0, 1)) @ Matrix.Rotation(math.radians(90), 4, "X"), 3, 0.2, depth=0.008, spacing=0.04)
+    front_screws(p, (0, 1.3), 0.16, 0.1, -0.222, 0.008)
+    label(p, (0.22, 1.42, -0.223), "02", 0.045)
+    warning(p, plane((0.12, 1.4, 0.382), (0, 0, 1), (1, 0, 0)), 0.05)
+
+
+def orbita9_shoulders_detail(p):
+    for side in (-1, 1):
+        e = O9["elbow_l"] if side < 0 else O9["elbow_r"]
+        piston(p, (side * 0.44, 1.3, 0.1), e + Vector((0, 0.1, 0.08)), 0.016)
+        bolts(p, axis_frame((side * 0.44, 1.42, 0.02), "x" if side > 0 else "-x"), 0.1, 6, size=0.01, proud=0.12)
+
+
+def orbita9_arm_detail(p):
+    e, w = O9["elbow_l"], O9["wrist_l"]
+    bearing(p, frame(w, (w - e).normalized()), 0.075, 0.03)
+    cable(p, [e + Vector((0.09, -0.04, 0.05)), e.lerp(w, 0.55) + Vector((0.11, 0, 0.03)), w + Vector((0.08, 0.05, 0.02))])
+
+
+def orbita9_leg_detail(p, out):
+    for side in (-1, 1):
+        joint(p, (side * 0.1, -0.28, 0.0), side, 0.05, 0.03)
+    piston(p, (0, -0.1, 0.11), (0, -0.46, 0.12), 0.018)
+    cable(p, [(out * 0.1, -0.06, 0.05), (out * 0.13, -0.2, 0.06), (out * 0.12, -0.36, 0.04)])
+    front_screws(p, (0, -0.14), 0.07, 0.06, -0.132)
+
+
+def batida7_torso_detail(p):
+    for side in (-1, 1):
+        bolts(p, axis_frame((side * 0.32, 1.1, 0.0), "x" if side > 0 else "-x"), 0.06, 6, size=0.009)
+        cable(p, [(side * 0.1, 1.22, 0.1), (side * 0.2, 1.2, 0.22), (side * 0.12, 1.12, 0.3)])
+        front_screws(p, (side * 0.14, 1.05), 0.06, 0.09, -0.225, 0.008)
+    label(p, (0.18, 0.99, -0.222), "07", 0.04)
+
+
+def batida7_leg_detail(p, out):
+    y = lambda h: h - BP_HIP
+    for side in (-1, 1):
+        bolts(p, axis_frame((side * 0.085, y(0.455), 0.0), "x" if side > 0 else "-x"), 0.035, 5, size=0.008)
+    piston(p, (0, y(0.64), 0.09), (0, y(0.3), 0.1), 0.016)
+    cable(p, [(out * 0.1, y(0.7), 0.06), (out * 0.13, y(0.55), 0.07), (out * 0.1, y(0.4), 0.05)], 0.009)
+    front_screws(p, (0, y(0.61)), 0.08, 0.1, -0.124, 0.007)
+    front_screws(p, (0, y(0.33)), 0.07, 0.06, -0.122, 0.007)
+
+
+def batida7_shoulders_detail(p):
+    for side in (-1, 1):
+        x = side * 0.45
+        piston(p, (x, 1.05, 0.13), (x, 0.9, 0.1), 0.014)
+        cable(p, [(side * 0.34, 1.16, 0.08), (x + side * 0.03, 1.0, 0.14), (x, 0.88, 0.1)], 0.009)
+
+
+def eclipse5_torso_detail(p):
+    for side in (-1, 1):
+        joint(p, (side * 0.47, 1.38, 0.02), side, 0.09, 0.05)
+        piston(p, (side * 0.2, 1.08, 0.14), (side * 0.14, 0.8, 0.1), 0.02)
+        cable(p, [(side * 0.2, 1.7, 0.12), (side * 0.22, 1.6, 0.3), (side * 0.2, 1.46, 0.38)])
+        front_screws(p, (side * 0.2, 1.24), 0.13, 0.09, -0.283)
+    warning(p, plane((0.15, 1.3, 0.482), (0, 0, 1), (1, 0, 0)), 0.06)
+
+
+def eclipse5_leg_detail(p, out):
+    for side in (-1, 1):
+        joint(p, (side * 0.13, -0.36, -0.01), side, 0.06, 0.03)
+    piston(p, (0, -0.12, 0.17), (0, -0.5, 0.19), 0.022)
+    front_screws(p, (0, -0.2), 0.1, 0.08, -0.162)
+    front_screws(p, (0, -0.52), 0.11, 0.08, -0.182)
+
+
+def with_detail(fn, extra):
+    def build(p, *args):
+        fn(p, *args)
+        extra(p, *args)
+    return build
+
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -4094,15 +4600,25 @@ def define(part):
     part("helio3_hull")(helio_hull)
     part("helio3_spin")(helio_crown)
     part("helio6_wings")(helio6_wings)
+    part("orbita9_3_spin")(orbita9_spin)
     part("eclipse6_wings")(eclipse6_wings)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
-    for robot in ("eclipse5", "magnus5", "orbita5", "batida5", "orbita6", "batida7"):
+    for slot in ("torso", "head", "shoulders", "arm", "gun"):
+        extra = globals().get("faisca9_" + slot + "_detail")
+        fn = globals()["faisca9_" + slot]
+        part("faisca9_" + slot)(with_detail(fn, extra) if extra else fn)
+    for robot in ("eclipse5", "magnus5", "orbita5", "batida5", "orbita6", "batida7", "eclipse8", "orbita9"):
         for slot in ("torso", "head", "shoulders", "arm", "gun"):
             fn = globals().get(robot + "_" + slot)
             if fn is not None:
-                part(robot + "_" + slot)(fn)
-        legfn = globals()[robot + "_leg"]
+                extra = globals().get(robot + "_" + slot + "_detail")
+                part(robot + "_" + slot)(with_detail(fn, extra) if extra else fn)
+        legfn = globals().get(robot + "_leg")
+        if legfn is not None and globals().get(robot + "_leg_detail"):
+            legfn = with_detail(legfn, globals()[robot + "_leg_detail"])
+        if legfn is None:
+            continue
         part(robot + "_leg_l")(lambda q, fn=legfn: fn(q, -1))
         part(robot + "_leg_r")(lambda q, fn=legfn: fn(q, 1))
     part("eclipse4_hull")(eclipse4_hull)
