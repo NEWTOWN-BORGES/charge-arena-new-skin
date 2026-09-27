@@ -3,6 +3,7 @@ extends SceneTree
 # robot, today's look and the proposal from four sides and a close-up of the face (needs a
 # GPU; omit --headless). The roster is only changed in memory.
 # Usage: godot -s tests/capture_proposals.gd -- <output prefix> [skin:hull[:eyes] ...]
+#        or [skin:torso=...,legs=...,spin=...,eyes=... ...] to swap more than the hull.
 const TILE = 480
 const PROPOSALS = {0: "bit3_hull", 2: "orbita3_hull", 5: "eclipse3_hull", 7: "faisca3_hull", 10: "helio3_hull", 11: "magnus3_hull"}
 const Robots = preload("res://scripts/robots.gd")
@@ -31,7 +32,7 @@ func run() -> void:
 	var jobs: Dictionary = {}
 	for value in args.slice(1):
 		var bits = String(value).split(":")
-		jobs[int(bits[0])] = bits[1] + (":" + bits[2] if bits.size() > 2 else "")
+		jobs[int(bits[0])] = String(value).substr(String(value).find(":") + 1)
 	if jobs.is_empty():
 		jobs = PROPOSALS
 	root.size = Vector2i(TILE, TILE)
@@ -57,13 +58,22 @@ func run() -> void:
 		var saved: Dictionary = entry.parts.duplicate()
 		entry.parts["head"] = ""
 		entry.parts["top"] = ""
-		var job: PackedStringArray = String(jobs[skin]).split(":")
-		entry.parts["torso"] = job[0]
 		var eyes: String = entry.eye_style
-		if job.size() > 1:
-			entry.eye_style = job[1]
+		var spec = String(jobs[skin])
+		if spec.contains("="):
+			for pair in spec.split(","):
+				var kv = pair.split("=")
+				if kv[0] == "eyes":
+					entry.eye_style = kv[1]
+				else:
+					entry.parts[kv[0]] = kv[1]
+		else:
+			var job: PackedStringArray = spec.split(":")
+			entry.parts["torso"] = job[0]
+			if job.size() > 1:
+				entry.eye_style = job[1]
 		# Crests modelled around the old head are left out of the proposal; the hull carries its own.
-		if skin != 2:
+		if skin != 2 and not spec.contains("spin="):
 			entry.parts["spin"] = ""
 		Robots._merged.clear()
 		arena.set_skin(0, 1 if skin != 1 else 3)

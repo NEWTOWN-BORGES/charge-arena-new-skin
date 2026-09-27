@@ -2048,8 +2048,8 @@ def helio_shoulders(p):
         for i in range(5):
             ang = 20 + i * 14
             fe = sub(T(*root), rot=(-20, 0, -side * ang))
-            # Pás largas em leque (o design que ficou): elipsoides finas a abrir do ombro.
-            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, -0.02 - i * 0.012, 0.02) @ Matrix.Diagonal((0.03, 0.85, 0.32, 1.0)), 1.0, 0.26 - i * 0.025, 12)
+            # Pás em leque a abrir do ombro: largas vistas de frente, finas vistas de lado.
+            capsule(p, "trim" if i % 2 == 0 else "metal", sub(fe, 0, -0.02 - i * 0.012, 0.02) @ Matrix.Diagonal((0.13, 0.85, 0.035, 1.0)), 1.0, 0.26 - i * 0.025, 12)
         mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
         upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
@@ -2621,7 +2621,7 @@ def broto_hull(p):
 # Propostas: os restantes sem pescoço. A cabeça cresce do próprio tronco, no mesmo contorno
 # (um sólido de revolução que continua o perfil do peito para cima), com o rosto na frente.
 # ======================================================================================
-def dome_hull(p, c, depth, profile, window, face_y, screen, crown_role="shell"):
+def dome_hull(p, c, depth, profile, window, face_y, screen, crown_role="shell", front_role="trim"):
     """Continua o tronco para cima num só casco: estrutura escura, coroa em duas metades,
     faces à volta e, à frente, a janela do rosto com o ecrã recuado. `window` =
     (lon0, lon1, y0, y1) relativo a `c`. Devolve o referencial achatado e a frente do ecrã."""
@@ -2632,7 +2632,7 @@ def dome_hull(p, c, depth, profile, window, face_y, screen, crown_role="shell"):
     rev_panel(p, crown_role, flat, profile, (wy1, y_top), (-88, 88), 0.034, (10, 8), gap=0.012)
     rev_panel(p, crown_role, flat, profile, (wy1, y_top), (92, 268), 0.034, (10, 8), gap=0.012)
     rev_panel(p, "shell", flat, profile, (y_start, wy1), (lon1, lon0 + 360), 0.034, (16, 8), gap=0.012)
-    rev_panel(p, "trim", flat, profile, (y_start, wy0), (lon0, lon1), 0.034, (8, 4), gap=0.012)
+    rev_panel(p, front_role, flat, profile, (y_start, wy0), (lon0, lon1), 0.034, (8, 4), gap=0.012)
     front = c.z - profile_radius(profile, face_y) * depth
     # The glass sits just inside the shell, in front of the dark structure.
     screen_well(p, (c.x, c.y + face_y, front + 0.006), screen, 0.05, 0.01)
@@ -2852,6 +2852,440 @@ def orbita_hull(p):
     ball(p, "glow", (0, c.y + r + 0.03, c.z + 0.02), 0.02, 10)
     mbox(p, "team", T(0, c.y + r * 0.7, c.z + r * 0.72), (0.1, 0.012, 0.03), 0.004, 1)
 
+
+# ======================================================================================
+# Quarta geração: corpos novos de raiz, cada um com a sua cintura, anca e pernas.
+# ======================================================================================
+def helix(p, role, center, radius, y0, y1, turns, wire, detail=10):
+    """Mola: fio em hélice à volta do eixo vertical, de y0 a y1."""
+    c = Vector(center)
+    steps = int(turns * detail)
+    prev = None
+    for i in range(steps + 1):
+        t = i / steps
+        a = t * turns * math.tau
+        q = c + Vector((radius * math.cos(a), y0 + (y1 - y0) * t, radius * math.sin(a)))
+        if prev is not None:
+            rod(p, role, prev, q, wire, 6)
+        prev = q
+
+
+def hip_axles(p, y, x0, hip_x, house_r=0.075, role="dark"):
+    """Alojamentos das ancas: rolamento de cada lado e o eixo até ao pivô da perna."""
+    for side in (-1, 1):
+        house = axis_frame((side * x0, y, 0.0), "x" if side > 0 else "-x")
+        mtube(p, role, house, house_r, 0.04, 20, bevel=0.006)
+        bolts(p, sub(house, 0, 0.022, 0), house_r * 0.8, 6, size=0.009)
+        mtube(p, "metal", sub(house, 0, 0.02 + (hip_x - x0) / 2 + 0.03, 0), 0.036, hip_x - x0 + 0.07, 12)
+
+
+def leg_hub(p, out, r=0.062):
+    ox = "x" if out > 0 else "-x"
+    hub = axis_frame((0.03 * out, 0, 0), ox)
+    mtube(p, "dark", hub, r, 0.07, 18, bevel=0.008)
+    cap = sub(hub, 0, 0.05, 0)
+    mtube(p, "metal", cap, r * 0.8, 0.018, 18)
+    bolts(p, sub(cap, 0, 0.01, 0), r * 0.6, 6, size=0.009)
+
+
+def limb(p, role, a, b, radius, detail=16):
+    """Membro em cápsula de `a` a `b`."""
+    a, b = Vector(a), Vector(b)
+    capsule(p, role, frame(a.lerp(b, 0.5), b - a), radius, (b - a).length + radius * 2, detail)
+
+
+# --------------------------------------------------------------------------------------
+# ECLIPSE 4: monólito sextavado; o rosto é o próprio eclipse. Coluna de discos, saia de
+# placas, pernas de gafanhoto com lâmina na canela, espigão no joelho e garras.
+# --------------------------------------------------------------------------------------
+E4_PROFILE = [(0.14, 0.86), (0.2, 0.95), (0.245, 1.08), (0.26, 1.3), (0.245, 1.46), (0.2, 1.6), (0.11, 1.72), (0.0, 1.82)]
+E4_FACE = 1.5
+E4_SCREEN = (0.16, 0.07)
+
+
+def e4_r(y):
+    pts = [(yy, r) for r, yy in E4_PROFILE]
+    return profile_radius(pts, y)
+
+
+def eclipse4_hull(p):
+    z = 0.02
+    mk.HEADS["eclipse4_hull"] = {"top": 1.82, "center": E4_FACE, "aspect": round(E4_SCREEN[0] / E4_SCREEN[1], 3)}
+    base = T(0, 0, z)
+    lower = [(r, y) for r, y in E4_PROFILE if y <= 1.42]
+    upper = [(r, y) for r, y in E4_PROFILE if y >= 1.44]
+    lathe(p, "dark", base, [(0.0, 0.86)] + [(r - 0.03, y) for r, y in E4_PROFILE] + [(0.0, 1.82)], 6)
+    lathe(p, "shell", base, [(0.0, 0.86)] + lower + [(e4_r(1.42), 1.42), (0.0, 1.42)], 6)
+    lathe(p, "shell", base, [(0.0, 1.44), (e4_r(1.44), 1.44)] + upper, 6)
+    lathe(p, "trim", base, [(e4_r(1.4) - 0.02, 1.4), (e4_r(1.4) + 0.012, 1.4), (e4_r(1.46) + 0.012, 1.46), (e4_r(1.46) - 0.02, 1.46)], 6)
+    lathe(p, "trim", base, [(e4_r(0.9) - 0.02, 0.88), (e4_r(0.9) + 0.012, 0.88), (e4_r(0.96) + 0.012, 0.96), (e4_r(0.96) - 0.02, 0.96)], 6)
+    # O rosto: o eclipse - disco negro, coroa de luz vermelha, espinhos, olhos em fenda.
+    front = z - e4_r(E4_FACE) * math.cos(math.radians(30))
+    face = axis_frame((0, E4_FACE, front - 0.01), "-z")
+    mtube(p, "dark", face, 0.125, 0.03, 30)
+    mring(p, "glow", sub(face, 0, 0.01, 0), 0.13, 0.012, 32, 5)
+    mring(p, "trim", sub(face, 0, 0.0, 0), 0.148, 0.018, 36, 6)
+    for i in range(12):
+        a = math.radians(i * 30 + 15)
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        tip = 0.12 if i % 2 == 0 else 0.065
+        lathe(p, "trim" if i % 2 == 0 else "dark", frame(Vector((0, E4_FACE, front - 0.012)) + d * 0.15, d), [(0.0, 0.0), (0.024, 0.0), (0.0, tip)], 6)
+    p.screen((0, E4_FACE, front - 0.032), E4_SCREEN, bulge=0.006)
+    # Frisos de luz nas arestas da frente e a divisa no peito.
+    for side in (-1, 1):
+        for y in (1.02, 1.14, 1.26):
+            ang = math.radians(-90 + side * 30)
+            q = Vector((e4_r(y) * math.cos(ang) * 0.96, y, z + e4_r(y) * math.sin(ang) * 0.96))
+            mbox(p, "glow", sub(T(*q), rot=(0, -side * 30, 0)), (0.012, 0.07, 0.012), 0.003, 1)
+    for side in (-1, 1):
+        mbox(p, "glow", sub(T(side * 0.05, 1.23, z - e4_r(1.23) * 0.866 - 0.004), rot=(0, 0, side * 35)), (0.11, 0.018, 0.01), 0.004, 1)
+    serial(p, plane((0.1, 1.08, z - e4_r(1.08) * 0.866 - 0.003), (0, 0, -1), (-1, 0, 0)), "10", 0.03)
+    mbox(p, "team", T(0, 1.73, z - 0.03), (0.06, 0.012, 0.08), 0.004, 1)
+    charging_port(p, plane((-(e4_r(1.1) - 0.01), 1.1, z), (-1, 0, 0), (0, 0, 1)), 0.042, 0.026)
+    # Coluna de discos e a bacia sextavada com a saia de placas.
+    mtube(p, "dark", T(0, 0.82, z), 0.08, 0.12, 16)
+    for y in (0.78, 0.82, 0.86):
+        mring(p, "metal", T(0, y, z), 0.1, 0.014, 20, 5)
+    lathe(p, "dark", T(0, 0.74, 0.0), [(0.0, -0.06), (0.15, -0.06), (0.17, 0.0), (0.15, 0.05), (0.0, 0.05)], 6)
+    hip_axles(p, 0.74, 0.14, ECLIPSE["hip"].x, 0.07)
+    for i, lon in enumerate((-150, -115, -90, -65, -30)):
+        a = math.radians(lon)
+        d = Vector((math.cos(a), 0.0, math.sin(a)))
+        plate = frame(Vector((0, 0.66, 0.0)) + d * 0.17, Vector((0, -1, 0)) + d * 0.25, front=d)
+        mbox(p, "shell" if i % 2 == 0 else "trim", plate, (0.11, 0.18, 0.025), 0.01)
+        screw(p, sub(plate, 0, 0.07, 0.016, rot=(90, 0, 0)), 0, 0, 0.006)
+
+
+def eclipse4_leg(p, out):
+    hip_y = ECLIPSE["hip"].y
+
+    def talons(q, m, o, ankle):
+        mbox(q, "dark", sub(m, 0, 0.035, 0.0), (0.12, 0.05, 0.12), 0.015)
+        for a in (-22, 0, 22):
+            d = Vector((math.sin(math.radians(a)), -0.12, -math.cos(math.radians(a)))).normalized()
+            lathe(q, "metal", frame(at(m, 0, 0.035, -0.04), d), [(0.0, 0.0), (0.032, 0.0), (0.02, 0.12), (0.0, 0.2)], 8)
+        lathe(q, "trim", frame(at(m, 0, 0.04, 0.05), Vector((0, -0.2, 1)).normalized()), [(0.0, 0.0), (0.028, 0.0), (0.0, 0.12)], 8)
+    bird_leg(p, out, hip_y, knee=(-0.19, -0.13), heel=(-0.47, 0.13), ankle_up=0.1, foot_fn=talons, k=1.05)
+    # Espigão no joelho e lâmina ao longo da canela.
+    kn = Vector((0, -0.19, -0.13))
+    he = Vector((0, -0.47, 0.13))
+    lathe(p, "trim", frame(kn + Vector((0, 0.02, -0.06)), Vector((0, 0.55, -1)).normalized()), [(0.0, 0.0), (0.04, 0.0), (0.0, 0.16)], 8)
+    blade = [(0.0, 0.0), (0.04, 0.02), (0.05, 0.28), (0.0, 0.34), (-0.015, 0.2)]
+    mid = kn.lerp(he, 0.5)
+    extruded(p, "trim", frame(kn + Vector((0, -0.02, 0.06)), he - kn, front=(1, 0, 0)), blade, 0.014)
+
+
+# --------------------------------------------------------------------------------------
+# BATIDA 4: boombox que anda. Os dois altifalantes são os olhos, o equalizador a boca;
+# pega com orelhas de gato. Cintura em mola, pernas de mola, ténis de plataforma.
+# --------------------------------------------------------------------------------------
+B4_C = Vector((0.0, 1.28, 0.02))
+B4_SIZE = (0.48, 0.5, 0.36)
+B4_MOUTH = (0.28, 0.07)
+
+
+def batida4_hull(p):
+    c = B4_C
+    w, h, d = B4_SIZE
+    front = c.z - d / 2
+    mouth_y = c.y - 0.12
+    mk.HEADS["batida4_hull"] = {"top": round(c.y + h / 2 + 0.2, 3), "center": round(c.y + 0.05, 3), "aspect": round(B4_MOUTH[0] / B4_MOUTH[1], 3)}
+    mbox(p, "dark", T(*c), (w - 0.04, h - 0.04, d - 0.04), 0.08)
+    # A caixa em painéis: tampo, fundo, ilhargas, costas e a moldura da frente.
+    mbox(p, "shell", T(c.x, c.y + h / 2 - 0.03, c.z), (w, 0.07, d), 0.03)
+    mbox(p, "shell", T(c.x, c.y - h / 2 + 0.03, c.z), (w, 0.07, d), 0.03)
+    for side in (-1, 1):
+        mbox(p, "shell", T(side * (w / 2 - 0.025), c.y, c.z), (0.05, h - 0.1, d - 0.02), 0.02)
+    mbox(p, "shell", T(c.x, c.y, c.z + d / 2 - 0.02), (w - 0.08, h - 0.1, 0.04), 0.02)
+    mbox(p, "trim", T(c.x, c.y + 0.05, front + 0.012), (w - 0.07, 0.27, 0.02), 0.02)
+    # Os olhos: dois altifalantes grandes com cone, cúpula e anel de luz.
+    for side in (-1, 1):
+        spk = axis_frame((side * 0.115, c.y + 0.07, front), "-z")
+        mtube(p, "dark", sub(spk, 0, 0.004, 0), 0.105, 0.03, 30)
+        mring(p, "shell", sub(spk, 0, 0.02, 0), 0.104, 0.014, 32, 6)
+        lathe(p, "dark", sub(spk, 0, 0.0, 0), [(0.09, 0.02), (0.05, 0.005), (0.0, 0.0)], 26)
+        dome(p, "trim", sub(spk, 0, 0.012, 0), 0.036, 0.03, 18, 4)
+        ball(p, "glow", at(spk, 0.0, 0.04, 0.0), 0.014, 10)
+        mring(p, "glow", sub(spk, 0, 0.022, 0), 0.088, 0.005, 30, 4)
+        bolts(p, sub(spk, 0, 0.02, 0), 0.098, 6, size=0.006)
+    # A boca: o ecrã-equalizador por baixo, numa grelha.
+    screen_well(p, (0, mouth_y, front + 0.004), B4_MOUTH, 0.04, 0.008)
+    for i in range(5):
+        mbox(p, "dark", T(0, mouth_y - 0.06 - i * 0.014, front + 0.006), (0.3, 0.006, 0.006), 0.002, 1)
+    # Botões no tampo, a pega e as orelhas de gato nas pontas da pega.
+    top = c.y + h / 2
+    for i, role in enumerate(("glow", "trim", "trim", "dark", "trim")):
+        mbox(p, role, T(-0.14 + i * 0.07, top + 0.012, front + 0.06), (0.05, 0.024, 0.05), 0.01)
+    for side in (-1, 1):
+        mbox(p, "dark", T(side * 0.19, top + 0.04, c.z + 0.03), (0.04, 0.08, 0.06), 0.012)
+    arc_tube(p, "shell", axis_frame((0, top + 0.07, c.z + 0.03), "z"), 0.19, 0.022, 0, 180, 24, 8)
+    mtube(p, "rubber", axis_frame((0, top + 0.26, c.z + 0.03), "x"), 0.028, 0.16, 12)
+    for side in (-1, 1):
+        ear = sub(T(side * 0.17, top + 0.24, c.z + 0.03), 0, 0.06, 0, rot=(0, 0, -side * 20))
+        mbox(p, "shell", ear, (0.12, 0.15, 0.05), 0.02, 2, taper=(0.15, 0.5))
+        mbox(p, "trim", sub(ear, 0, -0.01, -0.024), (0.07, 0.09, 0.01), 0.01, 1, taper=(0.15, 0.5))
+    # Botões de volume dos lados e uma antena telescópica.
+    for side in (-1, 1):
+        knob = axis_frame((side * (w / 2 + 0.005), c.y + 0.1, c.z - 0.05), "x" if side > 0 else "-x")
+        mtube(p, "metal", knob, 0.035, 0.03, 16, bevel=0.004)
+        mbox(p, "dark", sub(knob, 0, 0.016, 0.02), (0.006, 0.006, 0.03), 0.002, 1)
+    rod(p, "metal", (0.2, top + 0.02, c.z + 0.12), (0.26, top + 0.3, c.z + 0.16), 0.008, 6)
+    ball(p, "glow", (0.26, top + 0.31, c.z + 0.16), 0.016, 8)
+    serial(p, plane((0.15, c.y - 0.19, front + 0.001), (0, 0, -1), (-1, 0, 0)), "04", 0.03)
+    mbox(p, "team", T(0, top + 0.001, c.z + 0.1), (0.14, 0.012, 0.05), 0.004, 1)
+    # Cintura em mola e bacia em disco (um prato de gira-discos).
+    hip = BATIDA["hip"]
+    mtube(p, "metal", T(0, 0.9, c.z), 0.03, 0.3, 10)
+    mtube(p, "dark", T(0, c.y - h / 2 - 0.01, c.z), 0.1, 0.03, 18)
+    helix(p, "trim", (0, 0, c.z), 0.085, 0.76, c.y - h / 2 - 0.02, 5, 0.014)
+    lathe(p, "shell", T(0, 0.7, 0.0), [(0.0, -0.05), (0.17, -0.05), (0.18, 0.0), (0.17, 0.05), (0.0, 0.05)], 28)
+    mring(p, "trim", T(0, 0.75, 0.0), 0.15, 0.01, 28, 4)
+    mtube(p, "metal", T(0, 0.755, 0.0), 0.03, 0.01, 12)
+    hip_axles(p, hip.y, 0.13, hip.x, 0.065)
+
+
+def batida4_leg(p, out):
+    hip_y = BATIDA["hip"].y
+    ground = -hip_y
+    leg_hub(p, out, 0.058)
+    knee = Vector((0, -0.26, -0.01))
+    ankle = Vector((0, ground + 0.17, 0.0))
+    limb(p, "shell", (0, -0.05, 0), knee + Vector((0, 0.05, 0)), 0.062)
+    mring(p, "trim", T(0, -0.16, -0.005), 0.066, 0.01, 18, 4)
+    ball(p, "metal", knee, 0.058, 16)
+    # A mola da canela à volta de um amortecedor.
+    mtube(p, "dark", T(0, knee.y - 0.06, 0.0), 0.065, 0.03, 18)
+    mtube(p, "dark", T(0, ankle.y + 0.04, 0.0), 0.065, 0.03, 18)
+    mtube(p, "metal", T(0, (knee.y + ankle.y) / 2, 0.0), 0.018, knee.y - ankle.y, 10)
+    helix(p, "trim", (0, 0, 0), 0.052, ankle.y + 0.05, knee.y - 0.07, 4.5, 0.012)
+    ball(p, "metal", ankle, 0.04, 12)
+    # Ténis de plataforma: sola grossa, entressola clara, cano com atacadores, biqueira.
+    g = ground
+    mbox(p, "rubber", T(0, g + 0.035, -0.05), (0.2, 0.07, 0.38), 0.03)
+    mbox(p, "trim", T(0, g + 0.085, -0.05), (0.205, 0.035, 0.37), 0.015)
+    mbox(p, "glow", T(out * 0.103, g + 0.045, -0.05), (0.006, 0.012, 0.28), 0.003, 1)
+    mbox(p, "shell", T(0, g + 0.15, -0.03), (0.17, 0.1, 0.3), 0.045, 2, taper=(0.85, 0.7))
+    mbox(p, "trim", T(0, g + 0.13, -0.19), (0.16, 0.06, 0.06), 0.03)
+    for i in range(3):
+        mbox(p, "dark", T(0, g + 0.2 - i * 0.012, -0.09 + i * 0.04), (0.1, 0.008, 0.012), 0.003, 1)
+    mbox(p, "shell", T(0, g + 0.22, 0.03), (0.14, 0.1, 0.12), 0.04)
+
+
+# --------------------------------------------------------------------------------------
+# ÓRBITA 4: planeta-astronauta. O corpo é um planeta com um visor de vidro na frente e um
+# anel grande que gira; anca em cardã; pernas curtas em cápsula com botas-propulsor.
+# --------------------------------------------------------------------------------------
+O4_C = Vector((0.0, 1.22, 0.02))
+O4_R = 0.26
+O4_SCREEN = (0.17, 0.1)
+
+
+def orbita4_hull(p):
+    c = O4_C
+    r = O4_R
+    mk.HEADS["orbita4_hull"] = {"top": round(c.y + r + 0.18, 3), "center": round(c.y + 0.07, 3), "aspect": round(O4_SCREEN[0] / O4_SCREEN[1], 3)}
+    base = T(*c)
+    ball(p, "dark", c, r - 0.03, 24)
+    for lat, lo in (((10, 86), (-180, 180)), ((-86, -10), (-180, 180))):
+        sphere_panel(p, "shell", base, r, lat, lo, 0.03, (24, 6), gap=0.0)
+    for lo in ((-60, 60), (120, 240)):
+        sphere_panel(p, "shell", base, r, (-8, 8), lo, 0.03, (10, 2), gap=0.01)
+    sphere_panel(p, "trim", base, r + 0.006, (-10, -7), (-180, 180), 0.02, (30, 1), gap=0.0)
+    sphere_panel(p, "trim", base, r + 0.006, (7, 10), (-180, 180), 0.02, (30, 1), gap=0.0)
+    # O visor de astronauta: cúpula de vidro escuro com aro, o rosto lá dentro.
+    tilt = math.radians(14)
+    n = Vector((0.0, math.sin(tilt), -math.cos(tilt)))
+    pos = c + n * (r - 0.03)
+    vf = frame(pos, n)
+    mring(p, "trim", sub(vf, 0, 0.02, 0), 0.155, 0.024, 36, 8)
+    bolts(p, sub(vf, 0, 0.04, 0), 0.155, 8, size=0.008)
+    dome(p, "dark", sub(vf, 0, 0.02, 0), 0.14, 0.06, 28, 6)
+    p.screen(tuple(pos + n * 0.085), O4_SCREEN, bulge=0.014, rot=(14, 0, 0))
+    # Antena com uma lua no topo, e o jato de manobra atrás.
+    rod(p, "metal", c + Vector((0.06, r - 0.02, 0.03)), c + Vector((0.09, r + 0.14, 0.05)), 0.009, 6)
+    ball(p, "trim", c + Vector((0.09, r + 0.16, 0.05)), 0.03, 12)
+    ball(p, "glow", c + Vector((0.12, r + 0.18, 0.04)), 0.012, 8)
+    for side in (-1, 1):
+        noz = frame(c + Vector((side * 0.1, -0.08, r - 0.02)), Vector((side * 0.2, -0.5, 1)).normalized())
+        lathe(p, "metal", noz, [(0.03, 0.0), (0.04, 0.05), (0.055, 0.09), (0.05, 0.095)], 14)
+        mtube(p, "glow", sub(noz, 0, 0.085, 0), 0.04, 0.004, 12)
+    serial(p, plane((0.13, c.y - 0.13, c.z - r * 0.87), (0, -0.4, -1), (-1, 0, 0)), "09", 0.03)
+    mbox(p, "team", T(0, c.y + r * 0.72, c.z + r * 0.68), (0.1, 0.012, 0.03), 0.004, 1)
+    # Cintura curta e a anca em cardã: esfera escura dentro de um anel de metal.
+    hip = ORBITA["hip"]
+    mtube(p, "dark", T(0, 0.9, c.z), 0.07, 0.12, 16)
+    mring(p, "metal", T(0, 0.93, c.z), 0.09, 0.012, 18, 4)
+    ball(p, "dark", (0, 0.72, 0.0), 0.13, 20)
+    mring(p, "metal", axis_frame((0, 0.72, 0.0), "x"), 0.155, 0.016, 32, 6)
+    mring(p, "trim", T(0, 0.72, 0.0), 0.15, 0.012, 32, 5)
+    hip_axles(p, hip.y, 0.12, hip.x, 0.06)
+
+
+def orbita4_spin(p):
+    """O anel do planeta, grande e inclinado, com duas luas: gira em jogo."""
+    c = O4_C
+    tilt = sub(T(0, c.y, 0.0), rot=(22, 0, 12))
+    mring(p, "trim", tilt, 0.44, 0.024, 64, 6)
+    mring(p, "glow", tilt, 0.47, 0.008, 64, 4)
+    mring(p, "shell", tilt, 0.405, 0.012, 60, 4)
+    for a, rr in ((30, 0.035), (200, 0.025)):
+        q = at(tilt, 0.44 * math.cos(math.radians(a)), 0.0, 0.44 * math.sin(math.radians(a)))
+        ball(p, "metal", q, rr, 12)
+
+
+def orbita4_leg(p, out):
+    hip_y = ORBITA["hip"].y
+    ground = -hip_y
+    leg_hub(p, out, 0.055)
+    knee = Vector((0, -0.24, -0.02))
+    ankle = Vector((0, ground + 0.2, 0.0))
+    ball(p, "metal", (0, -0.02, 0), 0.06, 14)
+    limb(p, "trim", (0, -0.05, 0), knee, 0.055)
+    ball(p, "metal", knee, 0.065, 16)
+    mring(p, "dark", axis_frame(knee, "x"), 0.066, 0.012, 20, 4)
+    limb(p, "shell", knee, ankle, 0.058)
+    mring(p, "trim", T(0, (knee.y + ankle.y) / 2, -0.01), 0.062, 0.01, 18, 4)
+    # Bota-propulsor: sino arredondado, aletas e o bocal com luz por baixo.
+    g = ground
+    lathe(p, "shell", T(0, g + 0.035, -0.02), [(0.0, 0.0), (0.1, 0.0), (0.13, 0.04), (0.125, 0.12), (0.09, 0.18), (0.05, 0.2), (0.0, 0.2)], 24)
+    mring(p, "trim", T(0, g + 0.09, -0.02), 0.132, 0.014, 26, 5)
+    mtube(p, "metal", T(0, g + 0.02, -0.02), 0.085, 0.04, 20)
+    mtube(p, "glow", T(0, g + 0.001, -0.02), 0.06, 0.004, 18)
+    for a in (0, 120, 240):
+        d = Vector((math.cos(math.radians(a + 90)), 0.0, math.sin(math.radians(a + 90))))
+        mbox(p, "trim", frame(Vector((0, g + 0.1, -0.02)) + d * 0.14, Vector((0, 1, 0)), front=d), (0.012, 0.12, 0.05), 0.006)
+    mbox(p, "rubber", T(0, g + 0.012, -0.08), (0.14, 0.024, 0.12), 0.01)
+
+
+# --------------------------------------------------------------------------------------
+# MAGNUS 4: rei-cavaleiro. Couraça que sobe num elmo com o visor em T e a coroa de pontas;
+# estrela no peito, capa às costas. Saia de placas pesada e pernas com grevas e escarpes.
+# --------------------------------------------------------------------------------------
+M4_PROFILE = [(-0.26, 0.2), (-0.18, 0.26), (-0.06, 0.3), (0.06, 0.315), (0.16, 0.31), (0.24, 0.28), (0.32, 0.23), (0.38, 0.17), (0.42, 0.1), (0.44, 0.0)]
+M4_SCREEN = (0.26, 0.06)
+
+
+def magnus4_hull(p):
+    c = M_CHEST
+    face_y = 0.275
+    mk.HEADS["magnus4_hull"] = {"top": round(c.y + 0.62, 3), "center": round(c.y + face_y, 3), "aspect": round(M4_SCREEN[0] / M4_SCREEN[1], 3)}
+    flat, front = dome_hull(p, c, 0.82, M4_PROFILE, (-128, -52, 0.245, 0.305), face_y, M4_SCREEN)
+    # O T do visor: a fenda dos olhos já está; a do nariz desce escura, com debrum dourado.
+    mbox(p, "dark", T(0, c.y + face_y - 0.08, front + 0.01), (0.05, 0.12, 0.03), 0.01)
+    for side in (-1, 1):
+        mbox(p, "trim", T(side * 0.04, c.y + face_y - 0.08, front + 0.002), (0.018, 0.13, 0.03), 0.006)
+    mbox(p, "trim", T(0, c.y + face_y + 0.05, front + 0.002), (0.3, 0.025, 0.03), 0.01)
+    # A estrela no peito.
+    core = axis_frame((0, c.y + 0.02, c.z - profile_radius(M4_PROFILE, 0.02) * 0.82 - 0.004), "-z")
+    mring(p, "trim", sub(core, 0, -0.004, 0), 0.1, 0.018, 32, 6)
+    mtube(p, "dark", sub(core, 0, -0.02, 0), 0.095, 0.03, 28)
+    extruded(p, "glow", sub(core, 0, 0.004, 0, rot=(-90, 0, 0)), star_points(0.075, 0.032), 0.014)
+    # A coroa: aro dourado com pontas e pedras de luz.
+    top = c.y + 0.42
+    mring(p, "trim", T(0, top - 0.02, c.z), 0.12, 0.025, 30, 6)
+    for i in range(8):
+        a = math.radians(i * 45 + 22.5)
+        q = Vector((math.cos(a) * 0.12, top, c.z + math.sin(a) * 0.12 * 0.82))
+        hh = 0.13 if i % 2 == 0 else 0.09
+        lathe(p, "trim", frame(q, Vector((math.cos(a) * 0.25, 1, math.sin(a) * 0.25)).normalized()), [(0.0, 0.0), (0.03, 0.0), (0.0, hh)], 6)
+        if i % 2 == 0:
+            ball(p, "glow", q + Vector((math.cos(a) * 0.03, hh + 0.01, math.sin(a) * 0.03)), 0.016, 8)
+    # A capa real às costas, dos ombros aos joelhos, com a bainha recortada.
+    dagged_panel(p, "shell", (0.0, 0.98, c.z + 0.02), 0.42, 0.3, 0.84, (40, 140), 0.025, teeth=3, depth=0.08)
+    arc_tube(p, "trim", T(0, 1.38, c.z + 0.02), 0.3, 0.02, 40, 140, 20, 6)
+    for lon in (40, 140):
+        a = math.radians(lon)
+        ball(p, "trim", (0.3 * math.cos(a), 1.38, c.z + 0.02 + 0.3 * math.sin(a)), 0.035, 12)
+    mbox(p, "team", T(0, top + 0.001, c.z - 0.12), (0.1, 0.012, 0.03), 0.004, 1)
+    # Cintura e bacia pesadas, com a saia de placas debruadas a ouro.
+    hip = MAGNUS["hip"]
+    mtube(p, "dark", T(0, 0.8, c.z), 0.14, 0.12, 20)
+    mring(p, "trim", T(0, 0.86, c.z), 0.17, 0.02, 26, 5)
+    mbox(p, "dark", T(0, 0.66, 0.0), (0.34, 0.18, 0.3), 0.04)
+    hip_axles(p, hip.y, 0.18, hip.x, 0.085)
+    for i, lon in enumerate((-160, -125, -90, -55, -20, 20, 160)):
+        a = math.radians(lon)
+        d = Vector((math.cos(a), 0.0, math.sin(a)))
+        plate = frame(Vector((0, 0.62, 0.0)) + d * 0.22, Vector((0, -1, 0)) + d * 0.2, front=d)
+        mbox(p, "shell", plate, (0.15, 0.22, 0.03), 0.012)
+        mbox(p, "trim", sub(plate, 0, -0.11, 0.0), (0.155, 0.025, 0.035), 0.008)
+
+
+def magnus4_leg(p, out):
+    def sabaton(q, m, o, ankle):
+        for i in range(4):
+            mbox(q, "shell", sub(m, 0, 0.05 + i * 0.012, -0.05 - i * 0.07), (0.24 - i * 0.02, 0.07 - i * 0.008, 0.1), 0.025)
+        mbox(q, "rubber", sub(m, 0, 0.015, -0.08), (0.24, 0.03, 0.42), 0.012)
+        lathe(q, "trim", frame(at(m, 0, 0.05, -0.33), Vector((0, 0.2, -1)).normalized()) @ Matrix.Diagonal((1.0, 1.0, 0.6, 1.0)), [(0.0, 0.0), (0.07, 0.0), (0.0, 0.1)], 12)
+        mbox(q, "trim", sub(m, 0, 0.08, 0.1), (0.2, 0.08, 0.1), 0.03)
+
+    def greave(q, o, top, bottom, mid):
+        h = top - bottom
+        cyl_panel(q, "shell", T(0, bottom + h / 2, 0.0), 0.12, h, (-160, -20), 0.04, (10, 2), gap=0.008, radius_top=0.15)
+        cyl_panel(q, "trim", T(0, bottom + h / 2, 0.0), 0.124, h * 0.9, (-95, -85), 0.03, (2, 2), radius_top=0.154)
+        mring(q, "trim", T(0, top - 0.01, 0.0), 0.15, 0.014, 24, 5)
+    leg(p, out, MAGNUS["hip"].y, knee_y=-0.22, ankle_up=0.2, width=1.35, knee_w=0.15, knee_r=0.075, foot_fn=sabaton,
+        thigh_fn=round_thigh(k=1.4), shin_fn=greave, thigh_top=0.03, guard=False, shin_top=-0.2)
+    # A joelheira: cúpula dourada com uma aba.
+    dome(p, "trim", sub(T(0, -0.22, -0.08), rot=(-80, 0, 0)), 0.085, 0.05, 20, 5)
+
+
+# --------------------------------------------------------------------------------------
+# FAÍSCA 4: capacete de corrida. Visor envolvente, crista em raio, asas-spoiler atrás,
+# bobina às costas; cintura em amortecedor e bacia estreita com baterias. Pernas de
+# gafanhoto (as de sempre).
+# --------------------------------------------------------------------------------------
+F4_PROFILE = [(-0.28, 0.1), (-0.22, 0.15), (-0.12, 0.2), (0.0, 0.22), (0.12, 0.225), (0.22, 0.23), (0.3, 0.225), (0.38, 0.2), (0.45, 0.15), (0.5, 0.08), (0.52, 0.0)]
+F4_SCREEN = (0.3, 0.075)
+
+
+def faisca4_hull(p):
+    c = F_CHEST
+    face_y = 0.305
+    depth = 0.85
+    mk.HEADS["faisca4_hull"] = {"top": round(c.y + 0.75, 3), "center": round(c.y + face_y, 3), "aspect": round(F4_SCREEN[0] / F4_SCREEN[1], 3)}
+    flat, front = dome_hull(p, c, depth, F4_PROFILE, (-162, -18, 0.25, 0.36), face_y, F4_SCREEN, front_role="shell")
+    rev_panel(p, "trim", flat, [(y, r + 0.005) for y, r in F4_PROFILE], (-0.2, 0.245), (-97, -83), 0.012, (2, 8))
+    # Vidro fumado do visor envolvente, recuado na janela.
+    rev_panel(p, "dark", flat, [(y, r - 0.012) for y, r in F4_PROFILE], (0.25, 0.36), (-162, -18), 0.01, (16, 3))
+    for side in (-1, 1):
+        q, n = rev_point(c, F4_PROFILE, depth, -90 + side * 70, face_y)
+        mbox(p, "glow", frame(q, n), (0.012, 0.09, 0.014), 0.004, 1)
+    # Faixas de corrida e a crista em raio por cima.
+    for dx in (-0.06, 0.06):
+        rev_panel(p, "trim", flat, [(y, r + 0.004) for y, r in F4_PROFILE], (0.37, 0.5), (-90 + dx * 90, -90 + dx * 90 + 8), 0.01, (2, 6))
+    extruded(p, "trim", sub(T(0, c.y + 0.42, c.z + 0.06), rot=(0, 90, 0)) @ Matrix.Diagonal((2.6, 2.6, 2.6, 1.0)), BOLT, 0.04)
+    extruded(p, "glow", sub(T(0, c.y + 0.42, c.z + 0.06), rot=(0, 90, 0)) @ Matrix.Diagonal((1.9, 1.9, 1.9, 1.0)) @ Matrix.Translation((0.004, 0.03, 0.0)), BOLT, 0.046)
+    # Asas-spoiler atrás e a bobina compacta.
+    for side in (-1, 1):
+        mbox(p, "trim", sub(T(side * 0.14, c.y + 0.42, c.z + 0.2), rot=(-20, side * 25, side * 20)), (0.2, 0.02, 0.08), 0.01)
+    coil = T(0, c.y + 0.05, c.z + 0.26)
+    mtube(p, "dark", coil, 0.06, 0.05, 18, bevel=0.006)
+    mtube(p, "trim", sub(coil, 0, 0.16, 0), 0.035, 0.26, 14, bevel=0.005)
+    for i in range(8):
+        mring(p, "metal", sub(coil, 0, 0.06 + i * 0.03, 0), 0.038, 0.004, 14, 4)
+    mring(p, "metal", sub(coil, 0, 0.31, 0), 0.075, 0.03, 26, 10)
+    ball(p, "glow", at(coil, 0.08, 0.34, 0), 0.014, 8)
+    mbox(p, "dark", T(0, c.y + 0.05, c.z + 0.2), (0.06, 0.08, 0.06), 0.01)
+    # Banco de condensadores no peito e número.
+    core = T(0, c.y + 0.02, c.z - 0.2 * depth + 0.012)
+    mbox(p, "dark", core, (0.1, 0.16, 0.04), 0.01)
+    for dx in (-0.03, 0.0, 0.03):
+        capsule(p, "glow", sub(core, dx, 0, -0.018), 0.011, 0.11, 10)
+    q, n = rev_point(c, F4_PROFILE, depth, -50, 0.12)
+    serial(p, plane(q, n, (math.sin(math.radians(-50)), 0, -math.cos(math.radians(-50)))), "08", 0.028)
+    mbox(p, "team", T(0, c.y + 0.515, c.z - 0.02), (0.02, 0.012, 0.08), 0.004, 1)
+    # Cintura em amortecedor e bacia estreita com duas baterias de lado.
+    hip = FAISCA["hip"]
+    piston(p, (0, 0.78, c.z), (0, c.y - 0.27, c.z), 0.03)
+    mring(p, "trim", T(0, 0.86, c.z), 0.06, 0.012, 16, 4)
+    mbox(p, "dark", T(0, 0.76, 0.0), (0.18, 0.1, 0.2), 0.03)
+    mbox(p, "shell", T(0, 0.76, -0.105), (0.16, 0.08, 0.02), 0.01)
+    for side in (-1, 1):
+        capsule(p, "trim", sub(T(side * 0.1, 0.8, 0.07), rot=(90, 0, 0)), 0.03, 0.14, 12)
+        mring(p, "glow", sub(T(side * 0.1, 0.8, 0.07), rot=(90, 0, 0)), 0.031, 0.005, 14, 4)
+    hip_axles(p, hip.y, 0.1, hip.x, 0.058)
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -2866,6 +3300,15 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
+    part("eclipse4_hull")(eclipse4_hull)
+    part("batida4_hull")(batida4_hull)
+    part("orbita4_hull")(orbita4_hull)
+    part("orbita4_spin")(orbita4_spin)
+    part("magnus4_hull")(magnus4_hull)
+    part("faisca4_hull")(faisca4_hull)
+    for name, fn in (("eclipse4_leg", eclipse4_leg), ("batida4_leg", batida4_leg), ("orbita4_leg", orbita4_leg), ("magnus4_leg", magnus4_leg)):
+        part(name + "_l")(lambda q, fn=fn: fn(q, -1))
+        part(name + "_r")(lambda q, fn=fn: fn(q, 1))
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
     part("salvo2_shoulders")(salvo_shoulders)
