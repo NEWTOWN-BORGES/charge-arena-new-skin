@@ -61,7 +61,7 @@ def main():
     palette.update(recipe.get("palette", {}))
     mats = {role: material(role, hexcolor) for role, hexcolor in palette.items()}
     parts = recipe["parts"]
-    for slot in ("head", "torso", "shoulders", "arm", "gun"):
+    for slot in ("head", "torso", "shoulders", "back", "spin", "arm", "gun"):
         if parts.get(slot):
             build(parts[slot], mats)
     hx, hy, hz = recipe["hip"]

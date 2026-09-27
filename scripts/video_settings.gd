@@ -1,6 +1,6 @@
 extends RefCounted
 ## Local display preferences; never change the authoritative 60 Hz simulation.
-const FPS_OPTIONS = [30, 60, 90]
+const FPS_OPTIONS = [30, 45, 60, 90]
 const QUALITY_NAMES = ["Leve", "Equilibrado", "Refinado"]
 # Compatibility does not support screen-space FXAA. Use actual MSAA for silhouettes.
 # 8x cost more than the whole rest of the frame on a phone screen (2340 x 1080) and dragged a
@@ -28,6 +28,20 @@ var low_windows = 0
 var stable_windows = 0
 var recover_after = RECOVER_WINDOWS
 var recovered = false
+
+# Phone GPUs that cannot fill a 1080p screen with the full surface treatment: a two-core
+# Mali-G57 (Galaxy A15) and its kin, old Adrenos and PowerVR.
+static func weak_gpu(adapter: String = "") -> bool:
+	var name = adapter if adapter != "" else RenderingServer.get_video_adapter_name()
+	var weak = RegEx.create_from_string("(?i)mali-(t|g3|g5|g68|g71|g72)|adreno[^0-9]*([2-5][0-9][0-9]|6[0-1][0-9])|powervr")
+	return weak.search(name) != null
+
+# The frame rates a panel shows evenly: 60 on a 90 Hz screen alternates one and two refreshes
+# per frame, a steady judder, so a 90 Hz phone steps 90 -> 45 -> 30 instead.
+static func ladder(refresh: float) -> Array:
+	if refresh >= 85.0 and refresh < 110.0:
+		return [90, 45, 30]
+	return [90, 60, 30]
 
 func load_preferences(path: String = CONFIG_PATH) -> void:
 	var config = ConfigFile.new()
@@ -77,11 +91,21 @@ func apply(viewport: Viewport, arena) -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	arena.effect_limit = EFFECT_LIMITS[quality]
+	arena.ArenaFinish.lean = OS.has_feature("mobile") and weak_gpu()
 	# The light profile drops per-primitive antialiasing in the HUD: on a mid-range phone
 	# those 182 soft edges were more than half of the draw calls in a frame.
 	smooth_hud = quality > 0
 	arena.trail_interval = [0.11, 0.06, 0.035][quality]
 	arena.set_quality(quality)
+
+func step_up(current: int) -> int:
+	# The next rate up the panel's own ladder, never above the chosen limit.
+	var steps: Array = ladder(DisplayServer.screen_get_refresh_rate())
+	steps.reverse()
+	for step in steps:
+		if step > current:
+			return mini(fps, step)
+	return fps
 
 func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) -> bool:
 	if (not OS.has_feature("mobile") and not force_mobile) or fps < 60:
@@ -103,7 +127,7 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 			stable_windows = 0
 			recovered = true
 			if runtime_fps < fps:
-				runtime_fps = mini(fps, 60 if runtime_fps < 60 else fps)
+				runtime_fps = step_up(runtime_fps)
 				Engine.max_fps = runtime_fps
 				return true
 		return false
@@ -118,9 +142,10 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	if quality > 0:
 		# Only the frame rate moves: nothing in the picture may change during a match (the
 		# phone's renderer changed the light when the multisampling was dropped mid-game).
-		if runtime_fps > 60:
-			runtime_fps = 60
-		elif runtime_fps > 30 and measured_fps < 60 * 0.6:
+		var steps = ladder(DisplayServer.screen_get_refresh_rate())
+		if runtime_fps > steps[1]:
+			runtime_fps = steps[1]
+		elif runtime_fps > 30 and (steps[1] < 60 or measured_fps < 60 * 0.6):
 			# 30 only for a phone that cannot even reach the high forties: a busy moment that
 			# dips to 50 should not cost the whole match half its frames.
 			runtime_fps = 30

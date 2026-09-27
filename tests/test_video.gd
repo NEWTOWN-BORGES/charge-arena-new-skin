@@ -105,5 +105,11 @@ func run() -> void:
 	else:
 		print("GPU_ONLY: 3 MultiMesh readback checks require a graphical renderer; dummy rendering returns identity transforms.")
 	print("BATCH_METRICS architecture=", game.arena.static_batch_count, " brick_batches=", game.arena.brick_batches.size())
+	# Weak phone GPUs get the lean surfaces; a 90 Hz panel never steps down to a judder of 60.
+	check(Settings.weak_gpu("Mali-G57 MC2"), "A Galaxy A15's Mali-G57 counts as a weak GPU")
+	check(not Settings.weak_gpu("Adreno (TM) 740"), "A Galaxy S23's Adreno 740 is not a weak GPU")
+	check(Settings.weak_gpu("Adreno (TM) 610"), "An Adreno 610 counts as a weak GPU")
+	check(Settings.ladder(90.0) == [90, 45, 30], "A 90 Hz panel steps 90 -> 45 -> 30")
+	check(Settings.ladder(60.0) == [90, 60, 30], "A 60 Hz panel steps 60 -> 30")
 	print("VIDEO_RESULT ", checks - failures, "/", checks, " passed")
 	quit(1 if failures else 0)

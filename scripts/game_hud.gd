@@ -241,6 +241,8 @@ var viewer_pilot: Node3D
 var viewer_skin = -1
 var viewer_locked = false
 var viewer_camera: Camera3D
+var viewer_viewport: SubViewport
+var viewer_shadow: MeshInstance3D
 var viewer_yaw = 0.5
 # Tilt of the hangar camera (drag up and down) and the fingers on the viewer, for the pinch.
 var viewer_pitch = 0.0
@@ -334,7 +336,8 @@ func build_pause_menu() -> void:
 
 func build_skins_menu() -> void:
 	skins_overlay = ColorRect.new()
-	skins_overlay.color = Color(UiKit.NIGHT, 0.93)
+	# Opaque: while the hangar is open the arena behind it is not drawn at all (see _process).
+	skins_overlay.color = Color(UiKit.NIGHT, 1.0)
 	skins_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(skins_overlay)
 	skins_panel = PanelContainer.new()
@@ -484,7 +487,10 @@ func build_skin_viewer() -> void:
 	var viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.transparent_bg = true
-	viewport.msaa_3d = Viewport.MSAA_8X
+	# 8x is not native on phone GPUs (a Mali tops out at 4x) and made the hangar stutter on a
+	# Galaxy A15; open_skins sets 2x or 4x from the video profile.
+	viewport.msaa_3d = Viewport.MSAA_4X
+	viewer_viewport = viewport
 	viewer.add_child(viewport)
 	viewer_stage = Node3D.new()
 	viewport.add_child(viewer_stage)
@@ -562,6 +568,15 @@ func build_viewer_pilot() -> void:
 	# Every pilot is shown in the colours it was drawn in, beaten or not.
 	viewer_pilot = arena_view.build_player(CYAN, 0, preview_index, viewer_turntable, false)
 	viewer_pilot.position = Vector3(0, 0.02, 0)
+	if not is_instance_valid(viewer_shadow):
+		# A soft contact shadow, so the pilot stands on the plate instead of floating over it.
+		viewer_shadow = MeshInstance3D.new()
+		var plane = PlaneMesh.new()
+		plane.size = Vector2(1.5, 1.5)
+		viewer_shadow.mesh = plane
+		viewer_shadow.material_override = arena_view.soft_disc_material(Color(0.02, 0.03, 0.06, 0.75))
+		viewer_shadow.position = Vector3(0, 0.024, 0)
+		viewer_turntable.add_child(viewer_shadow)
 	frame_viewer(measure_viewer_pilot())
 	for brick in viewer_bricks:
 		brick.queue_free()
@@ -847,6 +862,8 @@ func open_skins() -> void:
 		skins_progress.mark_seen()
 		skins_progress.save_preferences()
 		refresh_news()
+	if is_instance_valid(viewer_viewport) and arena_view != null:
+		viewer_viewport.msaa_3d = Viewport.MSAA_2X if arena_view.quality_level == 0 else Viewport.MSAA_4X
 	skins_overlay.show()
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
 
@@ -912,6 +929,11 @@ func _process(dt: float) -> void:
 			queue_redraw()
 	if skins_overlay.visible and is_instance_valid(viewer_pilot):
 		animate_viewer(dt)
+	# The hangar covers the whole screen: drawing the arena underneath it every frame was half
+	# of what a weaker phone spent in there.
+	var hide_world = skins_overlay.visible
+	if get_viewport().disable_3d != hide_world:
+		get_viewport().disable_3d = hide_world
 	if coach_at.x >= 0:
 		queue_redraw()
 	if powers_overlay != null and powers_overlay.visible:
@@ -2236,7 +2258,7 @@ func build_video_menu() -> void:
 	cup_difficulty = video_option(list, "Dificuldade da IA", ["Fácil", "Normal", "Difícil"])
 	cup_difficulty.item_selected.connect(func(index): difficulty_changed.emit(index))
 	quality_choice = video_option(list, "Qualidade", ["Leve · desempenho móvel", "Equilibrado · mais definição", "Refinado · máxima suavização"])
-	fps_choice = video_option(list, "Limite de FPS", ["30 FPS", "60 FPS", "90 FPS"])
+	fps_choice = video_option(list, "Limite de FPS", ["30 FPS", "45 FPS", "60 FPS", "90 FPS"])
 	sync_choice = CheckButton.new()
 	sync_choice.text = "Sincronizar com o ecrã (VSync)"
 	sync_choice.custom_minimum_size.y = 44
@@ -2460,7 +2482,7 @@ func emit_audio() -> void:
 	audio_changed.emit(music_choice.button_pressed, music_volume.value / 100.0)
 
 func sync_video(settings) -> void:
-	fps_choice.select([30, 60, 90].find(settings.fps))
+	fps_choice.select([30, 45, 60, 90].find(settings.fps))
 	quality_choice.select(settings.quality)
 	sync_choice.set_pressed_no_signal(settings.vsync)
 	counter_choice.set_pressed_no_signal(settings.show_fps)
@@ -2468,7 +2490,7 @@ func sync_video(settings) -> void:
 	video_note.text = "Refinado e Equilibrado preservam os gráficos e reduzem apenas 90→60→30 FPS. Só o perfil Leve pode baixar a resolução 3D."
 
 func emit_video() -> void:
-	video_changed.emit([30, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed)
+	video_changed.emit([30, 45, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed)
 
 func open_video() -> void:
 	reset_touch()

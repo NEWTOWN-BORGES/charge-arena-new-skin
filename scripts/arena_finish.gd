@@ -11,6 +11,9 @@ const SURFACES = {
 # How many metres one tile of each texture covers in the world.
 const TILE_METRES = {"panel": 2.0, "alloy": 1.5, "graphite": 1.2, "grass": 2.5, "stone": 3.0}
 static var studio_sky: Sky
+# A weak phone GPU (two-core Mali, old Adreno): the surfaces keep their texture but drop the
+# normal and roughness maps and the anisotropic filter, which were most of the fill cost.
+static var lean := false
 
 # The exposure and the colour push of version 3.8, the light the player chose.
 const EXPOSURE = 1.12
@@ -112,14 +115,14 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 		return
 	var maps: Array = SURFACES[kind]
 	mat.albedo_texture = maps[0]
-	mat.roughness_texture = maps[1]
-	mat.normal_enabled = true
-	mat.normal_texture = maps[2]
+	mat.roughness_texture = null if lean else maps[1]
+	mat.normal_enabled = not lean
+	mat.normal_texture = null if lean else maps[2]
 	mat.normal_scale = 0.9
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE / float(TILE_METRES.get(kind, 2.0))
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if OS.has_feature("mobile") else BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 static func surface_kind(mat: StandardMaterial3D) -> String:
 	var c: Color = mat.albedo_color

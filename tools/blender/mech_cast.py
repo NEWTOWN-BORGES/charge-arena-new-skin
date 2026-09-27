@@ -2042,23 +2042,6 @@ def helio_shoulders(p):
         a0, a1 = (-90, 90) if side > 0 else (90, 270)
         sphere_panel(p, "shell", m, 0.15, (22, 88), (a0 - 25, a1 + 25), 0.028, (12, 5), gap=0.008)
         sphere_panel(p, "trim", m, 0.155, (8, 20), (a0 - 20, a1 + 20), 0.026, (12, 2), gap=0.006)
-        # Asa de penas de latão: charneira atrás do ombro e cinco penas em leque.
-        root = at(m, side * 0.02, 0.1, 0.1)
-        mtube(p, "metal", axis_frame(root, "z"), 0.026, 0.05, 12)
-        # O leque abre num plano varrido para trás (40°): de frente e de lado vê-se a asa
-        # inteira, sem pás largas de mais numa vista nem lâminas grossas na outra. Cada pena
-        # nasce da charneira e cresce para fora e para cima, no plano do leque.
-        sweep = math.radians(40)
-        out_dir = Vector((side * math.cos(sweep), 0.0, math.sin(sweep)))
-        normal = out_dir.cross(Vector((0.0, 1.0, 0.0))).normalized()
-        for i in range(5):
-            ang = math.radians(20 + i * 14)
-            d = (out_dir * math.sin(ang) + Vector((0.0, 1.0, 0.0)) * math.cos(ang)).normalized()
-            # Uma esfera unitária esticada: meio comprimento ao longo da pena, meia largura e
-            # meia espessura de lado. As de fora são mais curtas.
-            half = 0.62 - i * 0.07
-            fe = frame(root + d * (half - 0.03), d, front=normal)
-            capsule(p, "trim" if i % 2 == 0 else "metal", fe @ Matrix.Diagonal((0.075, half, 0.018, 1.0)), 1.0, 1.0, 12)
         mbox(p, "team", T(drum.x + side * 0.012, y + 0.172, 0.01), (0.06, 0.01, 0.09), 0.004, 1)
         upper_arm(p, side, pin, HELIO["elbow_l"] if side < 0 else HELIO["elbow_r"], bone_r=0.035, elbow_w=0.072, elbow_r=0.046, armor_size=(0.11, 0.1))
 
@@ -4007,6 +3990,97 @@ def batida7_leg(p, out):
         cbox(p, "dark", (dx * 1.1, y(0.02), -0.2), (0.04, 0.04, 0.05), 0.012, rot=(-20, rz, 0))
     cbox(p, "dark", (0, y(0.03), 0.09), (0.1, 0.06, 0.08), 0.015)
 
+# --------------------------------------------------------------------------------------
+# Asas às costas (slot "back"): HÉLIO, o anjo, com penas; ECLIPSE, o anjo caído, com
+# membrana de morcego. As duas partem do mesmo esqueleto (ombro, cotovelo, pulso) num plano
+# varrido para trás, e o desenho de cada asa é feito em 2D nesse plano (u para fora, v para
+# cima), por isso fica fina de lado e inteira de frente.
+# --------------------------------------------------------------------------------------
+def wing_plane(side, root, sweep=28):
+    s = math.radians(sweep)
+    u = Vector((side * math.cos(s), 0.0, math.sin(s)))
+    v = Vector((0.0, 1.0, 0.0))
+    n = u.cross(v).normalized()
+    def to3(pt, lift=0.0):
+        return root + u * pt[0] + v * pt[1] + n * lift
+    basis = Matrix((u, v, n)).transposed().to_4x4()
+    basis.translation = root
+    return to3, basis
+
+
+def feather(p, role, basis, base, angle, length, width, lift=0.0, thickness=0.016):
+    """Pena achatada em ponta, no plano da asa: nasce em `base` e aponta para `angle` graus."""
+    w = width / 2
+    pts = [(-w, 0.0), (w, 0.0), (w * 0.95, length * 0.8), (0.0, length), (-w * 0.95, length * 0.8)]
+    m = basis @ Matrix.Translation((base[0], base[1], lift)) @ Matrix.Rotation(math.radians(angle - 90), 4, "Z")
+    extruded(p, role, m, pts, thickness)
+
+
+def lerp2(a, b, t):
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+
+def helio6_wings(p):
+    for side in (-1, 1):
+        root = Vector((side * 0.12, 1.4, 0.24))
+        to3, basis = wing_plane(side, root)
+        elbow, wrist = (0.24, 0.32), (0.5, 0.46)
+        # Osso de latão com a charneira na raiz e a articulação do pulso.
+        mtube(p, "metal", axis_frame(root, "z"), 0.035, 0.07, 14)
+        rod(p, "metal", to3((0, 0)), to3(elbow), 0.026, 12)
+        rod(p, "metal", to3(elbow), to3(wrist), 0.022, 12)
+        for q in (elbow, wrist):
+            ball(p, "trim", to3(q), 0.034)
+        # Primárias douradas em leque a partir do pulso, as secundárias creme ao longo do
+        # antebraço e as terciárias junto ao corpo; as coberturas curtas por cima, de cada
+        # lado do plano.
+        for i, (ang, ln) in enumerate(((-4, 0.46), (-22, 0.52), (-40, 0.52), (-56, 0.5), (-70, 0.47))):
+            feather(p, "trim", basis, lerp2(wrist, elbow, i * 0.05), ang, ln, 0.1)
+        for i in range(5):
+            t = 0.28 + i * 0.18
+            base = lerp2(wrist, elbow, t) if t <= 1 else lerp2(elbow, (0.0, 0.0), t - 1)
+            feather(p, "shell", basis, base, -80 - i * 4, 0.46 - i * 0.04, 0.1, lift=0.006)
+        for i in range(7):
+            t = i / 6
+            base = lerp2((0.04, 0.04), elbow, t * 1.0) if t < 0.5 else lerp2(elbow, wrist, (t - 0.5) * 2)
+            for lift in (-0.014, 0.014):
+                feather(p, "metal", basis, (base[0], base[1] + 0.02), -80 + t * 30, 0.17, 0.085, lift=lift, thickness=0.012)
+        # Pena-sol na ponta do osso.
+        mtube(p, "glow", frame(to3(wrist, 0.0), basis.to_3x3() @ Vector((0, 0, 1))), 0.018, 0.05, 12)
+
+
+def eclipse6_wings(p):
+    for side in (-1, 1):
+        root = Vector((side * 0.13, 1.42, 0.26))
+        to3, basis = wing_plane(side, root, sweep=24)
+        elbow, wrist = (0.28, 0.3), (0.52, 0.42)
+        mtube(p, "dark", axis_frame(root, "z"), 0.038, 0.08, 14)
+        rod(p, "metal", to3((0, 0)), to3(elbow), 0.03, 10)
+        rod(p, "metal", to3(elbow), to3(wrist), 0.026, 10)
+        ball(p, "dark", to3(elbow), 0.04)
+        ball(p, "dark", to3(wrist), 0.036)
+        # Garra do pulso virada para cima.
+        claw_dir = (basis.to_3x3() @ Vector((0.25, 1.0, 0.0))).normalized()
+        lathe(p, "metal", frame(to3(wrist), claw_dir), [(0.0, 0.0), (0.03, 0.01), (0.018, 0.08), (0.0, 0.17)], 10)
+        # Dedos da membrana: quatro varetas do pulso até às pontas, com espigões.
+        tips = [(0.98, 0.18), (0.9, -0.16), (0.68, -0.4), (0.4, -0.5)]
+        for tip in tips:
+            rod(p, "metal", to3(wrist), to3(tip), 0.017, 8)
+            rod(p, "glow", to3(wrist, 0.012), to3(lerp2(wrist, tip, 0.9), 0.012), 0.006, 6)
+            d = (to3(tip) - to3(wrist)).normalized()
+            lathe(p, "metal", frame(to3(tip), d), [(0.0, -0.01), (0.018, 0.0), (0.0, 0.08)], 8)
+        # Membrana escura em recortes entre as pontas, em leque a partir do pulso.
+        ring = []
+        for i, tip in enumerate(tips):
+            ring.append(tip)
+            nxt = tips[i + 1] if i + 1 < len(tips) else (0.06, -0.2)
+            mid = lerp2(tip, nxt, 0.5)
+            ring.append(lerp2(mid, wrist, 0.22))
+        ring += [(0.06, -0.2), (0.0, 0.0), elbow]
+        for i in range(len(ring) - 1):
+            extruded(p, "dark", basis, [wrist, ring[i], ring[i + 1]], 0.012)
+
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -4019,6 +4093,8 @@ def define(part):
     part("eclipse3_hull")(eclipse_hull)
     part("helio3_hull")(helio_hull)
     part("helio3_spin")(helio_crown)
+    part("helio6_wings")(helio6_wings)
+    part("eclipse6_wings")(eclipse6_wings)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
     for robot in ("eclipse5", "magnus5", "orbita5", "batida5", "orbita6", "batida7"):
