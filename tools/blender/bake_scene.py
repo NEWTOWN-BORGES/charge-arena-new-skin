@@ -28,6 +28,23 @@ SKIES = {
 }
 
 
+def densify_near(me, max_len, reach):
+    """Like bake_world.densify, but only near the field: the far terrain is seen small and
+    splitting all of it made the bake run for many minutes."""
+    bm = bw.bmesh.new()
+    bm.from_mesh(me)
+    bw.bmesh.ops.triangulate(bm, faces=bm.faces)
+    for _ in range(8):
+        long = [e for e in bm.edges if e.calc_length() > max_len
+                and ((e.verts[0].co + e.verts[1].co) / 2).xy.length < reach]
+        if not long:
+            break
+        bw.bmesh.ops.subdivide_edges(bm, edges=long, cuts=1, use_grid_fill=False)
+        bw.bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3])
+    bm.to_mesh(me)
+    bm.free()
+
+
 def material():
     """Base colour from the vertex colour (sRGB, so decoded), and the finish from its alpha:
     lights glow, metal shines, the rest is the robots' semi-matte paint."""
@@ -99,7 +116,7 @@ def main(world_id, samples):
     mat = material()
     for obj in objects:
         me = obj.data
-        bw.densify(me, 0.6)
+        densify_near(me, 0.6, 26.0)
         for poly in me.polygons:
             poly.use_smooth = True
         me.set_sharp_from_angle(angle=math.radians(40))
