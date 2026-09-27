@@ -32,7 +32,7 @@ const GLASS = preload("res://shaders/glass.gdshader")
 const GUIDE_DOTS = 30
 # Projectile size per power: normal, explosive, machine-gun round, air pellet.
 # Plain, blast, machine gun, fan, marksman, cluster shell, ricochet, shard.
-const POWER_BALL_SCALE = [1.0, 1.4, 0.95, 0.7, 0.8, 1.5, 0.9, 0.55]
+const POWER_BALL_SCALE = [1.0, 1.4, 0.95, 0.7, 0.85, 1.6, 1.0, 0.7]
 # A closer gameplay framing makes the bevels, pilots and particles easier to
 # read while the enlarged walls still remain fully visible.
 const LANDSCAPE_SIZE = 17.0 * Rules.MAP_SCALE
@@ -1556,11 +1556,11 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		elif kind == 3:
 			color = Rules.power_color("air")
 		elif kind == 4:
-			color = Rules.power_color("sniper")
+			color = deep(Rules.power_color("sniper"))
 		elif kind == 5 or kind == 7:
-			color = Rules.power_color("cluster")
+			color = deep(Rules.power_color("cluster"))
 		elif kind == 6:
-			color = Rules.power_color("ricochet")
+			color = deep(Rules.power_color("ricochet"))
 		if ball.get("ghost", false):
 			color = Rules.power_color("ghost")
 		if not projectiles.has(ball.id):
@@ -1593,6 +1593,31 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 				# trail_length stretches the tail by how long each glow lives: short and legible,
 				# never a line across the arena that hides the bricks behind it.
 				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length"))
+			match kind:
+				4:
+					# The marksman's tracer: a long bright streak behind a fast round.
+					fx.emit("spark", node.position, back * 2.0, Color("fffbe0"), 0.7, 0.14, 0.25, 0.0, 1.0, 0.6)
+					fx.emit("glow", node.position, back * 0.5, Color(color, 0.9), 0.75, 0.12, 0.4)
+				5:
+					# The cluster shell smokes and throws embers as it goes.
+					# A burning fuse: a fire tail, dark smoke rolling off it and embers.
+					if Engine.get_process_frames() % 2 == 0:
+						fx.smoke(node.position, Color("4d433c"), 1, 0.4, 1.1, 0.05, 0.5)
+					fx.emit("glow", node.position, back * 1.2 + Vector3(0, 0.4, 0), Color(color, 0.95), 0.7, 0.15, 0.35)
+					fx.emit("glow", node.position, back * 0.6, Color("fff0c0", 0.95), 0.35, 0.05, 0.15)
+					for n in range(2):
+						fx.emit("spark", node.position, back * 2.5 + Vector3(randf_range(-1.5, 1.5), randf_range(0, 1.5), randf_range(-1.5, 1.5)), color.lightened(0.2), 0.16, 0.02, 0.45, -3.0, 1.0, 0.08)
+				6:
+					# The ricochet round leaves teal after-images, brighter once it has bounced.
+					fx.emit("glow", node.position, Vector3.ZERO, Color(color, 0.8 if ball.bounces < 1 else 0.95), 0.6 if ball.bounces < 1 else 0.8, 0.08, 0.35)
+					fx.emit("spark", node.position, Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * 2.0, Color("e8fff8"), 0.12, 0.02, 0.3, 0.0, 1.0, 0.05)
+				7:
+					fx.emit("spark", node.position, back * 1.5, color.lightened(0.3), 0.22, 0.04, 0.25, 0.0, 1.0, 0.2)
+					fx.emit("glow", node.position, back * 0.4, Color(color, 0.9), 0.45, 0.06, 0.22)
+			var defender_state: Dictionary = rules.powers[1 - int(ball.owner)]
+			if defender_state.slow_time > 0 and signf(ball.p.y) == signf(rules.players[1 - int(ball.owner)].p.y):
+				# Caught in the slow field: a green halo drags behind it.
+				fx.emit("glow", node.position, back * 0.3, Color(Rules.power_color("slow"), 0.8), 0.55, 0.3, 0.35)
 			if charged and quality_level > 0:
 				fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
 	if trail_timer > trail_interval:
@@ -1638,7 +1663,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		elif effect.get("grow", false):
 			# Blast ring: opens outwards and fades instead of shrinking away.
 			effect.node.scale = effect.base * lerpf(0.25, 1.0, 1.0 - remaining)
-			if effect.energy.is_empty():
+			if effect.has("shield"):
+				effect.node.material_override.set_shader_parameter("strength", effect.shield * remaining)
+			elif effect.energy.is_empty():
 				effect.node.material_override = material(Color(effect.tint, snappedf(remaining, 0.1) * 0.9), true)
 		else:
 			effect.node.scale = effect.base * remaining
@@ -1650,6 +1677,12 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			effect.node.rotate_z(dt * 5.5)
 		if effect.get("spin_y", false):
 			effect.node.rotate_y(dt * 3.0)
+		if effect.has("trail") and fx != null:
+			# A shell in flight: smoke and embers left in the air behind it.
+			if Engine.get_process_frames() % 2 == 0:
+				fx.smoke(effect.node.position, Color("4a433e"), 1, 0.5, 1.4, 0.05, 0.6)
+			fx.emit("glow", effect.node.position, -effect.v.normalized() * 1.0, Color(effect.trail, 0.95), 0.8, 0.15, 0.3)
+			fx.emit("spark", effect.node.position, -effect.v.normalized() * 2.0, Color(effect.trail).lightened(0.2), 0.2, 0.03, 0.45, -2.0, 1.0, 0.12)
 		if effect.get("blink", false):
 			# Lightning does not fade: it stutters and is gone.
 			effect.node.visible = fmod(effect.ttl, 0.07) > 0.025
@@ -1971,50 +2004,332 @@ func explosion(pos: Vector2, radius: float) -> void:
 	scorch(pos, radius * 1.4, tint, 0.65)
 	shake(0.12)
 
-func drain_beam(from: Vector2, to: Vector2, interrupted: bool) -> void:
-	# A stream of violet light pulled out of the rival and into the thief.
-	var color = Rules.power_color("drain")
-	var a = Vector3(from.x, 0.9, from.y)
-	var b = Vector3(to.x, 0.9, to.y)
-	if effects.size() < effect_limit:
-		var beam = segment(self, a, b, 0.14, 0.14, Color(color, 0.85), true)
-		effects.append({"node": beam, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE, "keep": true})
-	if fx != null:
-		for k in range(10):
-			fx.emit("glow", a.lerp(b, k / 10.0), (b - a).normalized() * 6.0, Color(color, 0.9), 0.3, 0.05, 0.4)
-	if interrupted:
-		burst(from, Color("ffffff"), false)
-		flash(a, color, 6.0, 0.4, 10.0)
+# --- the second shelf's effects --------------------------------------------------------------
+const SHIELD = preload("res://shaders/fx_shield.gdshader")
 
-func emp_flash(at: Vector2) -> void:
-	# An electromagnetic blast over the rival: a wide blue ring and crackling sparks.
-	var color = Rules.power_color("emp")
-	if effects.size() < effect_limit:
-		var ring = torus(self, Vector3(at.x, 0.5, at.y), 1.0, 0.07, Color(color, 0.9), true)
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE * 6.0, "grow": true, "tint": color})
-	if fx != null:
-		fx.sparks(Vector3(at.x, 0.8, at.y), color, 24, 7.0, 0.16, 0.45, Vector3.UP, 180.0)
-	flash(Vector3(at.x, 1.2, at.y), color, 6.0, 0.4, 12.0)
-	shake(0.3)
+# Immunity's shop colour is near white, which vanishes over a bright floor: its light in the
+# arena is a holy white-gold instead.
+const IMMUNE_GLOW = Color("ffc93c")
 
-func mortar_shell(from: Vector2, target: Vector2, flight: float) -> void:
-	# The shell goes up in an arc and comes down on its mark, which lights up meanwhile.
-	var color = Rules.power_color("mortar")
+func deep(color: Color) -> Color:
+	# The body colour of an effect: the shop's pale tints pushed to full saturation and a
+	# touch darker, so rings and beams read over the bright floors instead of washing out.
+	return Color.from_hsv(color.h, maxf(color.s, 0.82), minf(color.v, 0.92), color.a)
+
+func shader_time() -> float:
+	# The clock the shaders read as TIME (it rolls over every hour).
+	return fmod(Time.get_ticks_msec() / 1000.0, 3600.0)
+
+func shield_material(color: Color, cells: float, strength: float = 1.0) -> ShaderMaterial:
+	var mat = ShaderMaterial.new()
+	mat.shader = SHIELD
+	mat.set_shader_parameter("tint", color)
+	mat.set_shader_parameter("cells", cells)
+	mat.set_shader_parameter("strength", strength)
+	return mat
+
+func link(parent: Node3D, a: Vector3, b: Vector3, radius: float, color: Color) -> MeshInstance3D:
+	# A lit rod from one point to another in any direction (segment() only turns about Y).
+	# One shared unit rod, stretched: bolts of every length share a single mesh.
+	var length = maxf(a.distance_to(b), 0.001)
+	var rod = cylinder(parent, (a + b) * 0.5, radius, 1.0, color, true, 8)
+	var along = (b - a) / length
+	var side = along.cross(Vector3.FORWARD if absf(along.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
+	rod.basis = Basis(side, along * length, side.cross(along))
+	return rod
+
+func lightning(a: Vector3, b: Vector3, color: Color, life: float, jag: float = 0.35, width: float = 0.06) -> void:
+	# A jagged arc of electricity between two points: a hot core over a wide glow, strobing.
 	if effects.size() + 2 >= effect_limit:
 		return
-	var start = Vector3(from.x, 0.9, from.y)
+	var bolt = Node3D.new()
+	add_child(bolt)
+	var steps = 7
+	var side = (b - a).cross(Vector3.UP).normalized()
+	if side.length() < 0.1:
+		side = Vector3.RIGHT
+	var last = a
+	for k in range(1, steps + 1):
+		var t = k / float(steps)
+		var point = a.lerp(b, t)
+		if k < steps:
+			point += side * randf_range(-jag, jag) + Vector3(0, randf_range(-jag, jag) * 0.6, 0)
+		link(bolt, last, point, width * 1.6, Color(color, 0.45))
+		link(bolt, last, point, width * 0.5, Color("f4fbff", 1.0))
+		last = point
+	effects.append({"node": bolt, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true, "blink": true})
+
+func sniper_fire(team: int) -> void:
+	# The marksman's shot: a star flare off the muzzle, a sonic ring punched in the air and a
+	# kick of smoke; the round itself leaves a long tracer (see the ball trails).
+	if not is_instance_valid(units[team]):
+		return
+	var color = deep(Rules.power_color("sniper"))
+	var body: Node3D = units[team].get_node("Body")
+	var muzzle: Vector3 = body.get_node("Gun/Flash").global_position
+	var ahead: Vector3 = -body.global_basis.z
+	if fx != null:
+		fx.star(muzzle, Color("fffbe0"), 1.6, 0.18)
+		fx.glow(muzzle, color, 1.2, 0.2, 2.2)
+		fx.sparks(muzzle, color.lightened(0.3), 14, 9.0, 0.12, 0.25, ahead, 18.0, 0.0)
+		fx.smoke(muzzle + ahead * 0.3, Color("d8d4c8"), 4, 0.35, 0.8, 0.12, 0.35)
+	if effects.size() < effect_limit:
+		var boom = torus(self, muzzle + ahead * 0.5, 0.3, 0.08, Color(color, 0.95), true)
+		boom.look_at_from_position(muzzle + ahead * 0.5, muzzle + ahead * 2.0 + Vector3(0.001, 0, 0), Vector3.UP)
+		boom.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+		effects.append({"node": boom, "v": ahead * 3.0, "ttl": 0.3, "life": 0.3, "gravity": false, "base": Vector3.ONE * 3.2, "grow": true, "tint": color})
+	if effects.size() + 1 < effect_limit:
+		# The line of the shot burnt into the air the whole way across the court: a wide
+		# golden glow over a white-hot core, thinning as it fades.
+		var reach = muzzle + Vector3(ahead.x, 0, ahead.z).normalized() * 16.0
+		var tracer = Node3D.new()
+		add_child(tracer)
+		link(tracer, muzzle, reach, 0.22, Color(color, 0.55))
+		link(tracer, muzzle, reach, 0.07, Color("fffdf0", 1.0))
+		effects.append({"node": tracer, "v": Vector3.ZERO, "ttl": 0.4, "life": 0.4, "gravity": false, "base": Vector3.ONE, "keep": true})
+		if fx != null:
+			for k in range(10):
+				fx.emit("spark", muzzle.lerp(reach, k / 10.0), Vector3(randf_range(-1, 1), randf_range(0.5, 2), randf_range(-1, 1)), color.lightened(0.3), 0.16, 0.03, 0.4, 3.0, 1.0, 0.1)
+	flash(muzzle, color, 3.5, 0.15, 6.0)
+	shake(0.18)
+
+func sniper_hit(at: Vector2, heading: Vector2) -> void:
+	# Where the marksman's round lands: a piercing white star, sparks thrown on through and a
+	# ring punched in the air.
+	var color = deep(Rules.power_color("sniper"))
+	var p = Vector3(at.x, 0.55, at.y)
+	var through = Vector3(heading.x, 0.15, heading.y).normalized()
+	if fx != null:
+		fx.star(p, Color("ffffff"), 1.3, 0.2)
+		fx.sparks(p, color.lightened(0.2), 18, 8.0, 0.12, 0.3, through, 35.0)
+		fx.ring(Vector3(at.x, 0.06, at.y), color, 0.9, 0.35)
+	flash(p, color, 3.0, 0.15, 5.0)
+
+func cluster_flash(at: Vector2) -> void:
+	# The shell bursts: a fireball with a white heart, a ring opening on the floor, chunks,
+	# smoke and a scorch; the shards fly out on their own trails.
+	var color = deep(Rules.power_color("cluster"))
+	var p = Vector3(at.x, 0.5, at.y)
+	if fx != null:
+		fx.blast(p, color, 1.1)
+		fx.star(p, Color("fff4d6"), 1.4, 0.16)
+		fx.debris(p, [DARK, color, color.darkened(0.3)], 10, 5.5, 0.1, 1.0)
+		fx.smoke(p, Color("5d544c"), 6, 0.5, 1.3, 0.35, 0.6)
+	flash(p, color, 4.5, 0.25, 7.0)
+	scorch(at, 1.6, color, 0.9)
+	shake(0.2)
+
+func drain_beam(from: Vector2, to: Vector2, interrupted: bool) -> void:
+	# Violet power ripped out of the rival along a sagging arc of light and poured into the
+	# thief: a vortex closing on the rival, a flare opening on you, motes running the arc.
+	var color = deep(Rules.power_color("drain"))
+	var a = Vector3(from.x, 1.0, from.y)
+	var b = Vector3(to.x, 1.0, to.y)
+	var lift = Vector3(0, 2.6, 0)
+	var arc: Array = []
+	for k in range(13):
+		var t = k / 12.0
+		arc.append(a.lerp(b, t) + lift * 4.0 * t * (1.0 - t))
+	if effects.size() + 3 < effect_limit:
+		var tether = Node3D.new()
+		add_child(tether)
+		for k in range(12):
+			link(tether, arc[k], arc[k + 1], 0.3, Color(color, 0.5))
+			link(tether, arc[k], arc[k + 1], 0.09, Color("f3e6ff", 1.0))
+		# A second strand winding round the arc, so it reads as power being wrung out.
+		var last: Vector3 = arc[0]
+		for k in range(1, 37):
+			var t = k / 36.0
+			var centre: Vector3 = a.lerp(b, t) + lift * 4.0 * t * (1.0 - t)
+			var twist = t * TAU * 4.0
+			var point = centre + Vector3(cos(twist), sin(twist), 0) * 0.35 * sin(t * PI)
+			link(tether, last, point, 0.06, Color(color.lightened(0.35), 0.95))
+			last = point
+		effects.append({"node": tether, "v": Vector3.ZERO, "ttl": 0.8, "life": 0.8, "gravity": false, "base": Vector3.ONE, "keep": true})
+		var suck = torus(self, a + Vector3(0, -0.5, 0), 1.3, 0.12, Color(color, 0.95), true)
+		effects.append({"node": suck, "v": Vector3.ZERO, "ttl": 0.6, "life": 0.6, "gravity": false, "base": Vector3.ONE * 1.3})
+		var gain = torus(self, b + Vector3(0, -0.5, 0), 0.4, 0.08, Color(color, 0.95), true)
+		effects.append({"node": gain, "v": Vector3.ZERO, "ttl": 0.6, "life": 0.6, "gravity": false, "base": Vector3.ONE * 3.2, "grow": true, "tint": color})
+	if fx != null:
+		for k in range(12):
+			var along = (arc[k + 1] - arc[k]) * 10.0
+			fx.emit("glow", arc[k], along, Color(color.lightened(0.2), 0.95), 0.35, 0.05, 0.5)
+			fx.emit("spark", arc[k], along * 0.8 + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)), Color("f3e6ff"), 0.14, 0.03, 0.4, 0.0, 1.5, 0.1)
+		fx.embers(a, color, 16, 2.5, 0.16, 0.7, Vector3.UP, 120.0, 1.0)
+		fx.star(b, Color("f3e6ff"), 1.2, 0.3)
+	flash(b, color, 4.0, 0.4, 8.0)
+	if interrupted:
+		# The rival's ultimate breaks in its hands: a white shatter, shards of its own light
+		# and a heavier shake - the moment to be proud of.
+		if fx != null:
+			fx.star(a, Color("ffffff"), 2.4, 0.3)
+			fx.sparks(a, Color("ffffff"), 30, 9.0, 0.14, 0.5, Vector3.UP, 180.0)
+			fx.debris(a, [color, Color("f3e6ff"), Color("ffffff")], 14, 6.0, 0.08, 0.9)
+			fx.pulse(Vector3(from.x, 0.08, from.y), color, 3.5, 0.6)
+		flash(a, Color("ffffff"), 8.0, 0.35, 10.0)
+		shake(0.45)
+
+func emp_flash(at: Vector2) -> void:
+	# An electromagnetic storm over the rival: three shock shells opening one after the
+	# other, arcs of lightning jumping between the rival and its wall, every shield fizzling.
+	var color = deep(Rules.power_color("emp"))
+	var centre = Vector3(at.x, 0.6, at.y)
+	for k in range(3):
+		schedule(k * 0.1, func():
+			if effects.size() < effect_limit:
+				var shell = sphere(self, centre, Vector3.ONE * 1.0, Color(color, 0.8), true)
+				effects.append({"node": shell, "v": Vector3.ZERO, "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3(9.0, 3.0, 9.0), "grow": true, "tint": color})
+				var ring = torus(self, Vector3(at.x, 0.1, at.y), 1.0, 0.07, Color(color, 0.95), true)
+				effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.5, "life": 0.5, "gravity": false, "base": Vector3.ONE * 5.5, "grow": true, "tint": color}))
+	# Arcs from the rival to the bricks behind it, and between the bricks.
+	var targets: Array = []
+	for i in range(brick_nodes.size()):
+		var node: Node3D = brick_nodes[i]
+		if node.visible and signf(node.position.z) == signf(at.y) and i % 5 == 0:
+			targets.append(node.position + Vector3(0, 0.4, 0))
+	for k in range(mini(targets.size(), 7)):
+		var to: Vector3 = targets[k]
+		schedule(randf_range(0.0, 0.35), func(): lightning(centre, to, color, 0.32, 0.45, 0.11))
+		if fx != null:
+			fx.sparks(to, color.lightened(0.3), 6, 4.0, 0.1, 0.35, Vector3.UP, 120.0)
+			fx.smoke(to, Color("8a93a8"), 2, 0.25, 0.8, 0.1, 0.4)
+	# A cage of electric lattice clamps down over the rival for a moment.
+	if effects.size() < effect_limit:
+		var cage = MeshInstance3D.new()
+		var ball = SphereMesh.new()
+		ball.radial_segments = 32
+		ball.rings = 16
+		cage.mesh = ball
+		cage.material_override = shield_material(color, 7.0, 1.3)
+		cage.position = Vector3(at.x, 0.2, at.y)
+		cage.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(cage)
+		effects.append({"node": cage, "v": Vector3.ZERO, "ttl": 0.7, "life": 0.7, "gravity": false, "base": Vector3(3.6, 2.6, 3.6), "grow": true, "tint": color, "shield": 1.3})
+	# Forks of lightning crawling out across the floor in every direction from the rival.
+	for k in range(8):
+		var angle = k * TAU / 8.0 + randf_range(-0.2, 0.2)
+		var tip = Vector3(at.x, 0.12, at.y) + Vector3(cos(angle), 0, sin(angle)) * randf_range(2.2, 3.4)
+		schedule(k * 0.03, func(): lightning(Vector3(at.x, 0.3, at.y), tip, color, 0.3, 0.3, 0.09))
+	if fx != null:
+		fx.sparks(centre, Color("e6f0ff"), 40, 9.0, 0.16, 0.5, Vector3.UP, 180.0)
+		fx.sparks(centre, color, 30, 6.0, 0.14, 0.6, Vector3.UP, 180.0)
+		fx.star(centre, Color("ffffff"), 2.6, 0.25)
+		fx.pulse(Vector3(at.x, 0.08, at.y), color, 4.5, 0.5)
+	flash(centre, color, 7.0, 0.45, 12.0)
+	shake(0.4)
+
+func mortar_shell(from: Vector2, target: Vector2, flight: float) -> void:
+	# The launch: a blast of smoke and flame straight up; the shell climbs trailing smoke and
+	# embers and comes down on a target reticle that tightens as it falls.
+	var color = deep(Rules.power_color("mortar"))
+	var start = Vector3(from.x, 1.0, from.y)
 	var end = Vector3(target.x, 0.3, target.y)
+	if fx != null:
+		fx.muzzle(start, Vector3.UP, color, 0.2, 12, 1.0)
+		fx.smoke(start, Color("cfc8bb"), 6, 0.45, 1.2, 0.2, 0.9)
+	flash(start, color, 3.0, 0.2, 6.0)
+	shake(0.15)
+	if effects.size() + 3 >= effect_limit:
+		return
 	# The effects pull down at 6 units/s^2 when they have gravity: pick the launch to land.
 	var velocity = (end - start) / flight
 	velocity.y += 0.5 * 6.0 * flight
 	var shell = Node3D.new()
 	add_child(shell)
 	shell.position = start
-	sphere(shell, Vector3.ZERO, Vector3.ONE * 0.34, Color("3b3438"))
-	sphere(shell, Vector3.ZERO, Vector3.ONE * 0.6, Color(color, 0.45), true)
-	effects.append({"node": shell, "v": velocity, "ttl": flight, "life": flight, "gravity": true, "base": Vector3.ONE, "keep": true})
-	var mark = torus(self, Vector3(target.x, 0.07, target.y), Rules.MORTAR_RADIUS, 0.05, Color(color, 0.9), true)
-	effects.append({"node": mark, "v": Vector3.ZERO, "ttl": flight, "life": flight, "gravity": false, "base": Vector3.ONE, "keep": true})
+	sphere(shell, Vector3.ZERO, Vector3(0.46, 0.46, 0.62), Color("2d2a2e"))
+	sphere(shell, Vector3.ZERO, Vector3.ONE * 1.0, Color(color, 0.7), true)
+	sphere(shell, Vector3.ZERO, Vector3.ONE * 0.5, Color("fff0d0", 0.9), true)
+	effects.append({"node": shell, "v": velocity, "ttl": flight, "life": flight, "gravity": true, "base": Vector3.ONE, "keep": true, "trail": color})
+	# The reticle: an outer ring turning, an inner one closing in, four ticks.
+	var reticle = Node3D.new()
+	add_child(reticle)
+	reticle.position = Vector3(target.x, 0.07, target.y)
+	torus(reticle, Vector3.ZERO, Rules.MORTAR_RADIUS, 0.09, Color(color, 0.95), true)
+	for k in range(4):
+		var d = Vector3(cos(k * PI * 0.5), 0, sin(k * PI * 0.5))
+		segment(reticle, d * Rules.MORTAR_RADIUS * 0.7, d * Rules.MORTAR_RADIUS * 1.25, 0.06, 0.03, Color(color, 0.95), true)
+	effects.append({"node": reticle, "v": Vector3.ZERO, "ttl": flight, "life": flight, "gravity": false, "base": Vector3.ONE, "keep": true, "spin_y": true})
+	var closing = torus(self, Vector3(target.x, 0.08, target.y), Rules.MORTAR_RADIUS * 2.0, 0.09, Color(color.lightened(0.25), 0.9), true)
+	effects.append({"node": closing, "v": Vector3.ZERO, "ttl": flight, "life": flight, "gravity": false, "base": Vector3.ONE})
+
+func mortar_impact(at: Vector2, radius: float) -> void:
+	# A heavy landing: fireball, a column of smoke, a shockwave across the floor, flying
+	# chunks of wall and a scorch that stays.
+	var color = deep(Rules.power_color("mortar"))
+	var p = Vector3(at.x, 0.4, at.y)
+	explosion(at, radius)
+	if fx != null:
+		fx.blast(p + Vector3(0, 0.3, 0), color, radius * 1.3)
+		fx.star(p, Color("fff4d6"), 2.2, 0.2)
+		fx.smoke(p, Color("4a4440"), 10, 0.7, 1.8, 0.4, 1.2)
+		fx.debris(p, [theme.get("block_alt", CREAM), DARK, color], 14, 7.0, 0.13, 1.3)
+		fx.embers(p, color, 18, 4.0, 0.15, 1.0, Vector3.UP, 70.0, -4.0)
+	if effects.size() < effect_limit:
+		var wave = torus(self, Vector3(at.x, 0.1, at.y), 1.0, 0.1, Color(color, 0.95), true)
+		effects.append({"node": wave, "v": Vector3.ZERO, "ttl": 0.5, "life": 0.5, "gravity": false, "base": Vector3.ONE * radius * 3.2, "grow": true, "tint": color})
+	flash(p + Vector3(0, 0.5, 0), color, 8.0, 0.35, 10.0)
+	scorch(at, radius * 2.2, Color("2b2320"), 2.5)
+	shake(0.4)
+
+func absorb_flash(at: Vector2, team: int) -> void:
+	# The sponge swallows a round: an implosion where it struck, golden motes flying to its
+	# pilot, a +1 floating up.
+	var color = deep(Rules.power_color("sponge"))
+	var p = Vector3(at.x, 0.45, at.y)
+	if effects.size() < effect_limit:
+		var gulp = torus(self, p, 0.55, 0.11, Color(color, 0.95), true)
+		effects.append({"node": gulp, "v": Vector3.ZERO, "ttl": 0.3, "life": 0.3, "gravity": false, "base": Vector3.ONE * 1.4})
+	if fx != null:
+		var home = units[team].position + Vector3(0, 1.0, 0) if is_instance_valid(units[team]) else p
+		for k in range(6):
+			var jitter = Vector3(randf_range(-0.3, 0.3), randf_range(0, 0.4), randf_range(-0.3, 0.3))
+			fx.emit("glow", p + jitter, (home - p) * randf_range(1.2, 1.7), Color(color, 0.95), 0.26, 0.06, 0.6, 0.0, 0.5)
+		fx.star(p, Color("fff6d0"), 0.8, 0.15)
+	gain_mark(at, 1, color)
+
+func immune_flash(at: Vector2, cleansed: bool) -> void:
+	# A column of white-gold light over the pilot; if frost was on it, the ice shatters off.
+	var color = IMMUNE_GLOW
+	var p = Vector3(at.x, 0.9, at.y)
+	if effects.size() < effect_limit:
+		var column = cylinder(self, Vector3(at.x, 2.0, at.y), 0.6, 4.0, Color(color, 0.8), true, 20)
+		effects.append({"node": column, "v": Vector3.ZERO, "ttl": 0.5, "life": 0.5, "gravity": false, "base": Vector3.ONE, "keep": true})
+	if fx != null:
+		fx.star(p, Color("ffffff"), 2.0, 0.3)
+		fx.embers(Vector3(at.x, 0.1, at.y), Color("fff6d8"), 20, 3.0, 0.14, 0.9, Vector3.UP, 30.0, 1.0)
+		fx.ring(Vector3(at.x, 0.06, at.y), color, 1.6, 0.5)
+		if cleansed:
+			fx.debris(p, [deep(Rules.power_color("freeze")), Color("f2fdff"), Color("dff4ff")], 16, 5.0, 0.1, 1.0)
+	flash(p, color, 5.0, 0.4, 8.0)
+
+func immune_block(team: int, at: Vector2) -> void:
+	# Something tried to put an immune pilot down: the bubble flares where it was struck.
+	var color = IMMUNE_GLOW
+	var bubble: MeshInstance3D = power_nodes[team].get_node("Immune/Bubble")
+	bubble.material_override.set_shader_parameter("ripple_at", Vector3(at.x, 1.0, at.y))
+	bubble.material_override.set_shader_parameter("ripple_time", shader_time())
+	if fx != null:
+		fx.star(Vector3(at.x, 1.0, at.y), Color("ffffff"), 1.4, 0.2)
+		fx.sparks(Vector3(at.x, 1.0, at.y), color, 16, 5.0, 0.12, 0.35, Vector3.UP, 180.0)
+
+func dome_ripple(team: int, at: Vector2) -> void:
+	# An ultimate strikes the dome and the lattice ripples out from the blow.
+	var shell: MeshInstance3D = power_nodes[team].get_node("Dome/Shell")
+	shell.material_override.set_shader_parameter("ripple_at", Vector3(at.x, 1.2, at.y))
+	shell.material_override.set_shader_parameter("ripple_time", shader_time())
+	if fx != null:
+		fx.star(Vector3(at.x, 1.6, at.y), Color("ffffff"), 1.2, 0.2)
+		fx.sparks(Vector3(at.x, 1.6, at.y), deep(Rules.power_color("dome")), 10, 4.0, 0.1, 0.35, Vector3.UP, 160.0)
+
+func ricochet_spark(at: Vector2, heading: Vector2) -> void:
+	# The ricochet round kisses a surface: a teal star, a ring and a spray thrown off it.
+	var color = deep(Rules.power_color("ricochet"))
+	var p = Vector3(at.x, 0.55, at.y)
+	if fx != null:
+		fx.star(p, Color("e8fff8"), 0.9, 0.14)
+		fx.sparks(p, color, 10, 6.0, 0.1, 0.25, Vector3(heading.x, 0.2, heading.y), 60.0)
+		fx.ring(Vector3(at.x, 0.06, at.y), color, 0.55, 0.25)
 
 func power_flash(pos: Vector2, id: String) -> void:
 	# A power going off: a floor ring in its colour; defensive powers lift a column of
@@ -2721,8 +3036,21 @@ func update_power_effects(rules, dt: float) -> void:
 		var dome_node: Node3D = power_nodes[team].get_node("Dome")
 		dome_node.visible = state.dome_time > 0
 		if dome_node.visible:
-			dome_node.scale = Vector3(1, minf(1.0, (Rules.DOME_SECONDS - state.dome_time) / 0.25), 1)
-		power_nodes[team].get_node("SlowField").visible = state.slow_time > 0
+			var shell_mat: ShaderMaterial = dome_node.get_node("Shell").material_override
+			shell_mat.set_shader_parameter("rise", clampf((Rules.DOME_SECONDS - state.dome_time) / 0.7, 0.0, 1.0))
+			shell_mat.set_shader_parameter("strength", clampf(state.dome_time / 0.6, 0.0, 1.0))
+		var field_node: Node3D = power_nodes[team].get_node("SlowField")
+		field_node.visible = state.slow_time > 0
+		if field_node.visible:
+			for k in range(3):
+				var roll = fmod(clock * 0.35 + k / 3.0, 1.0)
+				var wave: Node3D = field_node.get_node("Wave%d" % k)
+				wave.scale = Vector3.ONE * (0.5 + roll * Rules.HALF_WIDTH * 1.2)
+				wave.visible = roll < 0.9
+			if fx != null and fmod(clock, 0.06) < dt:
+				# Motes hanging in the thickened air, drifting up slowly.
+				var side_z = signf(rules.players[team].p.y)
+				fx.emit("glow", Vector3(randf_range(-Rules.HALF_WIDTH, Rules.HALF_WIDTH), randf_range(0.1, 0.8), side_z * randf_range(0.5, Rules.HALF_LENGTH - 0.5)), Vector3(0, 0.25, 0), Color(Rules.power_color("slow"), 0.8), 0.16, 0.05, 1.6)
 		var sponge_node: Node3D = power_nodes[team].get_node("Sponge")
 		sponge_node.visible = state.sponge_time > 0
 		if sponge_node.visible:
@@ -2732,6 +3060,12 @@ func update_power_effects(rules, dt: float) -> void:
 		if immune_node.visible:
 			immune_node.position = Vector3(rules.players[team].p.x, 0, rules.players[team].p.y)
 			immune_node.rotation.y = clock * 2.2
+			immune_node.get_node("Orbit").rotation.z = clock * 3.0
+			immune_node.get_node("Bubble").material_override.set_shader_parameter("rise", clampf((Rules.IMMUNE_SECONDS - state.immune_time) / 0.35, 0.0, 1.0))
+			immune_node.get_node("Bubble").material_override.set_shader_parameter("strength", 0.85 * clampf(state.immune_time / 0.5, 0.0, 1.0))
+			if fx != null and fmod(clock, 0.09) < dt:
+				var around = randf() * TAU
+				fx.emit("glow", immune_node.position + Vector3(cos(around) * 0.9, 0.1, sin(around) * 0.9), Vector3(0, 1.6, 0), Color("fff3c8", 0.9), 0.14, 0.03, 0.8)
 		var cape: Node3D = power_nodes[team].get_node("Cape")
 		cape.visible = state.mirror_time > 0
 		if cape.visible:
@@ -2970,14 +3304,34 @@ func build_power_effects() -> void:
 		var dome = Node3D.new()
 		dome.name = "Dome"
 		root.add_child(dome)
-		sphere(dome, Vector3(bank.x, 0.0, bank.y), Vector3(Rules.HALF_WIDTH * 2.1, 2.6, 4.2), Color(Rules.power_color("dome"), 0.75), true)
-		torus(dome, Vector3(bank.x, 0.05, bank.y), 1.0, 0.03, Color(Rules.power_color("dome"), 0.9), true).scale = Vector3(Rules.HALF_WIDTH * 1.05, 1.0, 2.1)
+		# The dome: a hexagon lattice of light rising over the wall (shaders/fx_shield).
+		var shell = MeshInstance3D.new()
+		shell.name = "Shell"
+		var half_sphere = SphereMesh.new()
+		half_sphere.radius = 0.5
+		half_sphere.height = 1.0
+		half_sphere.is_hemisphere = true
+		half_sphere.radial_segments = 48
+		half_sphere.rings = 16
+		shell.mesh = half_sphere
+		shell.position = Vector3(bank.x, 0.0, bank.y)
+		shell.scale = Vector3(Rules.HALF_WIDTH * 2.2, 5.2, 4.6)
+		shell.material_override = shield_material(deep(Rules.power_color("dome")), 11.0)
+		shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		dome.add_child(shell)
+		torus(dome, Vector3(bank.x, 0.05, bank.y), 1.0, 0.06, Color(deep(Rules.power_color("dome")), 0.95), true).scale = Vector3(Rules.HALF_WIDTH * 1.1, 1.0, 2.3)
 		dome.hide()
 		var field = Node3D.new()
 		field.name = "SlowField"
 		root.add_child(field)
-		box(field, Vector3(0, 0.5, side_sign * Rules.HALF_LENGTH * 0.5), Vector3(Rules.HALF_WIDTH * 2.0, 1.0, Rules.HALF_LENGTH), Color(Rules.power_color("slow"), 0.5), true, 0.02)
-		segment(field, Vector3(-Rules.HALF_WIDTH, 0.06, 0.2 * side_sign), Vector3(Rules.HALF_WIDTH, 0.06, 0.2 * side_sign), 0.1, 0.04, Color(Rules.power_color("slow"), 0.9), true)
+		# The slow field: a low veil over the defended half, a bright border on the half-way line
+		# and rings of slowed time rolling out across the floor.
+		box(field, Vector3(0, 0.35, side_sign * Rules.HALF_LENGTH * 0.5), Vector3(Rules.HALF_WIDTH * 2.0, 0.7, Rules.HALF_LENGTH), Color(Rules.power_color("slow"), 0.4), true, 0.02)
+		segment(field, Vector3(-Rules.HALF_WIDTH, 0.08, 0.15 * side_sign), Vector3(Rules.HALF_WIDTH, 0.08, 0.15 * side_sign), 0.14, 0.06, Color("eaffea", 0.95), true)
+		segment(field, Vector3(-Rules.HALF_WIDTH, 0.72, 0.15 * side_sign), Vector3(Rules.HALF_WIDTH, 0.72, 0.15 * side_sign), 0.08, 0.04, Color(Rules.power_color("slow"), 0.9), true)
+		for k in range(3):
+			var wave = torus(field, Vector3(0, 0.05, side_sign * Rules.HALF_LENGTH * 0.5), 1.0, 0.03, Color(Rules.power_color("slow"), 0.8), true)
+			wave.name = "Wave%d" % k
 		field.hide()
 		var sponge = Node3D.new()
 		sponge.name = "Sponge"
@@ -2991,9 +3345,24 @@ func build_power_effects() -> void:
 		var halo_node = Node3D.new()
 		halo_node.name = "Immune"
 		root.add_child(halo_node)
-		torus(halo_node, Vector3(0, 0.1, 0), 0.75, 0.04, Color(Rules.power_color("immune"), 0.95), true)
-		torus(halo_node, Vector3(0, 1.9, 0), 0.4, 0.03, Color(Rules.power_color("immune"), 0.95), true)
-		cylinder(halo_node, Vector3(0, 1.0, 0), 0.7, 1.9, Color(Rules.power_color("immune"), 0.55), true, 20)
+		torus(halo_node, Vector3(0, 0.08, 0), 0.9, 0.07, Color(IMMUNE_GLOW, 0.95), true)
+		var spin_ring = torus(halo_node, Vector3(0, 1.0, 0), 1.0, 0.025, Color("fff3c8", 0.95), true)
+		spin_ring.name = "Orbit"
+		spin_ring.rotation.x = 1.1
+		# The bubble: a lattice of white light around the pilot.
+		var bubble = MeshInstance3D.new()
+		bubble.name = "Bubble"
+		var ball_mesh = SphereMesh.new()
+		ball_mesh.radius = 0.5
+		ball_mesh.height = 1.0
+		ball_mesh.radial_segments = 32
+		ball_mesh.rings = 16
+		bubble.mesh = ball_mesh
+		bubble.position = Vector3(0, 1.0, 0)
+		bubble.scale = Vector3(1.9, 2.3, 1.9)
+		bubble.material_override = shield_material(IMMUNE_GLOW, 6.0, 0.95)
+		bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		halo_node.add_child(bubble)
 		halo_node.hide()
 		# Everything these standing effects are built from is energy, not flat colour (the
 		# steel walls excepted).

@@ -935,6 +935,8 @@ func activate_power(team: int, index: int) -> bool:
 			# The frost is set on the pilot that has to live with it, not on the one casting.
 			if powers[1 - team].immune_time <= 0:
 				powers[1 - team].freeze_time = FREEZE_SECONDS
+			else:
+				events.append({"kind": "immune_block", "team": 1 - team, "p": players[1 - team].p})
 			events.append({"kind": "freeze", "team": 1 - team, "p": players[1 - team].p, "seconds": FREEZE_SECONDS})
 		"magnet":
 			powers[team].magnet_time = MAGNET_SECONDS
@@ -1485,6 +1487,8 @@ func shock_pulse(team: int) -> void:
 	balls.clear()
 	if powers[enemy].immune_time <= 0:
 		players[enemy].stun = maxf(players[enemy].stun, STUN_POWER_SECONDS)
+	else:
+		events.append({"kind": "immune_block", "team": enemy, "p": players[enemy].p})
 	obstacle_stun = maxf(obstacle_stun, STUN_POWER_SECONDS)
 	events.append({"kind": "shock", "team": team, "p": players[team].p})
 	events.append({"kind": "stun", "team": enemy, "p": players[enemy].p})
@@ -2008,6 +2012,8 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					remaining *= 1.0 - best
 					continue
 				var was_alive: bool = bricks[target].alive
+				if not preview and int(ball.get("power", 0)) == 4:
+					events.append({"kind": "sniper_hit", "team": ball.owner, "p": ball.p, "heading": ball.v.normalized()})
 				# A round thrown by a power, or turbocharged by a bumper, says what it took;
 				# a plain shot does not, or every round would drag a number behind it.
 				var spoken: bool = int(ball.get("power", 0)) > 0 or ball.get("boosted", false)
@@ -2045,6 +2051,10 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					if not preview and powers[target].immune_time <= 0 and players[target].stun < SNIPER_STUN:
 						players[target].stun = SNIPER_STUN
 						events.append({"kind": "stun", "p": ball.p, "team": target})
+					elif not preview and powers[target].immune_time > 0:
+						events.append({"kind": "immune_block", "team": target, "p": players[target].p})
+					if not preview:
+						events.append({"kind": "sniper_hit", "team": ball.owner, "p": ball.p, "heading": ball.v.normalized()})
 				else:
 					damage_player(target, 1, ball.p)
 					if ball.get("power", 0) == 5 and not preview:
@@ -2091,7 +2101,7 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					ball.damage = BOOST_DAMAGE
 				ball.p += normal * 0.005
 				if not preview:
-					events.append({"kind": "boost" if kind == "boost" else "bounce", "p": ball.p, "team": ball.owner, "surface": kind, "heading": ball.v.normalized()})
+					events.append({"kind": "boost" if kind == "boost" else "bounce", "p": ball.p, "team": ball.owner, "surface": kind, "heading": ball.v.normalized(), "power": int(ball.get("power", 0))})
 				remaining *= 1.0 - best
 	return {}
 

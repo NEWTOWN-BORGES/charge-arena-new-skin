@@ -868,6 +868,8 @@ func play_events() -> void:
 			var team = int(event.team)
 			var mine = team == local_team
 			arena.shot_feedback(team, mine)
+			if int(event.get("power", 0)) == 4:
+				arena.sniper_fire(team)
 			if mine:
 				hud.fire_age = 0.0
 				if not game_settings.auto_fire:
@@ -884,6 +886,8 @@ func play_events() -> void:
 			# A ricochet tells the trajectory; it never competes with a break.
 			arena.impact_feedback(event)
 			play_tone("metal" if event.get("surface", "") == "obstacle" else "ricochet", -1.5, true)
+			if int(event.get("power", 0)) == 6:
+				arena.ricochet_spark(event.p, event.get("heading", Vector2.UP))
 		elif event.kind == "player_hit":
 			arena.impact_feedback(event)
 			play_tone("shield")
@@ -998,18 +1002,27 @@ func play_events() -> void:
 		elif event.kind == "mortar_launch":
 			arena.mortar_shell(event.p, event.target, float(event.get("flight", 0.9)))
 		elif event.kind == "mortar":
-			arena.explosion(event.p, float(event.get("radius", 1.0)))
+			arena.mortar_impact(event.p, float(event.get("radius", 1.0)))
 			arena.shake_level(GameFeel.Level.POWER)
 			play_tone("blast")
 		elif event.kind == "cluster":
-			arena.burst(event.p, Rules.power_color("cluster"), false)
+			arena.cluster_flash(event.p)
 			play_tone("blast", -4.0)
 		elif event.kind == "absorb":
-			arena.burst(event.p, Rules.power_color("sponge"), false)
+			arena.absorb_flash(event.p, int(event.team))
 			play_tone("shield", -3.0, true)
+		elif event.kind == "immune":
+			arena.immune_flash(event.p, true)
+		elif event.kind == "immune_block":
+			arena.immune_block(int(event.team), event.p)
+			play_tone("shield")
+		elif event.kind == "sniper_hit":
+			arena.sniper_hit(event.p, event.get("heading", Vector2.UP))
 		elif event.kind == "power_ready" and event.team == local_team:
 			play_tone("ready")
 		elif event.kind in ["brick", "brick_hit"]:
+			if event.get("soaked", false) and rules.powers[int(event.team)].dome_time > 0:
+				arena.dome_ripple(int(event.team), event.p)
 			arena.impact_feedback(event)
 			impact_variant = (impact_variant + 1) % 3
 			if event.get("soaked", false):
