@@ -3286,7 +3286,21 @@ def faisca4_hull(p):
 def cbox(p, role, at_, size, chamfer=0.03, rot=(0, 0, 0), taper=None):
     """Bloco de arestas chanfradas (bisel plano), o traço das referências."""
     m = sub(T(*at_), rot=rot) if not isinstance(at_, Matrix) else at_
-    mbox(p, role, m, size, chamfer, 1, taper)
+    mbox(p, role, m, size, chamfer * (1.6 if SOFT[0] else 1.0), 3 if SOFT[0] else 1, taper)
+
+
+# Arestas arredondadas em vez de chanfradas (a BATIDA): liga-se à volta das suas peças.
+SOFT = [False]
+
+
+def softened(fn):
+    def build(p, *args):
+        SOFT[0] = True
+        try:
+            fn(p, *args)
+        finally:
+            SOFT[0] = False
+    return build
 
 
 def beam(p, role, a, b, width, depth, chamfer=0.03, pad=0.0, front=(0, 0, -1)):
@@ -4177,17 +4191,7 @@ def eclipse8_arm(p):
     L = (w - e).length
     extruded(p, "trim", m @ Matrix.Translation((-0.09, 0, 0)) @ Matrix.Rotation(math.radians(90), 4, "Y"), [(0.05, -L * 0.4), (0.05, L * 0.3), (-0.02, L * 0.55)], 0.015)
     cbox(p, "glow", sub(m, 0, -L * 0.1, -0.092), (0.03, 0.12, 0.006), 0.003)
-    # Garra: palma escura e três dedos compridos em dois segmentos, pontas de metal.
-    hand = frame(w, w - e, front=(0.3, 0, -1))
-    cbox(p, "dark", sub(hand, 0, 0.07, 0), (0.15, 0.1, 0.13), 0.02)
-    cbox(p, "shell", sub(hand, 0, 0.06, -0.06), (0.16, 0.08, 0.03), 0.01)
-    for i in (-1, 0, 1):
-        f1 = sub(hand, i * 0.05, 0.12, -0.01, rot=(-12, 0, -i * 10))
-        cbox(p, "dark", sub(f1, 0, 0.07, 0), (0.035, 0.14, 0.04), 0.01)
-        f2 = sub(f1, 0, 0.14, 0, rot=(-28, 0, 0))
-        cbox(p, "dark", sub(f2, 0, 0.05, 0), (0.03, 0.1, 0.035), 0.008)
-        lathe(p, "metal", sub(f2, 0, 0.1, 0, rot=(-20, 0, 0)), [(0.0, 0.0), (0.018, 0.0), (0.0, 0.09)], 8)
-    cbox(p, "dark", sub(hand, 0.09, 0.1, -0.04, rot=(0, 0, 30)), (0.035, 0.1, 0.04), 0.01)
+    eclipse8_claw(p)
     # Antebraço do canhão.
     e = E8["elbow_r"]
     d = (E8["muzzle"] - e).normalized()
@@ -4587,6 +4591,252 @@ def with_detail(fn, extra):
     return build
 
 
+# --------------------------------------------------------------------------------------
+# Versão 10: as silhuetas novas montadas sobre o esqueleto v2 peça a peça - ombro com
+# suporte, rolamento, tambor e garfo; braço com osso, servo, pistão, cotovelo em dobradiça e
+# cabo; pulso com rolamento e colar; mão com dedos de três falanges e pinos; perna com anca
+# em garfo, joelho e tornozelo em dobradiça, amortecedores e pé em camadas. A blindagem de
+# cada robô assenta por cima.
+# --------------------------------------------------------------------------------------
+def v10_shoulders(p, spec):
+    for side in (-1, 1):
+        elbow = spec["elbow_l"] if side < 0 else spec["elbow_r"]
+        pin, drum = shoulder(p, side, spec["bracket"], spec["shoulder_y"], 0.01, spec.get("bearing", 0.1), spec.get("drum", 0.08), 0.08, pin_drop=spec.get("drop", 0.12))
+        upper_arm(p, side, pin, elbow, armor=spec.get("arm_armor", "shell"), bone_r=spec.get("bone", 0.04), elbow_w=spec.get("elbow_w", 0.08),
+                  elbow_r=spec.get("elbow_rad", 0.05), armor_size=spec.get("armor_size", (0.13, 0.11)))
+        spec["pauldron"](p, side, drum, pin, elbow)
+
+
+def v10_forearm(p, spec, armor):
+    e, w = spec["elbow_l"], spec["wrist_l"]
+    m = frame(e, w - e, front=(0.3, 0, -1))
+    length = (w - e).length
+    mbox(p, "dark", sub(m, 0, 0.02, 0), (0.07, 0.07, 0.08), 0.012, 1)
+    capsule(p, "dark", sub(m, 0, length * 0.55, 0), spec.get("core", 0.07), length * 0.8, 16)
+    piston(p, at(m, 0.0, 0.06, -0.06), at(m, 0.0, length - 0.04, -0.06), 0.014)
+    cable(p, [at(m, -0.06, 0.04, 0.03), at(m, -0.08, length * 0.5, 0.04), at(m, -0.05, length - 0.02, 0.03)], 0.009)
+    armor(p, m, length)
+    wrist(p, m, length, plate=spec.get("plate", (0.1, 0.09)))
+    hand(p, sub(m, 0, length + 0.14 * spec.get("hand", 1.3) / 1.3, 0.0, rot=(0, -90, 180)), fingers=spec.get("fingers", 4), scale=spec.get("hand", 1.3), curl=0.9, armor=spec.get("hand_armor", "shell"))
+
+
+def v10_gun_forearm(p, spec, armor):
+    e, muzzle = spec["elbow_r"], spec["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    mbox(p, "dark", sub(m, 0, 0.03, 0), (0.07, 0.08, 0.08), 0.012, 1)
+    capsule(p, "dark", sub(m, 0, 0.22, 0), spec.get("core", 0.07), 0.36, 16)
+    armor(p, m)
+    ring = sub(m, 0, spec.get("ring_at", 0.44), 0)
+    mtube(p, "metal", ring, spec.get("ring_r", 0.08), 0.03, 20, bevel=0.006)
+    bolts(p, sub(ring, 0, 0.017, 0), spec.get("ring_r", 0.08) * 0.8, 6, size=0.009)
+
+
+# ---- BATIDA 10 ------------------------------------------------------------------------
+B10 = {"shoulder_y": 1.12, "bracket": 0.24, "elbow_l": Vector((-0.46, 0.84, 0.02)), "wrist_l": Vector((-0.49, 0.56, -0.08)),
+       "elbow_r": Vector((0.46, 0.84, -0.02)), "muzzle": Vector((0.45, 0.72, -0.92)), "bearing": 0.085, "drum": 0.07,
+       "armor_size": (0.15, 0.13), "hand": 1.25, "fingers": 4, "hand_armor": "trim"}
+
+
+def b10_pauldron(p, side, drum, pin, elbow):
+    cbox(p, "trim", (drum.x + side * 0.03, drum.y + 0.02, 0.01), (0.22, 0.2, 0.28), 0.05)
+    cbox(p, "shell", (drum.x + side * 0.06, drum.y + 0.08, -0.13), (0.07, 0.04, 0.012), 0.008)
+    for i in range(3):
+        screw(p, plane((drum.x + side * (0.0 + i * 0.05), drum.y - 0.05, -0.132), (0, 0, -1), (1, 0, 0)), 0, 0, 0.008)
+
+
+B10["pauldron"] = b10_pauldron
+
+
+def batida10_shoulders(p):
+    v10_shoulders(p, B10)
+
+
+def batida10_arm(p):
+    def armor(q, m, length):
+        cbox(q, "trim", sub(m, 0, length * 0.38, -0.01), (0.2, length * 0.5, 0.2), 0.05)
+        cbox(q, "shell", sub(m, 0, length * 0.76, -0.01), (0.21, 0.1, 0.21), 0.04)
+        bp_triangle(q, "dark", sub(m, 0, length * 0.76, -0.111), 0.05)
+    v10_forearm(p, B10, armor)
+
+    def gun_armor(q, m):
+        cbox(q, "trim", sub(m, 0, 0.2, 0), (0.2, 0.3, 0.2), 0.05)
+        cbox(q, "shell", sub(m, 0, 0.36, 0), (0.21, 0.08, 0.21), 0.04)
+        bp_diamond(q, "dark", tuple(at(m, 0.101, 0.2, 0.0)), 0.07, bar=0.011)
+    v10_gun_forearm(p, dict(B10, ring_at=0.43, ring_r=0.07), gun_armor)
+
+
+def batida10_gun(p):
+    e, muzzle = B10["elbow_r"], B10["muzzle"]
+    m = frame(e, muzzle - e, front=(0, 1, 0))
+    L = (muzzle - e).length
+    mtube(p, "dark", sub(m, 0, (0.46 + L) / 2, 0), 0.045, L - 0.46, 16)
+    for i in range(3):
+        mring(p, "shell", sub(m, 0, 0.52 + i * 0.07, 0), 0.058, 0.012, 16, 6)
+    mtube(p, "glow", sub(m, 0, L - 0.01, 0), 0.03, 0.01, 12)
+
+
+def batida10_leg(p, out):
+    def thigh(q, o, top, bottom):
+        h = top - bottom
+        cbox(q, "trim", (0, top - h / 2, -0.03), (0.23, h, 0.19), 0.05)
+        for i in range(2):
+            mbox(q, "hazard", T(0, top - 0.05 - i * 0.025, -0.126), (0.06, 0.01, 0.004), 0.002, 1)
+
+    def shin(q, o, top, bottom, mid):
+        h = top - bottom
+        cbox(q, "trim", (0, top - h * 0.35, -0.04), (0.2, h * 0.7, 0.17), 0.045)
+        cbox(q, "shell", (0, bottom + 0.05, -0.03), (0.21, 0.09, 0.19), 0.04)
+
+    def feet(q, m, o, ankle):
+        foot(q, m, length=0.36, width=0.22, out=o, toes=3, armor="trim", heel="shell")
+    leg(p, out, BP_HIP, knee_y=-0.3, ankle_up=0.16, width=0.95, knee_w=0.11, knee_r=0.055, foot_fn=feet, thigh_fn=thigh, shin_fn=shin, guard=True, guard_role="trim")
+
+
+# ---- MAGNUS 10 (o tanque negro) ---------------------------------------------------------
+M10 = {"shoulder_y": 1.42, "bracket": 0.36, "elbow_l": E5["elbow_l"], "wrist_l": Vector((-0.66, 0.74, -0.14)),
+       "elbow_r": E5["elbow_r"], "muzzle": ECLIPSE["muzzle"], "bearing": 0.12, "drum": 0.1, "bone": 0.055, "elbow_w": 0.11, "elbow_rad": 0.07,
+       "armor_size": (0.2, 0.16), "hand": 1.6, "fingers": 4, "core": 0.1, "plate": (0.14, 0.12)}
+
+
+def m10_pauldron(p, side, drum, pin, elbow):
+    cbox(p, "shell", (side * 0.6, 1.52, 0.02), (0.38, 0.32, 0.46), 0.06)
+    cbox(p, "trim", (side * 0.6, 1.69, 0.02), (0.26, 0.03, 0.36), 0.01)
+    cbox(p, "trim", (side * 0.795, 1.52, 0.02), (0.02, 0.2, 0.3), 0.006)
+    front_screws(p, (side * 0.6, 1.52), 0.13, 0.1, -0.212, 0.01)
+
+
+M10["pauldron"] = m10_pauldron
+
+
+def magnus10_shoulders(p):
+    v10_shoulders(p, M10)
+
+
+def magnus10_arm(p):
+    def armor(q, m, length):
+        cbox(q, "shell", sub(m, 0, length * 0.5, 0), (0.3, length * 0.86, 0.3), 0.05)
+        cbox(q, "trim", sub(m, 0, length * 0.2, 0), (0.31, 0.04, 0.31), 0.012)
+        cbox(q, "trim", sub(m, 0, length * 0.86, 0), (0.31, 0.04, 0.31), 0.012)
+        front_screws(q, tuple(at(m, 0, length * 0.5, 0))[:2], 0.1, 0.1, at(m, 0, length * 0.5, 0).z - 0.152, 0.009)
+    v10_forearm(p, M10, armor)
+
+    def gun_armor(q, m):
+        cbox(q, "shell", sub(m, 0, 0.24, 0), (0.33, 0.4, 0.33), 0.05)
+        cbox(q, "trim", sub(m, 0, 0.1, 0), (0.34, 0.04, 0.34), 0.012)
+        cbox(q, "dark", sub(m, 0, 0.46, 0), (0.24, 0.06, 0.24), 0.02)
+    v10_gun_forearm(p, dict(M10, ring_at=0.5, ring_r=0.1), gun_armor)
+
+
+def magnus10_leg(p, out):
+    def thigh(q, o, top, bottom):
+        h = top - bottom
+        cbox(q, "shell", (0, top - h / 2, -0.02), (0.32, h, 0.32), 0.05)
+        cbox(q, "dark", (o * 0.165, top - h / 2, 0.0), (0.012, h * 0.7, 0.16), 0.004)
+
+    def shin(q, o, top, bottom, mid):
+        h = top - bottom
+        cbox(q, "shell", (0, top - h / 2, -0.02), (0.34, h, 0.34), 0.05, taper=(0.88, 0.88))
+        cbox(q, "trim", (0, top - 0.03, -0.16), (0.2, 0.1, 0.06), 0.02)
+
+    def boots(q, m, o, ankle):
+        foot(q, m, length=0.5, width=0.36, out=o, toes=2, armor="shell", heel="dark")
+    leg(p, out, ECLIPSE["hip"].y, knee_y=-0.34, ankle_up=0.2, width=1.35, knee_w=0.14, knee_r=0.075, foot_fn=boots, thigh_fn=thigh, shin_fn=shin, guard=True, guard_role="trim", hub_r=0.09)
+
+
+# ---- FAÍSCA 10 ------------------------------------------------------------------------
+F10 = {"shoulder_y": 1.47, "bracket": 0.2, "elbow_l": F9["elbow_l"], "wrist_l": Vector((-0.43, 0.84, -0.08)),
+       "elbow_r": F9["elbow_r"], "muzzle": F9["muzzle"], "bearing": 0.075, "drum": 0.06, "bone": 0.03, "elbow_w": 0.065, "elbow_rad": 0.04,
+       "armor_size": (0.1, 0.09), "hand": 1.0, "fingers": 3, "core": 0.05, "plate": (0.08, 0.07), "drop": 0.1}
+
+
+def f10_pauldron(p, side, drum, pin, elbow):
+    cbox(p, "shell", (drum.x + side * 0.02, drum.y + 0.05, 0.01), (0.16, 0.08, 0.2), 0.03, rot=(0, 0, -side * 18))
+    cbox(p, "trim", (drum.x + side * 0.08, drum.y + 0.03, 0.01), (0.02, 0.06, 0.18), 0.005, rot=(0, 0, -side * 18))
+
+
+F10["pauldron"] = f10_pauldron
+
+
+def faisca10_shoulders(p):
+    v10_shoulders(p, F10)
+
+
+def faisca10_arm(p):
+    def armor(q, m, length):
+        cbox(q, "shell", sub(m, 0, length * 0.42, -0.01), (0.12, length * 0.6, 0.12), 0.03)
+        for i in range(2):
+            mbox(q, "glow", sub(m, 0, length * 0.32 + i * 0.06, -0.072), (0.05, 0.012, 0.004), 0.002, 1)
+        cbox(q, "trim", sub(m, 0, length * 0.78, 0), (0.13, 0.03, 0.13), 0.006)
+    v10_forearm(p, F10, armor)
+
+    def gun_armor(q, m):
+        cbox(q, "shell", sub(m, 0, 0.22, 0), (0.13, 0.3, 0.13), 0.03)
+        cbox(q, "trim", sub(m, 0, 0.08, 0), (0.14, 0.025, 0.14), 0.006)
+    v10_gun_forearm(p, dict(F10, ring_at=0.38, ring_r=0.06), gun_armor)
+
+
+# ---- ÓRBITA 10 ------------------------------------------------------------------------
+O10 = {"shoulder_y": 1.44, "bracket": 0.26, "elbow_l": O9["elbow_l"], "wrist_l": O9["wrist_l"],
+       "elbow_r": O9["elbow_r"], "muzzle": O9["muzzle"], "bearing": 0.09, "drum": 0.075, "armor_size": (0.13, 0.12),
+       "hand": 1.3, "fingers": 3, "core": 0.07}
+
+
+def o10_pauldron(p, side, drum, pin, elbow):
+    c = Vector((drum.x + side * 0.03, drum.y + 0.02, 0.01))
+    a0, a1 = (-90, 90) if side > 0 else (90, 270)
+    sphere_panel(p, "shell", T(*c), 0.15, (-10, 88), (a0 - 40, a1 + 40), 0.03, (12, 6), gap=0.01)
+    mring(p, "trim", axis_frame(c, "x"), 0.155, 0.014, 26, 6)
+    bolts(p, axis_frame(c + Vector((side * 0.12, 0, 0)), "x" if side > 0 else "-x"), 0.05, 6, size=0.009)
+
+
+O10["pauldron"] = o10_pauldron
+
+
+def orbita10_shoulders(p):
+    v10_shoulders(p, O10)
+
+
+def orbita10_arm(p):
+    def armor(q, m, length):
+        cyl_panel(q, "shell", sub(m, 0, length * 0.42, 0), 0.1, length * 0.55, (-80, 80), 0.03, (10, 2), gap=0.012, radius_top=0.095)
+        cyl_panel(q, "shell", sub(m, 0, length * 0.42, 0), 0.1, length * 0.55, (100, 260), 0.03, (10, 2), gap=0.012, radius_top=0.095)
+        mring(q, "trim", sub(m, 0, length * 0.74, 0), 0.105, 0.014, 22, 6)
+    v10_forearm(p, O10, armor)
+
+    def gun_armor(q, m):
+        lathe(q, "shell", m, [(0.0, 0.07), (0.08, 0.08), (0.11, 0.14), (0.115, 0.3), (0.1, 0.4), (0.0, 0.42)], 24)
+        mring(q, "trim", sub(m, 0, 0.2, 0), 0.117, 0.013, 24, 5)
+    v10_gun_forearm(p, dict(O10, ring_at=0.44, ring_r=0.085), gun_armor)
+
+
+def orbita10_leg(p, out):
+    def boots(q, m, o, ankle):
+        foot(q, m, length=0.42, width=0.28, out=o, toes=2, armor="shell", heel="trim")
+        mbox(q, "shell", sub(m, 0, 0.16, 0.0), (0.2, 0.1, 0.22), 0.05)
+        mring(q, "trim", axis_frame(at(m, 0, 0.21, 0.0), "y"), 0.1, 0.012, 20, 6)
+    leg(p, out, O9["hip"].y, knee_y=-0.26, ankle_up=0.2, width=1.05, knee_w=0.11, knee_r=0.058, foot_fn=boots,
+        thigh_fn=round_thigh(k=1.05), shin_fn=round_shin(k=1.05, r_bottom=0.1, r_top=0.12), thigh_top=0.02, guard=False, shin_top=-0.2)
+
+
+# ---- ECLIPSE: a garra passa a ter dedos de três falanges com pinos ----------------------
+def eclipse8_claw(p):
+    e, w = E8["elbow_l"], E8["wrist_l"]
+    m = frame(e, w - e, front=(0.3, 0, -1))
+    L = (w - e).length
+    plate = wrist(p, m, L - 0.05, plate=(0.12, 0.1))
+    palm = sub(m, 0, L + 0.08, 0)
+    mbox(p, "dark", palm, (0.14, 0.09, 0.12), 0.015)
+    mbox(p, "shell", sub(palm, 0, 0.0, -0.065), (0.15, 0.08, 0.025), 0.01)
+    for u in (-1, 1):
+        screw(p, sub(palm, u * 0.045, 0.0, -0.08, rot=(-90, 0, 0)), 0, 0, 0.007)
+    for i in (-1, 0, 1):
+        base = sub(palm, i * 0.045, 0.05, 0.0, rot=(180, 0, -i * 8))
+        mbox(p, "metal", base, (0.035, 0.02, 0.05), 0.006, 1)
+        mk.finger(p, sub(base, 0, -0.01, 0), (0.09, 0.08, 0.07), (10, 24, 30), width=0.034, role="dark", tip="metal")
+    thumb = sub(palm, 0.075, 0.02, 0.03, rot=(180, 0, 40))
+    mk.finger(p, thumb, (0.06, 0.05), (10, 30), width=0.03, role="dark", tip="metal")
+
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
@@ -4601,6 +4851,16 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("helio6_wings")(helio6_wings)
     part("orbita9_3_spin")(orbita9_spin)
+    for robot in ("batida10", "magnus10", "faisca10", "orbita10"):
+        for slot in ("shoulders", "arm", "gun"):
+            fn = globals().get(robot + "_" + slot)
+            if fn is not None:
+                part(robot + "_" + slot)(softened(fn) if robot == "batida10" else fn)
+        legfn = globals().get(robot + "_leg")
+        if legfn is not None:
+            legfn = softened(legfn) if robot == "batida10" else legfn
+            part(robot + "_leg_l")(lambda q, fn=legfn: fn(q, -1))
+            part(robot + "_leg_r")(lambda q, fn=legfn: fn(q, 1))
     part("eclipse6_wings")(eclipse6_wings)
     part("magnus3_hull")(magnus_hull)
     part("orbita3_hull")(orbita_hull)
@@ -4613,7 +4873,8 @@ def define(part):
             fn = globals().get(robot + "_" + slot)
             if fn is not None:
                 extra = globals().get(robot + "_" + slot + "_detail")
-                part(robot + "_" + slot)(with_detail(fn, extra) if extra else fn)
+                built = with_detail(fn, extra) if extra else fn
+                part(robot + "_" + slot)(softened(built) if robot == "batida7" and slot in ("head", "torso") else built)
         legfn = globals().get(robot + "_leg")
         if legfn is not None and globals().get(robot + "_leg_detail"):
             legfn = with_detail(legfn, globals()[robot + "_leg_detail"])
