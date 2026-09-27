@@ -333,20 +333,17 @@ static func quick_map(world: String) -> Dictionary:
 	return layout
 
 static func test_map() -> Dictionary:
-	# The test arena: longer (stretch), a wall five rows deep, blockers in front of each wall
-	# to find a lane around, and two gold boost bumpers in the middle that a straight shot can
-	# reach - a round that bounces off one leaves boosted. Just the floor, nothing around it.
+	# The test arena: a much bigger field (35% longer, a little wider than the tall maps)
+	# with a clean middle. Two bumpers cross it from wall to wall, four side accelerators
+	# wait on the walls, and the long sides are serpent walls that ripple in and out.
+	# Walls five rows deep; just the floor, nothing around it.
 	return {
-		"id": "teste", "name": "Arena de Teste", "tall": true, "lean": true, "outline": "colosseum", "stretch": 1.15,
-		"boosters": true, "bricks": "deep", "barriers": [], "bare": true,
+		"id": "teste", "name": "Arena de Teste", "tall": true, "narrow": 0.84, "lean": true, "outline": "snake", "stretch": 1.35,
+		"boosters": true, "boost_depths": [-3.4, 3.4], "bricks": "deep", "barriers": [], "bare": true,
+		"snake": {"amp": 1.3, "speed": 0.9, "wave": 0.55},
 		"obstacles": [
-			{"kind": "fixed", "center": Vector2(-3.2, 1.8), "radius": 0.5, "boost": true},
-			{"kind": "fixed", "center": Vector2(3.2, -1.8), "radius": 0.5, "boost": true},
-			{"kind": "fixed", "center": Vector2(-2.6, 3.4), "radius": 0.42},
-			{"kind": "fixed", "center": Vector2(2.6, 3.4), "radius": 0.42},
-			{"kind": "fixed", "center": Vector2(-2.6, -3.4), "radius": 0.42},
-			{"kind": "fixed", "center": Vector2(2.6, -3.4), "radius": 0.42},
-			{"kind": "orbit", "center": Vector2(0, 0), "travel": 1.0, "frequency": 0.4, "phase": 0.0, "radius": 0.4},
+			{"kind": "slide", "center": Vector2(0, 2.3), "axis": Vector2.RIGHT, "travel": 5.6, "frequency": 0.3, "phase": 0.0, "radius": 0.5},
+			{"kind": "slide", "center": Vector2(0, -2.3), "axis": Vector2.RIGHT, "travel": 5.6, "frequency": 0.3, "phase": PI, "radius": 0.5},
 		],
 	}
 
@@ -405,6 +402,18 @@ static func outline_points(kind: String, narrow: float = 1.0) -> Array:
 		"gorge":
 			# Flat ends and a waist that pinches at mid-field, without closing the rail.
 			return [Vector2(-4.2, -l), Vector2(4.2, -l), Vector2(w, -l / 2), Vector2(w - 1.7, -1.4), Vector2(w - 1.7, 1.4), Vector2(w, l / 2), Vector2(4.2, l), Vector2(-4.2, l), Vector2(-w, l / 2), Vector2(-w + 1.7, 1.4), Vector2(-w + 1.7, -1.4), Vector2(-w, -l / 2)]
+		"snake":
+			# The colosseum with its long sides cut into short segments, so they can ripple
+			# (see snake_walls).
+			var sx = 4.4
+			var sy = 2.4
+			var pts: Array = [Vector2(-sx, -l), Vector2(sx, -l)]
+			for i in range(SNAKE_SEGMENTS + 1):
+				pts.append(Vector2(w, lerpf(-l + sy, l - sy, float(i) / SNAKE_SEGMENTS)))
+			pts += [Vector2(sx, l), Vector2(-sx, l)]
+			for i in range(SNAKE_SEGMENTS + 1):
+				pts.append(Vector2(-w, lerpf(l - sy, -l + sy, float(i) / SNAKE_SEGMENTS)))
+			return pts
 		"colosseum":
 			# Wide rectangular stadium with 45-degree chamfered corners, matching the drawn sketch.
 			var cx = 4.4
@@ -421,10 +430,37 @@ static func side_x(kind: String, narrow: float = 1.0) -> float:
 	return {"pinch": HALF_WIDTH - 1.9, "wide": HALF_WIDTH + 1.3, "gorge": HALF_WIDTH - 1.7, "lens": HALF_WIDTH + 1.0, "torre": TOWER_HALF_WIDTH}.get(kind, HALF_WIDTH) * narrow
 
 static func narrow_of(layout: Dictionary) -> float:
-	return TALL_NARROW if layout.get("tall", false) else 1.0
+	return float(layout.get("narrow", TALL_NARROW if layout.get("tall", false) else 1.0))
 
 static func map_outline(layout: Dictionary) -> Array:
 	return outline_points(layout.get("outline", "hex"), narrow_of(layout))
+
+const SNAKE_SEGMENTS = 14
+
+static func snake_walls(layout: Dictionary, time: float) -> Array:
+	# Serpent walls: the long sides ripple in and out, a slow wave running along them, so the
+	# angle a ricochet leaves at keeps changing. They only ever come in (never past the
+	# floor), stay still beside each side accelerator so it can always be reached, and calm
+	# down towards the goal ends where the pilots walk.
+	var points: Array = map_outline(layout)
+	var spec: Dictionary = layout.get("snake", {})
+	if spec.is_empty():
+		return points
+	var side: float = side_x(String(layout.get("outline", "hex")), narrow_of(layout))
+	var amp: float = float(spec.get("amp", 0.8))
+	var speed: float = float(spec.get("speed", 0.9))
+	var wave: float = float(spec.get("wave", 0.6))
+	var depths: Array = layout.get("boost_depths", [])
+	for i in range(points.size()):
+		var p: Vector2 = points[i]
+		if absf(absf(p.x) - side) > 0.01:
+			continue
+		var calm: float = 1.0 - smoothstep(HALF_LENGTH - 4.4, HALF_LENGTH - 3.2, absf(p.y))
+		for d in depths:
+			calm *= smoothstep(0.8, 1.9, absf(p.y - float(d)))
+		var phase: float = time * speed + p.y * wave + (PI if p.x > 0 else 0.0)
+		points[i] = Vector2(p.x - signf(p.x) * amp * calm * 0.5 * (1.0 - cos(phase)), p.y)
+	return points
 
 static func map_obstacles(layout: Dictionary) -> Array:
 	# A slider sweeps a narrower arena over a shorter run; an orbit keeps its circle, which
@@ -543,7 +579,7 @@ static func booster_centers(layout: Dictionary) -> Array:
 		return []
 	var outline: Array = map_outline(layout)
 	var centers: Array = []
-	for depth in [-BOOST_RAIL_SPACING, 0.0, BOOST_RAIL_SPACING]:
+	for depth in layout.get("boost_depths", [-BOOST_RAIL_SPACING, 0.0, BOOST_RAIL_SPACING]):
 		var side = outline_x_at(outline, depth)
 		centers.append(Vector2(-side - 0.75, depth))
 		centers.append(Vector2(side + 0.75, depth))
@@ -808,6 +844,8 @@ func step(dt: float, commands: Array) -> void:
 		obstacle.previous = obstacle.p
 		obstacle.p = obstacle_at(obstacle.id, obstacle_time)
 		obstacle.v = (obstacle.p - obstacle.previous) / maxf(dt, 0.000001)
+	if map.has("snake"):
+		walls = snake_walls(map, obstacle_time)
 	for team in range(2):
 		var p: Dictionary = players[team]
 		# Snapping the last sliver keeps the burst a whole number of frames long: the

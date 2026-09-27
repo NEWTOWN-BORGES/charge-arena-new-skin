@@ -474,7 +474,7 @@ func build(new_map: Dictionary = {}) -> void:
 		dressing = "baked"
 	match dressing:
 		"bare":
-			pass
+			build_wall_segments()
 		"baked":
 			ArenaDiorama.build(self, theme, baked_world)
 		"sky":
@@ -550,7 +550,7 @@ func batch_static_geometry() -> void:
 
 func collect_static(parent: Node, groups: Dictionary) -> void:
 	for child in parent.get_children():
-		if child in units or child in brick_nodes or child in obstacle_nodes or child in power_nodes or child == aim_line or child == aim_guide:
+		if child in units or child in brick_nodes or child in obstacle_nodes or child in wall_segments or child in power_nodes or child == aim_line or child == aim_guide:
 			continue
 		var opaque = child is MeshInstance3D and child.material_override is StandardMaterial3D and child.material_override.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
 		# Robot-painted props (goal posts) merge too; their ink outlines stay separate so the
@@ -744,6 +744,11 @@ func build_boosters() -> void:
 	for center in Rules.booster_centers(map):
 		var root = Node3D.new()
 		add_child(root)
+		# Each accelerator stands at its own depth along the wall. The pieces below are laid
+		# out around depth 0, so the root carries the depth: without it every accelerator of
+		# the rail was drawn on top of the middle one, and the ones the rules had at the other
+		# depths were there to hit but never seen.
+		root.position.z = center.y
 		var sign_x = 1 if center.x > 0 else -1
 		var side = absf(center.x) - 0.75
 		var limit = acos((absf(center.x) - side) / Rules.BOOST_RADIUS)
@@ -763,6 +768,27 @@ func build_boosters() -> void:
 		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), theme.accent, 29)
 		label.rotation.y = -sign_x * PI * 0.5
 		booster_nodes.append(root)
+
+# The walls of a bare map, one block per edge of the outline; on a map with serpent walls
+# they follow the ripple every frame (Rules.snake_walls).
+var wall_segments: Array = []
+
+func build_wall_segments() -> void:
+	for i in range(walls.size()):
+		var segment = box(self, Vector3.ZERO, Vector3(1.0, 0.6, 0.3), theme.frame.lerp(Color.WHITE, 0.3), false, 0.03)
+		box(segment, Vector3(0, 0.32, 0), Vector3(1.0, 0.06, 0.34), GOLD, true, 0.01)
+		wall_segments.append(segment)
+	place_wall_segments(walls)
+
+func place_wall_segments(points: Array) -> void:
+	for i in range(mini(points.size(), wall_segments.size())):
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[(i + 1) % points.size()]
+		var mid = (a + b) * 0.5
+		var segment: MeshInstance3D = wall_segments[i]
+		segment.position = Vector3(mid.x, 0.3, mid.y)
+		segment.rotation.y = -atan2(b.y - a.y, b.x - a.x)
+		segment.scale.x = a.distance_to(b) + 0.14
 
 func build_obstacles() -> void:
 	# Painted guides are opaque, pre-blended with the floor, so they merge with the static
@@ -1480,6 +1506,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	step_tallies(dt)
 	trail_timer += dt
 	var interpolate = not previous_motion.is_empty() and previous_motion.phase == rules.phase
+	if map.has("snake") and not wall_segments.is_empty():
+		place_wall_segments(Rules.snake_walls(map, rules.obstacle_time))
 	for i in range(rules.obstacles.size()):
 		var p: Vector2 = rules.obstacles[i].p
 		if interpolate:
