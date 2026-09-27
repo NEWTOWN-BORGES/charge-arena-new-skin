@@ -2455,16 +2455,161 @@ def sunk_hull(p, torso, head, head_name, hull_name, drop):
     mk.HEADS[hull_name] = {"top": round(shape["top"] - drop, 3), "center": round(shape["center"] - drop, 3), "aspect": shape["aspect"]}
 
 
-def batida_hull(p):
-    sunk_hull(p, batida_torso, batida_head, "batida2_head", "batida3_hull", 0.2)
-
-
 def rosca_hull(p):
     sunk_hull(p, rosca_torso, rosca_head, "rosca2_head", "rosca3_hull", 0.19)
 
 
+
+# --------------------------------------------------------------------------------------
+# BATIDA sem pescoço: um ovo só, alto, com o rosto-equalizador na frente e os auscultadores
+# pousados no topo do ovo como protetores, orelhas de gato no arco.
+# --------------------------------------------------------------------------------------
+BH_C = Vector((0.0, 1.2, 0.02))
+BH_EGG = (0.29, 0.42, 0.25)
+BH_FACE_Y = 0.17
+BH_SCREEN = (0.2, 0.18)
+
+
+def batida_hull(p):
+    c = BH_C
+    ex, ey, ez = BH_EGG
+    face_y = c.y + BH_FACE_Y
+    mk.HEADS["batida3_hull"] = {"top": round(c.y + ey + 0.12, 3), "center": round(face_y, 3), "aspect": round(BH_SCREEN[0] / BH_SCREEN[1], 3)}
+    inner = scaled(c, ex - 0.04, ey - 0.04, ez - 0.04)
+    lathe(p, "dark", inner, [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 24)
+    egg = scaled(c, ex, ey, ez)
+    # Gomos: coroa, a faixa do rosto (aberta à frente), a barriga em quatro, a cinta clara.
+    sphere_panel(p, "shell", egg, 1.0, (58, 88), (-180, 180), 0.12, (24, 4), gap=0.02)
+    for lo in ((-150, -118), (-62, -30), (-20, 60), (70, 200)):
+        sphere_panel(p, "shell", egg, 1.0, (-4, 54), lo, 0.12, (8, 6), gap=0.03)
+    for lo in ((-150, -95), (-85, -30), (-20, 60), (70, 200)):
+        sphere_panel(p, "shell", egg, 1.0, (-52, -12), lo, 0.12, (8, 5), gap=0.03)
+    sphere_panel(p, "trim", egg, 1.02, (-10, -5), (-180, 180), 0.1, (28, 1), gap=0.0)
+    sphere_panel(p, "trim", egg, 1.02, (-70, -56), (-180, 180), 0.1, (24, 2), gap=0.0)
+    # O rosto: moldura redonda grossa, anel de metal, poço aberto e o ecrã-equalizador.
+    fz = c.z - ez * math.sqrt(1.0 - (BH_FACE_Y / ey) ** 2)
+    face = axis_frame((0.0, face_y, fz + 0.02), "-z")
+    mring(p, "trim", face, 0.15, 0.03, 32, 8)
+    mring(p, "metal", sub(face, 0, -0.014, 0), 0.126, 0.009, 28, 5)
+    mtube(p, "dark", sub(face, 0, -0.035, 0), 0.13, 0.05, 28, caps=False)
+    p.screen((0.0, face_y, fz + 0.035), BH_SCREEN, bulge=0.012)
+    # Bochechas: dois LEDs rosados por baixo do rosto.
+    for side in (-1, 1):
+        pos, n = egg_point(c, BH_EGG, side * 0.12, BH_FACE_Y - 0.13, True, 0.0)
+        mtube(p, "glow", frame(pos, n), 0.02, 0.006, 12)
+    # Auscultadores pousados no alto do ovo, inclinados para fora, e o arco por cima.
+    for side in (-1, 1):
+        a = math.radians(58)
+        spot = Vector((side * ex * math.cos(a) * 1.02, c.y + ey * math.sin(a), c.z + 0.02))
+        axis = Vector((side * 0.8, 0.6, 0.0)).normalized()
+        cup = frame(spot, axis, front=(0, 0, -1))
+        mring(p, "rubber", cup, 0.09, 0.026, 26, 8)
+        lathe(p, "trim", sub(cup, 0, 0.018, 0), [(0.11, 0.0), (0.115, 0.025), (0.105, 0.06), (0.085, 0.075), (0.0, 0.077)], 26, True)
+        mtube(p, "metal", sub(cup, 0, 0.085, 0), 0.058, 0.012, 22)
+        bolts(p, sub(cup, 0, 0.09, 0), 0.045, 6, size=0.007)
+        mring(p, "glow", sub(cup, 0, 0.065, 0), 0.1, 0.006, 26, 4)
+    band = axis_frame((0.0, c.y + ey * 0.62, c.z + 0.02), "z")
+    arc_tube(p, "shell", band, 0.3, 0.03, 12, 168, 30, 8)
+    mbox(p, "team", T(0, c.y + ey * 0.62 + 0.332, c.z + 0.02), (0.12, 0.012, 0.05), 0.004, 1)
+    # Orelhas de gato no arco.
+    for side in (-1, 1):
+        a = math.radians(90 - side * 34)
+        root = Vector((math.cos(a) * 0.3, c.y + ey * 0.62 + math.sin(a) * 0.3, c.z + 0.02))
+        ear = sub(T(*root), 0, 0.06, 0, rot=(0, 0, -side * 24))
+        mbox(p, "shell", ear, (0.12, 0.15, 0.05), 0.02, 2, taper=(0.15, 0.5))
+        mbox(p, "trim", sub(ear, 0, -0.01, -0.024), (0.07, 0.09, 0.01), 0.01, 1, taper=(0.15, 0.5))
+    # Microfone de haste a sair do auscultador esquerdo até ao lado do rosto.
+    rod(p, "metal", (-0.24, c.y + 0.33, c.z - 0.05), (-0.17, face_y - 0.1, fz - 0.03), 0.009, 8)
+    ball(p, "rubber", (-0.165, face_y - 0.105, fz - 0.04), 0.026, 12)
+    # Núcleo e ventilação na barriga, série de lado.
+    core_round(p, axis_frame((0, c.y - 0.16, c.z - ez * 0.9), "-z"), 0.045)
+    pos, n = egg_point(c, BH_EGG, 0.17, -0.02)
+    serial(p, plane(pos, n, (-1, 0, 0)), "04", 0.03)
+    # Gira-discos às costas.
+    deck = axis_frame((0, c.y + 0.02, c.z + ez + 0.04), "z")
+    lathe(p, "trim", deck, [(0.0, -0.04), (0.19, -0.04), (0.2, 0.0), (0.19, 0.03), (0.0, 0.03)], 28)
+    mtube(p, "dark", sub(deck, 0, 0.04, 0), 0.16, 0.02, 28)
+    mring(p, "shell", sub(deck, 0, 0.052, 0), 0.07, 0.01, 22, 4)
+    mtube(p, "metal", sub(deck, 0, 0.055, 0), 0.02, 0.01, 12)
+    rod(p, "metal", at(deck, 0.14, 0.06, 0.1), at(deck, 0.06, 0.06, 0.02), 0.007, 6)
+    warning(p, plane(at(deck, -0.12, 0.031, 0.1), at(deck, 0, 1, 0) - at(deck), (1, 0, 0)), 0.04)
+    pos, n = egg_side(c, BH_EGG, -1, -0.12, 0.03)
+    charging_port(p, plane(pos, n, (0, 0, 1)), 0.045, 0.028)
+    waist(p, 0.76, c.y - ey + 0.05, 0.12)
+    pelvis(p, (0, 0.68, 0.0), (0.26, 0.16, 0.26), BATIDA["hip"].x, BATIDA["hip"].y, 0.085)
+
+
+# --------------------------------------------------------------------------------------
+# BROTO sem pescoço: um vaso que anda. O rosto está no próprio vaso, por baixo do aro;
+# da terra nascem as duas folhas-orelha e o rebento com o botão de luz.
+# --------------------------------------------------------------------------------------
+PH_C = Vector((0.0, 1.16, 0.02))
+PH_H, PH_RB, PH_RT = 0.66, 0.21, 0.31
+PH_FACE_Y = 0.14
+PH_SCREEN = (0.26, 0.14)
+
+
+def pot_radius(y):
+    """Raio do vaso a uma altura relativa ao centro."""
+    return PH_RB + (PH_RT - PH_RB) * (y + PH_H / 2) / PH_H
+
+
 def broto_hull(p):
-    sunk_hull(p, broto_torso, broto_head, "broto2_head", "broto3_hull", 0.2)
+    c = PH_C
+    H, rb, rt = PH_H, PH_RB, PH_RT
+    face_y = c.y + PH_FACE_Y
+    top = c.y + H / 2
+    mk.HEADS["broto3_hull"] = {"top": round(top + 0.3, 3), "center": round(face_y, 3), "aspect": round(PH_SCREEN[0] / PH_SCREEN[1], 3)}
+    base = T(c.x, c.y, c.z)
+    lathe(p, "dark", base, [(0.0, -H / 2), (rb - 0.03, -H / 2), (rt - 0.03, H / 2), (0.0, H / 2)], 28)
+    # Barriga do vaso em gomos verdes; a faixa do rosto em creme, aberta à frente.
+    lo_y0, lo_y1 = -H / 2 + 0.03, 0.0
+    mid = (lo_y0 + lo_y1) / 2
+    for lo in ((-155, -98), (-82, -25), (-15, 45), (55, 125), (135, 195)):
+        cyl_panel(p, "shell", sub(base, 0, mid, 0), pot_radius(lo_y0), lo_y1 - lo_y0, lo, 0.035, (8, 2), gap=0.012, radius_top=pot_radius(lo_y1))
+    mring(p, "trim", sub(base, 0, 0.012, 0), pot_radius(0.012) + 0.006, 0.014, 30, 5)
+    up_y0, up_y1 = 0.03, H / 2 - 0.05
+    mid = (up_y0 + up_y1) / 2
+    for lo in ((-60, 60), (70, 180), (190, 238)):
+        cyl_panel(p, "trim", sub(base, 0, mid, 0), pot_radius(up_y0), up_y1 - up_y0, lo, 0.035, (10, 2), gap=0.012, radius_top=pot_radius(up_y1))
+    # O aro grosso do vaso, a terra e a planta.
+    mring(p, "trim", sub(base, 0, H / 2 - 0.02, 0), rt + 0.02, 0.04, 34, 8)
+    dome(p, "rubber", sub(base, 0, H / 2 - 0.03, 0), rt - 0.02, 0.05, 26, 4)
+    # O rosto, cravado na faixa creme: poço, ecrã e duas bochechas verdes que o seguram.
+    fz = c.z - pot_radius(PH_FACE_Y) + 0.012
+    screen_well(p, (0.0, face_y, fz), PH_SCREEN, 0.05, 0.028)
+    for side in (-1, 1):
+        mbox(p, "shell", T(side * (PH_SCREEN[0] / 2 + 0.04), face_y, fz + 0.02), (0.05, 0.19, 0.06), 0.02)
+    mbox(p, "shell", T(0, face_y + PH_SCREEN[1] / 2 + 0.035, fz + 0.022), (PH_SCREEN[0] + 0.12, 0.04, 0.06), 0.02)
+    mbox(p, "shell", T(0, face_y - PH_SCREEN[1] / 2 - 0.03, fz + 0.022), (PH_SCREEN[0] + 0.12, 0.035, 0.06), 0.02)
+    # As folhas-orelha nascem da terra, abertas para os lados, e o rebento ao meio.
+    soil = top + 0.01
+    for side in (-1, 1):
+        stem = sub(T(side * 0.1, soil, c.z + 0.02), rot=(0, 0, -side * 48))
+        rod(p, "trim", (side * 0.04, soil, c.z + 0.02), at(stem, 0, 0.02, 0), 0.012, 8)
+        leaf(p, "shell", stem, 0.34, 0.22)
+    rod(p, "trim", (0.0, soil, c.z), (0.02, soil + 0.2, c.z - 0.02), 0.011, 8)
+    for side in (-1, 1):
+        leaf(p, "shell", sub(T(0.012, soil + 0.12, c.z - 0.01), rot=(0, 0, -side * 55)), 0.1, 0.07)
+    ball(p, "glow", (0.022, soil + 0.215, c.z - 0.02), 0.03, 12)
+    # Sensores no aro, núcleo e série na barriga, regador às costas.
+    cam = axis_frame((0.16, top - 0.03, c.z - rt + 0.0), "-z")
+    mtube(p, "dark", cam, 0.018, 0.03, 12)
+    mtube(p, "glow", sub(cam, 0, 0.016, 0), 0.007, 0.004, 8)
+    core_round(p, axis_frame((0, c.y - 0.16, c.z - pot_radius(-0.16) + 0.004), "-z"), 0.045)
+    serial(p, cone_mark((c.x, c.y + mid, c.z), pot_radius(up_y0), pot_radius(up_y1), up_y1 - up_y0, -30, -0.02), "06", 0.03)
+    mbox(p, "team", T(0, top + 0.023, c.z + rt - 0.03), (0.1, 0.012, 0.05), 0.004, 1)
+    can = axis_frame((0.0, c.y + 0.02, c.z + rt + 0.1), "y")
+    mbox(p, "dark", T(0, c.y + 0.02, c.z + rt + 0.01), (0.16, 0.2, 0.05), 0.012)
+    capsule(p, "trim", can, 0.09, 0.3, 20)
+    for v in (-0.07, 0.07):
+        mring(p, "dark", sub(can, 0, v, 0), 0.092, 0.01, 20, 4)
+    rod(p, "metal", (0.06, c.y + 0.1, c.z + rt + 0.14), (0.2, c.y + 0.22, c.z + rt + 0.2), 0.014, 8)
+    lathe(p, "metal", frame(Vector((0.2, c.y + 0.22, c.z + rt + 0.2)), Vector((0.6, 0.6, 0.3)).normalized()), [(0.0, 0.0), (0.03, 0.0), (0.045, 0.04), (0.0, 0.045)], 14)
+    warning(p, plane((0.0, c.y + 0.02, c.z + rt + 0.19), (0, 0, 1), (1, 0, 0)), 0.045)
+    charging_port(p, plane((-pot_radius(-0.06) - 0.004, c.y - 0.06, c.z + 0.05), (-1, 0, 0), (0, 0, 1)), 0.045, 0.028)
+    waist(p, 0.74, c.y - H / 2 + 0.02, 0.12)
+    pelvis(p, (0, 0.66, 0.0), (0.26, 0.16, 0.26), BROTO["hip"].x, BROTO["hip"].y, 0.085)
 
 # ======================================================================================
 def define(part):
