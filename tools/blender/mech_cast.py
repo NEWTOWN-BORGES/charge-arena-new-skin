@@ -565,10 +565,11 @@ def egg_side(center, radii, side, y_off, z_off, lift=0.001):
     return Vector((x, center.y + y_off, center.z + z_off)) + n * lift, n
 
 
-def batida_torso(p):
+def batida_torso(p, with_neck=True):
     c = BA_CHEST
     ex, ey, ez = BA_EGG
-    neck(p, c.y + ey - 0.03, BA_HEAD.y - BA_HEAD_R + 0.02, 0.07, 0.02, plate=(0.22, 0.2))
+    if with_neck:
+        neck(p, c.y + ey - 0.03, BA_HEAD.y - BA_HEAD_R + 0.02, 0.07, 0.02, plate=(0.22, 0.2))
     inner = scaled(c, ex - 0.04, ey - 0.04, ez - 0.04)
     lathe(p, "dark", inner, [(0.0, -1.0)] + [(math.sin(math.radians(a)), -math.cos(math.radians(a))) for a in range(15, 180, 15)] + [(0.0, 1.0)], 22)
     egg = scaled(c, ex, ey, ez)
@@ -722,10 +723,11 @@ def rosca_head(p):
     mbox(p, "team", T(0, c.y + h / 2 + 0.058, c.z), (0.1, 0.012, 0.1), 0.004, 1)
 
 
-def rosca_torso(p):
+def rosca_torso(p, with_neck=True):
     c = R_CHEST
     R, H = 0.26, 0.48
-    neck(p, c.y + H / 2 - 0.01, R_HEAD.y - 0.15 + 0.01, 0.075, 0.02, plate=(0.24, 0.22))
+    if with_neck:
+        neck(p, c.y + H / 2 - 0.01, R_HEAD.y - 0.15 + 0.01, 0.075, 0.02, plate=(0.24, 0.22))
     base = T(c.x, c.y, c.z)
     mtube(p, "dark", base, R - 0.035, H, 26)
     for y in (-0.12, 0.0, 0.12):
@@ -912,10 +914,11 @@ def broto_head(p):
     mbox(p, "team", T(0, top - 0.004, c.z - 0.08), (0.1, 0.012, 0.06), 0.004, 1)
 
 
-def broto_torso(p):
+def broto_torso(p, with_neck=True):
     c = BR_CHEST
     H, rb, rt = 0.46, 0.21, 0.28
-    neck(p, c.y + H / 2 - 0.01, BR_HEAD.y - 0.2 + 0.01, 0.075, 0.02, plate=(0.24, 0.22))
+    if with_neck:
+        neck(p, c.y + H / 2 - 0.01, BR_HEAD.y - 0.2 + 0.01, 0.075, 0.02, plate=(0.24, 0.22))
     base = T(c.x, c.y, c.z)
     lathe(p, "dark", base, [(0.0, -H / 2), (rb - 0.03, -H / 2), (rt - 0.03, H / 2), (0.0, H / 2)], 26)
     for y in (-0.1, 0.05):
@@ -2427,11 +2430,50 @@ def gancho_hull(p):
     mtube(p, "glow", sub(scope, 0, 0.153, 0), 0.02, 0.004, 12)
     sphere_panel(p, "team", base, r + 0.004, (60, 80), (-97, -83), 0.008, (2, 4), gap=0.0)
 
+
+class Sunk:
+    """Uma peça modelada noutro sítio, descida: a cabeça que perde o pescoço e se enterra no
+    tronco. Encaminha a geometria para a peça real, deslocada."""
+
+    def __init__(self, p, drop):
+        self.p = p
+        self.move = Matrix.Translation((0.0, -drop, 0.0))
+
+    def add(self, role, bm, matrix):
+        self.p.add(role, bm, self.move @ matrix)
+
+    def __getattr__(self, name):
+        # Os métodos da peça (screen, box...) chamam self.add: ligados a este objeto, descem.
+        return getattr(type(self.p), name).__get__(self)
+
+
+def sunk_hull(p, torso, head, head_name, hull_name, drop):
+    """Tronco sem pescoço com a cabeça enterrada nele: uma só peça, o rosto no tronco."""
+    torso(p, with_neck=False)
+    head(Sunk(p, drop))
+    shape = mk.HEADS[head_name]
+    mk.HEADS[hull_name] = {"top": round(shape["top"] - drop, 3), "center": round(shape["center"] - drop, 3), "aspect": shape["aspect"]}
+
+
+def batida_hull(p):
+    sunk_hull(p, batida_torso, batida_head, "batida2_head", "batida3_hull", 0.2)
+
+
+def rosca_hull(p):
+    sunk_hull(p, rosca_torso, rosca_head, "rosca2_head", "rosca3_hull", 0.19)
+
+
+def broto_hull(p):
+    sunk_hull(p, broto_torso, broto_head, "broto2_head", "broto3_hull", 0.2)
+
 # ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
     part("salvo3_hull")(salvo_hull)
     part("gancho3_hull")(gancho_hull)
+    part("batida3_hull")(batida_hull)
+    part("rosca3_hull")(rosca_hull)
+    part("broto3_hull")(broto_hull)
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
     part("salvo2_shoulders")(salvo_shoulders)

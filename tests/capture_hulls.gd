@@ -21,7 +21,7 @@ func run() -> void:
 	for value in args.slice(1):
 		skins.append(int(value))
 	if skins.is_empty():
-		skins = [4, 1, 9]
+		skins = [4, 1, 9, 8, 6, 3]
 	root.size = Vector2i(TILE, TILE)
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
