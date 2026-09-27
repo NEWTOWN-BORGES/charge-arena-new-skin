@@ -225,6 +225,7 @@ var preview_index = 0
 # 3D turntable: its own world, built with the arena's pilot factory.
 var arena_view: Node3D
 var viewer: SubViewportContainer
+var viewer_backdrop: ColorRect
 var viewer_stage: Node3D
 var viewer_turntable: Node3D
 var viewer_pilot: Node3D
@@ -352,7 +353,18 @@ func build_skins_menu() -> void:
 	viewer_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	skins_body.add_child(viewer_column)
 	viewer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	viewer_column.add_child(viewer)
+	# The viewer stands in front of a quiet backdrop of its own (shaders/hangar_backdrop).
+	var stage_holder = MarginContainer.new()
+	stage_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	viewer_column.add_child(stage_holder)
+	viewer_backdrop = ColorRect.new()
+	viewer_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var backdrop_mat = ShaderMaterial.new()
+	backdrop_mat.shader = preload("res://shaders/hangar_backdrop.gdshader")
+	viewer_backdrop.material = backdrop_mat
+	viewer_backdrop.resized.connect(func(): backdrop_mat.set_shader_parameter("aspect", viewer_backdrop.size.x / maxf(viewer_backdrop.size.y, 1.0)))
+	stage_holder.add_child(viewer_backdrop)
+	stage_holder.add_child(viewer)
 	var zoom_controls = HBoxContainer.new()
 	zoom_controls.add_theme_constant_override("separation", 8)
 	viewer_column.add_child(zoom_controls)
@@ -554,6 +566,7 @@ func build_viewer_pilot() -> void:
 	viewer_bricks[1].get_node("HP2").hide()
 	viewer_skin = preview_index
 	viewer_locked = locked
+	tint_backdrop()
 	viewer_fire_timer = 0.35
 
 func zoom_viewer(amount: float) -> void:
@@ -705,6 +718,12 @@ func refresh_news() -> void:
 	if is_instance_valid(level_strip):
 		level_strip.visible = lobby.mode_id == "campaign"
 		level_label.queue_redraw()
+
+func tint_backdrop() -> void:
+	# The halo and the floor rings take the colour of the pilot on show.
+	if is_instance_valid(viewer_backdrop):
+		var body: Color = viewer_palette().get("light", CYAN)
+		viewer_backdrop.material.set_shader_parameter("accent", body)
 
 func viewer_palette() -> Dictionary:
 	return Skins.colors(viewer_skin, CORAL, true) if viewer_locked else Skins.colors(viewer_skin, CYAN)
