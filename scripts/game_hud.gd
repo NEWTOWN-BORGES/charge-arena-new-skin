@@ -7,6 +7,9 @@ const GameSettings = preload("res://scripts/game_settings.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
 const STICK_RADIUS = 62.0
+# The camera stick, a small one up by the rival's card: sideways turns the camera round the
+# arena, up pulls it in, down pulls it back; a double tap puts it back where it started.
+const CAMERA_RADIUS = 34.0
 # Power buttons sit in the free band between the two thumb controls, above the FPS line.
 # The two bought powers, and then the ultimate, which is the one you are waiting for all
 # match and deserves to look like it.
@@ -115,6 +118,12 @@ var mode = "menu"
 var network_status = ""
 var touches: Dictionary = {}
 var move_id = -1
+var camera_id = -1
+var camera_home = Vector2.ZERO
+var camera_vector = Vector2.ZERO
+var camera_reset = false
+var camera_moved = false
+var camera_tap_ms = -1000
 var move_vector = Vector2.ZERO
 var move_center = Vector2.ZERO
 var power_centers: Array = [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
@@ -2519,6 +2528,7 @@ func layout() -> void:
 	var fire_margin = 46.0 * fire_size + 10.0
 	fire_center = Vector2(lerpf(fire_margin, size.x - fire_margin, fire_x), lerpf(safe_top + 160 + fire_margin, size.y - safe_bottom - fire_margin, fire_y))
 	move_center = move_home
+	camera_home = Vector2(size.x - 18 - CAMERA_RADIUS, safe_top + 200)
 	var menu_height = menu.get_combined_minimum_size().y
 	levels_grid.columns = 2 if vertical else 5
 	var levels_width = minf(size.x - 48, 660)
@@ -2625,6 +2635,8 @@ func layout_vertical(menu_height: float) -> void:
 		# a short screen pushes the two into each other and the field would cover the thumb.
 		var band_bottom = move_home.y - STICK_RADIUS - 10.0
 		arena_rect = Rect2(10, band_top, size.x - 20, maxf(band_bottom - band_top, 120))
+		# In the gap under the cards, on the right: over the far stands, clear of the field.
+		camera_home = Vector2(size.x - 16 - CAMERA_RADIUS, band_top - 6)
 	message_center = arena_rect.get_center()
 	touch_top = arena_rect.get_center().y
 	if is_instance_valid(host_ai_button):
@@ -2704,7 +2716,8 @@ func reset_touch() -> void:
 	fire_tap = false
 	touches.clear()
 	move_id = -1
-	move_vector = Vector2.ZERO
+	camera_id = -1
+	camera_vector = Vector2.ZERO
 	move_vector = Vector2.ZERO
 	move_center = move_home
 	power_request = -1
@@ -2738,6 +2751,19 @@ func _input(event: InputEvent) -> void:
 	if video_overlay.visible or pause_overlay.visible:
 		return
 	if event is InputEventScreenTouch:
+		if event.pressed and camera_id < 0 and event.position.distance_to(camera_home) <= CAMERA_RADIUS + 12:
+			camera_id = event.index
+			var now = Time.get_ticks_msec()
+			if now - camera_tap_ms < 320:
+				camera_reset = true
+			camera_tap_ms = now
+			ask_redraw()
+			return
+		if not event.pressed and event.index == camera_id:
+			camera_id = -1
+			camera_vector = Vector2.ZERO
+			ask_redraw()
+			return
 		if event.pressed:
 			if not auto_fire and fire_control == 0 and event.position.distance_to(fire_center) <= 49 * fire_size:
 				fire_id = event.index
@@ -2766,6 +2792,12 @@ func _input(event: InputEvent) -> void:
 				move_id = -1
 				move_vector = Vector2.ZERO
 				move_center = move_home
+	if event is InputEventScreenDrag and event.index == camera_id:
+		var pull = ((event.position - camera_home) / 26.0).limit_length()
+		# A small dead zone, so resting the thumb on it does not drift the camera.
+		camera_vector = pull if pull.length() > 0.18 else Vector2.ZERO
+		ask_redraw()
+		return
 	if event is InputEventScreenDrag and event.index == move_id:
 		move_vector = ((event.position - move_center) / 44).limit_length()
 	ask_redraw()
@@ -3097,6 +3129,7 @@ func draw_hud() -> void:
 		centered("PARALISADO   %.1f s" % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, UiKit.SUN_INK, true)
 	draw_moment()
 	draw_stick()
+	draw_camera_stick()
 	if defense_notice_time > 0 and match_data.phase == "play":
 		# A warning, not news: red plate, white capitals, and it sits over your own half.
 		var notice_at = Vector2(arena_rect.get_center().x, arena_rect.position.y + 28) if vertical else Vector2(size.x * 0.5, 145)
@@ -3227,6 +3260,35 @@ func draw_stick() -> void:
 		elif ready_pulse > 0.0:
 			UiKit.ring(self, fire_center, r + 6 + (1.0 - ready_pulse) * 10.0, Color(WHITE, ready_pulse * 0.7))
 		centered("TIRO", fire_center + Vector2(0, 7), 20, INK, true)
+
+func draw_camera_stick() -> void:
+	# A small round pad: two curved arrows for the turn, + and - for the zoom, and a knob that
+	# follows the thumb.
+	var at = camera_home
+	var held = camera_id >= 0
+	var r = CAMERA_RADIUS
+	UiKit.disc(self, at + Vector2(0, 4), r, Color(UiKit.LIP, 0.55))
+	UiKit.disc(self, at, r, Color(UiKit.PANEL, 0.82))
+	UiKit.ring(self, at, r, Color(UiKit.CARD_EDGE, 0.9))
+	var tint = Color(CYAN, 0.75)
+	later(func():
+		for side in [-1, 1]:
+			# The turn: an arc round the bottom of the pad with an arrow head on its end.
+			var from = PI * 0.5 + side * 0.25
+			var to = PI * 0.5 + side * 1.05
+			draw_arc(at, r - 9, minf(from, to), maxf(from, to), 10, tint, 2.5, smooth)
+			var tip = at + Vector2(cos(to), sin(to)) * (r - 9)
+			var along = Vector2(-sin(to), cos(to)) * side
+			draw_polyline(PackedVector2Array([tip + along * 6 + along.orthogonal() * 5, tip, tip + along * 6 - along.orthogonal() * 5]), tint, 2.5, smooth)
+		# The zoom: + above, - below the middle.
+		draw_line(at + Vector2(-5, -17), at + Vector2(5, -17), tint, 2.5, smooth)
+		draw_line(at + Vector2(0, -22), at + Vector2(0, -12), tint, 2.5, smooth)
+		draw_line(at + Vector2(-5, 15), at + Vector2(5, 15), tint, 2.5, smooth))
+	var knob = at + camera_vector * 16
+	UiKit.disc(self, knob + Vector2(0, 3), 13, Color(UiKit.LIP, 0.7))
+	UiKit.disc(self, knob, 13, SUN if held else UiKit.CARD_HI)
+	UiKit.ring(self, knob, 13, Color(WHITE, 0.35 if held else 0.18))
+	centered("CÂMARA", at + Vector2(0, r + 13), 9, CYAN, true, 4)
 
 func stun_banner_rect() -> Rect2:
 	# Over the thumb band on a phone, under the score on a wide screen.

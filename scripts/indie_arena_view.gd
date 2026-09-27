@@ -1036,6 +1036,53 @@ func orient_labels() -> void:
 			label.set_meta("base_yaw", label.rotation.y)
 		label.rotation.y = float(label.get_meta("base_yaw")) + facing
 
+# The camera stick (like a MOBA camera): the player turns the match camera up to 61 degrees
+# either way round the arena - enough to look along either side, never enough to sit on the
+# rival's end - and pulls it in or out. Closing in slides the view towards their own pilot.
+const VIEW_YAW_MAX = 1.065
+const VIEW_ZOOM_MIN = 0.8
+const VIEW_ZOOM_MAX = 2.4
+const VIEW_PIVOT = Vector3(0, -0.15, 0)
+var view_yaw = 0.0
+var view_zoom = 1.0
+# Set while a match is framed; the menu, lobby and tour place the camera themselves.
+var match_seat = false
+# The framed seat, before the player's turn and zoom.
+var seat_size = 0.0
+var seat_offset = Vector2.ZERO
+
+func remember_seat() -> void:
+	seat_size = camera.size
+	seat_offset = Vector2(camera.h_offset, camera.v_offset)
+
+func unsteer() -> void:
+	# Back on the framed seat before the framing measures the arena through the camera.
+	if match_seat and camera_home != Vector3.ZERO:
+		camera.position = camera_home
+		camera.look_at(VIEW_PIVOT)
+
+func steer_view(yaw: float, zoom: float) -> void:
+	view_yaw = clampf(yaw, -VIEW_YAW_MAX, VIEW_YAW_MAX)
+	view_zoom = clampf(zoom, VIEW_ZOOM_MIN, VIEW_ZOOM_MAX)
+
+func place_match_seat(shake: Vector3) -> void:
+	var rel: Vector3 = Basis(Vector3.UP, view_yaw) * (camera_home - VIEW_PIVOT)
+	var focus = Vector3.ZERO
+	var closer = clampf((view_zoom - 1.0) / (VIEW_ZOOM_MAX - 1.0), 0.0, 1.0)
+	if closer > 0.0 and is_instance_valid(units[view_team]):
+		var pilot: Vector3 = units[view_team].position
+		focus = Vector3(pilot.x, 0.0, pilot.z) * closer * 0.7
+	# Turned, the long field lies across a tall screen: the camera eases back as it turns so
+	# both ends stay in the picture.
+	var reach = view_zoom / (1.0 + 0.55 * absf(sin(view_yaw)))
+	if camera.projection == Camera3D.PROJECTION_PERSPECTIVE:
+		rel /= reach
+	else:
+		camera.size = seat_size / reach
+		camera.h_offset = seat_offset.x / reach
+		camera.v_offset = seat_offset.y / reach
+	camera.global_transform = Transform3D(Basis.looking_at(-rel, Vector3.UP), VIEW_PIVOT + focus + rel + shake)
+
 func frame_landscape(h_offset: float) -> void:
 	lobby_view = false
 	tour_view = false
@@ -1402,7 +1449,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			warm_root = null
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
 	var offset = shake_offset(dt)
-	if offset != Vector3.ZERO:
+	if match_seat and not lobby_view and not tour_view and seat_size > 0.0:
+		place_match_seat(offset)
+	elif offset != Vector3.ZERO:
 		camera.position = camera_home + offset
 	elif camera.position != camera_home:
 		camera.position = camera_home

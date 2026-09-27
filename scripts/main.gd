@@ -711,6 +711,7 @@ func preview_world(world: String) -> void:
 	arena.start_tour()
 
 func frame_arena() -> void:
+	arena.unsteer()
 	if hud.mode == "menu" and hud.map_overlay.visible:
 		arena.start_tour()
 	elif hud.mode == "menu":
@@ -719,6 +720,32 @@ func frame_arena() -> void:
 		arena.frame_rect(hud.arena_rect, hud.size, hud.mode == "menu")
 	else:
 		arena.frame_landscape(-4.5 if hud.mode == "menu" else 0.0)
+	arena.match_seat = hud.mode != "menu"
+	arena.remember_seat()
+	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
+
+func steer_camera(dt: float) -> void:
+	# The camera stick: sideways turns round the arena, up pulls in, down pulls back. Where
+	# the player leaves it is kept for the next match; a double tap puts it back.
+	if mode == "menu":
+		return
+	if hud.camera_reset:
+		hud.camera_reset = false
+		game_settings.view_yaw = 0.0
+		game_settings.view_zoom = 1.0
+		arena.steer_view(0.0, 1.0)
+		save_game_settings()
+		return
+	var push: Vector2 = hud.camera_vector
+	if push == Vector2.ZERO:
+		if hud.camera_moved:
+			hud.camera_moved = false
+			save_game_settings()
+		return
+	hud.camera_moved = true
+	game_settings.view_yaw = clampf(game_settings.view_yaw - push.x * 1.5 * dt, -arena.VIEW_YAW_MAX, arena.VIEW_YAW_MAX)
+	game_settings.view_zoom = clampf(game_settings.view_zoom * exp(-push.y * 1.3 * dt), arena.VIEW_ZOOM_MIN, arena.VIEW_ZOOM_MAX)
+	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
 
 func change_difficulty(level: int) -> void:
 	game_settings.configure(level, game_settings.aim_guide)
@@ -1279,6 +1306,7 @@ func _process(dt: float) -> void:
 	var alpha = clampf(visual_packet_age * 20.0, 0, 1) if mode == "client" else Engine.get_physics_interpolation_fraction()
 	if mode == "menu" or (mode == "pve" and hud.video_overlay.visible):
 		alpha = 1.0
+	steer_camera(dt)
 	arena.update_state(rules, local_team, dt, alpha)
 	music.follow_phase("" if mode == "menu" or network_status != "" else rules.phase)
 	hud_timer += dt
