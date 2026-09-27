@@ -129,10 +129,11 @@ def salvo_head(p):
     mbox(p, "team", T(0, c.y + r + 0.004, c.z - 0.06), (0.26, 0.01, 0.05), 0.004, 1)
 
 
-def salvo_torso(p):
+def salvo_torso(p, with_neck=True):
     c = S_CHEST
     R, L = 0.3, 0.62
-    neck(p, c.y + R - 0.015, S_HEAD.y - S_HEAD_R + 0.01, 0.085, 0.02)
+    if with_neck:
+        neck(p, c.y + R - 0.015, S_HEAD.y - S_HEAD_R + 0.01, 0.085, 0.02)
     ax = axis_frame(c, "x")
     # Chassis: tambor escuro com anéis de nervura e tampas de topo aparafusadas.
     mtube(p, "dark", ax, R - 0.03, L - 0.02, 28)
@@ -338,9 +339,10 @@ def bigorna_head(p):
     mbox(p, "team", T(0, top - 0.005, c.z - 0.1), (0.06, 0.012, 0.12), 0.004, 1)
 
 
-def bigorna_torso(p):
+def bigorna_torso(p, with_neck=True):
     c = B_CHEST
-    neck(p, 1.335, B_HEAD.y - 0.16, 0.09, 0.0, plate=(0.3, 0.26))
+    if with_neck:
+        neck(p, 1.335, B_HEAD.y - 0.16, 0.09, 0.0, plate=(0.3, 0.26))
     chassis(p, c, (0.56, 0.48, 0.42), 3, 0.12)
     # Blindagem arredondada: peito em duas placas curvas, placa do núcleo, ilhargas, costas.
     # T: o X local é o X do mundo e o Z local é o Z do mundo, logo -90° é a frente.
@@ -1121,12 +1123,13 @@ def gancho_head(p):
     sphere_panel(p, "team", hood, rh + 0.004, (42, 74), (-97, -83), 0.008, (2, 4), gap=0.0)
 
 
-def gancho_torso(p):
+def gancho_torso(p, with_neck=True):
     c = G_CHEST
     ex, ey, ez = G_CASK
     top_y = ey * math.sin(math.radians(G_CASK_LAT))
     rim_r = ex * math.cos(math.radians(G_CASK_LAT))
-    neck(p, c.y + top_y + 0.012, G_HEAD.y - G_HEAD_R + 0.025, 0.07, 0.0, plate=(0.22, 0.2))
+    if with_neck:
+        neck(p, c.y + top_y + 0.012, G_HEAD.y - G_HEAD_R + 0.025, 0.07, 0.0, plate=(0.22, 0.2))
     flat = scaled(c, 1.0, 1.0, ez / ex)
     cask = scaled(c, ex, ey, ez)
     # Chassis: o corpo escuro da pipa, tampos em cima e em baixo e os arcos de latão.
@@ -2291,8 +2294,144 @@ def magnus_leg(p, out):
         shin_top=-0.16)
 
 
+
+# ======================================================================================
+# Cascos: tronco e cabeça numa só peça, sem pescoço (a cabeça não roda: o corpo todo olha).
+# Sem ecrã de rosto: rasgos para os olhos, um só olho, ou nenhum.
+# ======================================================================================
+BH_TOP = 1.34          # topo do chassis da BIGORNA
+BH_SLIT = (0.3, 0.06)  # rasgo dos olhos
+
+
+def bigorna_hull(p):
+    """BIGORNA blindada: um bloco de tanque assente no peito, pala com faixa de perigo por cima
+    de um rasgo escuro onde brilham os olhos, faces laterais com faróis, pirilampo no topo."""
+    bigorna_torso(p, with_neck=False)
+    c = B_CHEST
+    y = BH_TOP + 0.11
+    mk.HEADS["bigorna3_hull"] = {"top": round(y + 0.2, 3), "center": round(y, 3), "aspect": round(BH_SLIT[0] / BH_SLIT[1], 3)}
+    # Estrutura escura e a carapaça: dorso e topo numa placa só, que desce para as costas.
+    mbox(p, "dark", T(0, y - 0.02, c.z + 0.01), (0.4, 0.24, 0.36), 0.06)
+    mbox(p, "shell", T(0, y + 0.05, c.z + 0.05), (0.44, 0.16, 0.36), 0.07)
+    mbox(p, "shell", T(0, y - 0.06, c.z + 0.16), (0.42, 0.14, 0.14), 0.05)
+    # Pala por cima dos olhos, com a faixa de perigo na testa.
+    brow = T(0, y + 0.03, c.z - 0.18)
+    mbox(p, "trim", brow, (0.44, 0.08, 0.14), 0.03)
+    hazard_band(p, plane(at(brow, 0, 0, -0.071), (0, 0, -1), (-1, 0, 0)), 0.38, 0.03, 8)
+    # O rasgo: poço escuro com o vidro dos olhos, sem aro.
+    screen_well(p, (0, y - 0.045, c.z - 0.225), BH_SLIT, 0.06, 0.02, ring=False)
+    # Queixo e faces: a pala fecha-se em baixo e dos lados; faróis nas faces.
+    mbox(p, "shell", T(0, y - 0.115, c.z - 0.16), (0.42, 0.07, 0.16), 0.03)
+    for side in (-1, 1):
+        mbox(p, "trim", T(side * 0.205, y - 0.045, c.z - 0.16), (0.05, 0.19, 0.17), 0.02)
+        lamp = axis_frame((side * 0.205, y - 0.05, c.z - 0.25), "-z")
+        mtube(p, "metal", lamp, 0.022, 0.02, 14)
+        mtube(p, "glow", sub(lamp, 0, 0.011, 0), 0.015, 0.004, 12)
+        vents(p, sub(T(side * 0.222, y + 0.02, c.z + 0.06), rot=(0, 90 * side, 0)), 3, 0.1, depth=0.01, spacing=0.03)
+    # Pirilampo de obra no topo, sobre a faixa da equipa.
+    top = y + 0.13
+    mbox(p, "team", T(0, top + 0.001, c.z + 0.12), (0.06, 0.012, 0.14), 0.004, 1)
+    mtube(p, "dark", T(0, top + 0.01, c.z - 0.02), 0.07, 0.04, 18, bevel=0.008)
+    dome(p, "glow", T(0, top + 0.03, c.z - 0.02), 0.052, 0.07, 16, 5)
+    for i in range(4):
+        a = math.radians(i * 90 + 45)
+        rod(p, "metal", (math.cos(a) * 0.058, top + 0.03, c.z - 0.02 + math.sin(a) * 0.058),
+            (math.cos(a) * 0.03, top + 0.11, c.z - 0.02 + math.sin(a) * 0.03), 0.006, 6)
+    mring(p, "metal", T(0, top + 0.11, c.z - 0.02), 0.032, 0.007, 12, 4)
+
+
+SH_Y = 1.53  # centro do bloco da cabeça fundida do SALVO
+
+
+def salvo_hull(p):
+    """SALVO sem rosto: uma caixa de cantos redondos encaixada no tambor do peito, com a marca
+    da unidade pintada onde estaria a cara, um sensor pequeno e a pega de transporte."""
+    salvo_torso(p, with_neck=False)
+    c = S_CHEST
+    y = SH_Y
+    mk.HEADS["salvo3_hull"] = {"top": round(y + 0.15, 3), "center": round(y, 3), "aspect": 1.0}
+    box = T(0, y, c.z - 0.03)
+    mbox(p, "dark", sub(box, 0, -0.06, 0.03), (0.4, 0.2, 0.34), 0.06)
+    mbox(p, "shell", box, (0.44, 0.28, 0.4), 0.1, 3)
+    # A placa da cara, lisa, com a marca em losango e duas riscas: nada de olhos.
+    face = sub(box, 0, 0.0, -0.2)
+    mbox(p, "trim", face, (0.3, 0.19, 0.02), 0.012, 1)
+    mark = sub(face, 0, 0.01, -0.012)
+    for k in range(4):
+        a = k * 90 + 45
+        d = (math.cos(math.radians(a)), math.sin(math.radians(a)))
+        mbox(p, "team", sub(mark, d[0] * 0.03, d[1] * 0.03, 0, rot=(0, 0, a + 90)), (0.05, 0.014, 0.006), 0.003, 1)
+    for u in (-1, 1):
+        mbox(p, "dark", sub(face, u * 0.11, -0.06, -0.012), (0.04, 0.008, 0.006), 0.002, 1)
+    # Um só sensor, pequeno, no canto: a máquina vê sem precisar de cara.
+    cam = axis_frame(at(box, 0.13, 0.09, -0.205), "-z")
+    mtube(p, "dark", cam, 0.02, 0.02, 12)
+    mtube(p, "glow", sub(cam, 0, 0.011, 0), 0.008, 0.004, 8)
+    # Protetores laterais em cúpula e a pega no topo.
+    for side in (-1, 1):
+        cap = axis_frame((side * 0.22, y - 0.01, c.z - 0.02), "x" if side > 0 else "-x")
+        mtube(p, "dark", cap, 0.1, 0.03, 20)
+        dome(p, "trim", sub(cap, 0, 0.012, 0), 0.09, 0.05, 20, 5)
+        bolts(p, sub(cap, 0, 0.016, 0), 0.094, 6, size=0.008)
+        mbox(p, "dark", T(side * 0.14, y + 0.17, c.z), (0.04, 0.07, 0.05), 0.012)
+    rod(p, "metal", (-0.16, y + 0.21, c.z), (0.16, y + 0.21, c.z), 0.018, 12)
+    mtube(p, "rubber", axis_frame((0, y + 0.21, c.z), "x"), 0.024, 0.14, 12)
+    mbox(p, "team", T(0, y + 0.141, c.z + 0.08), (0.24, 0.01, 0.06), 0.004, 1)
+    serial(p, plane((0.1, y - 0.02, c.z + 0.171), (0, 0, 1), (1, 0, 0)), "02", 0.04)
+    inspection_label(p, plane((-0.12, y + 0.03, c.z + 0.172), (0, 0, 1), (1, 0, 0)), 0.08, 0.045)
+
+
+GH_C = Vector((0.0, 1.31, 0.0))  # centro da cúpula do GANCHO
+GH_R = 0.25
+GH_EYE = (0.12, 0.12)
+
+
+def gancho_hull(p):
+    """GANCHO de um olho só: a pipa do tronco fecha-se numa cúpula de chapa com uma vigia
+    redonda à frente, onde está o olho; a luneta presa ao lado direito."""
+    gancho_torso(p, with_neck=False)
+    c = GH_C
+    r = GH_R
+    eye_y = c.y + 0.1
+    eye_z = -math.sqrt(r * r - 0.1 * 0.1) + 0.012
+    mk.HEADS["gancho3_hull"] = {"top": round(c.y + r + 0.04, 3), "center": round(eye_y, 3), "aspect": 1.0}
+    base = T(*c)
+    ball(p, "dark", c, r - 0.03, 22)
+    # A cúpula em gomos, aberta à frente para a vigia do olho.
+    for lo in ((-60, 20), (24, 96), (100, 176), (180, 238)):
+        sphere_panel(p, "trim", base, r, (4, 86), lo, 0.03, (8, 6), gap=0.008)
+    sphere_panel(p, "trim", base, r, (50, 86), (-124, -56), 0.03, (6, 3), gap=0.008)
+    sphere_panel(p, "trim", base, r, (4, 8), (-124, -56), 0.03, (6, 2), gap=0.004)
+    arc_tube(p, "rubber", sub(base, 0, r * math.sin(math.radians(6)), 0), r * math.cos(math.radians(6)) + 0.004, 0.009, -150, -30, 18, 6)
+    # O olho: vigia funda com aro de metal aparafusado e o vidro redondo.
+    eye = axis_frame((0, eye_y, eye_z), "-z")
+    mtube(p, "dark", sub(eye, 0, -0.03, 0), 0.085, 0.07, 24, caps=False)
+    mring(p, "metal", sub(eye, 0, 0.008, 0), 0.082, 0.014, 28, 6)
+    bolts(p, sub(eye, 0, 0.018, 0), 0.082, 6, size=0.007, phase=0.3)
+    screen_well(p, (0, eye_y, eye_z + 0.012), GH_EYE, 0.04, 0.012, ring=False)
+    # Bico atrás com luz de estado, cubos de articulação e a luneta à direita.
+    tip = Vector((0.0, math.cos(math.radians(40)), math.sin(math.radians(40))))
+    peak = frame(c + Vector((0, r * math.sin(math.radians(68)), r * math.cos(math.radians(68)))), tip)
+    lathe(p, "trim", peak, [(0.0, -0.04), (0.075, -0.04), (0.062, 0.02), (0.036, 0.07), (0.014, 0.098), (0.0, 0.104)], 18)
+    ball(p, "glow", at(peak, 0, 0.1, 0), 0.013, 10)
+    for side in (-1, 1):
+        hub = axis_frame((side * (r - 0.004), c.y + 0.06, c.z), "x" if side > 0 else "-x")
+        mtube(p, "metal", hub, 0.045, 0.024, 18, bevel=0.004)
+        bolts(p, sub(hub, 0, 0.013, 0), 0.032, 4, size=0.006)
+    mbox(p, "dark", T(r + 0.03, c.y + 0.06, c.z - 0.055), (0.05, 0.036, 0.1), 0.008, 1)
+    scope = axis_frame((r + 0.052, c.y + 0.07, c.z - 0.13), "-z")
+    mtube(p, "metal", scope, 0.03, 0.15, 16, bevel=0.004)
+    mring(p, "dark", sub(scope, 0, -0.03, 0), 0.031, 0.006, 16, 4)
+    mtube(p, "metal", sub(scope, 0, 0.1, 0), 0.024, 0.06, 14)
+    mtube(p, "dark", sub(scope, 0, 0.14, 0), 0.029, 0.024, 16)
+    mtube(p, "glow", sub(scope, 0, 0.153, 0), 0.02, 0.004, 12)
+    sphere_panel(p, "team", base, r + 0.004, (60, 80), (-97, -83), 0.008, (2, 4), gap=0.0)
+
 # ======================================================================================
 def define(part):
+    part("bigorna3_hull")(bigorna_hull)
+    part("salvo3_hull")(salvo_hull)
+    part("gancho3_hull")(gancho_hull)
     part("salvo2_head")(salvo_head)
     part("salvo2_torso")(salvo_torso)
     part("salvo2_shoulders")(salvo_shoulders)

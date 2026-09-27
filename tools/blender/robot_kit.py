@@ -1306,14 +1306,15 @@ def sync_heads():
     start = text.index('"heads": {')
     end = text.index("\n\t},", start)
     old = json.loads("{" + text[start:end] + "\n\t}}")["heads"]
-    heads = {name: value for name, value in old.items() if not name.endswith("2_head")}
-    heads.update({name: value for name, value in sorted(HEADS.items()) if name.endswith("2_head")})
+    fused = lambda name: name.endswith("2_head") or name.endswith("_hull")
+    heads = {name: value for name, value in old.items() if not fused(name)}
+    heads.update({name: value for name, value in sorted(HEADS.items()) if fused(name)})
     lines = ",\n".join('\t\t"%s": %s' % (name, json.dumps(value)) for name, value in heads.items())
     new = text[:start] + '"heads": {\n' + lines + text[end:]
     if new != text:
         json.loads(new)
         ROSTER.write_text(new)
-        print("ROSTER heads atualizadas:", ", ".join(n for n in heads if n.endswith("2_head")))
+        print("ROSTER heads atualizadas:", ", ".join(n for n in heads if fused(n)))
 
 
 # ======================================================================================
@@ -1338,7 +1339,7 @@ def assemble(objects, recipe, palette, offset, scale):
             bsdf.inputs["Metallic"].default_value = 0.8
             bsdf.inputs["Roughness"].default_value = 0.3
         mats[role] = mat
-    head = HEADS[recipe["head"]]
+    head = HEADS[recipe["head"] or recipe["torso"]]
     lift = Vector((0, 0, head["top"] - HEAD_TOP))
     centre = Vector((0, 0, head["center"] - HEAD_CENTER))
     body = Matrix.Translation(offset) @ Matrix.Diagonal((scale[0], scale[2], scale[1], 1))

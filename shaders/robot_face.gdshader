@@ -2,7 +2,8 @@ shader_type spatial;
 // The robot's face: a dark glass screen with glowing eyes drawn as distance fields, so every
 // style stays crisp from the gallery close-up down to a few pixels in the arena.
 // style: 0 capsule, 1 dots, 2 bars, 3 square, 4 slant, 5 monocle, 6 visor, 7 equalizer,
-//        8 single, 9 rings, 10 stars, 11 arcs.  mood: 0 calm, 1 happy, 2 dizzy.
+//        8 single, 9 rings, 10 stars, 11 arcs, 12 slits.  mood: 0 calm, 1 happy, 2 dizzy.
+// "slits" fills a narrow eye slit cut into a hull, not a screen: two bars nearly its height.
 render_mode unshaded, shadows_disabled;
 
 uniform vec4 eye_color : source_color = vec4(0.5, 0.95, 1.0, 1.0);
@@ -60,16 +61,17 @@ float eye(vec2 q, float side) {
 	if (style == 9) return min(sd_ring(q, 0.11, 0.028), length(q) - 0.035);
 	if (style == 10) return sd_star(q, 0.13, 0.45);
 	if (style == 11) return sd_arch(q + vec2(0.0, 0.03), 0.09, 0.028);
+	if (style == 12) return sd_box(turn(0.12 * side) * q, vec2(0.34, 0.2), 0.09);
 	return length(q) - 0.095;
 }
 
 void fragment() {
 	vec2 p = vec2((0.5 - UV.x) * aspect, 0.5 - UV.y);
-	float gap = clamp(0.21 * aspect, 0.17, 0.33);
+	float gap = style == 12 ? aspect * 0.2 : clamp(0.21 * aspect, 0.17, 0.33);
 	// A blink every few seconds, offset per robot so two never blink together.
 	float t = mod(TIME + seed, 3.7);
 	float lid = t < 0.14 ? max(abs(t - 0.07) / 0.07, 0.08) : 1.0;
-	vec2 at = p - vec2(0.0, 0.03);
+	vec2 at = p - vec2(0.0, style == 12 ? 0.0 : 0.03);
 	at.y /= lid;
 	float d;
 	if (mood == 0 && style == 6) {
@@ -83,7 +85,8 @@ void fragment() {
 			d = min(d, sd_box(at - vec2(x, 0.0), vec2(0.035, h), 0.025));
 		}
 	} else if (mood == 0 && style == 8) {
-		d = min(length(at) - 0.15, 1.0);
+		// A round lens (a square screen) is all eye.
+		d = min(length(at + vec2(0.0, 0.03)) - (aspect < 1.1 ? 0.3 : 0.15), 1.0);
 	} else {
 		d = min(eye(at - vec2(-gap, 0.0), -1.0), eye(at - vec2(gap, 0.0), 1.0));
 	}

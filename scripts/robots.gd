@@ -13,7 +13,7 @@ const OUTLINE = preload("res://shaders/robot_outline.gdshader")
 const LEG_PIVOT = Vector3(0.19, 0.40, 0.0)
 const MUZZLE = Vector3(0.29, 0.70, -0.86)
 const STATION_SKIN = 100
-const EYES = ["capsule", "dots", "bars", "square", "slant", "monocle", "visor", "equalizer", "single", "rings", "stars", "arcs"]
+const EYES = ["capsule", "dots", "bars", "square", "slant", "monocle", "visor", "equalizer", "single", "rings", "stars", "arcs", "slits"]
 # Tops and crests are modelled for a head whose top is at HEAD_TOP and centre at HEAD_CENTER;
 # the roster's "heads" table says where each real head sits, and the parts follow it.
 const HEAD_TOP = 1.8
@@ -188,7 +188,8 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	body.set_meta("robot_skin", skin)
 	var size: Array = plan.scale
 	body.scale = Vector3(size[0], size[1], size[2])
-	var shape = head(String(parts.head))
+	# A fused hull (no head part) keeps its face in the trunk and says where it is itself.
+	var shape = head(String(parts.head) if String(parts.head) != "" else String(parts.torso))
 	var lift = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.top) - HEAD_TOP, 0))
 	var centre = Transform3D(Basis.IDENTITY, Vector3(0, float(shape.center) - HEAD_CENTER, 0))
 	# The trunk is one piece; the head (with whatever sits on it) turns on the neck and the

@@ -25,8 +25,12 @@ func run():
 		var pilot = view.build_player(View.CYAN, 0, skin)
 		var body = pilot.get_node("Body")
 		var valid = true
-		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Head/Robot_screen", "Head", "Arm"]:
+		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Head", "Arm"]:
 			valid = valid and body.has_node(part)
+		# A face on the head, or cut into a fused hull (trunk and head one piece); a hull may
+		# also go without a face at all.
+		var hull = String(View.Robots.recipe(skin).parts.torso).ends_with("_hull")
+		valid = valid and (body.has_node("Head/Robot_screen") or body.has_node("Robot_screen") or hull)
 		check(valid, "Skin %d keeps animated body, legs, weapon, muzzle and face" % skin)
 		check(not body.has_node("Robot_outline"), "Skin %d has no ink hull in the studio look" % skin)
 		var batch_ok = true
