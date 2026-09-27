@@ -1181,9 +1181,88 @@ func animate_showroom(dt: float) -> void:
 	for pilot in [showroom_pilot, showroom_boss]:
 		if not is_instance_valid(pilot):
 			continue
-		var body: Node3D = pilot.get_node("Body")
-		body.position.y = sin(clock * 2.2 + (0.0 if pilot == showroom_pilot else 1.3)) * 0.02
-		spin_parts(body, clock)
+		live_on_pedestal(pilot, 0.0 if pilot == showroom_pilot else 4.3)
+
+# The two robots in the lobby are never still: each runs its own routine on a loop - looks
+# around, side-steps on its pedestal with the legs walking, fires a burst (the gun kicks, the
+# muzzle flashes, rounds of light fly off), crouches low with the legs spread, and stands up
+# again. The routine is offset for the rival so the two never move in step.
+const LOBBY_ROUTINE = 10.0
+
+func live_on_pedestal(pilot: Node3D, offset: float) -> void:
+	var body: Node3D = pilot.get_node("Body")
+	var legs = [body.get_node("LegL"), body.get_node("LegR")]
+	var gun: Node3D = body.get_node("Gun")
+	var t = fmod(clock + offset, LOBBY_ROUTINE)
+	var bob = sin(clock * 2.2 + offset) * 0.02
+	var look = 0.0
+	var step = 0.0
+	var stride = 0.0
+	var crouch = 0.0
+	var aim = 0.0
+	if t < 2.0:
+		# Looks left, then right.
+		look = sin(t / 2.0 * TAU) * 0.45
+	elif t < 4.4:
+		# Side-steps across the pedestal and back, legs walking.
+		var k = (t - 2.0) / 2.4
+		step = sin(k * TAU) * 0.32
+		stride = sin(clock * 11.0) * 0.5 * sin(k * PI)
+		bob = absf(sin(clock * 11.0)) * 0.05
+	elif t < 6.6:
+		# Braces and fires a burst of five.
+		var k = (t - 4.4) / 2.2
+		aim = sin(k * PI)
+		crouch = 0.25 * sin(k * PI)
+		var fired = t - 4.8
+		if fired > 0.0 and fired < 1.5:
+			var age = fmod(fired, 0.3)
+			var recoil = recoil_curve(age)
+			gun.position.z = recoil * 0.09
+			gun.rotation.x = -aim * 0.08 + recoil * 0.12
+			body.position.x = body.basis.z.x * recoil * 0.03
+			body.position.z = body.basis.z.z * recoil * 0.03
+			gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.26 * (1.0 - age / 0.05))
+			var shot = int(fired / 0.3)
+			if pilot.get_meta("last_shot", -1) != shot:
+				pilot.set_meta("last_shot", shot)
+				lobby_round(pilot, gun)
+		else:
+			gun.position.z = 0.0
+			gun.get_node("Flash").scale = Vector3.ONE * 0.001
+	elif t < 8.6:
+		# Drops into a low crouch, holds, and comes back up.
+		var k = (t - 6.6) / 2.0
+		crouch = smoothstep(0.0, 0.3, k) * (1.0 - smoothstep(0.7, 1.0, k))
+		look = sin(k * PI * 2.0) * 0.2
+	else:
+		pilot.set_meta("last_shot", -1)
+		look = sin((t - 8.6) / 1.4 * PI) * -0.25
+	body.rotation.y = lerp_angle(body.rotation.y, look, 0.12)
+	body.position.x = lerpf(body.position.x, step, 0.2) if t >= 2.0 and t < 4.4 else lerpf(body.position.x, 0.0, 0.1)
+	body.position.y = bob - crouch * 0.16
+	body.rotation.x = crouch * 0.12
+	for i in range(2):
+		var side = -1.0 if i == 0 else 1.0
+		legs[i].rotation.x = stride * side - crouch * 0.35
+		legs[i].rotation.z = side * crouch * 0.22
+	if t < 4.4 or t >= 6.6:
+		gun.get_node("Flash").scale = Vector3.ONE * 0.001
+		gun.rotation.x = lerpf(gun.rotation.x, 0.0, 0.15)
+		gun.position.z = lerpf(gun.position.z, 0.0, 0.2)
+	spin_parts(body, clock)
+
+func lobby_round(pilot: Node3D, gun: Node3D) -> void:
+	# A round of light out of the muzzle, off into the sky behind the pedestal.
+	if fx == null:
+		return
+	var muzzle: Vector3 = gun.get_node("Flash").global_position
+	var ahead: Vector3 = -pilot.get_node("Body").global_basis.z
+	var color: Color = CYAN if pilot == showroom_pilot else CORAL
+	fx.emit("glow", muzzle, ahead * 11.0, Color(color, 0.95), 0.42, 0.3, 0.55)
+	fx.emit("glow", muzzle, ahead * 1.5, Color("fff1c7", 0.9), 0.5, 0.05, 0.12)
+	for i in range(4):
+		fx.emit("spark", muzzle, ahead * 3.0 + Vector3(randf_range(-1, 1), randf_range(0, 1.2), randf_range(-1, 1)), color.lightened(0.3), 0.08, 0.02, 0.25, -4.0, 2.0, 0.06)
 
 func turn_showroom(amount: float) -> void:
 	showroom_turn += amount
