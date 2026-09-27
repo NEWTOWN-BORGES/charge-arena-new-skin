@@ -3827,6 +3827,8 @@ def orbita6_leg(p, out):
 # cubo). Medidas tiradas do desenho (1800 mm de altura = a escala), cores da tabela.
 # --------------------------------------------------------------------------------------
 BP_HEAD = Vector((0.02, 1.5, 0.0))
+# A anca da planta: as pernas ocupam quase metade da altura.
+BP_HIP = 0.76
 BP_HEAD_SIZE = (0.76, 0.56, 0.46)
 BP = {"elbow_l": Vector((-0.52, 0.95, 0.0)), "wrist_l": Vector((-0.53, 0.55, -0.02)), "elbow_r": Vector((0.52, 0.95, 0.0))}
 BP_MUZZLE = Vector((0.52, 0.5, -0.2))
@@ -3852,15 +3854,18 @@ def batida7_head(p):
     w, h, d = BP_HEAD_SIZE
     front = c.z - d / 2
     mk.HEADS["batida7_head"] = {"top": round(c.y + h / 2, 3), "center": round(c.y, 3), "aspect": 1.0}
-    cbox(p, "trim", (c.x, c.y, c.z), (w, h, d), 0.055)
+    cbox(p, "trim", (c.x, c.y, c.z), (w, h, d), 0.08)
+    cbox(p, "trim", (c.x, c.y, front + 0.012), (w - 0.1, h - 0.1, 0.03), 0.02)
     # Juntas dos painéis: a face da frente e o tampo são placas encaixadas.
     for dy in (h / 2 - 0.07, -h / 2 + 0.07):
         mbox(p, "metal", T(c.x, c.y + dy, front - 0.001), (w - 0.14, 0.004, 0.003), 0.001, 1)
     cbox(p, "dark", (c.x, c.y - h / 2 + 0.01, c.z), (w - 0.1, 0.03, d - 0.08), 0.01)
     # O losango vermelho e as quatro marcas de canto.
-    bp_diamond(p, "glow", (c.x - 0.02, c.y + 0.01, front - 0.004), 0.17, bar=0.042)
+    # O losango: quatro quadrados rodados, com a cruz de folga entre eles.
+    for dx, dy in ((0.045, 0.0), (-0.045, 0.0), (0.0, 0.045), (0.0, -0.045)):
+        mbox(p, "hazard", sub(T(c.x - 0.02 + dx, c.y + 0.01 + dy, front - 0.006), rot=(0, 0, 45)), (0.05, 0.05, 0.008), 0.003, 1)
     for u, v in ((-1, 1), (1, 1), (-1, -1), (1, -1)):
-        mbox(p, "glow", sub(T(c.x + u * (w / 2 - 0.07), c.y + v * (h / 2 - 0.07), front - 0.004), rot=(0, 0, 45 * u * v)), (0.05, 0.012, 0.006), 0.002, 1)
+        mbox(p, "hazard", sub(T(c.x + u * (w / 2 - 0.08), c.y + v * (h / 2 - 0.08), front - 0.006), rot=(0, 0, 45 * u * v)), (0.05, 0.014, 0.006), 0.002, 1)
     # O distintivo laranja no canto de baixo, à esquerda de quem vê.
     cbox(p, "shell", (c.x + 0.25, c.y - 0.17, front - 0.006), (0.07, 0.045, 0.012), 0.008)
     for i in range(2):
@@ -3874,7 +3879,7 @@ def batida7_head(p):
             mtube(p, "dark", sub(s, 0, 0.012, 0), rr * 0.35, 0.008, 16)
         mbox(p, "dark", T(c.x + side * (w / 2 + 0.002), c.y - 0.12, c.z + 0.06), (0.004, 0.14, 0.025), 0.002, 1)
     # O cano-antena atrás, à esquerda do robô: tubo branco, faixa laranja, tampa escura, braçadeira.
-    pipe = Vector((-0.42, 0.0, c.z + d / 2 - 0.08))
+    pipe = Vector((-0.42, 0.0, c.z + 0.08))
     mtube(p, "trim", T(pipe.x, 1.58, pipe.z), 0.032, 0.64, 16, bevel=0.004)
     mtube(p, "shell", T(pipe.x, 1.44, pipe.z), 0.034, 0.08, 16)
     mtube(p, "dark", T(pipe.x, 1.91, pipe.z), 0.034, 0.03, 16)
@@ -3891,79 +3896,116 @@ def batida7_head(p):
 def batida7_torso(p):
     cbox(p, "dark", (0, 1.2, 0.0), (0.34, 0.05, 0.28), 0.015)
     # O peito: a couraça de cima e o V de duas placas por baixo, a vareta à direita do robô.
-    cbox(p, "trim", (0, 1.08, -0.02), (0.56, 0.24, 0.38), 0.045)
+    # A couraça do peito: um trapézio mais estreito em baixo, a placa branca de baixo e a
+    # mecânica cinzenta à vista entre eles.
+    cbox(p, "trim", (0, 1.05, -0.03), (0.56, 0.3, 0.38), 0.05, rot=(0, 0, 180), taper=(0.62, 0.9))
+    cbox(p, "trim", (0, 0.86, -0.06), (0.24, 0.08, 0.24), 0.03)
     for side in (-1, 1):
-        cbox(p, "trim", (side * 0.1, 0.88, -0.05), (0.3, 0.2, 0.3), 0.035, rot=(0, 0, side * 32))
-    mbox(p, "dark", T(0, 0.92, -0.2), (0.004, 0.14, 0.004), 0.001, 1)
-    rod(p, "dark", (0.12, 1.1, -0.21), (0.15, 1.25, -0.23), 0.012, 8)
+        cbox(p, "metal", (side * 0.2, 0.84, 0.0), (0.12, 0.14, 0.2), 0.03)
+    for a, b in (((-0.12, 1.14), (-0.08, 1.08)), ((-0.08, 1.08), (-0.1, 1.02)), ((-0.08, 1.08), (-0.03, 1.05))):
+        rod(p, "dark", (a[0], a[1], -0.222), (b[0], b[1], -0.222), 0.004, 4)
+    rod(p, "dark", (0.12, 1.12, -0.22), (0.16, 1.28, -0.25), 0.014, 8)
     cbox(p, "dark", (0, 0.92, 0.05), (0.36, 0.3, 0.3), 0.03)
     # A barriga: placa hexagonal branca com traços laranja.
     lathe(p, "trim", sub(T(0, 0.8, -0.1), rot=(90, 0, 0)), [(0.0, -0.035), (0.09, -0.035), (0.09, 0.035), (0.0, 0.035)], 6)
     for u in (-1, 1):
         mbox(p, "shell", T(u * 0.035, 0.805, -0.137), (0.025, 0.01, 0.004), 0.002, 1)
-    cbox(p, "dark", (0, 0.68, 0.0), (0.3, 0.12, 0.26), 0.03)
+    cbox(p, "dark", (0, 0.76, 0.0), (0.3, 0.12, 0.26), 0.03)
+    mtube(p, "metal", T(0, 0.84, 0.0), 0.09, 0.05, 18)
+    for side in (-1, 1):
+        piston(p, (side * 0.09, 0.8, -0.08), (side * 0.12, 0.9, -0.1), 0.016)
     for side in (-1, 1):
         mtube(p, "dark", axis_frame((side * 0.28, 1.1, 0.0), "x" if side > 0 else "-x"), 0.08, 0.08, 18, bevel=0.008)
     # A mochila cinzenta atrás, com ranhuras, o cabo laranja e um autocolante vermelho.
-    cbox(p, "metal", (0.02, 0.98, 0.28), (0.4, 0.42, 0.2), 0.035)
-    cbox(p, "dark", (0.02, 0.93, 0.382), (0.18, 0.24, 0.01), 0.004)
-    for i in range(3):
-        mbox(p, "metal", T(0.02, 1.0 - i * 0.05, 0.388), (0.14, 0.014, 0.004), 0.002, 1)
+    # A mochila: um bloco branco alto, até ao meio da cabeça, com a ranhura escura e a base
+    # cinzenta.
+    cbox(p, "trim", (-0.04, 1.03, 0.3), (0.3, 0.38, 0.22), 0.045)
+    cbox(p, "metal", (-0.04, 0.84, 0.3), (0.26, 0.08, 0.2), 0.03)
+    for side in (-1, 1):
+        cbox(p, "dark", (-0.04 + side * 0.151, 1.02, 0.3), (0.012, 0.16, 0.08), 0.004)
+        cbox(p, "metal", (-0.04 + side * 0.151, 0.92, 0.3), (0.012, 0.06, 0.08), 0.004)
+    cbox(p, "dark", (-0.04, 1.03, 0.412), (0.12, 0.2, 0.01), 0.004)
     rod(p, "shell", (-0.16, 1.15, 0.28), (-0.24, 1.05, 0.16), 0.018, 10)
     rod(p, "shell", (-0.24, 1.05, 0.16), (-0.27, 0.95, 0.05), 0.018, 10)
-    mbox(p, "glow", T(0.14, 1.13, 0.382), (0.06, 0.035, 0.004), 0.002, 1)
-    hip_axles(p, BATIDA["hip"].y, 0.13, BATIDA["hip"].x, 0.065)
+    cbox(p, "shell", (0.06, 1.16, 0.412), (0.06, 0.035, 0.006), 0.006)
+    hip_axles(p, BP_HIP, 0.13, BATIDA["hip"].x, 0.065)
 
 
 def batida7_shoulders(p):
-    # Ombro e braço: um bloco branco alto do ombro ao cotovelo (1,22 a 0,93 m), centrado a
-    # 0,41 m do meio, com o rolamento escuro à vista entre ele e o peito.
+    # Ombro: rolamento cinzento à vista, e o braço de cima como uma carapaça branca por fora e
+    # à frente de uma estrutura escura, com a etiqueta laranja e as rachas da pintura.
     for side in (-1, 1):
-        cbox(p, "trim", (side * 0.41, 1.075, 0.0), (0.26, 0.29, 0.28), 0.045)
-        mbox(p, "dark", T(side * 0.41, 1.0, 0.0), (0.27, 0.006, 0.285), 0.002, 1)
-        for i in range(2):
-            mbox(p, "shell", T(side * 0.541, 1.12 - i * 0.03, -0.05), (0.004, 0.012, 0.05), 0.002, 1)
-        cbox(p, "shell", (side * 0.46, 1.16, -0.142), (0.06, 0.04, 0.006), 0.006)
-        mtube(p, "dark", axis_frame((side * 0.41, 0.915, 0.0), "x"), 0.05, 0.22, 16)
+        x = side * 0.45
+        mtube(p, "metal", axis_frame((side * 0.3, 1.12, 0.0), "x" if side > 0 else "-x"), 0.075, 0.08, 20, bevel=0.01)
+        cbox(p, "dark", (x - side * 0.02, 1.03, 0.02), (0.18, 0.3, 0.22), 0.02)
+        cbox(p, "trim", (x + side * 0.02, 1.08, -0.01), (0.25, 0.24, 0.3), 0.05)
+        cbox(p, "trim", (x + side * 0.03, 0.95, -0.02), (0.2, 0.05, 0.26), 0.02)
+        cbox(p, "shell", (x + side * 0.05, 1.17, -0.162), (0.07, 0.045, 0.006), 0.006)
+        for a_, b_ in (((0.0, 1.13), (0.03, 1.09)), ((0.03, 1.09), (0.065, 1.11)), ((0.03, 1.09), (0.035, 1.04))):
+            rod(p, "dark", (x - side * a_[0], a_[1], -0.162), (x - side * b_[0], b_[1], -0.162), 0.004, 4)
+        # O cotovelo: garfo escuro e tambor cinzento bem à vista.
+        cbox(p, "dark", (x, 0.9, 0.0), (0.16, 0.06, 0.16), 0.015)
+        mtube(p, "metal", axis_frame((x, 0.87, 0.0), "x"), 0.058, 0.2, 18, bevel=0.008)
+        mtube(p, "dark", axis_frame((x + side * 0.105, 0.87, 0.0), "x"), 0.03, 0.02, 12)
 
 
 def batida7_arm(p):
-    # Antebraço (0,9 a 0,66 m), punho laranja (0,66 a 0,48 m) com o triângulo, mão até 0,32 m.
+    # Antebraço: estrutura escura, carapaça branca, punho laranja com o triângulo, o pulso
+    # cinzento e a mão mecânica cinzenta; o cotovelo dobra um pouco para a frente.
     for side in (-1, 1):
-        x = side * 0.41
-        cbox(p, "trim", (x, 0.78, -0.01), (0.26, 0.24, 0.28), 0.04)
-        cbox(p, "shell", (x, 0.57, -0.01), (0.265, 0.18, 0.285), 0.03)
-        bp_triangle(p, "dark", T(x, 0.57, -0.01 - 0.144), 0.06)
+        x = side * 0.45
+        elbow = T(x, 0.87, 0.0) @ Matrix.Rotation(math.radians(10), 4, "X")
+        cbox(p, "dark", sub(elbow, 0, -0.2, 0.02), (0.16, 0.34, 0.18), 0.02)
+        cbox(p, "trim", sub(elbow, 0, -0.15, -0.01), (0.23, 0.24, 0.26), 0.035)
+        for i in range(2):
+            mbox(p, "shell", sub(elbow, side * 0.06, -0.09 - i * 0.03, -0.157), (0.012, 0.012, 0.004), 0.002, 1)
+        cbox(p, "shell", sub(elbow, 0, -0.33, -0.01), (0.24, 0.13, 0.27), 0.03)
+        bp_triangle(p, "dark", sub(elbow, 0, -0.33, -0.147), 0.055)
         if side > 0:
-            bp_diamond(p, "shell", (x, 0.8, -0.01 - 0.142), 0.1, bar=0.016)
-        fist(p, sub(frame(Vector((x, 0.47, -0.01)), Vector((0, -1, 0)), front=(0, 0, -1)), 0, 0.03, 0), 1.35, "metal")
+            bp_diamond(p, "dark", tuple(at(elbow, side * 0.121, -0.33, -0.01)), 0.075, bar=0.012)
+        mtube(p, "metal", sub(elbow, 0, -0.42, -0.01), 0.05, 0.05, 14)
+        fist(p, sub(elbow, 0, -0.48, -0.02) @ Matrix.Rotation(math.radians(180), 4, "X"), 0.95, "dark")
 
 
 def batida7_gun(p):
-    m = axis_frame((0.41, 0.42, -0.12), "-z")
+    m = axis_frame((0.45, 0.38, -0.2), "-z")
     mtube(p, "dark", sub(m, 0, 0.03, 0), 0.03, 0.12, 12)
     mtube(p, "glow", sub(m, 0, 0.092, 0), 0.02, 0.004, 10)
 
 
 def batida7_leg(p, out):
-    # Perna de 0,30 m de largura: coxa e canela brancas (0,76 a 0,34 m), faixa laranja (0,32
-    # a 0,18 m), tornozelo escuro e o pé de 0,18 m de altura com três dedos.
-    hip = BATIDA["hip"].y
+    # Perna: estrutura escura com carapaças brancas à frente e por fora; o joelho, o tornozelo
+    # e a anca são mecânica cinzenta à vista. Faixa laranja na canela, pé de três dedos.
+    hip = BP_HIP
     g = -hip
     y = lambda h: h - hip
-    leg_hub(p, out, 0.06)
-    cbox(p, "trim", (0, y(0.63), 0.0), (0.3, 0.26, 0.3), 0.045)
+    leg_hub(p, out, 0.05)
+    # Coxa: placa branca alta e estreita sobre a estrutura escura.
+    cbox(p, "dark", (0, y(0.6), 0.02), (0.12, 0.26, 0.14), 0.015)
+    cbox(p, "trim", (0, y(0.61), -0.035), (0.23, 0.25, 0.17), 0.03)
+    cbox(p, "trim", (out * 0.105, y(0.6), 0.03), (0.035, 0.2, 0.13), 0.01)
     for i in range(2):
-        mbox(p, "shell", T(0, y(0.66) - i * 0.03, -0.152), (0.07, 0.012, 0.004), 0.002, 1)
-    mtube(p, "dark", axis_frame((0, y(0.485), 0.0), "x"), 0.07, 0.26, 16)
-    cbox(p, "trim", (0, y(0.41), 0.0), (0.3, 0.13, 0.3), 0.035)
-    cbox(p, "shell", (0, y(0.25), 0.0), (0.305, 0.14, 0.305), 0.03)
-    cbox(p, "dark", (0, y(0.165), 0.0), (0.14, 0.04, 0.14), 0.012)
-    cbox(p, "trim", (0, y(0.11), -0.02), (0.28, 0.09, 0.24), 0.03)
-    for dx in (-0.09, 0.0, 0.09):
-        cbox(p, "metal", (dx, y(0.035), -0.16), (0.075, 0.07, 0.13), 0.018)
-    cbox(p, "metal", (0, y(0.035), 0.12), (0.18, 0.07, 0.09), 0.018)
-    cbox(p, "dark", (0, y(0.02), -0.02), (0.26, 0.04, 0.34), 0.01)
+        mbox(p, "hazard", T(0, y(0.66) - i * 0.025, -0.122), (0.06, 0.01, 0.004), 0.002, 1)
+    # Joelho: mecânica escura à vista, tambor cinzento e rótula pequena.
+    mtube(p, "metal", axis_frame((0, y(0.455), 0.0), "x"), 0.05, 0.17, 18, bevel=0.008)
+    cbox(p, "dark", (0, y(0.455), 0.03), (0.1, 0.09, 0.1), 0.012)
+    cbox(p, "trim", (0, y(0.46), -0.075), (0.11, 0.07, 0.05), 0.018)
+    mtube(p, "dark", axis_frame((out * 0.09, y(0.455), 0.0), "x" if out > 0 else "-x"), 0.028, 0.012, 14)
+    for dz in (-0.03, 0.04):
+        rod(p, "dark", Vector((out * 0.05, y(0.52), dz)), Vector((out * 0.05, y(0.4), dz)), 0.012)
+    # Canela: carapaça branca alta, faixa laranja em baixo junto ao tornozelo.
+    cbox(p, "dark", (0, y(0.28), 0.02), (0.11, 0.26, 0.13), 0.015)
+    cbox(p, "trim", (0, y(0.33), -0.03), (0.22, 0.17, 0.18), 0.028)
+    cbox(p, "shell", (0, y(0.2), -0.03), (0.225, 0.09, 0.185), 0.022)
+    mbox(p, "trim", T(0, y(0.34), -0.122), (0.07, 0.01, 0.004), 0.002, 1)
+    # Tornozelo e pé de garras escuras.
+    mtube(p, "metal", axis_frame((0, y(0.12), 0.0), "x"), 0.035, 0.12, 14)
+    cbox(p, "dark", (0, y(0.12), 0.0), (0.08, 0.07, 0.08), 0.01)
+    cbox(p, "metal", (0, y(0.06), -0.01), (0.17, 0.05, 0.16), 0.018)
+    for dx, rz in ((-0.06, 10), (0.0, 0), (0.06, -10)):
+        cbox(p, "dark", (dx, y(0.03), -0.13), (0.05, 0.06, 0.13), 0.015, rot=(0, rz, 0))
+        cbox(p, "dark", (dx * 1.1, y(0.02), -0.2), (0.04, 0.04, 0.05), 0.012, rot=(-20, rz, 0))
+    cbox(p, "dark", (0, y(0.03), 0.09), (0.1, 0.06, 0.08), 0.015)
 
 # ======================================================================================
 def define(part):
