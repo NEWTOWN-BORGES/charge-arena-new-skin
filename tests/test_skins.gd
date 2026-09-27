@@ -97,7 +97,7 @@ func run() -> void:
 		check(themed and lit and arena.brick_nodes.size() == 80 and arena.brick_batches.size() < 24, "Skin %d styles team bricks with life lights and batching" % skin)
 
 	arena.set_skin(0, 2)
-	var orbit: Node3D = arena.units[0].get_node("Body/Spin")
+	var orbit: Node3D = arena.units[0].get_node("Body/Head/CrestMount/Spin")
 	var turn = orbit.rotation.y
 	arena.update_state(game.rules, 0, 0.5)
 	check(not is_equal_approx(orbit.rotation.y, turn), "Órbita's orbit rings spin during play")
