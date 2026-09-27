@@ -294,11 +294,15 @@ static func theme() -> Theme:
 	t.set_stylebox("slider", "HSlider", track)
 	t.set_stylebox("grabber_area", "HSlider", flat(SUN, Color.TRANSPARENT, 8))
 	t.set_stylebox("grabber_area_highlight", "HSlider", flat(SUN.lightened(0.1), Color.TRANSPARENT, 8))
+	# Slim scroll bars: flat() carries 18 px of padding, which made them as wide as a thumb
+	# and pushed over the controls beside them.
 	for bar in ["VScrollBar", "HScrollBar"]:
-		t.set_stylebox("scroll", bar, flat(Color(FIELD, 0.6), Color.TRANSPARENT, 6))
-		t.set_stylebox("grabber", bar, flat(CARD_EDGE, Color.TRANSPARENT, 6))
-		t.set_stylebox("grabber_highlight", bar, flat(MUTED, Color.TRANSPARENT, 6))
-		t.set_stylebox("grabber_pressed", bar, flat(SUN, Color.TRANSPARENT, 6))
+		for part in [["scroll", Color(FIELD, 0.6)], ["grabber", CARD_EDGE], ["grabber_highlight", MUTED], ["grabber_pressed", SUN]]:
+			var slim = StyleBoxFlat.new()
+			slim.bg_color = part[1]
+			slim.set_corner_radius_all(4)
+			slim.set_content_margin_all(3)
+			t.set_stylebox(part[0], bar, slim)
 	t.set_stylebox("panel", "TooltipPanel", flat(PANEL, CARD_EDGE, 10))
 	t.set_color("font_color", "TooltipLabel", WHITE)
 	t.set_color("font_color", "CheckButton", WHITE)

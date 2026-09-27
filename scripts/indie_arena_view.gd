@@ -1174,9 +1174,7 @@ func animate_showroom(dt: float) -> void:
 	showroom_drag = move_toward(showroom_drag, 0.0, dt * 1.5)
 	showroom_idle += dt
 	# A pilot faces down -z: turned round to face the camera. A finger turns it all the way
-	# round; left alone for a moment it goes on turning slowly by itself.
-	if showroom_idle > 2.0:
-		showroom_turn += dt * 0.35
+	# round; left alone it stays where it was put (its routine does the moving).
 	showroom_pilot.rotation.y = PI + showroom_turn
 	for pilot in [showroom_pilot, showroom_boss]:
 		if not is_instance_valid(pilot):

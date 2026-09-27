@@ -547,7 +547,8 @@ func build_viewer_pilot() -> void:
 	viewer_bricks.clear()
 	# Two exhibition bricks of the skin's theme; the second shows a lost life.
 	for side in [-1, 1]:
-		var data = {"team": 1 if locked else 0, "p": Vector2(side * 0.7, 0.28), "rotation": side * 1.05}
+		# Beside the pilot and a step behind, so they never stand in front of it.
+		var data = {"team": 1 if locked else 0, "p": Vector2(side * 1.05, -0.45), "rotation": side * 0.6}
 		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index, locked))
 	viewer_bricks[1].scale = Vector3.ONE * arena_view.Rules.brick_scale(2)
 	viewer_bricks[1].get_node("HP2").hide()
@@ -605,8 +606,6 @@ func pinch_span() -> float:
 func animate_viewer(dt: float) -> void:
 	viewer_clock += dt
 	viewer_idle += dt
-	if viewer_idle > 1.5:
-		viewer_yaw += dt * 0.55
 	viewer_turntable.rotation.y = viewer_yaw
 	var body: Node3D = viewer_pilot.get_node("Body")
 	body.position.y = sin(viewer_clock * 2.2) * 0.02
@@ -2095,7 +2094,12 @@ func build_video_menu() -> void:
 	video_panel.add_child(option_stack)
 	option_stack.add_child(options_scroll)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	options_scroll.add_child(list)
+	# A margin on the right keeps every control clear of the scroll bar.
+	var clear = MarginContainer.new()
+	clear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clear.add_theme_constant_override("margin_right", 18)
+	options_scroll.add_child(clear)
+	clear.add_child(list)
 	list.add_child(label("OPÇÕES", 25, WHITE, true))
 	list.add_child(label("Imagem, som e ajudas de jogo.", 15, MUTED))
 	cup_difficulty = video_option(list, "Dificuldade da IA", ["Fácil", "Normal", "Difícil"])
@@ -2192,11 +2196,11 @@ func video_option(parent: VBoxContainer, title: String, options: Array) -> Optio
 	var row = HBoxContainer.new()
 	parent.add_child(row)
 	var caption = label(title, 15, WHITE)
-	caption.custom_minimum_size.x = 132
+	caption.custom_minimum_size.x = 176
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(caption)
 	var option = OptionButton.new()
-	option.custom_minimum_size = Vector2(328, 48)
+	option.custom_minimum_size = Vector2(260, 48)
 	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	option.add_theme_font_size_override("font_size", 14)
 	option.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.PANEL_EDGE))
@@ -2209,8 +2213,8 @@ func video_option(parent: VBoxContainer, title: String, options: Array) -> Optio
 func volume_slider(parent: VBoxContainer, title: String) -> HSlider:
 	var row = HBoxContainer.new()
 	parent.add_child(row)
-	var caption = label(title, 15, WHITE)
-	caption.custom_minimum_size.x = 132
+	var caption = label(title.replace(" (%)", ""), 15, WHITE)
+	caption.custom_minimum_size.x = 176
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(caption)
 	var slider = HSlider.new()
@@ -2226,8 +2230,24 @@ func volume_slider(parent: VBoxContainer, title: String) -> HSlider:
 		bar.content_margin_top = 4
 		bar.content_margin_bottom = 4
 		slider.add_theme_stylebox_override(part[0], bar)
+	slider.custom_minimum_size.x = 220
 	row.add_child(slider)
+	# The value, so a slider is never a guess.
+	var readout = label("", 14, MUTED, true)
+	readout.custom_minimum_size.x = 52
+	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(readout)
+	slider.set_meta("readout", readout)
+	slider.value_changed.connect(func(value: float): readout.text = "%d%%" % roundi(value))
+	readout.text = "%d%%" % roundi(slider.value)
 	return slider
+
+func set_slider(slider: HSlider, value: float) -> void:
+	# Settings arrive without a signal (so nothing is saved back); the readout follows anyway.
+	slider.set_value_no_signal(value)
+	var readout = slider.get_meta("readout", null)
+	if readout != null:
+		readout.text = "%d%%" % roundi(slider.value)
 
 func fire_slider_changed(_value: float) -> void:
 	emit_fire_layout()
@@ -2253,9 +2273,11 @@ func draw_fire_preview() -> void:
 	c.draw_arc(center, radius, 0, TAU, 64, CYAN, 2, true)
 	var text_value = "AUTO" if auto_fire else ("TIRO" if fire_control == 0 else "JOY + TIRO")
 	var text_width = font_bold.get_string_size(text_value, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	c.draw_string(font_bold, center + Vector2(-text_width * 0.5, 5), text_value, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, WHITE)
+	# Light text on the dark key (WHITE is the kit's ink colour on these light panels).
+	c.draw_string(font_bold, center + Vector2(-text_width * 0.5, 5), text_value, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("f4fbff"))
 	var caption = "%d%% · tamanho do botão" % roundi(fire_size * 100) if not auto_fire and fire_control == 0 else ("Dispara sozinho" if auto_fire else "Mantém o dedo no joystick")
-	c.draw_string(font, Vector2(165, 179), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MUTED)
+	var caption_width = font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	c.draw_string(font, Vector2(center.x - caption_width * 0.5, minf(center.y + radius + 22, c.size.y - 8)), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MUTED)
 
 func select_fire_mode(index: int) -> void:
 	# One choice, so automatic fire cannot accidentally override joystick fire.
@@ -2274,7 +2296,7 @@ func sync_game(settings) -> void:
 	effects_choice.select(1 if settings.effects_full else 0)
 	haptic_choice.set_pressed_no_signal(settings.haptics)
 	automatic_choice.set_pressed_no_signal(settings.auto_fire)
-	sfx_slider.set_value_no_signal(settings.sfx_volume * 100.0)
+	set_slider(sfx_slider, settings.sfx_volume * 100.0)
 	auto_fire = settings.auto_fire
 	fire_control = settings.fire_control
 	fire_size = settings.fire_size
@@ -2282,9 +2304,9 @@ func sync_game(settings) -> void:
 	fire_y = settings.fire_y
 	fire_control_choice.select(0 if auto_fire else fire_control + 1)
 	if is_instance_valid(fire_preview): fire_preview.queue_redraw()
-	fire_size_slider.set_value_no_signal(fire_size * 100.0)
-	fire_x_slider.set_value_no_signal(fire_x * 100.0)
-	fire_y_slider.set_value_no_signal(fire_y * 100.0)
+	set_slider(fire_size_slider, fire_size * 100.0)
+	set_slider(fire_x_slider, fire_x * 100.0)
+	set_slider(fire_y_slider, fire_y * 100.0)
 	for slider in [fire_size_slider, fire_x_slider, fire_y_slider]:
 		slider.editable = fire_control == 0 and not auto_fire
 	reset_touch()
@@ -2299,7 +2321,7 @@ func sync_game(settings) -> void:
 
 func sync_audio(settings) -> void:
 	music_choice.set_pressed_no_signal(settings.enabled)
-	music_volume.set_value_no_signal(roundi(settings.volume * 100))
+	set_slider(music_volume, roundi(settings.volume * 100))
 	music_volume.editable = settings.enabled
 
 func emit_audio() -> void:
@@ -2355,9 +2377,9 @@ func layout() -> void:
 	skins_body.vertical = size.y > size.x
 	var skin_room = size.y - safe_top - safe_bottom - 48
 	# The pilot is what this page is for: the viewer takes well over half a tall screen.
-	viewer.custom_minimum_size = Vector2(0, clampf(skin_room * 0.56, 340, 820)) if skins_body.vertical else Vector2(620, maxf(300, skin_room - 300))
-	viewer_column.custom_minimum_size.x = 0 if skins_body.vertical else 620
-	skins_scroll.custom_minimum_size.y = maxf(110, skin_room - viewer.custom_minimum_size.y - 470) if skins_body.vertical else maxf(200, skin_room - 430)
+	viewer.custom_minimum_size = Vector2(0, clampf(skin_room * 0.56, 340, 820)) if skins_body.vertical else Vector2(560, maxf(200, skin_room - 330))
+	viewer_column.custom_minimum_size.x = 0 if skins_body.vertical else 560
+	skins_scroll.custom_minimum_size.y = maxf(110, skin_room - viewer.custom_minimum_size.y - 470) if skins_body.vertical else maxf(120, skin_room - 420)
 	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
 	skins_panel.size = skins_size
 	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)

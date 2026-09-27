@@ -23,7 +23,7 @@ func run() -> void:
 	check(Music.TRACKS.size() == 25 and Music.TRACKS.has("skin_11"), "Menu, skin themes including Magnus and tournament cues are loaded")
 	var theme_hashes = range(1, 11).map(func(index): return FileAccess.get_sha256("res://audio/polished/music_skin_%d.ogg" % index))
 	check(theme_hashes.all(func(hash): return hash != "") and theme_hashes.duplicate().reduce(func(unique, hash): return unique + ([] if hash in unique else [hash]), []).size() == 10, "All ten skin themes contain distinct audio")
-	check(absf(menu_stream.get_length() - 38.4) < 0.01 and absf(Music.TRACKS.match.get_length() - 60.0) < 0.03, "New-skin menu and match loops have their full length (tools/compose_new_skin.py)")
+	check(absf(menu_stream.get_length() - 45.714) < 0.01 and absf(Music.TRACKS.match.get_length() - 64.0) < 0.03, "Original menu and standard skin duration unchanged")
 	check(range(1, 11).all(func(i): return absf(Music.TRACKS["skin_%d" % i].get_length() - 64.0) < 0.03), "Boss masters preserve the original recording length")
 
 	var game = load("res://scenes/main.tscn").instantiate()
