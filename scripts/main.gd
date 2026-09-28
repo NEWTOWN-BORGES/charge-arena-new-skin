@@ -126,7 +126,12 @@ func _ready() -> void:
 	hud.play_requested.connect(start_pve)
 	hud.map_previewed.connect(preview_world)
 	hud.map_chosen.connect(func(world): start_pve(Rules.quick_map(world)))
-	hud.map_picker_closed.connect(frame_arena)
+	hud.map_picker_closed.connect(func():
+		# The picker toured other worlds in a rebuilt stadium: back in the lobby, put its
+		# stage back (the level's map, your pilot and the boss), or the lobby stood empty.
+		if mode == "menu":
+			show_menu_preview()
+		frame_arena())
 	hud.map_orbited.connect(func(dx, dy): arena.orbit_tour(dx, dy))
 	hud.map_zoomed.connect(func(factor): arena.zoom_tour(factor))
 	hud.host_requested.connect(host_game)
