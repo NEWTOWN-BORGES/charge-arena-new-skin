@@ -262,6 +262,8 @@ var obstacles: Array = []
 var obstacle_time = 0.0
 # While this runs, the moving bumpers are frozen where they stand (shock pulse).
 var obstacle_stun = 0.0
+# The match clock on the scoreboard: it runs only while the ball is in play.
+var match_clock = 0.0
 var scores: Array = [0, 0]
 var phase = "countdown"
 var timer = 2.5
@@ -618,6 +620,7 @@ func reset_match() -> void:
 	scores = [0, 0]
 	winner = -1
 	elapsed = 0.0
+	match_clock = 0.0
 	powers = [new_power_state(), new_power_state()]
 	shield_carry = [0.0, 0.0]
 	reset_round()
@@ -837,6 +840,8 @@ static func add_brick(result: Array, team: int, group: int, pos: Vector2, rotati
 func step(dt: float, commands: Array) -> void:
 	events.clear()
 	elapsed += dt
+	if phase == "play":
+		match_clock += dt
 	if phase != "play":
 		# The wall comes back down even when the round is over. A plunder still in the air
 		# when the match ended left every brick parked on the far side for good: the flight
@@ -2507,7 +2512,7 @@ func network_snapshot() -> Dictionary:
 	for turret in turrets:
 		turret_data.append_array([turret.id, turret.team, turret.p.x, turret.p.y, turret.hp, turret.cooldown, turret.aim.x, turret.aim.y])
 	var phase_id = ["countdown", "play", "goal", "finished"].find(phase)
-	var match_data = PackedFloat32Array([obstacle_time, scores[0], scores[1], phase_id, timer, winner, elapsed, obstacle_stun])
+	var match_data = PackedFloat32Array([obstacle_time, scores[0], scores[1], phase_id, timer, winner, elapsed, obstacle_stun, match_clock])
 	return {"p": player_data, "h": hp, "b": ball_data, "m": match_data, "w": power_data, "t": turret_data}
 
 func apply_network_snapshot(data: Dictionary) -> bool:
@@ -2524,7 +2529,7 @@ func apply_network_snapshot(data: Dictionary) -> bool:
 	var ball_data: PackedFloat32Array = data.b
 	var match_data: PackedFloat32Array = data.m
 	var power_data: PackedFloat32Array = data.w
-	if player_data.size() != 8 or hp.size() != bricks.size() or match_data.size() != 8 or power_data.size() != POWER_FIELDS * 2 or ball_data.size() % BALL_FIELDS != 0 or ball_data.size() > MAX_BALLS * BALL_FIELDS:
+	if player_data.size() != 8 or hp.size() != bricks.size() or match_data.size() != 9 or power_data.size() != POWER_FIELDS * 2 or ball_data.size() % BALL_FIELDS != 0 or ball_data.size() > MAX_BALLS * BALL_FIELDS:
 		return false
 	for packed in [player_data, ball_data, match_data, power_data]:
 		for value in packed:
@@ -2593,6 +2598,7 @@ func apply_network_snapshot(data: Dictionary) -> bool:
 	winner = int(match_data[5])
 	elapsed = match_data[6]
 	obstacle_stun = clampf(match_data[7], 0, STUN_POWER_SECONDS)
+	match_clock = maxf(0.0, match_data[8])
 	return true
 
 static func segment_circle(start: Vector2, delta: Vector2, center: Vector2, radius: float) -> float:

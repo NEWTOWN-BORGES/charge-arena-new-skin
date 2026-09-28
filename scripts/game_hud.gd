@@ -3182,7 +3182,7 @@ func panel(rect: Rect2, color: Color = Color(UiKit.PANEL, 0.92), rim: Color = Ui
 
 func update_match(rules, status: String) -> void:
 	# The HUD only reads display fields; no full network snapshot allocation per frame.
-	match_data = {"players": rules.players, "bricks": rules.bricks, "scores": rules.scores, "phase": rules.phase, "timer": rules.timer, "winner": rules.winner, "powers": rules.powers, "loadouts": rules.loadouts, "brick_lives": rules.brick_lives}
+	match_data = {"players": rules.players, "bricks": rules.bricks, "scores": rules.scores, "phase": rules.phase, "timer": rules.timer, "clock": rules.match_clock, "winner": rules.winner, "powers": rules.powers, "loadouts": rules.loadouts, "brick_lives": rules.brick_lives}
 	for t in range(2):
 		var hp = rules.team_health(t)
 		if rules.phase == "play" and wall_health[t] >= 0 and hp != wall_health[t]:
@@ -3402,6 +3402,10 @@ func banner_accent() -> Color:
 			return SUN if match_data.winner == team and level_result != "lost" else UiKit.DANGER
 	return SUN
 
+func clock_text() -> String:
+	var seconds: int = int(match_data.get("clock", 0.0))
+	return "%02d:%02d" % [seconds / 60, seconds % 60]
+
 func draw_hud() -> void:
 	var top = Vector2(0, safe_top)
 	var bottom = size.y - safe_bottom
@@ -3430,10 +3434,8 @@ func draw_hud() -> void:
 			round_text = ("FINAL" if level_info.number == 11 else "JOGO %d" % level_info.number) if level_info.get("cup", false) else "NÍVEL %d" % level_info.number
 		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, UiKit.SUN_INK, true)
 		centered(digits, Vector2(score_rect.get_center().x, s.y + 52), 32, WHITE, true)
-		var mode_label = "TREINO / PvE" if mode == "pve" else "DUELO / PvP"
-		if not level_info.is_empty():
-			mode_label = "TAÇA AURORA" if level_info.get("cup", false) else "CAMPANHA"
-		centered(mode_label, Vector2(score_rect.get_center().x, s.y + 72), 9, MUTED, true)
+		# The match clock, counting up while the ball is in play.
+		centered(clock_text(), Vector2(score_rect.get_center().x, s.y + 73), 13, UiKit.SUN_INK, true)
 	else:
 		UiKit.disc(self, s + Vector2(23, 30), 5, CYAN)
 		write("NOVA", s + Vector2(36, 35), 12, CYAN.darkened(0.35), true)
@@ -3446,6 +3448,7 @@ func draw_hud() -> void:
 			mode_name = "CAMPANHA · NÍVEL %d" % level_info.number
 		write(mode_name, mode_at, 12, UiKit.SUN_INK, true, 4)
 		write("PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE, mode_at + Vector2(0, 23), 10, MUTED, true, 4)
+		centered(clock_text(), Vector2(score_rect.get_center().x, s.y + 15), 11, UiKit.SUN_INK, true)
 	for side in range(2):
 		player_card(card_rects[side], side, team if side == 0 else 1 - team)
 	var p: Dictionary = match_data.players[team]
