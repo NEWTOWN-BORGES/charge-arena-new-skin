@@ -9,6 +9,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+# One publication at a time: two runs replacing the same files at once collide.
+concurrency:
+  group: publicar-apk
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest
