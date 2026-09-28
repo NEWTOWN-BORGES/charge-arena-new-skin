@@ -4264,6 +4264,8 @@ func prepare_tutorial() -> void:
 
 var story_talk: Control
 var story_talk_done: Callable
+# The robots' voices in the story follow the effects volume (main.gd keeps it in step).
+var story_voice_db = 0.0
 
 func play_story_talk(lines: Array, done: Callable = Callable()) -> void:
 	# The conversation cards of the Modo história, over everything else on screen.
@@ -4280,6 +4282,7 @@ func play_story_talk(lines: Array, done: Callable = Callable()) -> void:
 				next.call())
 	story_talk.safe_top = safe_top
 	story_talk.safe_bottom = safe_bottom
+	story_talk.voice_db = story_voice_db
 	story_talk_done = done
 	reset_touch()
 	story_talk.start(lines)

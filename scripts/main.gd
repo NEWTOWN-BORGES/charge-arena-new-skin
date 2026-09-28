@@ -192,6 +192,7 @@ func _ready() -> void:
 	hud.notice_shown.connect(func(_kind): play_tone("notify", 2.0))
 	hud.story_boss_chosen.connect(start_story)
 	hud.story_recap_requested.connect(func(): hud.play_story_talk(story_recap()))
+	hud.story_voice_db = linear_to_db(maxf(game_settings.sfx_volume, 0.0001))
 	campaign.load_preferences()
 	sync_boss_skins()
 	hud.sync_campaign(campaign)
@@ -502,17 +503,28 @@ func story_entries(hard: bool) -> Array:
 			"open": reachable and (step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
 	return list
 
+func story_arena_name(boss: int) -> String:
+	return String(Campaign.LEVELS[story_level_of(boss)].name)
+
+func story_trained() -> bool:
+	return skins.story_won.has("treino") or story_beaten(StoryScript.ORDER[0], false)
+
 func story_recap() -> Array:
 	# Every conversation of the story in order, without the matches: up to where the player
 	# has got (the whole story in the LAB build, or once it is finished).
-	var lines: Array = StoryScript.PROLOGUE.duplicate()
+	var lines: Array = StoryScript.INTRO.duplicate()
+	if not (skins.unlock_all or story_trained()):
+		lines.append([StoryScript.NARRADOR, "Continua no Modo história: o treino com a BATIDA é já a seguir."])
+		return lines
+	lines += StoryScript.TRAINING_LOST + StoryScript.TRAINING_AFTER + StoryScript.OPENING
 	var order = story_bosses()
 	for step in range(order.size()):
 		var boss: int = order[step]
 		var reached = skins.unlock_all or step == 0 or story_passed(order[step - 1], false)
 		if not reached:
 			break
-		lines.append([StoryScript.NARRADOR, "RONDA %d DE %d · %s" % [step + 1, order.size(), StoryScript.speaker_name(boss)]])
+		if step > 0:
+			lines.append(StoryScript.round_card(step, boss, story_arena_name(boss)))
 		lines += StoryScript.lines(boss, "before")
 		if boss == StoryScript.TEACHER and (skins.unlock_all or story_passed(boss, false)):
 			lines += StoryScript.lines(boss, "won" if story_beaten(boss, false) else "lost")
@@ -535,16 +547,70 @@ func start_story(step: int, hard: bool, talk: bool = true) -> void:
 	if hard and not story_hard_open():
 		return
 	var boss: int = order[step]
+	if not hard and step == 0 and not story_trained():
+		# A new story: chapters 1 to 3 (the fine, the call, the way to training), then the
+		# training match with BATIDA, which is the game's tutorial.
+		hud.play_story_talk(StoryScript.INTRO.duplicate(), begin_training)
+		return
 	if talk and not hard:
-		# The story is told in NORMAL: the prologue before the first match, then each rival's
-		# lines; the match begins when the conversation ends (or is skipped).
+		# The story is told in NORMAL: each round opens on its card and the rival's lines; the
+		# first also on the opening ceremony. The match begins when the talk ends (or is skipped).
 		var lines: Array = []
 		if step == 0 and not story_beaten(boss, false):
-			lines += StoryScript.PROLOGUE
+			lines += StoryScript.OPENING
+		else:
+			lines.append(StoryScript.round_card(step, boss, story_arena_name(boss)))
 		lines += StoryScript.lines(boss, "before")
 		hud.play_story_talk(lines, func(): begin_story(step, hard))
 		return
 	begin_story(step, hard)
+
+func begin_training() -> void:
+	# Chapter 3: a friendly match with BATIDA at the training arena, the written tutorial
+	# walking through it. She keeps her ultimate to herself and goes easy.
+	var index = 0
+	close_cup_screen()
+	pve_paused = false
+	close_network()
+	mode = "pve"
+	local_team = 0
+	arena.set_view_team(local_team)
+	network_status = ""
+	level_index = index
+	use_map(Campaign.LEVELS[index].map)
+	story_run = {"step": -1, "hard": false, "boss": StoryScript.BATIDA, "training": true}
+	rules.ai_profile = Campaign.ai_profile(0, 0)
+	use_loadouts(Campaign.boss_kit(index), StoryScript.BATIDA)
+	rules.loadouts[1 - local_team][2] = ""
+	rules.reset_match()
+	dress_pilots(local_team)
+	arena.set_skin(1, StoryScript.BATIDA, false)
+	hud.team_hues = arena.unit_hues
+	hud.level_info = {"number": 0, "name": "TREINO · " + String(Campaign.LEVELS[index].name),
+		"challenge": "Treino com a BATIDA: aprende a jogar.", "boss_name": "BATIDA", "has_next": true, "story": true}
+	hud.level_result = ""
+	hud.level_skin = ""
+	arena.warm_shaders.call_deferred()
+	hud.show_game(mode, local_team)
+	sync_assist()
+	music.play_skin(StoryScript.BATIDA)
+	# The written tutorial of a first match, over the paused court.
+	pve_paused = true
+	hud.start_tutorial.call_deferred("match")
+
+func finish_training() -> void:
+	var won = rules.winner == local_team
+	if not skins.story_won.has("treino"):
+		skins.story_won.append("treino")
+		save_skins()
+	hud.level_skin = ""
+	hud.level_result = "won" if won else "lost"
+	hud.level_opened = false
+	hud.level_info["has_next"] = true
+	var lines: Array = (StoryScript.TRAINING_WON if won else StoryScript.TRAINING_LOST) + StoryScript.TRAINING_AFTER + StoryScript.OPENING + StoryScript.lines(StoryScript.ORDER[0], "before")
+	get_tree().create_timer(1.6).timeout.connect(func():
+		if mode == "pve" and bool(story_run.get("training", false)):
+			hud.play_story_talk(lines, func(): begin_story(0, false)))
 
 func begin_story(step: int, hard: bool) -> void:
 	var order = story_bosses()
@@ -590,6 +656,9 @@ func charge_rival_ultimate() -> void:
 		rules.powers[team].charge[2] = cost
 
 func finish_story() -> void:
+	if bool(story_run.get("training", false)):
+		finish_training()
+		return
 	var won = rules.winner == local_team
 	var boss: int = int(story_run.boss)
 	var hard: bool = bool(story_run.hard)
@@ -620,7 +689,9 @@ func finish_story() -> void:
 	# The next boss only opens once this one has fallen (HÉLIO: once his match is over).
 	hud.level_info["has_next"] = (won or teacher) and int(story_run.step) + 1 < story_bosses().size()
 	if not hard:
-		var lines: Array = StoryScript.lines(boss, "won" if won else "lost")
+		var lines: Array = [StoryScript.round_card(int(story_run.step), boss, story_arena_name(boss))]
+		lines[0][2]["quiet"] = true
+		lines += StoryScript.lines(boss, "won" if won else "lost")
 		if teacher:
 			lines += StoryScript.lines(boss, "teach")
 		# Let the last goal land before the conversation opens.
@@ -823,6 +894,9 @@ func peer_disconnected(_id: int) -> void:
 func replay() -> void:
 	if cup_active:
 		start_cup()
+		return
+	if mode == "pve" and bool(story_run.get("training", false)):
+		begin_training()
 		return
 	if mode == "pve" and not story_run.is_empty():
 		# A rematch goes straight back in; the lines were said the first time.
@@ -1092,6 +1166,7 @@ func change_feedback(camera: int, haptics: bool, automatic: bool, volume: float)
 	if not haptics: stop_haptics()
 	game_settings.auto_fire = automatic
 	game_settings.sfx_volume = volume
+	hud.story_voice_db = linear_to_db(maxf(volume, 0.0001))
 	arena.shake_scale = [0.0, 0.45, 1.0][camera]
 	if camera == 0: arena.shakes.clear()
 	mouse_firing = false

@@ -2,7 +2,8 @@ extends RefCounted
 ## The story of the Modo história (NORMAL): BIT, a university robot who spent his tuition on
 ## a speeding fine, enters the Taça Charge Arena to win the prize money. Each boss has lines
 ## before the match and after it (won or lost); the speaker is a skin index, AGENTE (the
-## traffic officer) or NARRADOR (a caption with no portrait).
+## traffic officer), LOCUTOR (VOLTZ, the tournament's announcer), NARRADOR (a caption with
+## no portrait) or SCENE (a chapter card that changes the backdrop).
 
 const NARRADOR = -1
 const AGENTE = -2
@@ -27,19 +28,70 @@ const ORDER = [ROSCA, SALVO, BIGORNA, BATIDA, BROTO, GANCHO, ORBITA, FAISCA, MAG
 const TEACHER = HELIO
 const FINAL = ECLIPSE
 
-const PROLOGUE = [
-	[NARRADOR, "Cidade de Voltara, fim de tarde. O BIT, estudante de engenharia na Universidade de Voltara, vai atrasado para casa…"],
-	[NARRADOR, "…e a conduzir um bocadinho depressa demais."],
-	[AGENTE, "Alto! Robô modelo BIT: 92 km/h numa zona de 50. A multa é de 800 créditos, a pagar já."],
-	[BIT, "800?! Mas… esse é o dinheiro das propinas da universidade!"],
+# Scene cards: [SCENE, title, {"bg": backdrop, "chapter": small label, "place": where and when}].
+# A line may carry options as a third element: {"mood": "hit"} (dazed face), {"phone": true}
+# (heard over the phone), {"fx": "siren" / "shake"}.
+const SCENE = -3
+const LOCUTOR = -4
+
+# Chapters 1 to 3: the fine, the phone call and the way to the training arena. The training
+# match with BATIDA (the game's tutorial) comes right after them.
+const INTRO = [
+	[SCENE, "A MULTA", {"bg": "rua", "chapter": "CAPÍTULO 1", "place": "Avenida de Voltara · 19:42"}],
+	[NARRADOR, "Voltara, a cidade dos robôs. Fim de tarde, hora de ponta."],
+	[NARRADOR, "O BIT, estudante de engenharia na Universidade de Voltara, vem das aulas… e vai atrasado."],
+	[BIT, "Vou chegar tarde outra vez! Só um bocadinho mais depressa…"],
+	[NARRADOR, "UIII-UUU! UIII-UUU!", {"fx": "siren"}],
+	[AGENTE, "Alto! Encoste à direita, robô modelo BIT.", {"fx": "siren"}],
+	[BIT, "Senhor agente… eu ia só um bocadinho depressa."],
+	[AGENTE, "92 km/h numa zona de 50. A multa é de 800 créditos, a pagar já."],
+	[BIT, "800?! Mas… esse é o dinheiro das propinas da universidade!", {"mood": "hit", "fx": "shake"}],
 	[AGENTE, "Regras são regras. Conduza com cuidado."],
 	[NARRADOR, "O BIT pagou a multa. E ficou sem nada para pagar a universidade."],
+	[SCENE, "UMA CHAMADA", {"bg": "quarto", "chapter": "CAPÍTULO 2", "place": "Casa do BIT · 21:15"}],
+	[BIT, "As propinas acabam no fim do mês… Se não pagar, perco o curso."],
 	[BIT, "Tenho de ligar à BATIDA. Ela sabe sempre o que fazer."],
-	[BATIDA, "BIT?! Multado outra vez? Ai, ai… Ouve: está a começar a TAÇA CHARGE ARENA. O prémio paga a universidade e ainda sobra!"],
-	[BIT, "Mas eu sou um robô comum, não sou de combate. Não tenho habilidades especiais, nem ultimate."],
-	[BATIDA, "Tens um canhão e tens cabeça. Cada tijolo que partes na arena é dinheiro na LOJA DE PODERES: aprendes habilidades novas pelo caminho. Eu inscrevo-te!"],
-	[BATIDA, "O primeiro é o ROSCA, mecânico de corrida. Monta sentinelas com miniguns: parte-lhe a muralha antes que as monte!"],
+	[BATIDA, "BIT? A esta hora? Que se passa?", {"phone": true}],
+	[BIT, "Fui multado. Paguei com o dinheiro das propinas… Fiquei sem nada."],
+	[BATIDA, "Ai, ai, BIT… Espera! Viste as notícias? Vai começar a TAÇA CHARGE ARENA!", {"phone": true}],
+	[BATIDA, "O prémio paga a universidade e ainda sobra. Eu sou pilota, posso inscrever-te!", {"phone": true}],
+	[BIT, "Eu? Numa arena? Sou um robô comum, não sou de combate. Não tenho habilidades especiais, nem ultimate…"],
+	[BATIDA, "Tens um canhão e tens cabeça. Os tijolos que partes na arena viram créditos na LOJA DE PODERES, e aprendes habilidades novas pelo caminho.", {"phone": true}],
+	[BIT, "Não sei, BATIDA… E se eu faço figura de parvo à frente do estádio inteiro?"],
+	[BATIDA, "Faz assim: amanhã de manhã vens treinar comigo ao Circuito Aurora. Se não gostares, esquecemos. Combinado?", {"phone": true}],
+	[BIT, "…Combinado."],
+	[SCENE, "O TREINO", {"bg": "treino", "chapter": "CAPÍTULO 3", "place": "Circuito Aurora · 09:00 do dia seguinte"}],
+	[BATIDA, "Bom dia, campeão! Bem-vindo ao Circuito Aurora, a arena de treino."],
+	[BATIDA, "Vou-te mostrar como se joga. Parte a minha muralha e mete a bola na minha baliza. Quem marcar 2 golos ganha!"],
+	[BIT, "Está bem… Vamos a isso."],
 ]
+
+# After the training match, whatever the result.
+const TRAINING_WON = [
+	[BATIDA, "Uau! Ganhaste-me à primeira! Tens jeito, BIT. Muito mais jeito do que eu pensava.", {"mood": "hit"}],
+]
+const TRAINING_LOST = [
+	[BATIDA, "Nada mal para a primeira vez! A sério, BIT: tens jeito para isto."],
+]
+const TRAINING_AFTER = [
+	[BATIDA, "Está decidido: vou inscrever-te na TAÇA. A cerimónia de abertura é amanhã!"],
+	[BIT, "Amanhã?! …Está bem. Pelas propinas!"],
+]
+
+# Chapter 4: the opening ceremony. VOLTZ, the tournament's announcer, calls BIT's first fight.
+const OPENING = [
+	[SCENE, "A TAÇA", {"bg": "estadio", "chapter": "CAPÍTULO 4", "place": "Estádio de Voltara · Cerimónia de abertura"}],
+	[LOCUTOR, "SENHORAS E SENHORES, ROBÔS DE TODAS AS IDADES… BEM-VINDOS À TAÇA CHARGE ARENA!", {"fx": "shake"}],
+	[LOCUTOR, "Eu sou o VOLTZ, a vossa voz na arena! E este ano há novidades: arenas novas, poderes novos… e o maior prémio de sempre!"],
+	[LOCUTOR, "As regras são simples: parte a muralha do adversário e mete a bola na baliza dele. Quem marcar 2 golos passa à ronda seguinte."],
+	[LOCUTOR, "Os tijolos que partires são teus: entre combates, troca-os por habilidades na LOJA DE PODERES."],
+	[LOCUTOR, "Hoje há combates em todas as arenas da cidade! Mas há um estreante de quem toda a gente fala…"],
+	[BIT, "Um estreante de quem toda a gente fala? …Ai. Sou eu."],
+	[LOCUTOR, "Na Oficina do Relógio: o mecânico mais rápido do circuito, ROSCA… contra o estudante estreante, BIT! QUE COMECE O COMBATE!", {"fx": "shake"}],
+]
+
+# The old one-scene prologue, kept for the recap's first lines of older saves.
+const PROLOGUE = INTRO
 
 const LINES = {
 	ROSCA: {
@@ -200,6 +252,7 @@ const LINES = {
 		],
 		"won": [
 			[ECLIPSE, "Não… a minha singularidade… vencida por um estudante?"],
+			[SCENE, "O CAMPEÃO", {"bg": "estadio", "chapter": "EPÍLOGO", "place": "Estádio de Voltara · Entrega da Taça"}],
 			[NARRADOR, "O BIT DE ELITE vence a TAÇA CHARGE ARENA!"],
 			[HELIO, "Bem feito, BIT. A arena está limpa outra vez."],
 			[BATIDA, "CAMPEÃO! O prémio chega para a universidade e ainda sobra para uma festa!"],
@@ -219,11 +272,23 @@ static func lines(boss: int, moment: String) -> Array:
 		out.append(Array(line).duplicate())
 	# Beaten, the rival says its first words dazed.
 	if moment == "won" and not out.is_empty() and int(out[0][0]) == boss:
-		out[0].append("hit")
+		out[0].append({"mood": "hit"})
 	return out
+
+static func round_card(step: int, boss: int, arena_name: String) -> Array:
+	# The card that opens each round: the rival's name over its own arena.
+	return [SCENE, speaker_name(boss), {"bg": "arena_%d" % boss, "chapter": "RONDA %d DE %d" % [step + 1, ORDER.size()], "place": arena_name}]
+
+static func face_key(who: int) -> String:
+	match who:
+		AGENTE: return "agente"
+		LOCUTOR: return "locutor"
+		NARRADOR, SCENE: return "narrador"
+	return str(who)
 
 static func speaker_name(who: int) -> String:
 	match who:
-		NARRADOR: return ""
+		NARRADOR, SCENE: return ""
 		AGENTE: return "AGENTE"
+		LOCUTOR: return "VOLTZ"
 	return String(preload("res://scripts/skins.gd").CATALOG[who].name)

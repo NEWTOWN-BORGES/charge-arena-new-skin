@@ -63,6 +63,8 @@ func run() -> void:
 		jobs.append([who, str(who), Color("72ddc6")])
 	# The traffic officer: the station robot with the siren on its head, in police blue.
 	jobs.append([Robots.STATION_SKIN + 9, "agente", Color("3b6fe0")])
+	# VOLTZ, the tournament's announcer: the round-eyed station robot in stage purple.
+	jobs.append([Robots.STATION_SKIN + 6, "locutor", Color("a45cff")])
 	for job in jobs:
 		var pilot: Node3D = view.build_player(job[2], 0, job[0], stage)
 		pilot.position = Vector3.ZERO
