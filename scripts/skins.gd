@@ -51,7 +51,7 @@ const CATALOG = [
 		"body": "2a2f3a", "light": "fff04a", "shot": "fff04a"},
 	{"name": "BATIDA NEON", "ult_color": "4ff0ff", "ultimate": "surge", "weapon": "Megafone de Choque", "bricks": "Colunas de som", "hard_of": 8, "level": -1, "about": "Festa até de manhã: roxo-noite e ciano, torre de colunas às costas e crista de néon.",
 		"body": "3a2a5c", "light": "4ff0ff", "shot": "4ff0ff"},
-	{"name": "GANCHO NEGRO", "ult_color": "5aff9d", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Arcas do tesouro", "hard_of": 9, "level": -1, "about": "O capitão temido: negro e ouro, tricórnio, e um mastro com a bandeira negra às costas.",
+	{"name": "GANCHO NEGRO", "ult_color": "5aff9d", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Arcas do tesouro", "hard_of": 9, "level": -1, "about": "O capitão temido: negro e ouro, tricórnio inclinado com uma gema acesa, um mastro com a bandeira negra e lanternas acesas no mastro e à anca.",
 		"body": "23262e", "light": "ffcf5a", "shot": "ffcf5a"},
 	{"name": "HÉLIO POENTE", "ult_color": "ff6a2a", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "hard_of": 10, "level": -1, "about": "O sol a pôr-se: vermelho-poente e ouro, com um sol inteiro de raios atrás das asas.",
 		"body": "c8452a", "light": "ff8a2a", "shot": "ff8a2a"},

@@ -428,7 +428,7 @@ func run() -> void:
 	launch(vortex)
 	var blast: Array = wait(vortex, Rules.ULTIMATE_WINDUP + Rules.SINGULARITY_PULL + 0.3)
 	check(blast.any(func(e): return e.kind == "shock_wave"), "Onda: one wave leaves the core, not a fan of rounds")
-	check(front_hp - vortex.bricks[front].hp == Rules.SHOCK_FRONT, "Onda: three off the front row")
+	check(not vortex.bricks[front].alive or front_hp - vortex.bricks[front].hp == Rules.SHOCK_FRONT, "Onda: the front row takes the full blow (it breaks)")
 	check(vortex.players[1].hp < Rules.PLAYER_LIVES, "Onda: it runs past the wall and catches the pilot too")
 	# The front line is taken whole; the rows behind it are caught in patches.
 	var front_row: Array = ranks.keys().filter(func(i): return int(ranks[i]) == 0)
@@ -458,7 +458,7 @@ func run() -> void:
 	var mark_hp: int = late.bricks[new_front[0]].hp
 	launch(late)
 	wait(late, Rules.ULTIMATE_WINDUP + Rules.SINGULARITY_PULL + 0.3)
-	check(mark_hp - late.bricks[new_front[0]].hp == Rules.SHOCK_FRONT, "Onda: and it takes the full three, not the one its old row would have given")
+	check(not late.bricks[new_front[0]].alive or mark_hp - late.bricks[new_front[0]].hp == Rules.SHOCK_FRONT, "Onda: and it takes the full front blow, not what its old row would have given")
 
 	# Pilhagem: the two walls cross over in the air before the lives change hands.
 	var raid = playing("plunder")

@@ -2976,19 +2976,39 @@ func shock_wave(at: Vector2, marks: Array = [], hurt: int = 1) -> void:
 	var reach = Rules.HALF_LENGTH * 2.0 + 4.0
 	var life = reach / SHOCK_SPEED
 	var centre = Vector3(at.x, 0.0, at.y)
-	if effects.size() + 6 < effect_limit:
-		# Two bands: the dark front and a bright inner face right behind it.
+	if effects.size() + 10 < effect_limit:
+		# A wall of force taller than a pilot, so it towers over the camera in third person:
+		# the dark front, a bright inner face, a glowing crest riding its top and a second,
+		# lower wave a beat behind.
 		var front = mesh(self, shock_wall_shape(), centre, deep, true)
-		effects.append({"node": front, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 1.03, "height": 1.9, "energy": []})
+		effects.append({"node": front, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 1.03, "height": 3.4, "energy": []})
 		var inner = mesh(self, shock_wall_shape(), centre, pale, true)
-		effects.append({"node": inner, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach, "height": 1.15, "energy": []})
+		effects.append({"node": inner, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach, "height": 2.3, "energy": []})
+		var crest = mesh(self, shock_wall_shape(), centre + Vector3.UP * 0.0, color.lightened(0.35), true)
+		effects.append({"node": crest, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 1.045, "height": 3.8, "energy": []})
 		var floor_ring = mesh(self, shock_wall_shape(), centre, color.lightened(0.15), true)
-		effects.append({"node": floor_ring, "v": Vector3.ZERO, "ttl": life * 1.1, "life": life * 1.1, "gravity": false, "base": Vector3.ONE, "expand": reach * 0.96, "height": 0.22, "energy": []})
+		effects.append({"node": floor_ring, "v": Vector3.ZERO, "ttl": life * 1.1, "life": life * 1.1, "gravity": false, "base": Vector3.ONE, "expand": reach * 0.96, "height": 0.35, "energy": []})
+		schedule(0.22, func():
+			if effects.size() + 2 < effect_limit:
+				var echo = mesh(self, shock_wall_shape(), centre, deep.lerp(color, 0.5), true)
+				effects.append({"node": echo, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 0.9, "height": 1.7, "energy": []})
+				var echo_face = mesh(self, shock_wall_shape(), centre, pale, true)
+				effects.append({"node": echo_face, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 0.88, "height": 1.1, "energy": []}))
 		# The core bursts: a dome that swells and flattens, and a pillar thrown straight up.
 		var dome = sphere(self, centre, Vector3.ONE * 0.8, deep.lerp(color, 0.4), true)
-		effects.append({"node": dome, "v": Vector3.ZERO, "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE, "expand": 5.5, "height": 3.2, "energy": []})
-		var pillar = cylinder(self, centre + Vector3.UP * 3.0, 0.5, 6.0, pale, true, 24)
-		effects.append({"node": pillar, "v": Vector3(0, 6.0, 0), "ttl": 0.4, "life": 0.4, "gravity": false, "base": Vector3(1.4, 1.0, 1.4), "energy": []})
+		effects.append({"node": dome, "v": Vector3.ZERO, "ttl": 0.6, "life": 0.6, "gravity": false, "base": Vector3.ONE, "expand": 4.2, "height": 2.6, "energy": []})
+		var pillar = cylinder(self, centre + Vector3.UP * 4.0, 0.6, 8.0, pale, true, 24)
+		effects.append({"node": pillar, "v": Vector3(0, 7.0, 0), "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3(1.6, 1.0, 1.6), "energy": []})
+	# Sparks thrown up off the crest as it runs, all the way round.
+	if fx != null:
+		for step in range(1, 8):
+			var radius_s = SHOCK_SPEED * step * 0.1
+			schedule(step * 0.1, func():
+				for k in range(12):
+					var around = k * TAU / 12.0 + step * 0.3
+					var spot = at + Vector2(cos(around), sin(around)) * radius_s
+					if absf(spot.x) < Rules.HALF_WIDTH + 2.0 and absf(spot.y) < Rules.HALF_LENGTH + 2.0:
+						fx.emit("glow", Vector3(spot.x, 3.0, spot.y), Vector3(cos(around) * 2.0, 3.5, sin(around) * 2.0), Color(color.lightened(0.4), 0.95), 0.35, 0.08, 0.45))
 	scorch(at, 7.5, Color("1a0d26"), 2.6)
 	emitter(Vector3(at.x, 0.6, at.y), pale, 44, 0.9, 14.0, 90.0, 0.34, -4.0, Vector3.UP)
 	emitter(Vector3(at.x, 0.3, at.y), color, 30, 0.7, 11.0, 180.0, 0.3, -2.0, Vector3.UP)

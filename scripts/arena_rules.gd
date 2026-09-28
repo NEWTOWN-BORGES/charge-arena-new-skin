@@ -196,10 +196,12 @@ const PLATING_SECONDS = 7.0
 const PLATING_SOAK = 1
 # The shock wave the vortex lets go with: it crosses the arena and keeps going past it.
 # The front row takes the worst of it and the rows behind are sheltered by the ones ahead.
-const SHOCK_FRONT = 3
-const SHOCK_SECOND = 2
+# As heavy as the sun ray, which bites a lane of bricks three times for two: the front two
+# rows are broken, everything behind is struck.
+const SHOCK_FRONT = 6
+const SHOCK_SECOND = 4
 const SHOCK_REST = 1
-const SHOCK_PLAYER = 1
+const SHOCK_PLAYER = 3
 # A pilot caught by an ultimate is knocked out of the fight for a moment. Two seconds is
 # long enough to be felt - no walking, no firing, no kit - and short enough that it is a
 # blow and not a sentence.
