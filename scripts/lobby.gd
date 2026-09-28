@@ -15,6 +15,7 @@ const MODES = [
 	# The story mode (the Taça Aurora) is out of the lobby until its new form is decided; its
 	# code stays behind the "story" id.
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
+	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "Os 10 chefes, sem ultimate"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
 	{"id": "test", "name": "ARENA DE TESTE", "about": "Mais comprida, mais tijolos, bumpers dourados"},
@@ -310,7 +311,7 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 			c.draw_colored_polygon(PackedVector2Array([at + Vector2(-4, -12), at + Vector2(11, -7), at + Vector2(-4, -1)]), color)
 		"quick":
 			c.draw_colored_polygon(PackedVector2Array([at + Vector2(3, -13), at + Vector2(-8, 2), at + Vector2(0, 2), at + Vector2(-3, 13), at + Vector2(9, -3), at + Vector2(1, -3)]), color)
-		"story":
+		"story", "bosses":
 			UiKit.box(c, Rect2(at + Vector2(-8, -11), Vector2(16, 12)), color, Color.TRANSPARENT, true)
 			UiKit.fill(c, Rect2(at + Vector2(-1.5, 1), Vector2(3, 6)), color)
 			UiKit.box(c, Rect2(at + Vector2(-7, 7), Vector2(14, 4)), color, Color.TRANSPARENT, true)

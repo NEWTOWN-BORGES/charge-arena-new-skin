@@ -48,6 +48,8 @@ signal effects_changed(full: bool)
 signal feel_tuning_requested
 # JOGAR in the story mode: straight to the next round's versus card.
 signal story_play_requested
+signal bosses_requested
+signal story_boss_chosen(step: int, hard: bool)
 var camera_choice: OptionButton
 var effects_choice: OptionButton
 var haptic_choice: CheckButton
@@ -813,14 +815,17 @@ func refresh_skins() -> void:
 	skin_progress.visible = level > 0
 	skin_progress.max_value = bosses
 	skin_progress.value = skins_progress.unlocked_count() - 1
-	if entry.get("cup_reward", false):
+	if entry.has("hard_of"):
+		var base_name = String(Skins.CATALOG[int(entry.hard_of)].name)
+		skin_state.text = ("DESBLOQUEADA  ·  SKIN DIFÍCIL DE " + base_name) if open else ("BLOQUEADA  ·  VENCE " + base_name + " NO MODO HISTÓRIA DIFÍCIL")
+	elif entry.get("cup_reward", false):
 		skin_state.text = "PRÉMIO DA TAÇA · DESBLOQUEADO" if open else "SKIN DE PRÉMIO · CONQUISTA A TAÇA"
 	elif level == 0:
 		skin_state.text = "DE SÉRIE"
 	elif open:
 		skin_state.text = "DESBLOQUEADA  ·  BOSS DO NÍVEL %d" % level
 	else:
-		skin_state.text = "BLOQUEADA  ·  VENCE ESTE PILOTO NA TAÇA OU NO NÍVEL %d" % level
+		skin_state.text = "BLOQUEADA  ·  VENCE ESTE CHEFE NO MODO HISTÓRIA"
 	skin_state.add_theme_color_override("font_color", UiKit.SUN_INK if open else MUTED)
 	var ultimate: Dictionary = Powers.entry(String(entry.ultimate))
 	skin_ultimate_name.text = ("ULTIMATE  ·  " + String(ultimate.name)) if not ultimate.is_empty() else "ULTIMATE  ·  EM BREVE"
@@ -873,7 +878,7 @@ func draw_thumb(canvas: Control, index: int) -> void:
 	var color = MUTED
 	if locked:
 		canvas.draw_circle(Vector2(canvas.size.x * 0.5, 56), 47, Color(0.02, 0.05, 0.06, 0.45), true, -1, smooth)
-		caption = "PRÉMIO DA TAÇA" if Skins.CATALOG[index].get("cup_reward", false) else "BOSS NÍVEL %d" % Skins.CATALOG[index].level
+		caption = "PRÉMIO DA TAÇA" if Skins.CATALOG[index].get("cup_reward", false) else ("HISTÓRIA · DIFÍCIL" if Skins.CATALOG[index].has("hard_of") else "HISTÓRIA · NORMAL")
 	elif skins_progress.selected == index:
 		caption = "EQUIPADA"
 		color = SUN
@@ -1090,6 +1095,8 @@ func play_chosen_mode() -> void:
 			open_map_picker()
 		"story":
 			story_play_requested.emit()
+		"bosses":
+			bosses_requested.emit()
 		"pvp":
 			open_pvp()
 		"test":
@@ -2776,6 +2783,7 @@ func layout() -> void:
 	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
 	skins_panel.size = skins_size
 	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
+	layout_bosses()
 	# Nearly the whole screen: the options are for thumbs, not for a small floating card.
 	var options_width = minf(size.x - 28.0, 640.0)
 	options_scroll.custom_minimum_size = Vector2(options_width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 290.0))
@@ -4019,3 +4027,135 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 				var angle = -PI * 0.5 + step * TAU / 8.0
 				star.append(center + Vector2(cos(angle), sin(angle)) * (11.0 if step % 2 == 0 else 4.5))
 			c.draw_polyline(star, Color(color, 0.6), 1.6, smooth)
+
+
+# --------------------------------------------------------------------------------------
+# Modo história: os dez chefes em fila, sem ultimate. NORMAL ganha a skin do chefe,
+# DIFÍCIL ganha a sua skin difícil. main.gd diz o estado de cada um (open_bosses).
+var bosses_overlay: ColorRect
+var bosses_panel: PanelContainer
+var bosses_grid: GridContainer
+var bosses_scroll: ScrollContainer
+var bosses_tabs: Array = []
+var bosses_hard = false
+var bosses_entries: Dictionary = {}
+var bosses_note: Label
+
+func build_bosses_menu() -> void:
+	bosses_overlay = ColorRect.new()
+	bosses_overlay.color = Color(UiKit.NIGHT, 0.94)
+	bosses_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bosses_overlay)
+	bosses_panel = PanelContainer.new()
+	bosses_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
+	bosses_overlay.add_child(bosses_panel)
+	var stack = VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 12)
+	bosses_panel.add_child(stack)
+	stack.add_child(label("MODO HISTÓRIA", 30, WHITE, true))
+	bosses_note = label("", 16, MUTED)
+	bosses_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(bosses_note)
+	var tabs = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	stack.add_child(tabs)
+	bosses_tabs.clear()
+	for hard in [false, true]:
+		var tab = Button.new()
+		tab.text = "DIFÍCIL" if hard else "NORMAL"
+		tab.custom_minimum_size = Vector2(0, 64)
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.add_theme_font_override("font", font_title)
+		tab.add_theme_font_size_override("font_size", 20)
+		tab.pressed.connect(func(): show_bosses_tab(hard))
+		tabs.add_child(tab)
+		bosses_tabs.append(tab)
+	bosses_scroll = ScrollContainer.new()
+	bosses_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	bosses_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_child(bosses_scroll)
+	bosses_grid = GridContainer.new()
+	bosses_grid.columns = 2
+	bosses_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bosses_grid.add_theme_constant_override("h_separation", 10)
+	bosses_grid.add_theme_constant_override("v_separation", 10)
+	bosses_scroll.add_child(bosses_grid)
+	var done = make_button("FECHAR", true)
+	done.pressed.connect(close_bosses)
+	stack.add_child(done)
+	bosses_overlay.hide()
+
+func open_bosses(entries: Dictionary) -> void:
+	# entries: {"normal": [...], "hard": [...]}, each {"name", "skin", "beaten", "open", "prize"}.
+	if bosses_overlay == null:
+		build_bosses_menu()
+	reset_touch()
+	bosses_entries = entries
+	bosses_overlay.show()
+	layout_bosses()
+	show_bosses_tab(bosses_hard)
+
+func close_bosses() -> void:
+	if bosses_overlay != null:
+		bosses_overlay.hide()
+
+func show_bosses_tab(hard: bool) -> void:
+	bosses_hard = hard
+	for i in range(bosses_tabs.size()):
+		UiKit.paint_key(bosses_tabs[i], "primary" if (i == 1) == hard else "secondary")
+	var list: Array = bosses_entries.get("hard" if hard else "normal", [])
+	var won = list.filter(func(e): return e.beaten).size()
+	bosses_note.text = ("DIFÍCIL · %d/10 · vence um chefe para ganhar a sua skin difícil (outra cor e adereços)." if hard else "NORMAL · %d/10 · enfrenta os chefes por ordem, sem ultimate. Vence um chefe para ganhar a sua skin.") % won
+	for child in bosses_grid.get_children():
+		child.queue_free()
+	for step in range(list.size()):
+		bosses_grid.add_child(boss_card(step, list[step], hard))
+	bosses_scroll.scroll_vertical = 0
+
+func boss_card(step: int, entry: Dictionary, hard: bool) -> Button:
+	var card = Button.new()
+	card.custom_minimum_size = Vector2(0, 176)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var open: bool = entry.open
+	var beaten: bool = entry.beaten
+	var rim = UiKit.GOLD if beaten else (UiKit.SUN if open else UiKit.CARD_EDGE)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		card.add_theme_stylebox_override(state, style(UiKit.CARD if open else UiKit.EMPTY, rim, 18))
+	card.disabled = not open
+	card.pressed.connect(func():
+		close_bosses()
+		story_boss_chosen.emit(step, hard))
+	var picture = TextureRect.new()
+	picture.texture = robot_portrait(int(entry.skin), false)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	picture.offset_bottom = -54
+	picture.offset_top = 6
+	picture.modulate = Color.WHITE if open else Color(0.25, 0.27, 0.32)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(picture)
+	var caption = label("%d · %s" % [step + 1, String(entry.name)], 17, WHITE, true)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	caption.offset_top = -52
+	caption.offset_bottom = -28
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(caption)
+	var status = label("VENCIDO ✓" if beaten else ("JOGAR" if open else "BLOQUEADO"), 14, UiKit.MINT_LIP if beaten else (UiKit.SUN_INK if open else MUTED), true)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	status.offset_top = -28
+	status.offset_bottom = -6
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(status)
+	return card
+
+func layout_bosses() -> void:
+	if bosses_overlay == null or not bosses_overlay.visible:
+		return
+	var width = minf(size.x - 24.0, 720.0)
+	bosses_grid.columns = 2 if width < 420 else 3
+	bosses_scroll.custom_minimum_size = Vector2(width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 330.0))
+	bosses_panel.size = Vector2(width, bosses_panel.get_combined_minimum_size().y)
+	bosses_panel.position = Vector2((size.x - width) * 0.5, maxf(safe_top + 10.0, (size.y - bosses_panel.size.y) * 0.5))

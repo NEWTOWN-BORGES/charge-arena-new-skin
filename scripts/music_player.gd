@@ -81,6 +81,7 @@ func play_bot(index: int) -> void:
 	play("bot_%d" % (posmod(index - 1, 10) + 1))
 
 func play_skin(index: int) -> void:
+	index = preload("res://scripts/skins.gd").base_of(index)
 	play("match" if index <= 0 else "skin_%d" % clampi(index, 1, 11))
 
 func follow_phase(phase: String) -> void:

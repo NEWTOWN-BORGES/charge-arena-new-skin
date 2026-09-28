@@ -54,6 +54,14 @@ static func recipe(skin: int) -> Dictionary:
 			"scale": [1.0, 1.0, 1.0], "wear": station.get("wear", 0.4), "mouth": false, "hip": LEG_PIVOT, "muzzle": MUZZLE}
 	var index = clampi(skin, 0, data.cast.size() - 1)
 	var entry: Dictionary = data.cast[index]
+	if entry.has("base"):
+		# A hard-mode skin: its boss, repainted, with a few pieces added ("parts_add").
+		var merged_entry: Dictionary = data.cast[int(entry.base)].duplicate()
+		var parts: Dictionary = merged_entry.parts.duplicate()
+		parts.merge(entry.get("parts_add", {}), true)
+		merged_entry.parts = parts
+		merged_entry.palette = entry.palette
+		entry = merged_entry
 	# Robots built with the mechanical kit (v2) say where their hips and muzzle are.
 	return {"parts": entry.parts, "palette": entry.palette, "eye_style": entry.eye_style, "key": "cast%d" % index,
 		"scale": entry.get("scale", [1.0, 1.0, 1.0]), "wear": entry.get("wear", 0.4), "mouth": entry.get("mouth", false),
@@ -195,7 +203,7 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	# The trunk is one piece; the head (with whatever sits on it) turns on the neck and the
 	# free arm swings from the shoulder, each on a joint of its own (Body/Head, Body/Arm).
 	var core: Array = []
-	for slot in ["torso", "shoulders", "back"]:
+	for slot in ["torso", "shoulders", "back", "extra"]:
 		if String(parts.get(slot, "")) != "":
 			core.append([parts[slot], Transform3D.IDENTITY])
 	_mount(view, body, plan.key + ":core", core, paint)
@@ -204,6 +212,9 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 		head_parts.append([parts.head, Transform3D.IDENTITY])
 	if String(parts.get("top", "")) != "":
 		head_parts.append([parts.top, lift])
+	if String(parts.get("hat", "")) != "":
+		# Hard-mode pieces are modelled in place on their robot, like the head itself.
+		head_parts.append([parts.hat, Transform3D.IDENTITY])
 	var head_joint = _joint(view, body, "Head", plan.key + ":head", head_parts, paint, true)
 	if String(parts.get("arm", "")) != "":
 		_joint(view, body, "Arm", plan.key + ":arm", [[parts.arm, Transform3D.IDENTITY]], paint, false)

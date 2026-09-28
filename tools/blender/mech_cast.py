@@ -4981,6 +4981,238 @@ def batida11_leg(p, out):
 
 
 # ======================================================================================
+# Skins do modo DIFÍCIL: o mesmo robô, outra cor (no roster) e alguns adereços, modelados no
+# lugar. "_x_extra" vai no tronco (não roda com a cabeça); "_x_hat" vai na cabeça.
+# ======================================================================================
+def leaf_to(p, role, origin, direction, length, width, front=(0, 0, -1)):
+    leaf(p, role, frame(Vector(origin), Vector(direction), front=front), length, width)
+
+
+def broto_x_hat(p):
+    c = BR_HEAD
+    top = c.y + 0.07 + BR_HEAD_R * 0.8
+    # Duas folhas grandes a abrir do topo da cabeça, uma terceira para trás e uma flor.
+    for side in (-1, 1):
+        leaf_to(p, "shell", (side * 0.05, top - 0.02, 0.0), (side * 0.75, 1.0, 0.1), 0.44, 0.26)
+        leaf_to(p, "trim", (side * 0.04, top - 0.03, 0.02), (side * 0.35, 1.0, 0.5), 0.26, 0.14)
+    leaf_to(p, "shell", (0.0, top - 0.02, 0.05), (0.0, 0.8, 1.0), 0.36, 0.22, front=(0, 1, 0))
+    flower = Vector((0.0, top + 0.12, -0.02))
+    rod(p, "dark", (0.0, top - 0.02, 0.0), flower, 0.012, 8)
+    for i in range(6):
+        a = math.radians(i * 60)
+        leaf_to(p, "trim", flower, (math.cos(a), 0.25, math.sin(a)), 0.1, 0.07, front=(0, 1, 0))
+    ball(p, "glow", flower + Vector((0, 0.02, 0)), 0.035, 12)
+    # Trepadeira à volta da cabeça: folhinhas no aro.
+    for i in range(7):
+        a = math.radians(-150 + i * 50)
+        at_ring = Vector((math.cos(a) * (BR_HEAD_R + 0.01), c.y + 0.075, math.sin(a) * (BR_HEAD_R + 0.01)))
+        leaf_to(p, "shell", at_ring, (math.cos(a), 0.6, math.sin(a)), 0.09, 0.06, front=(0, 1, 0))
+
+
+def broto_x_extra(p):
+    # O vaso das costas vira um arbusto: três caules com folhas grandes e rebentos acesos,
+    # e duas trepadeiras que descem pelos ombros.
+    pot = Vector((0.0, BR_CHEST.y + 0.15, BR_CHEST.z + 0.28 + 0.14))
+    for k, (dx, dz, h) in enumerate(((-0.07, 0.0, 0.55), (0.06, 0.03, 0.7), (0.0, -0.04, 0.45))):
+        base = pot + Vector((dx, 0.0, dz))
+        tip = base + Vector((dx * 2.2, h, 0.06))
+        rod(p, "dark", base, tip, 0.016, 8)
+        for j in range(3):
+            t = 0.4 + j * 0.25
+            q = base.lerp(tip, t)
+            side = 1 if (j + k) % 2 else -1
+            leaf_to(p, "shell", q, (side * 1.0, 0.7, 0.35), 0.3 - j * 0.04, 0.18 - j * 0.02)
+        ball(p, "glow", tip, 0.03, 10)
+    for side in (-1, 1):
+        prev = pot + Vector((side * 0.1, 0.05, -0.05))
+        for i in range(6):
+            t = (i + 1) / 6
+            q = Vector((side * (0.1 + 0.3 * t), BR_CHEST.y + 0.2 + 0.1 * math.sin(t * 3.0), pot.z - 0.45 * t))
+            rod(p, "dark", prev, q, 0.009, 6)
+            leaf_to(p, "shell", q, (side * 0.4, -0.3 if i % 2 else 0.5, 0.6 - t), 0.1, 0.07, front=(0, 1, 0))
+            prev = q
+
+
+def salvo_x_extra(p):
+    # Segundo casulo de mísseis no ombro esquerdo e uma cartucheira pelas costas.
+    pod = T(-0.5, 1.52, -0.02)
+    mbox(p, "shell", pod, (0.26, 0.2, 0.36), 0.03)
+    mbox(p, "trim", sub(pod, 0, 0.105, 0), (0.24, 0.02, 0.3), 0.008, 1)
+    for ix in (-0.06, 0.06):
+        for iy in (-0.045, 0.045):
+            tube = axis_frame((-0.5 + ix, 1.52 + iy, -0.2), "-z")
+            mtube(p, "dark", tube, 0.042, 0.05, 14)
+            mtube(p, "glow", sub(tube, 0, 0.02, 0), 0.028, 0.02, 12)
+    mbox(p, "dark", T(-0.5, 1.4, 0.0), (0.08, 0.06, 0.2), 0.01)
+    bolts(p, sub(pod, 0, 0.11, 0), 0.08, 4, size=0.008)
+    for i in range(9):
+        t = i / 8
+        q = Vector((-0.3 + 0.6 * t, 1.42 - 0.5 * t, 0.36 + 0.04 * math.sin(t * math.pi)))
+        shell = frame(q, (0.35, 0.6, 0.0), front=(0, 0, 1))
+        mtube(p, "metal", shell, 0.022, 0.09, 10)
+        mtube(p, "glow", sub(shell, 0, 0.055, 0), 0.016, 0.02, 10)
+    rod(p, "dark", (-0.32, 1.44, 0.33), (0.32, 0.9, 0.33), 0.018, 8)
+    rod(p, "dark", (0.22, 1.5, 0.3), (0.28, 2.2, 0.34), 0.008, 6)
+    ball(p, "glow", (0.28, 2.21, 0.34), 0.02, 8)
+
+
+def bigorna_x_extra(p):
+    # Duas chaminés de forja às costas, a arder por dentro, e faróis nos ombros.
+    for side in (-1, 1):
+        base = T(side * 0.16, 1.22, 0.42)
+        mtube(p, "metal", sub(base, 0, 0.32, 0), 0.06, 0.66, 18)
+        for v in (0.12, 0.4):
+            mring(p, "trim", sub(base, 0, v, 0), 0.066, 0.012, 20, 5)
+        lathe(p, "dark", sub(base, 0, 0.64, 0), [(0.06, 0.0), (0.085, 0.06), (0.095, 0.1), (0.075, 0.1), (0.05, 0.02)], 20)
+        mtube(p, "glow", sub(base, 0, 0.7, 0), 0.05, 0.02, 16)
+        mbox(p, "dark", T(side * 0.16, 1.2, 0.38), (0.12, 0.1, 0.08), 0.015)
+        dome(p, "glow", T(side * 0.6, 1.53, 0.0), 0.06, 0.07, 14, 4)
+        mring(p, "dark", T(side * 0.6, 1.53, 0.0), 0.064, 0.012, 16, 4)
+    rod(p, "dark", (-0.16, 1.55, 0.42), (0.16, 1.55, 0.42), 0.02, 8)
+
+
+def batida_x_extra(p):
+    # Torre de colunas às costas: duas colunas viradas para trás e néon em arco por cima.
+    box = T(0.0, 1.18, 0.44)
+    mbox(p, "dark", box, (0.42, 0.56, 0.16), 0.03)
+    mbox(p, "trim", sub(box, 0, 0.29, 0), (0.44, 0.03, 0.18), 0.01, 1)
+    for v in (-0.13, 0.13):
+        cone = axis_frame((0.0, 1.18 + v, 0.52), "z")
+        mring(p, "trim", cone, 0.11, 0.014, 24, 5)
+        lathe(p, "shell", cone, [(0.1, 0.0), (0.05, -0.03), (0.02, -0.04), (0.0, -0.04)], 20)
+        mtube(p, "glow", sub(cone, 0, 0.005, 0), 0.03, 0.01, 14)
+    arc_tube(p, "glow", T(0.0, 1.46, 0.44) @ Matrix.Rotation(math.radians(90), 4, "X"), 0.2, 0.012, 200, 340, 20, 6)
+    for side in (-1, 1):
+        rod(p, "metal", (side * 0.18, 1.46, 0.44), (side * 0.22, 1.8, 0.44), 0.01, 6)
+        ball(p, "glow", (side * 0.22, 1.82, 0.44), 0.025, 10)
+
+
+def batida_x_hat(p):
+    # Crista de néon: cinco barbatanas acesas ao longo do topo da cabeça.
+    for i in range(5):
+        z = -0.12 + i * 0.06
+        h = 0.08 + 0.05 * math.sin(i / 4 * math.pi)
+        extruded(p, "glow", T(0.0, 2.02, z) @ Matrix.Rotation(math.radians(90), 4, "Y"),
+                 [(-0.025, 0.0), (0.025, 0.0), (0.0, h)], 0.02)
+
+
+def rosca_x_extra(p):
+    # Chave inglesa gigante e chave de fendas cruzadas às costas, e um pirilampo no topo.
+    back = 0.5
+    a, b = Vector((-0.3, 0.8, back)), Vector((0.3, 1.6, back))
+    rod(p, "metal", a, b, 0.03, 10)
+    for end, d in ((b, (b - a).normalized()), (a, (a - b).normalized())):
+        jaw = frame(end, d, front=(0, 0, 1))
+        extruded(p, "metal", jaw, [(-0.09, -0.03), (0.09, -0.03), (0.09, 0.1), (0.035, 0.1), (0.035, 0.03), (-0.035, 0.03), (-0.035, 0.1), (-0.09, 0.1)], 0.05)
+    c, d2 = Vector((0.28, 0.85, back + 0.04)), Vector((-0.2, 1.5, back + 0.04))
+    rod(p, "trim", c, c.lerp(d2, 0.4), 0.04, 12)
+    rod(p, "metal", c.lerp(d2, 0.4), d2, 0.016, 8)
+    mbox(p, "dark", T(0.0, 1.2, back - 0.05), (0.14, 0.12, 0.06), 0.015)
+    dome(p, "glow", T(0.0, 1.71, 0.0), 0.05, 0.06, 14, 4)
+    mring(p, "dark", T(0.0, 1.71, 0.0), 0.054, 0.012, 16, 4)
+
+
+def gancho_x_extra(p):
+    # Mastro com bandeira negra às costas e um tricórnio no casco.
+    base = Vector((0.18, 0.9, 0.46))
+    top = Vector((0.18, 2.35, 0.46))
+    rod(p, "metal", base, top, 0.02, 10)
+    ball(p, "trim", top + Vector((0, 0.03, 0)), 0.03, 10)
+    rod(p, "metal", (0.18, 2.2, 0.46), (0.18, 2.2, 0.8), 0.012, 8)
+    flag = T(0.18, 1.9, 0.63) @ Matrix.Rotation(math.radians(90), 4, "Y")
+    extruded(p, "dark", flag, [(-0.17, -0.28), (0.17, -0.28), (0.14, 0.0), (0.17, 0.28), (-0.17, 0.28)], 0.01)
+    ball(p, "trim", (0.19, 1.93, 0.63), 0.05, 12)
+    for tilt in (-1, 1):
+        extruded(p, "trim", T(0.19, 1.84, 0.63) @ Matrix.Rotation(math.radians(90), 4, "Y") @ Matrix.Rotation(math.radians(tilt * 40), 4, "Z"),
+                 [(-0.012, -0.08), (0.012, -0.08), (0.012, 0.08), (-0.012, 0.08)], 0.016)
+    hat = T(0.0, 1.6, -0.02)
+    lathe(p, "dark", hat, [(0.0, 0.0), (0.27, 0.0), (0.285, 0.02), (0.26, 0.035), (0.0, 0.035)], 30)
+    dome(p, "dark", sub(hat, 0, 0.03, 0), 0.17, 0.15, 24, 6)
+    mring(p, "trim", sub(hat, 0, 0.05, 0), 0.172, 0.014, 24, 5)
+    for i in range(3):
+        a = math.radians(-90 + i * 120)
+        lathe(p, "dark", sub(hat, math.cos(a) * 0.2, 0.02, math.sin(a) * 0.2), [(0.07, 0.0), (0.075, 0.07), (0.0, 0.09)], 12)
+    ball(p, "trim", at(hat, 0.0, 0.1, -0.17), 0.028, 10)
+
+
+def faisca_x_extra(p):
+    # Dois para-raios gigantes às costas, em ziguezague aceso sobre uma base de cobre.
+    for side in (-1, 1):
+        base = Vector((side * 0.16, 1.3, 0.34))
+        mtube(p, "metal", axis_frame(base, "y"), 0.05, 0.14, 14)
+        mring(p, "trim", axis_frame(base + Vector((0, 0.07, 0)), "y"), 0.054, 0.012, 16, 4)
+        bolt = T(*(base + Vector((0, 0.07, 0.0)))) @ Matrix.Rotation(math.radians(-side * 14), 4, "Z") @ Matrix.Diagonal((3.2, 3.4, 1.0, 1.0))
+        extruded(p, "glow", bolt, BOLT, 0.03)
+    rod(p, "dark", (-0.16, 1.3, 0.34), (0.16, 1.3, 0.34), 0.02, 8)
+
+
+def faisca_x_hat(p):
+    # Coroa de três raios pequenos no alto da cabeça.
+    for i, side in enumerate((-1, 0, 1)):
+        m = T(side * 0.08, 2.1, -0.02 + abs(side) * 0.03) @ Matrix.Rotation(math.radians(-side * 20), 4, "Z") @ Matrix.Diagonal((1.3, 1.1 if side else 1.4, 1.0, 1.0))
+        extruded(p, "glow", m, BOLT, 0.02)
+
+
+def orbita_x_extra(p):
+    # Anel orbital dourado às costas com três satélites e uma estrela no topo.
+    m = T(0.0, 1.38, 0.5) @ Matrix.Rotation(math.radians(90), 4, "X") @ Matrix.Rotation(math.radians(18), 4, "Z")
+    mring(p, "trim", m, 0.44, 0.022, 48, 6)
+    mring(p, "metal", m, 0.36, 0.01, 40, 5)
+    for i, role in enumerate(("glow", "shell", "trim")):
+        a = math.radians(30 + i * 120)
+        ball(p, role, at(m, math.cos(a) * 0.44, 0.0, math.sin(a) * 0.44), 0.05 if role == "glow" else 0.04, 12)
+    mbox(p, "dark", T(0.0, 1.38, 0.4), (0.16, 0.16, 0.1), 0.02)
+    star = T(0.0, 1.9, 0.5)
+    pts = []
+    for i in range(10):
+        a = math.radians(90 + i * 36)
+        r = 0.09 if i % 2 == 0 else 0.04
+        pts.append((math.cos(a) * r, math.sin(a) * r))
+    extruded(p, "glow", star, pts, 0.03)
+    rod(p, "metal", (0.0, 1.8, 0.5), (0.0, 1.47, 0.5), 0.01, 6)
+
+
+def eclipse_x_extra(p):
+    # Um eclipse às costas: disco negro com a coroa rubra à volta e lâminas em crescente.
+    m = T(0.0, 1.62, 0.46) @ Matrix.Rotation(math.radians(90), 4, "X")
+    lathe(p, "dark", m, [(0.0, -0.02), (0.27, -0.02), (0.27, 0.02), (0.0, 0.02)], 40)
+    mring(p, "glow", m, 0.3, 0.022, 48, 6)
+    mring(p, "trim", m, 0.345, 0.011, 48, 5)
+    for i in range(8):
+        a = math.radians(i * 45 + 22.5)
+        tip = at(m, math.cos(a) * 0.47, 0.0, math.sin(a) * 0.47)
+        root = at(m, math.cos(a) * 0.33, 0.0, math.sin(a) * 0.33)
+        d = (Vector(tip) - Vector(root)).normalized()
+        lathe(p, "metal", frame(Vector(root), d, front=(0, 0, 1)), [(0.03, 0.0), (0.017, 0.09), (0.0, 0.15)], 8)
+    mbox(p, "dark", T(0.0, 1.5, 0.4), (0.14, 0.2, 0.1), 0.02)
+
+
+def eclipse_x_hat(p):
+    # Coroa de espigões por cima do elmo, com as pontas acesas.
+    for i in range(5):
+        a = math.radians(-90 + (i - 2) * 30)
+        base = Vector((math.cos(a) * 0.1, 1.97, math.sin(a) * 0.1 + 0.02))
+        d = Vector((math.cos(a) * 0.35, 1.0, math.sin(a) * 0.35)).normalized()
+        lathe(p, "dark", frame(base, d), [(0.028, 0.0), (0.016, 0.1), (0.0, 0.16 if i == 2 else 0.12)], 10)
+        ball(p, "glow", base + d * (0.15 if i == 2 else 0.11), 0.014, 8)
+
+
+def helio_x_extra(p):
+    # Um sol poente atrás das asas: disco vermelho com o núcleo aceso, aro de ouro e doze raios.
+    m = T(0.0, 1.7, 0.74) @ Matrix.Rotation(math.radians(90), 4, "X")
+    lathe(p, "shell", m, [(0.0, -0.014), (0.33, -0.014), (0.33, 0.014), (0.0, 0.014)], 44)
+    lathe(p, "glow", m, [(0.0, 0.014), (0.16, 0.014), (0.16, 0.024), (0.0, 0.024)], 32)
+    mring(p, "trim", m, 0.36, 0.026, 52, 6)
+    mring(p, "trim", m, 0.22, 0.012, 40, 5)
+    for i in range(12):
+        a = math.radians(i * 30)
+        root = Vector(at(m, math.cos(a) * 0.37, 0.0, math.sin(a) * 0.37))
+        d = (root - Vector(at(m, 0, 0, 0))).normalized()
+        lathe(p, "metal", frame(root, d, front=(0, 0, 1)), [(0.032, 0.0), (0.0, 0.15 if i % 2 == 0 else 0.09)], 8)
+    rod(p, "metal", (0.0, 1.5, 0.22), (0.0, 1.6, 0.72), 0.02, 8)
+
+
+# ======================================================================================
 def define(part):
     part("bigorna3_hull")(bigorna_hull)
     part("salvo3_hull")(salvo_hull)
@@ -4994,6 +5226,11 @@ def define(part):
     part("helio3_spin")(helio_crown)
     part("helio6_wings")(helio6_wings)
     part("orbita9_3_spin")(orbita9_spin)
+    for name in ("broto", "salvo", "bigorna", "batida", "rosca", "gancho", "faisca", "orbita", "eclipse", "helio"):
+        for slot in ("extra", "hat"):
+            fn = globals().get(name + "_x_" + slot)
+            if fn is not None:
+                part(name + "_x_" + slot)(fn)
     for slot in ("head", "torso", "shoulders", "arm", "gun"):
         part("batida11_" + slot)(globals()["batida11_" + slot])
     part("batida11_leg_l")(lambda q: batida11_leg(q, -1))

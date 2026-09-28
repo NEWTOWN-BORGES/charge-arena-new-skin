@@ -33,6 +33,28 @@ const CATALOG = [
 		"body": "f0b429", "light": "ffe36a", "shot": "fff06a"},
 	{"name": "MAGNUS", "ultimate": "b_forge", "weapon": "Manopla Imperial", "bricks": "Emblemas do Penta", "about": "Quatro títulos, um nome nas capas: armadura azul-real e ouro, louros a girar e capa de campeão.", "level": 0, "cup_reward": true,
 		"body": "27387c", "light": "ffd477", "shot": "ffd477"},
+	# Modo difícil da história: o mesmo chefe, outra cor e alguns adereços. "hard_of" é o
+	# chefe; vencê-lo no difícil desbloqueia esta skin.
+	{"name": "SALVO BLINDADO", "ultimate": "volley", "weapon": "Lança-Mísseis Duplo", "bricks": "Caixas de munição", "hard_of": 1, "level": -1, "about": "Artilheiro de guerra: verde-militar e latão, um segundo casulo de mísseis e cartucheira às costas.",
+		"body": "5b6b3a", "light": "ff6a2a", "shot": "ff6a2a"},
+	{"name": "ÓRBITA DOURADA", "ultimate": "meteors", "weapon": "Luneta de Plasma", "bricks": "Observatórios", "hard_of": 2, "level": -1, "about": "Navegadora do espaço fundo: azul-noite e ouro, anel orbital às costas com três satélites.",
+		"body": "1f2a5c", "light": "ffd76a", "shot": "ffd76a"},
+	{"name": "BROTO SELVAGEM", "ultimate": "bloom", "weapon": "Semeador", "bricks": "Canteiros", "hard_of": 3, "level": -1, "about": "A estufa virou selva: verde-escuro e musgo, folhas grandes na cabeça, uma flor e um arbusto com trepadeiras.",
+		"body": "2f6b3a", "light": "b6ff5a", "shot": "b6ff5a"},
+	{"name": "BIGORNA DE FORJA", "ultimate": "plating", "weapon": "Perfuradora", "bricks": "Bigornas", "hard_of": 4, "level": -1, "about": "Direto da forja: aço escuro e brasa, duas chaminés acesas às costas e faróis nos ombros.",
+		"body": "3a3d44", "light": "ff6a1a", "shot": "ff6a1a"},
+	{"name": "ECLIPSE RUBRO", "ultimate": "singularity", "weapon": "Lança de Anel", "bricks": "Monólitos Eclipse", "hard_of": 5, "level": -1, "about": "Eclipse de sangue: carmesim e negro, um sol negro com lâminas às costas e coroa de espigões.",
+		"body": "5a1a24", "light": "ff2a3c", "shot": "ff2a3c"},
+	{"name": "ROSCA TURBO", "ultimate": "sentries", "weapon": "Rebitadora", "bricks": "Engrenagens", "hard_of": 6, "level": -1, "about": "Mecânica de corrida: azul-aço e amarelo, chave inglesa gigante às costas e pirilampo no topo.",
+		"body": "3f6f8f", "light": "ffd34a", "shot": "ffd34a"},
+	{"name": "FAÍSCA TEMPESTADE", "ultimate": "thunder", "weapon": "Bobina de Tesla", "bricks": "Bobinas de Tesla", "hard_of": 7, "level": -1, "about": "O olho da tempestade: cinza de trovoada e amarelo, dois para-raios gigantes e coroa de raios.",
+		"body": "2a2f3a", "light": "fff04a", "shot": "fff04a"},
+	{"name": "BATIDA NEON", "ultimate": "surge", "weapon": "Megafone de Choque", "bricks": "Colunas de som", "hard_of": 8, "level": -1, "about": "Festa até de manhã: roxo-noite e ciano, torre de colunas às costas e crista de néon.",
+		"body": "3a2a5c", "light": "4ff0ff", "shot": "4ff0ff"},
+	{"name": "GANCHO NEGRO", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Arcas do tesouro", "hard_of": 9, "level": -1, "about": "O capitão temido: negro e ouro, tricórnio, e um mastro com a bandeira negra às costas.",
+		"body": "23262e", "light": "ffcf5a", "shot": "ffcf5a"},
+	{"name": "HÉLIO POENTE", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "hard_of": 10, "level": -1, "about": "O sol a pôr-se: vermelho-poente e ouro, com um sol inteiro de raios atrás das asas.",
+		"body": "c8452a", "light": "ff8a2a", "shot": "ff8a2a"},
 ]
 # Testing build: every skin can be worn without beating its boss first. Set to false to
 # earn them again; the bosses you have beaten are saved either way.
@@ -58,6 +80,19 @@ static func colors(index: int, team_color: Color, boss_tint: bool = false) -> Di
 		"light": Color(entry.light) if entry.light != "" else team_color.lightened(0.3),
 		"shot": Color(entry.shot) if entry.shot != "" else team_color,
 	}
+
+static func base_of(index: int) -> int:
+	# A hard-mode skin sounds and plays like its boss.
+	if index >= 0 and index < CATALOG.size():
+		return int(CATALOG[index].get("hard_of", index))
+	return index
+
+static func hard_of_boss(boss: int) -> int:
+	# The hard-mode skin of a boss, or -1.
+	for index in range(CATALOG.size()):
+		if int(CATALOG[index].get("hard_of", -1)) == boss:
+			return index
+	return -1
 
 static func boss_skin(level: int) -> int:
 	# The skin worn by the boss of campaign level `level` (1-10), or -1.

@@ -180,11 +180,17 @@ func _ready() -> void:
 		open_cup()
 		cup_screen.open_versus())
 	hud.fire_layout_changed.connect(change_fire_layout)
+	hud.bosses_requested.connect(open_bosses)
+	hud.story_boss_chosen.connect(start_story)
 	campaign.load_preferences()
 	sync_boss_skins()
 	hud.sync_campaign(campaign)
 	hud.level_selected.connect(start_level)
-	hud.next_level_requested.connect(func(): start_level(Campaign.menu_level(level_index + 1)))
+	hud.next_level_requested.connect(func():
+		if not story_run.is_empty():
+			start_story(int(story_run.step) + 1, bool(story_run.hard))
+		else:
+			start_level(Campaign.menu_level(level_index + 1)))
 	hud.levels_requested.connect(show_levels)
 	hud.menu_level_changed.connect(step_menu_level)
 	menu_level = Campaign.menu_level(campaign.suggested_level())
@@ -278,6 +284,7 @@ func start_pvp_ai() -> void:
 	start_pve(Rules.pvp_map())
 
 func start_level(index: int) -> void:
+	story_run = {}
 	close_cup_screen()
 	if not campaign.is_unlocked(index):
 		return
@@ -319,6 +326,7 @@ func start_level(index: int) -> void:
 		music.play_skin(Campaign.level_music(index))
 
 func leave_campaign(layout: Dictionary = {}) -> void:
+	story_run = {}
 	level_index = -1
 	rules.ai_profile = {}
 	hud.level_info = {}
@@ -399,7 +407,101 @@ func use_map(layout: Dictionary) -> void:
 	hud.arena_aspect = arena.view_aspect()
 	hud.layout()
 
+# --------------------------------------------------------------------------------------
+# Modo história: os dez chefes por ordem, sem ultimate de nenhum dos lados. Em NORMAL
+# vencer um chefe dá a sua skin; em DIFÍCIL o chefe veste a skin difícil e é essa que ganhas.
+var story_run: Dictionary = {}
+
+func story_bosses() -> Array:
+	var order: Array = []
+	for i in range(Campaign.LEVELS.size()):
+		var boss = int(Campaign.LEVELS[i].boss)
+		if not Campaign.is_minor(i) and boss > 0 and boss < Skins.CATALOG.size() and Skins.hard_of_boss(boss) >= 0 and not order.has(boss):
+			order.append(boss)
+	return order
+
+func story_level_of(boss: int) -> int:
+	for i in range(Campaign.LEVELS.size()):
+		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].boss) == boss:
+			return i
+	return 0
+
+func story_prize(boss: int, hard: bool) -> int:
+	return Skins.hard_of_boss(boss) if hard else boss
+
+func story_beaten(boss: int, hard: bool) -> bool:
+	return skins.defeated.has(story_prize(boss, hard))
+
+func story_entries(hard: bool) -> Array:
+	var order = story_bosses()
+	var list: Array = []
+	for step in range(order.size()):
+		var boss: int = order[step]
+		var wear = story_prize(boss, hard)
+		list.append({"name": String(Skins.CATALOG[wear].name), "skin": wear, "beaten": story_beaten(boss, hard),
+			"open": step == 0 or story_beaten(order[step - 1], hard) or story_beaten(boss, hard)})
+	return list
+
+func open_bosses() -> void:
+	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true)})
+
+func start_story(step: int, hard: bool) -> void:
+	var order = story_bosses()
+	if step < 0 or step >= order.size():
+		return_to_menu()
+		return
+	var boss: int = order[step]
+	var index = story_level_of(boss)
+	close_cup_screen()
+	pve_paused = false
+	close_network()
+	mode = "pve"
+	local_team = 0
+	arena.set_view_team(local_team)
+	network_status = ""
+	level_index = index
+	use_map(Campaign.LEVELS[index].map)
+	story_run = {"step": step, "hard": hard, "boss": boss}
+	rules.ai_profile = Campaign.ai_profile(index, 2 if hard else 1)
+	# No ultimates on either side: two powers each, the third key empty.
+	rules.loadouts = [power_shop.loadout(""), Campaign.boss_kit(index) + [""]]
+	credited_bricks = 0
+	rules.reset_match()
+	dress_pilots(local_team)
+	var wear = story_prize(boss, hard)
+	arena.set_skin(1, wear, false)
+	hud.team_hues = arena.unit_hues
+	hud.level_info = {"number": step + 1, "name": ("DIFÍCIL · " if hard else "") + String(Campaign.LEVELS[index].name),
+		"challenge": "Sem ultimate. Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
+		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size()}
+	hud.level_result = ""
+	hud.level_skin = ""
+	arena.warm_shaders.call_deferred()
+	hud.show_game(mode, local_team)
+	sync_assist()
+	music.play_skin(boss)
+
+func finish_story() -> void:
+	var won = rules.winner == local_team
+	var boss: int = int(story_run.boss)
+	var hard: bool = bool(story_run.hard)
+	var prize = story_prize(boss, hard)
+	hud.level_skin = ""
+	if won:
+		if skins.defeat(prize):
+			save_skins()
+			hud.sync_skins(skins)
+			hud.level_skin = Skins.CATALOG[prize].name
+			hud.announce_unlock([hud.level_skin])
+	hud.level_result = "won" if won else "lost"
+	hud.level_opened = false
+	# The next boss only opens once this one has fallen.
+	hud.level_info["has_next"] = won and int(story_run.step) + 1 < story_bosses().size()
+
 func finish_level() -> void:
+	if not story_run.is_empty():
+		finish_story()
+		return
 	var won = rules.winner == local_team
 	var opened = false
 	var boss: int = Campaign.LEVELS[level_index].boss
@@ -447,6 +549,7 @@ func return_to_menu(message: String = "") -> void:
 	close_network()
 	chase_push = 1.0
 	arena.set_chase(false)
+	story_run = {}
 	mode = "menu"
 	network_status = ""
 	menu_preview_timer = -1.0
@@ -581,6 +684,9 @@ func peer_disconnected(_id: int) -> void:
 func replay() -> void:
 	if cup_active:
 		start_cup()
+		return
+	if mode == "pve" and not story_run.is_empty():
+		start_story(int(story_run.step), bool(story_run.hard))
 		return
 	if mode == "pve" and level_index >= 0:
 		start_level(level_index)
@@ -810,7 +916,7 @@ func leave_chase() -> void:
 func change_difficulty(level: int) -> void:
 	game_settings.configure(level, game_settings.aim_guide)
 	rules.ai_level = game_settings.difficulty
-	if level_index >= 0:
+	if level_index >= 0 and story_run.is_empty():
 		rules.ai_profile = Campaign.ai_profile(level_index, game_settings.difficulty)
 	if cup_active:
 		rules.ai_profile = cup.profile(game_settings.difficulty)
@@ -964,6 +1070,7 @@ func play_events() -> void:
 			var skin = int(arena.unit_skins[team])
 			# Intermediate opponents share the Aurora base, never a missing sample.
 			if skin >= Skins.CATALOG.size(): skin = 0
+			skin = Skins.base_of(skin)
 			var variant = int(shot_variants[team]) % 3
 			shot_variants[team] += 1
 			play_tone("shot_%d_%d" % [skin, variant], 0.0 if team == local_team else -5.0, true)
@@ -1432,7 +1539,8 @@ func build_audio() -> void:
 	audio = audio_voices[0]
 	tones = preload("res://scripts/combat_audio.gd").TRACKS.duplicate()
 	for skin in range(Skins.CATALOG.size()):
-		tones["shot_%d" % skin] = tones["shot_%d_0" % skin]
+		if tones.has("shot_%d_0" % skin):
+			tones["shot_%d" % skin] = tones["shot_%d_0" % skin]
 
 func roar_wave(seconds: float, base_hz: float, grit: float) -> AudioStreamWAV:
 	# A held, throaty beam: two detuned saws under a slow tremolo.

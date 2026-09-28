@@ -1308,7 +1308,7 @@ def sync_heads():
     old = json.loads("{" + text[start:end] + "\n\t}}")["heads"]
     # Also any head or trunk a robot of the cast wears (the blueprint heads, a trunk with the
     # face in it), so the game knows where its face is.
-    worn = {entry["parts"].get(slot, "") for entry in json.loads(text)["cast"] for slot in ("head", "torso")}
+    worn = {entry.get("parts", {}).get(slot, "") for entry in json.loads(text)["cast"] for slot in ("head", "torso")}
     fused = lambda name: name.endswith("2_head") or name.endswith("_hull") or name in worn
     heads = {name: value for name, value in old.items() if not fused(name)}
     heads.update({name: value for name, value in sorted(HEADS.items()) if fused(name)})
@@ -1372,6 +1372,8 @@ def sheet(path):
     objects = build_kit()
     roster = json.loads(ROSTER.read_text())
     for i, entry in enumerate(roster["cast"]):
+        if "base" in entry:
+            continue
         col, row = i % 6, i // 6
         assemble(objects, entry["parts"], entry["palette"], CONVERT.to_3x3() @ Vector((col * 2.1 - 5.25, 0, row * -3.4)),
                  entry.get("scale", [1, 1, 1]))

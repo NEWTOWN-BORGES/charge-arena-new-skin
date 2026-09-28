@@ -76,7 +76,8 @@ func run() -> void:
 	var carriers = Skins.CATALOG.filter(func(s): return s.ultimate != "")
 	check(carriers.size() == Skins.CATALOG.size() - 1 and carriers.all(func(s): return Powers.is_ultimate(s.ultimate)), "Every skin but one carries an ultimate of its own")
 	check(String(Skins.CATALOG[0].ultimate) == "", "The standard pilot is the one without: it is the training opponent, not a boss")
-	var ids: Array = carriers.map(func(s): return String(s.ultimate))
+	# Hard-mode skins share their boss's ultimate; the uniqueness is counted over the bosses.
+	var ids: Array = carriers.filter(func(s): return not s.has("hard_of")).map(func(s): return String(s.ultimate))
 	ids.sort()
 	check(Powers.ULTIMATES.all(func(u): return ids.count(u.id) == 1) and ids.count("b_forge") == 1 and range(1, ids.size()).all(func(i): return ids[i] != ids[i - 1]), "Each boss has its ultimate and Magnus carries Forge")
 	check(Skins.CATALOG[10].ultimate == "sun_ray" and Skins.CATALOG[2].ultimate == "meteors" and Skins.CATALOG[7].ultimate == "thunder" and Skins.CATALOG[3].ultimate == "bloom" and Skins.CATALOG[9].ultimate == "plunder", "Hélio, Órbita, Faísca, Broto and Gancho, each with its own")
