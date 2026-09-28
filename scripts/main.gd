@@ -1,4 +1,5 @@
 extends Node3D
+const StoryScript = preload("res://scripts/story_script.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaView = preload("res://scripts/indie_arena_view.gd")
 const HUD = preload("res://scripts/game_hud.gd")
@@ -428,39 +429,48 @@ func use_map(layout: Dictionary) -> void:
 	hud.layout()
 
 # --------------------------------------------------------------------------------------
-# Modo história: os doze chefes por ordem; cada lado traz a ultimate da skin que veste. Em NORMAL
-# vencer um chefe dá a sua skin; em DIFÍCIL o chefe veste a skin difícil e é essa que ganhas.
+# Modo história: a história do BIT (StoryScript). Onze adversários por ordem, com conversas antes
+# e depois de cada partida. Em NORMAL jogas com o BIT (e com o BIT DE ELITE na final) e vencer um
+# chefe dá a sua skin; o HÉLIO ensina-te o RAIO DE ELITE ganhes ou percas. O DIFÍCIL abre depois
+# do NORMAL: os chefes vestem as skins difíceis, e é essa que ganhas.
 var story_run: Dictionary = {}
 
-const STORY_FINAL = 11
-
 func story_bosses() -> Array:
-	# BIT opens the story, the ten campaign bosses follow in their order, MAGNUS closes it.
-	var order: Array = []
-	for i in range(Campaign.LEVELS.size()):
-		var boss = int(Campaign.LEVELS[i].boss)
-		if not Campaign.is_minor(i) and boss >= 0 and boss < Skins.CATALOG.size() and Skins.hard_of_boss(boss) >= 0 and not order.has(boss):
-			order.append(boss)
-	if Skins.hard_of_boss(STORY_FINAL) >= 0 and not order.has(STORY_FINAL):
-		order.append(STORY_FINAL)
-	return order
+	return StoryScript.ORDER.duplicate()
 
-func story_level_of(boss: int) -> int:
-	# MAGNUS has no campaign level: the champion is met in the last arena, the Coroa Solar.
-	if boss == STORY_FINAL:
-		return Campaign.LEVELS.size() - 1
+func campaign_level_of(boss: int) -> int:
 	for i in range(Campaign.LEVELS.size()):
 		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].boss) == boss:
 			return i
-	return 0
+	return Campaign.LEVELS.size() - 1
 
-func story_pilot(hard: bool) -> int:
-	# The story is BIT's: NORMAL is played as BIT, DIFÍCIL as BIT DE ELITE. The other skins
-	# are for the other modes.
-	return Skins.hard_of_boss(0) if hard else 0
+func story_level_of(boss: int) -> int:
+	# The arena: each boss plays at home. MAGNUS, ECLIPSE's henchman, guards the last Eclipse
+	# outpost; his kit is still the champion's (see story_kit_level).
+	if boss == StoryScript.MAGNUS:
+		for i in range(Campaign.LEVELS.size()):
+			if String(Campaign.LEVELS[i].name) == "Posto Eclipse V":
+				return i
+	return campaign_level_of(boss)
+
+func story_kit_level(boss: int) -> int:
+	return Campaign.LEVELS.size() - 1 if boss == StoryScript.MAGNUS else campaign_level_of(boss)
+
+func story_ai_level(step: int) -> int:
+	# The rivals grow stronger step by step: the pace of the campaign level of the same tier.
+	for i in range(Campaign.LEVELS.size()):
+		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].tier) == step:
+			return i
+	return Campaign.LEVELS.size() - 1
+
+func story_pilot(boss: int, hard: bool) -> int:
+	# The story is BIT's: he plays as BIT until HÉLIO teaches him the RAIO DE ELITE, and faces
+	# ECLIPSE as BIT DE ELITE; in DIFÍCIL he is BIT DE ELITE throughout. The other skins are
+	# for the other modes.
+	return StoryScript.BIT_ELITE if hard or boss == StoryScript.FINAL else StoryScript.BIT
 
 func worn_skin() -> int:
-	return story_pilot(bool(story_run.hard)) if not story_run.is_empty() else skins.selected
+	return story_pilot(int(story_run.boss), bool(story_run.hard)) if not story_run.is_empty() else skins.selected
 
 func story_prize(boss: int, hard: bool) -> int:
 	return Skins.hard_of_boss(boss) if hard else boss
@@ -469,12 +479,15 @@ func story_key(boss: int, hard: bool) -> String:
 	return ("h%d" if hard else "n%d") % boss
 
 func story_beaten(boss: int, hard: bool) -> bool:
-	# BIT is owned from the start, so the story keeps its own record of who has fallen.
-	return skins.story_won.has(story_key(boss, hard)) or (boss > 0 and skins.defeated.has(story_prize(boss, hard)))
+	return skins.story_won.has(story_key(boss, hard)) or skins.defeated.has(story_prize(boss, hard))
+
+func story_passed(boss: int, hard: bool) -> bool:
+	# HÉLIO's match moves the story on even when he wins it.
+	return story_beaten(boss, hard) or (not hard and boss == StoryScript.TEACHER and skins.story_won.has("p%d" % boss))
 
 func story_hard_open() -> bool:
-	# DIFÍCIL only opens once every NORMAL boss has fallen (the LAB build opens it to test).
-	return skins.unlock_all or story_bosses().all(func(boss): return story_beaten(boss, false))
+	# DIFÍCIL only opens once the whole NORMAL story is done (the LAB build opens it to test).
+	return skins.unlock_all or story_bosses().all(func(boss): return story_passed(boss, false))
 
 func story_entries(hard: bool) -> Array:
 	var order = story_bosses()
@@ -484,19 +497,34 @@ func story_entries(hard: bool) -> Array:
 		var boss: int = order[step]
 		var wear = story_prize(boss, hard)
 		list.append({"name": String(Skins.CATALOG[wear].name), "skin": wear, "beaten": story_beaten(boss, hard),
-			"open": reachable and (step == 0 or story_beaten(order[step - 1], hard) or story_beaten(boss, hard))})
+			"passed": story_passed(boss, hard),
+			"open": reachable and (step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
 	return list
 
 func open_bosses() -> void:
 	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true), "hard_open": story_hard_open()})
 
-func start_story(step: int, hard: bool) -> void:
+func start_story(step: int, hard: bool, talk: bool = true) -> void:
 	var order = story_bosses()
 	if step < 0 or step >= order.size():
 		return_to_menu()
 		return
 	if hard and not story_hard_open():
 		return
+	var boss: int = order[step]
+	if talk and not hard:
+		# The story is told in NORMAL: the prologue before the first match, then each rival's
+		# lines; the match begins when the conversation ends (or is skipped).
+		var lines: Array = []
+		if step == 0 and not story_beaten(boss, false):
+			lines += StoryScript.PROLOGUE
+		lines += StoryScript.lines(boss, "before")
+		hud.play_story_talk(lines, func(): begin_story(step, hard))
+		return
+	begin_story(step, hard)
+
+func begin_story(step: int, hard: bool) -> void:
+	var order = story_bosses()
 	var boss: int = order[step]
 	var index = story_level_of(boss)
 	close_cup_screen()
@@ -509,17 +537,21 @@ func start_story(step: int, hard: bool) -> void:
 	level_index = index
 	use_map(Campaign.LEVELS[index].map)
 	story_run = {"step": step, "hard": hard, "boss": boss}
-	rules.ai_profile = Campaign.ai_profile(index, 2 if hard else 1)
+	rules.ai_profile = Campaign.ai_profile(story_ai_level(step), 2 if hard else 1)
 	var wear = story_prize(boss, hard)
-	# You bring the ultimate of the skin you wear (BIT has none, so a new player starts
-	# without one); the boss brings the ultimate of the skin it wears.
-	use_loadouts(Campaign.boss_kit(index), wear)
+	# You bring the ultimate of the skin you wear (BIT has none; BIT DE ELITE brings the RAIO
+	# DE ELITE); the boss brings the ultimate of the skin it wears.
+	use_loadouts(Campaign.boss_kit(story_kit_level(boss)), wear)
 	rules.reset_match()
+	var teacher = boss == StoryScript.TEACHER and not hard
+	if teacher:
+		# The champion walks in with the sun already charged: this is the match he wins easily.
+		charge_rival_ultimate.call_deferred()
 	dress_pilots(local_team)
 	arena.set_skin(1, wear, false)
 	hud.team_hues = arena.unit_hues
 	hud.level_info = {"number": step + 1, "name": ("DIFÍCIL · " if hard else "") + String(Campaign.LEVELS[index].name),
-		"challenge": "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
+		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
 		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size(), "story": true}
 	hud.level_result = ""
 	hud.level_skin = ""
@@ -528,25 +560,50 @@ func start_story(step: int, hard: bool) -> void:
 	sync_assist()
 	music.play_skin(boss)
 
+func charge_rival_ultimate() -> void:
+	var team = 1 - local_team
+	var cost = rules.power_charge_cost(team, 2)
+	if cost > 0:
+		rules.powers[team].charge[2] = cost
+
 func finish_story() -> void:
 	var won = rules.winner == local_team
 	var boss: int = int(story_run.boss)
 	var hard: bool = bool(story_run.hard)
 	var prize = story_prize(boss, hard)
+	var teacher = boss == StoryScript.TEACHER and not hard
+	var unlocked: Array = []
 	hud.level_skin = ""
 	if won:
 		if not skins.story_won.has(story_key(boss, hard)):
 			skins.story_won.append(story_key(boss, hard))
 			save_skins()
 		if skins.defeat(prize):
-			save_skins()
-			hud.sync_skins(skins)
-			hud.level_skin = Skins.CATALOG[prize].name
-			hud.announce_unlock([hud.level_skin])
+			unlocked.append(Skins.CATALOG[prize].name)
+	if teacher:
+		# Win or lose, HÉLIO teaches BIT the RAIO DE ELITE: BIT DE ELITE is his from now on.
+		if not skins.story_won.has("p%d" % boss):
+			skins.story_won.append("p%d" % boss)
+		if skins.defeat(StoryScript.BIT_ELITE):
+			unlocked.append(Skins.CATALOG[StoryScript.BIT_ELITE].name)
+		save_skins()
+	if not unlocked.is_empty():
+		save_skins()
+		hud.sync_skins(skins)
+		hud.level_skin = unlocked[0]
+		hud.announce_unlock(unlocked)
 	hud.level_result = "won" if won else "lost"
 	hud.level_opened = false
-	# The next boss only opens once this one has fallen.
-	hud.level_info["has_next"] = won and int(story_run.step) + 1 < story_bosses().size()
+	# The next boss only opens once this one has fallen (HÉLIO: once his match is over).
+	hud.level_info["has_next"] = (won or teacher) and int(story_run.step) + 1 < story_bosses().size()
+	if not hard:
+		var lines: Array = StoryScript.lines(boss, "won" if won else "lost")
+		if teacher:
+			lines += StoryScript.lines(boss, "teach")
+		# Let the last goal land before the conversation opens.
+		get_tree().create_timer(1.6).timeout.connect(func():
+			if not lines.is_empty() and mode == "pve" and not story_run.is_empty():
+				hud.play_story_talk(lines))
 
 func finish_level() -> void:
 	if not story_run.is_empty():
@@ -655,6 +712,10 @@ func _notification(what: int) -> void:
 		if hud.tutorial_running():
 			hud.tutorial.close(true)
 			return
+		# Back during a story conversation skips it too.
+		if hud.story_talk_running():
+			hud.story_talk.close(true)
+			return
 		request_menu()
 
 func host_game() -> void:
@@ -741,7 +802,8 @@ func replay() -> void:
 		start_cup()
 		return
 	if mode == "pve" and not story_run.is_empty():
-		start_story(int(story_run.step), bool(story_run.hard))
+		# A rematch goes straight back in; the lines were said the first time.
+		start_story(int(story_run.step), bool(story_run.hard), false)
 		return
 	if mode == "pve" and level_index >= 0:
 		start_level(level_index)
@@ -1051,6 +1113,7 @@ static func sustained_haptic_profile(state: Dictionary) -> Vector3:
 	if state.ultimate_time > 0.0:
 		match String(state.ultimate_id):
 			"sun_ray": return Vector3(150, 105, 0.32)
+			"sun_beam": return Vector3(120, 105, 0.24)
 			"singularity": return Vector3(65, 170, 0.25)
 	if state.rapid_time > 0.0: return Vector3(12, 115, 0.17)
 	if state.surge_time > 0.0: return Vector3(20, 190, 0.20)
@@ -1177,7 +1240,7 @@ func play_events() -> void:
 			arena.shake_level(GameFeel.Level.ULTIMATE)
 			arena.ultimate_accent(event.p, String(event.get("id", "")))
 			if int(event.team) == local_team:
-				haptic(48 if String(event.get("id", "")) in ["meteors", "sun_ray", "singularity"] else 30, 0.55)
+				haptic(48 if String(event.get("id", "")) in ["meteors", "sun_ray", "sun_beam", "singularity"] else 30, 0.55)
 			# A hard-mode skin's ultimate sounds deeper and heavier than its boss's.
 			var hard_skin = Skins.CATALOG[clampi(int(arena.unit_skins[int(event.team)]), 0, Skins.CATALOG.size() - 1)].has("hard_of") if int(arena.unit_skins[int(event.team)]) < Skins.CATALOG.size() else false
 			var pitch = 0.8 if hard_skin else 1.0

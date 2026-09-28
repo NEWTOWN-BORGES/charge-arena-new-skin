@@ -1845,7 +1845,7 @@ func draw_demo(panel: Control, id: String) -> void:
 				demo_ball(c, bounce_at.lerp(their_pilot + Vector2(40, 0), (u - 0.5) / 0.5), CORAL, 5.0)
 			var gap = Vector2(area.position.x + area.size.x * 0.365, mine_y - 4)
 			demo_ball(c, their_pilot.lerp(gap, minf(u / 0.8, 1.0)), Color(CORAL, 0.75), 4.5)
-		"sun_ray":
+		"sun_ray", "sun_beam":
 			var lit = int(clampf((u - 0.25) / 0.2, 0, 3))
 			demo_bricks(c, area, CORAL, enemy_y, [3, 4, 5].slice(0, lit))
 			demo_bricks(c, area, CYAN, mine_y)
@@ -3237,7 +3237,8 @@ func update_match(rules, status: String) -> void:
 	var in_campaign = not level_info.is_empty()
 	replay.visible = finished
 	replay.text = ("REPETIR NÍVEL" if level_result == "won" else "TENTAR DE NOVO") if in_campaign else "JOGAR NOVAMENTE"
-	next_button.visible = finished and in_campaign and level_result == "won" and level_info.get("has_next", false)
+	# In the story a lost match can still move on (HÉLIO's lesson): has_next says so.
+	next_button.visible = finished and in_campaign and (level_result == "won" or level_info.get("story", false)) and level_info.get("has_next", false)
 	# Only one bright button at a time: replay steps back when a next level is offered.
 	paint_button(replay, not next_button.visible)
 	levels_button.visible = finished and in_campaign
@@ -3255,13 +3256,15 @@ func portrait(center: Vector2, color: Color, stunned: bool, skin: int = 0, canva
 	# The robots are rendered from their real models by tools/render_portraits.gd; a boss not
 	# yet beaten shows as a silhouette in its team colour.
 	var c: CanvasItem = canvas if canvas != null else self
+	# A locked hard skin stands in the dark like in the hangar view, only its neon alight.
+	var dark: Texture2D = dark_portrait(skin) if tint else null
 	UiKit.disc(c, center, 46 * zoom, Color(color, 0.1))
 	UiKit.ring(c, center, 46 * zoom, Color(color, 0.45))
-	var picture: Texture2D = robot_portrait(skin, stunned)
+	var picture: Texture2D = dark if dark != null else robot_portrait(skin, stunned)
 	if picture == null:
 		return
 	# A locked pilot's portrait is almost black: a shape to win, not a look to copy.
-	var tone = Color(0.1, 0.1, 0.13, 1.0) if tint else Color.WHITE
+	var tone = Color(0.1, 0.1, 0.13, 1.0) if tint and dark == null else Color.WHITE
 	var frame = Rect2(center - Vector2(52, 58) * zoom, Vector2(104, 104) * zoom)
 	if c == self:
 		later(func(): draw_texture_rect(picture, frame, false, tone))
@@ -3269,6 +3272,15 @@ func portrait(center: Vector2, color: Color, stunned: bool, skin: int = 0, canva
 		c.draw_texture_rect(picture, frame, false, tone)
 
 var portrait_cache: Dictionary = {}
+
+func dark_portrait(skin: int) -> Texture2D:
+	# The silhouette with only the neon lit, rendered for every hard skin (render_portraits.gd).
+	if skin < 0 or skin >= Robots.STATION_SKIN:
+		return null
+	var path = "res://art/robots/portraits/cast_%d_dark.png" % skin
+	if not portrait_cache.has(path):
+		portrait_cache[path] = load(path) if ResourceLoader.exists(path) else null
+	return portrait_cache[path]
 
 func robot_portrait(skin: int, stunned: bool) -> Texture2D:
 	var name = ("road_%d" % posmod(skin - Robots.STATION_SKIN, 10)) if skin >= Robots.STATION_SKIN else ("cast_%d" % clampi(skin, 0, Robots.cast().size() - 1))
@@ -3525,7 +3537,7 @@ func draw_moment() -> void:
 		if level_result == "won":
 			sub = "NÍVEL %d CONCLUÍDO" % level_info.number
 			if not level_info.has_next:
-				sub = "CAMPANHA CONCLUÍDA!"
+				sub = "A TAÇA É TUA!" if level_info.get("story", false) else "CAMPANHA CONCLUÍDA!"
 			elif level_opened:
 				sub += " · NÍVEL %d DESBLOQUEADO" % (level_info.number + 1)
 			if level_skin != "":
@@ -3533,6 +3545,11 @@ func draw_moment() -> void:
 		elif level_result == "lost":
 			message = "O BOSS VENCEU"
 			sub = "TENTA OUTRA VEZ"
+			if level_info.get("story", false) and level_info.get("has_next", false):
+				# HÉLIO wins his match, and the story moves on anyway.
+				sub = "A HISTÓRIA CONTINUA"
+			if level_skin != "":
+				detail = "Skin %s desbloqueada na aba SKINS" % level_skin
 	if message == "":
 		return
 	var c = message_center
@@ -3904,7 +3921,7 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 				var at = center + star
 				c.draw_line(at + Vector2(-3, 0), at + Vector2(3, 0), brass, 1.6, smooth)
 				c.draw_line(at + Vector2(0, -3), at + Vector2(0, 3), brass, 1.6, smooth)
-		"sun_ray":
+		"sun_ray", "sun_beam":
 			# Sun ray: a broad column out of a sun.
 			c.draw_circle(center + Vector2(0, 9), 5.0, color, true, -1, smooth)
 			for spread in [-6.0, 0.0, 6.0]:
@@ -4073,7 +4090,7 @@ func power_icon(id: String, center: Vector2, color: Color, canvas: CanvasItem = 
 
 
 # --------------------------------------------------------------------------------------
-# Modo história: os doze chefes em fila, cada um com a ultimate da sua skin. NORMAL ganha a skin do chefe,
+# Modo história: os onze adversários do BIT em fila, cada um com a ultimate da sua skin. NORMAL ganha a skin do chefe,
 # DIFÍCIL ganha a sua skin difícil. main.gd diz o estado de cada um (open_bosses).
 var bosses_overlay: ColorRect
 var bosses_panel: PanelContainer
@@ -4161,7 +4178,7 @@ func show_bosses_tab(hard: bool) -> void:
 	var won = list.filter(func(e): return e.beaten).size()
 	bosses_note.text = ("DIFÍCIL · %d/%d · os chefes lutam com as skins difíceis; vence um para ganhar a sua." if hard else "NORMAL · %d/%d · enfrenta os chefes por ordem. Vence um chefe para ganhar a sua skin.") % [won, list.size()]
 	if hard and not bool(bosses_entries.get("hard_open", true)):
-		bosses_note.text = "DIFÍCIL · BLOQUEADO · vence primeiro os %d chefes do NORMAL para abrir o DIFÍCIL." % list.size()
+		bosses_note.text = "DIFÍCIL · BLOQUEADO · acaba primeiro a história no NORMAL (os %d adversários) para abrir o DIFÍCIL." % list.size()
 	for child in bosses_grid.get_children():
 		child.queue_free()
 	for step in range(list.size()):
@@ -4176,8 +4193,7 @@ func boss_card(step: int, entry: Dictionary, hard: bool) -> Button:
 	var beaten: bool = entry.beaten
 	var rim = UiKit.GOLD if beaten else (UiKit.SUN if open else UiKit.CARD_EDGE)
 	# A locked hard boss stands in the dark like in the hangar, only its neon alight.
-	var dark_path = "res://art/robots/portraits/cast_%d_dark.png" % int(entry.skin)
-	var in_the_dark = not open and ResourceLoader.exists(dark_path)
+	var in_the_dark = not open and dark_portrait(int(entry.skin)) != null
 	var fill = Color("15161c") if in_the_dark else (UiKit.CARD if open else UiKit.EMPTY)
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		card.add_theme_stylebox_override(state, style(fill, Color("2a2c36") if in_the_dark else rim, 18))
@@ -4188,7 +4204,7 @@ func boss_card(step: int, entry: Dictionary, hard: bool) -> Button:
 	var picture = TextureRect.new()
 	picture.texture = robot_portrait(int(entry.skin), false)
 	if in_the_dark:
-		picture.texture = load(dark_path)
+		picture.texture = dark_portrait(int(entry.skin))
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -4204,7 +4220,7 @@ func boss_card(step: int, entry: Dictionary, hard: bool) -> Button:
 	caption.offset_bottom = -28
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(caption)
-	var status = label("VENCIDO ✓" if beaten else ("JOGAR" if open else "BLOQUEADO"), 14, UiKit.MINT_LIP if beaten else (UiKit.SUN_INK if open else (Color("8a8e9c") if in_the_dark else MUTED)), true)
+	var status = label("VENCIDO ✓" if beaten else (("REVANCHE" if entry.get("passed", false) else "JOGAR") if open else "BLOQUEADO"), 14, UiKit.MINT_LIP if beaten else (UiKit.SUN_INK if open else (Color("8a8e9c") if in_the_dark else MUTED)), true)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	status.offset_top = -28
@@ -4239,6 +4255,31 @@ func prepare_tutorial() -> void:
 	layer.add_child(tutorial)
 	tutorial.finished.connect(func(skipped): tutorial_finished.emit(tutorial_kind, skipped))
 
+var story_talk: Control
+var story_talk_done: Callable
+
+func play_story_talk(lines: Array, done: Callable = Callable()) -> void:
+	# The conversation cards of the Modo história, over everything else on screen.
+	if not is_instance_valid(story_talk):
+		var layer = CanvasLayer.new()
+		layer.layer = 45
+		add_child(layer)
+		story_talk = preload("res://scripts/story_talk.gd").new()
+		layer.add_child(story_talk)
+		story_talk.finished.connect(func(_skipped):
+			var next = story_talk_done
+			story_talk_done = Callable()
+			if next.is_valid():
+				next.call())
+	story_talk.safe_top = safe_top
+	story_talk.safe_bottom = safe_bottom
+	story_talk_done = done
+	reset_touch()
+	story_talk.start(lines)
+
+func story_talk_running() -> bool:
+	return is_instance_valid(story_talk) and story_talk.visible
+
 func tutorial_running() -> bool:
 	return is_instance_valid(tutorial) and tutorial.visible
 
@@ -4272,9 +4313,9 @@ func lobby_steps() -> Array:
 		{"title": "Hangar", "text": "No HANGAR vês todas as skins: as que já tens e as que ganhas ao vencer os chefes. Toca numa skin para a vestir.", "target": control_rect(lobby.rail_keys.hangar)},
 		{"title": "Poderes", "text": "Em PODERES gastas os tijolos que partes nas partidas: compras habilidades novas e escolhes as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
 		{"title": "Comprar na loja", "text": "Na loja de PODERES toca numa habilidade para ver o que faz e carrega em COMPRAR · (preço) TIJOLOS. Os tijolos juntas partindo muralhas em qualquer modo. Depois escolhe as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
-		{"title": "Modo história", "text": "Em HISTÓRIA enfrentas os 12 chefes, um a um. Aqui jogas sempre com o BIT no NORMAL e com o BIT DE ELITE no DIFÍCIL; as outras skins usas nos outros modos.", "target": control_rect(lobby.rail_keys.story)},
+		{"title": "Modo história", "text": "Em HISTÓRIA vives a aventura do BIT: sem dinheiro para a universidade, entra na TAÇA CHARGE ARENA e enfrenta 11 adversários, com conversas antes e depois de cada partida. Aqui jogas com o BIT (e, perto do fim, com o BIT DE ELITE); as outras skins usas nos outros modos.", "target": control_rect(lobby.rail_keys.story)},
 		{"title": "Ganhar skins", "text": "As skins não se compram: ganham-se. No Modo história, em NORMAL, vence um chefe e a skin dele fica tua no HANGAR, com a sua ultimate. Veste-a no HANGAR e leva-a para o Jogo rápido, as Arenas e o PvP.", "target": control_rect(lobby.rail_keys.hangar)},
-		{"title": "Skins difíceis", "text": "Vence os 12 chefes do NORMAL e abre-se o DIFÍCIL. Aí os chefes vestem as skins difíceis, com néon e adereços novos: vence um e a sua skin difícil é tua. No HANGAR, as que ainda não tens aparecem no escuro, só com o néon aceso.", "target": control_rect(lobby.rail_keys.story)},
+		{"title": "Skins difíceis", "text": "Acaba a história no NORMAL e abre-se o DIFÍCIL. Aí os chefes vestem as skins difíceis, com néon e adereços novos: vence um e a sua skin difícil é tua. No HANGAR, as que ainda não tens aparecem no escuro, só com o néon aceso.", "target": control_rect(lobby.rail_keys.story)},
 		{"title": "PvP", "text": "Em PvP jogas contra outra pessoa na mesma rede Wi-Fi.", "target": control_rect(lobby.rail_keys.pvp)},
 		{"title": "Opções", "text": "Aqui ajustas os controlos, a imagem e o som. Em Opções › Jogo podes rever estes tutoriais quando quiseres.", "target": control_rect(lobby.gear)},
 	]
