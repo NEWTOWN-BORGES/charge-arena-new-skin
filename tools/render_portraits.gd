@@ -1,7 +1,8 @@
 extends SceneTree
 # Renders the HUD portraits from the real robot models (needs a GPU; omit --headless):
 #   godot -s tools/render_portraits.gd
-# Writes art/robots/portraits/cast_<skin>.png and road_<kind>.png, each with a _dizzy twin.
+# Writes art/robots/portraits/cast_<skin>.png and road_<kind>.png, each with a _dizzy twin,
+# and for every hard skin a cast_<skin>_dark.png: the locked silhouette with only its neon lit.
 const View = preload("res://scripts/indie_arena_view.gd")
 const Robots = preload("res://scripts/robots.gd")
 const SIZE = 256
@@ -47,11 +48,15 @@ func run() -> void:
 	root.add_child(stage)
 	var jobs: Array = []
 	for skin in range(Robots.cast().size()):
-		jobs.append([skin, "cast_%d" % skin])
+		jobs.append([skin, "cast_%d" % skin, false])
+		if Robots.ROSTER.data.cast[skin].has("base"):
+			jobs.append([skin, "cast_%d_dark" % skin, true])
 	for kind in range(10):
-		jobs.append([Robots.STATION_SKIN + kind, "road_%d" % kind])
+		jobs.append([Robots.STATION_SKIN + kind, "road_%d" % kind, false])
 	for job in jobs:
+		Robots.shadow_build = job[2]
 		var pilot: Node3D = view.build_player(Color("72ddc6"), 0, job[0], stage)
+		Robots.shadow_build = false
 		pilot.position = Vector3.ZERO
 		for node in pilot.get_children():
 			if node.name != "Body":
@@ -72,14 +77,14 @@ func run() -> void:
 			focus.y = minf(focus.y, float(shape.center) * body.scale.y - 0.08)
 		camera.position = focus + Vector3(-0.95, 0.42, -3.75).normalized() * 2.45
 		camera.look_at(focus)
-		for mood in [0, 2]:
+		for mood in ([0] if job[2] else [0, 2]):
 			Robots.set_mood(body, mood)
 			# Keep the capture away from a blink.
 			# A fused hull may have its face in the trunk, or no face at all.
 			var screen: MeshInstance3D = body.get_node_or_null("Head/Robot_screen")
 			if screen == null:
 				screen = body.get_node_or_null("Robot_screen")
-			if screen != null:
+			if screen != null and screen.material_override is ShaderMaterial:
 				screen.material_override.set_shader_parameter("seed", 1.5 - Time.get_ticks_msec() / 1000.0)
 			await process_frame
 			await RenderingServer.frame_post_draw

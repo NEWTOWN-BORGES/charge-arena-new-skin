@@ -4173,30 +4173,36 @@ func boss_card(step: int, entry: Dictionary, hard: bool) -> Button:
 	var open: bool = entry.open
 	var beaten: bool = entry.beaten
 	var rim = UiKit.GOLD if beaten else (UiKit.SUN if open else UiKit.CARD_EDGE)
+	# A locked hard boss stands in the dark like in the hangar, only its neon alight.
+	var dark_path = "res://art/robots/portraits/cast_%d_dark.png" % int(entry.skin)
+	var in_the_dark = not open and ResourceLoader.exists(dark_path)
+	var fill = Color("15161c") if in_the_dark else (UiKit.CARD if open else UiKit.EMPTY)
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		card.add_theme_stylebox_override(state, style(UiKit.CARD if open else UiKit.EMPTY, rim, 18))
+		card.add_theme_stylebox_override(state, style(fill, Color("2a2c36") if in_the_dark else rim, 18))
 	card.disabled = not open
 	card.pressed.connect(func():
 		close_bosses()
 		story_boss_chosen.emit(step, hard))
 	var picture = TextureRect.new()
 	picture.texture = robot_portrait(int(entry.skin), false)
+	if in_the_dark:
+		picture.texture = load(dark_path)
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	picture.offset_bottom = -54
 	picture.offset_top = 6
-	picture.modulate = Color.WHITE if open else Color(0.25, 0.27, 0.32)
+	picture.modulate = Color.WHITE if open or in_the_dark else Color(0.25, 0.27, 0.32)
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(picture)
-	var caption = label("%d · %s" % [step + 1, String(entry.name)], 17, WHITE, true)
+	var caption = label("%d · %s" % [step + 1, String(entry.name)], 17, Color("e8eaf0") if in_the_dark else WHITE, true)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	caption.offset_top = -52
 	caption.offset_bottom = -28
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(caption)
-	var status = label("VENCIDO ✓" if beaten else ("JOGAR" if open else "BLOQUEADO"), 14, UiKit.MINT_LIP if beaten else (UiKit.SUN_INK if open else MUTED), true)
+	var status = label("VENCIDO ✓" if beaten else ("JOGAR" if open else "BLOQUEADO"), 14, UiKit.MINT_LIP if beaten else (UiKit.SUN_INK if open else (Color("8a8e9c") if in_the_dark else MUTED)), true)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	status.offset_top = -28
