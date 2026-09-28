@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/road_8_dizzy.png-4e2c994799e114f8cae69a660068
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.85
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

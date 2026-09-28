@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/cast_19.png-4e5208b3f8f85e7c399ef11077b0a69f.
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.85
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
