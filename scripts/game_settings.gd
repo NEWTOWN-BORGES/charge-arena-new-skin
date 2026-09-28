@@ -15,7 +15,7 @@ var haptics = true
 var effects_full = true
 # Tap to shoot by default: every tap on the fire button is one shot.
 var auto_fire = false
-var fire_control = 0
+var fire_control = 1
 var fire_size = 1.0
 var fire_x = 0.95
 var fire_y = 0.99
@@ -44,9 +44,11 @@ func load_preferences() -> void:
 	camera_feedback = clampi(int(config.get_value("game", "camera_feedback", 1)), 0, 2)
 	haptics = bool(config.get_value("game", "haptics", true))
 	effects_full = bool(config.get_value("game", "effects_full", true))
-	# Saves from before the tap-to-shoot default (no "fire_default" stamp) move to it once.
-	auto_fire = bool(config.get_value("game", "auto_fire", false)) if int(config.get_value("game", "fire_default", 0)) >= 2 else false
-	fire_control = clampi(int(config.get_value("game", "fire_control", 0)), 0, 1)
+	# Saves from before the tap-to-shoot default (no "fire_default" stamp) move to it once;
+	# stamp 3: firing on the joystick became the default, and every save moves to it once.
+	var stamp = int(config.get_value("game", "fire_default", 0))
+	auto_fire = bool(config.get_value("game", "auto_fire", false)) if stamp >= 3 else false
+	fire_control = clampi(int(config.get_value("game", "fire_control", 1)), 0, 1) if stamp >= 3 else 1
 	fire_size = clampf(float(config.get_value("game", "fire_size", 1.0)), 0.7, 1.5)
 	fire_x = clampf(float(config.get_value("game", "fire_x", 0.95)), 0.0, 1.0)
 	fire_y = clampf(float(config.get_value("game", "fire_y", 0.99)), 0.0, 1.0)
@@ -69,7 +71,7 @@ func save_preferences() -> Error:
 	config.set_value("game", "haptics", haptics)
 	config.set_value("game", "effects_full", effects_full)
 	config.set_value("game", "auto_fire", auto_fire)
-	config.set_value("game", "fire_default", 2)
+	config.set_value("game", "fire_default", 3)
 	config.set_value("game", "sfx_volume", sfx_volume)
 	config.set_value("game", "view_zoom_v2", view_zoom)
 	config.set_value("game", "view_chase", view_chase)

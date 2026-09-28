@@ -65,7 +65,7 @@ var fire_control_choice: OptionButton
 var fire_size_slider: HSlider
 var fire_x_slider: HSlider
 var fire_y_slider: HSlider
-var fire_control = 0
+var fire_control = 1
 var fire_size = 1.0
 var fire_x = 0.95
 var fire_y = 0.99
@@ -221,7 +221,7 @@ var skins_panel: PanelContainer
 var skins_button: Button
 var powers_button: Button
 var news_text = ""
-const MENU_HINT = "Toque no TIRO para disparar · arrasta para mover · PC: A/D"
+const MENU_HINT = "Toca no joystick para disparar · arrasta para mover · PC: A/D"
 var powers_overlay: ColorRect
 var powers_panel: PanelContainer
 var powers_wallet: Label
@@ -3316,7 +3316,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 	var status = "BALIZA ABERTA" if count == 0 else "%d TIJOLOS · %d/%d" % [count, health, capacity]
 	var status_color = UiKit.DANGER if count == 0 else MUTED
 	var stunned: bool = match_data.players[t].stun > 0
-	var tips = [["Move-te para apontar", WHITE, false], ["Dispara sozinho, sempre em frente" if auto_fire else "TIRO / Espaço / rato para disparar", MUTED, false]]
+	var tips = [["Move-te para apontar", WHITE, false], ["Dispara sozinho, sempre em frente" if auto_fire else ("Toca no joystick / Espaço / rato para disparar" if fire_control == 1 else "TIRO / Espaço / rato para disparar"), MUTED, false]]
 	if side == 1:
 		tips = [["BOOST: 2 NOS TIJOLOS", SUN, true], ["5 acertos · pausa 0,5 s", MUTED, false]]
 	if vertical:
@@ -4330,6 +4330,14 @@ func lobby_steps() -> Array:
 		{"title": "Opções", "text": "Aqui ajustas os controlos, a imagem e o som. Em Opções › Jogo podes rever estes tutoriais quando quiseres.", "target": control_rect(lobby.gear)},
 	]
 
+func fire_step() -> Dictionary:
+	# How to shoot, in the mode the player has chosen (the joystick is the default).
+	if auto_fire:
+		return {"title": "Disparar", "text": "O disparo está em AUTOMÁTICO: o robô dispara sozinho para onde aponta. Os tiros fazem ricochete nas paredes: usa os ângulos para chegar aos tijolos escondidos.", "target": null}
+	if fire_control == 0:
+		return {"title": "Disparar", "text": "Cada toque em TIRO é um disparo. Os tiros fazem ricochete nas paredes: usa os ângulos para chegar aos tijolos escondidos.", "target": circle_rect(func(): return fire_center, 46.0 * fire_size + 10.0)}
+	return {"title": "Disparar no joystick", "text": "O disparo é no próprio joystick: cada vez que pousas o dedo, o robô dispara um tiro; arrasta sem largar para mover e apontar. Para disparar outra vez, levanta o dedo e volta a tocar. Os tiros fazem ricochete nas paredes: usa os ângulos para chegar aos tijolos escondidos.", "target": circle_rect(func(): return move_home, STICK_RADIUS + 14.0)}
+
 func match_steps() -> Array:
 	var field = func(): return arena_rect if arena_rect.has_area() else Rect2()
 	var powers_row = func():
@@ -4339,7 +4347,8 @@ func match_steps() -> Array:
 	return [
 		{"title": "O objetivo", "text": "Parte a muralha do adversário, lá em cima, e mete a bola na baliza dele. Defende a tua muralha, cá em baixo. Ganha quem marcar 2 golos.", "target": field},
 		{"title": "Mover e apontar", "text": "Toca e arrasta no campo: o teu robô vira-se e aponta para onde tocas. As setas saltam de alvo em alvo.", "target": circle_rect(func(): return move_home, STICK_RADIUS + 14.0)},
-		{"title": "Disparar", "text": "Cada toque em TIRO é um disparo. Os tiros fazem ricochete nas paredes: usa os ângulos para chegar aos tijolos escondidos.", "target": circle_rect(func(): return fire_center, 46.0 * fire_size + 10.0)},
+		fire_step(),
+		{"title": "Mudar o disparo", "text": "Preferes outra maneira? No lobby, em OPÇÕES › CONTROLOS › Modo de disparo, escolhes: No joystick (o padrão), Botão (um botão TIRO à parte, com tamanho e posição à tua medida) ou Automático (o robô dispara sozinho).", "target": null},
 		{"title": "Habilidades", "text": "Estes dois botões são as tuas habilidades. Enchem à medida que partes tijolos; quando brilharem, toca para as usar.", "target": powers_row},
 		{"title": "Ultimate", "text": "O botão grande é a ultimate da tua skin: demora mais a encher e pode virar o jogo. O BIT não tem ultimate; ganha skins no Modo história.", "target": circle_rect(func(): return power_centers[2], power_button_radius(2) + 6.0)},
 		{"title": "Placar e muralhas", "text": "Aqui vês o placar, o tempo de jogo e a vida de cada muralha.", "target": func(): return score_rect},
