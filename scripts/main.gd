@@ -181,6 +181,14 @@ func _ready() -> void:
 		cup_screen.open_versus())
 	hud.fire_layout_changed.connect(change_fire_layout)
 	hud.bosses_requested.connect(open_bosses)
+	hud.tutorial_finished.connect(tutorial_done)
+	hud.tutorials_reset.connect(func():
+		game_settings.tutorial_lobby = false
+		game_settings.tutorial_match = false
+		save_game_settings()
+		if mode == "menu":
+			maybe_lobby_tutorial())
+	hud.notice_shown.connect(func(_kind): play_tone("notify", 2.0))
 	hud.story_boss_chosen.connect(start_story)
 	campaign.load_preferences()
 	sync_boss_skins()
@@ -200,6 +208,8 @@ func _ready() -> void:
 	menu_level = Campaign.menu_level(campaign.suggested_level())
 	hud.sync_menu_level(menu_level)
 	show_menu_preview()
+	# First visit: a written tour of the lobby (not in automated runs without a screen).
+	get_tree().create_timer(1.2).timeout.connect(maybe_lobby_tutorial)
 	hud.show_menu()
 	get_window().focus_exited.connect(func(): hud.reset_touch(); mouse_firing = false)
 	get_window().focus_exited.connect(pause_pve)
@@ -283,6 +293,10 @@ func start_pve(layout: Dictionary = {}) -> void:
 	hud.show_game(mode, local_team)
 	sync_assist()
 	music.play_skin(skins.selected)
+	# The first quick match on this device walks through the game, the match on hold.
+	if not game_settings.tutorial_match and level_index < 0 and tutorials_allowed():
+		pve_paused = true
+		hud.start_tutorial.call_deferred("match")
 
 func start_pvp_ai() -> void:
 	start_pve(Rules.pvp_map())
@@ -786,8 +800,13 @@ func bank_bricks() -> void:
 	if earned <= 0:
 		return
 	credited_bricks += earned
+	var could: Array = power_shop.affordable().map(func(e): return String(e.id))
 	power_shop.add_bricks(earned)
 	hud.sync_powers(power_shop)
+	# A power the wallet has just reached gets a notice, once, pointing at the shop.
+	for entry in power_shop.affordable():
+		if not could.has(String(entry.id)):
+			hud.announce_affordable(String(entry.id), String(entry.name), int(entry.price))
 
 func save_powers() -> void:
 	if power_shop.save_preferences() != OK:
@@ -1496,6 +1515,27 @@ func idle_frame_rate() -> void:
 		screen_kept_on = not resting
 		DisplayServer.screen_set_keep_on(screen_kept_on)
 
+# Automated runs without a screen (the tests) never see a tutorial; a test can force it.
+var force_tutorials = false
+
+func tutorials_allowed() -> bool:
+	return force_tutorials or DisplayServer.get_name() != "headless"
+
+func maybe_lobby_tutorial() -> void:
+	# The lobby tour, once per device, when the lobby is really on screen.
+	if game_settings.tutorial_lobby or mode != "menu" or hud.tutorial_running() or not tutorials_allowed():
+		return
+	hud.start_tutorial("lobby")
+
+func tutorial_done(kind: String, _skipped: bool) -> void:
+	if kind == "lobby":
+		game_settings.tutorial_lobby = true
+	else:
+		game_settings.tutorial_match = true
+		if mode == "pve":
+			pve_paused = false
+	save_game_settings()
+
 func go_background(away: bool) -> void:
 	# Like any other app: out of sight, the game stops - the match paused, every sound
 	# silenced, the frame rate at one - and it comes back where it was.
@@ -1594,9 +1634,31 @@ func build_audio() -> void:
 		audio_voices.append(voice)
 	audio = audio_voices[0]
 	tones = preload("res://scripts/combat_audio.gd").TRACKS.duplicate()
+	tones["notify"] = notify_wave()
 	for skin in range(Skins.CATALOG.size()):
 		if tones.has("shot_%d_0" % skin):
 			tones["shot_%d" % skin] = tones["shot_%d_0" % skin]
+
+func notify_wave() -> AudioStreamWAV:
+	# The notification: two bright, soft bell notes rising a fourth, like a phone's.
+	var wave = AudioStreamWAV.new()
+	wave.format = AudioStreamWAV.FORMAT_16_BITS
+	wave.mix_rate = 22050
+	var count = int(22050 * 0.62)
+	var bytes = PackedByteArray()
+	bytes.resize(count * 2)
+	for i in range(count):
+		var t = float(i) / 22050.0
+		var sample = 0.0
+		for note in [[0.0, 1318.5], [0.14, 1760.0]]:
+			var local = t - note[0]
+			if local < 0.0:
+				continue
+			var envelope = minf(local / 0.006, 1.0) * exp(-local * 7.5)
+			sample += (sin(TAU * note[1] * local) + 0.3 * sin(TAU * note[1] * 2.0 * local)) * envelope * 0.32
+		bytes.encode_s16(i * 2, int(clampf(sample, -1.0, 1.0) * 32000.0))
+	wave.data = bytes
+	return wave
 
 func roar_wave(seconds: float, base_hz: float, grit: float) -> AudioStreamWAV:
 	# A held, throaty beam: two detuned saws under a slow tremolo.

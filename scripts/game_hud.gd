@@ -49,6 +49,9 @@ signal feel_tuning_requested
 # JOGAR in the story mode: straight to the next round's versus card.
 signal story_play_requested
 signal bosses_requested
+signal tutorial_finished(kind: String, skipped: bool)
+signal tutorials_reset
+signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
 var camera_choice: OptionButton
 var effects_choice: OptionButton
@@ -923,6 +926,11 @@ func announce_unlock(names: Array) -> void:
 func announce_power(id: String, item_name: String) -> void:
 	prepare_unlock_notice()
 	unlock_notice.enqueue({"kind": "power", "id": id, "name": item_name})
+
+func announce_affordable(id: String, item_name: String, price: int) -> void:
+	# The wallet has just reached a power's price: say so, and where to buy it.
+	prepare_unlock_notice()
+	unlock_notice.enqueue({"kind": "afford", "id": id, "name": item_name, "where": "Compra em PODERES · %d tijolos" % price})
 
 func ask_redraw() -> void:
 	# Marks the HUD dirty; the repaint happens on the next slot of the redraw clock.
@@ -2459,6 +2467,13 @@ func build_video_menu() -> void:
 	effects_choice = video_option(game, "Efeitos", ["Reduzidos", "Completos"])
 	effects_choice.item_selected.connect(func(index): effects_changed.emit(index == 1))
 	haptic_choice = big_toggle(game, "Vibração")
+	var tutorials = make_button("REVER TUTORIAIS", false)
+	tutorials.custom_minimum_size.y = 64
+	tutorials.add_theme_font_size_override("font_size", 18)
+	tutorials.pressed.connect(func():
+		close_video()
+		tutorials_reset.emit())
+	game.add_child(tutorials)
 	var camera_help = label("Câmara: arrasta no mapa para rodar e aproximar; a tua vista fica guardada. Toca duas vezes no mapa para voltar à vista normal.", 16, MUTED)
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	game.add_child(camera_help)
@@ -4177,3 +4192,74 @@ func layout_bosses() -> void:
 	bosses_scroll.custom_minimum_size = Vector2(width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 330.0))
 	bosses_panel.size = Vector2(width, bosses_panel.get_combined_minimum_size().y)
 	bosses_panel.position = Vector2((size.x - width) * 0.5, maxf(safe_top + 10.0, (size.y - bosses_panel.size.y) * 0.5))
+
+
+# --------------------------------------------------------------------------------------
+# Tutorials, written step by step: the lobby tour and the first quick match. Each runs
+# once on a device (main.gd keeps the flags); SALTAR ends it; the Options can replay them.
+var tutorial: Control
+var tutorial_kind = ""
+
+func prepare_tutorial() -> void:
+	if is_instance_valid(tutorial):
+		return
+	var layer = CanvasLayer.new()
+	layer.layer = 40
+	add_child(layer)
+	tutorial = preload("res://scripts/tutorial_overlay.gd").new()
+	layer.add_child(tutorial)
+	tutorial.finished.connect(func(skipped): tutorial_finished.emit(tutorial_kind, skipped))
+
+func tutorial_running() -> bool:
+	return is_instance_valid(tutorial) and tutorial.visible
+
+func control_rect(node) -> Callable:
+	return func(): return node.get_global_rect() if is_instance_valid(node) and node.is_visible_in_tree() else Rect2()
+
+func circle_rect(center_of: Callable, radius: float) -> Callable:
+	return func():
+		var c: Vector2 = center_of.call()
+		return Rect2(c - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
+
+func start_tutorial(kind: String) -> void:
+	prepare_tutorial()
+	tutorial_kind = kind
+	tutorial.safe_top = safe_top
+	tutorial.safe_bottom = safe_bottom
+	tutorial.start(lobby_steps() if kind == "lobby" else match_steps())
+
+func lobby_steps() -> Array:
+	var level_row = func():
+		var box = Rect2()
+		for b in difficulty_buttons:
+			if is_instance_valid(b) and b.is_visible_in_tree():
+				box = b.get_global_rect() if not box.has_area() else box.merge(b.get_global_rect())
+		return box
+	return [
+		{"title": "Bem-vindo ao Charge Arena", "text": "Este é o teu piloto. Vamos ver, em poucos passos, onde fica cada coisa. Se já sabes, carrega em SALTAR."},
+		{"title": "Jogar", "text": "Carrega em JOGAR para começar uma partida no modo que está escolhido.", "target": control_rect(campaign_button)},
+		{"title": "Escolher o modo", "text": "Toca aqui para mudar de modo: Jogo rápido, Modo história, Arenas, PvP.", "target": control_rect(lobby.mode_card)},
+		{"title": "Dificuldade", "text": "Escolhe a força da IA: Fácil, Normal ou Difícil.", "target": level_row},
+		{"title": "Hangar", "text": "No HANGAR vês todas as skins: as que já tens e as que ganhas ao vencer os chefes. Toca numa skin para a vestir.", "target": control_rect(lobby.rail_keys.hangar)},
+		{"title": "Poderes", "text": "Em PODERES gastas os tijolos que partes nas partidas: compras habilidades novas e escolhes as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
+		{"title": "Modo história", "text": "Em HISTÓRIA enfrentas os 12 chefes, um a um. Em NORMAL ganhas a skin de cada chefe; em DIFÍCIL, a sua skin difícil.", "target": control_rect(lobby.rail_keys.story)},
+		{"title": "PvP", "text": "Em PvP jogas contra outra pessoa na mesma rede Wi-Fi.", "target": control_rect(lobby.rail_keys.pvp)},
+		{"title": "Opções", "text": "Aqui ajustas os controlos, a imagem e o som. Em Opções › Jogo podes rever estes tutoriais quando quiseres.", "target": control_rect(lobby.gear)},
+	]
+
+func match_steps() -> Array:
+	var field = func(): return arena_rect if arena_rect.has_area() else Rect2()
+	var powers_row = func():
+		var r0 = power_button_radius(0) + 6.0
+		var r1 = power_button_radius(1) + 6.0
+		return Rect2(power_centers[0] - Vector2.ONE * r0, Vector2.ONE * r0 * 2.0).merge(Rect2(power_centers[1] - Vector2.ONE * r1, Vector2.ONE * r1 * 2.0))
+	return [
+		{"title": "O objetivo", "text": "Parte a muralha do adversário, lá em cima, e mete a bola na baliza dele. Defende a tua muralha, cá em baixo. Ganha quem marcar 2 golos.", "target": field},
+		{"title": "Mover e apontar", "text": "Toca e arrasta no campo: o teu robô vira-se e aponta para onde tocas. As setas saltam de alvo em alvo.", "target": circle_rect(func(): return move_home, STICK_RADIUS + 14.0)},
+		{"title": "Disparar", "text": "Cada toque em TIRO é um disparo. Os tiros fazem ricochete nas paredes: usa os ângulos para chegar aos tijolos escondidos.", "target": circle_rect(func(): return fire_center, 46.0 * fire_size + 10.0)},
+		{"title": "Habilidades", "text": "Estes dois botões são as tuas habilidades. Enchem à medida que partes tijolos; quando brilharem, toca para as usar.", "target": powers_row},
+		{"title": "Ultimate", "text": "O botão grande é a ultimate da tua skin: demora mais a encher e pode virar o jogo. O BIT não tem ultimate; ganha skins no Modo história.", "target": circle_rect(func(): return power_centers[2], power_button_radius(2) + 6.0)},
+		{"title": "Placar e muralhas", "text": "Aqui vês o placar, o tempo de jogo e a vida de cada muralha.", "target": func(): return score_rect},
+		{"title": "Loja de poderes", "text": "Cada tijolo que partes fica guardado. No lobby, em PODERES, trocas os tijolos por habilidades novas: são elas que fazem a diferença contra os chefes.", "target": null},
+		{"title": "Tudo pronto!", "text": "Boa sorte. Toca em COMEÇAR e a partida arranca.", "target": null},
+	]

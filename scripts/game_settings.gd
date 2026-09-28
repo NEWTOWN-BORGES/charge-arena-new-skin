@@ -25,6 +25,9 @@ var view_yaw = 0.0
 var view_zoom = 1.0
 # The player ended in third person last time: the next match starts there too.
 var view_chase = false
+# Tutorials already seen on this device: the lobby tour and the first quick match.
+var tutorial_lobby = false
+var tutorial_match = false
 
 func configure(level: int, guide: bool, sensitivity: int = -1) -> void:
 	difficulty = clampi(level, 0, DIFFICULTIES.size() - 1)
@@ -53,6 +56,8 @@ func load_preferences() -> void:
 	view_yaw = 0.0
 	view_zoom = clampf(float(config.get_value("game", "view_zoom_v2", 1.0)), 0.8, 2.4)
 	view_chase = bool(config.get_value("game", "view_chase", false))
+	tutorial_lobby = bool(config.get_value("game", "tutorial_lobby", false))
+	tutorial_match = bool(config.get_value("game", "tutorial_match", false))
 
 func save_preferences() -> Error:
 	var config = ConfigFile.new()
@@ -68,6 +73,8 @@ func save_preferences() -> Error:
 	config.set_value("game", "sfx_volume", sfx_volume)
 	config.set_value("game", "view_zoom_v2", view_zoom)
 	config.set_value("game", "view_chase", view_chase)
+	config.set_value("game", "tutorial_lobby", tutorial_lobby)
+	config.set_value("game", "tutorial_match", tutorial_match)
 	config.set_value("game", "fire_control", fire_control)
 	config.set_value("game", "fire_size", fire_size)
 	config.set_value("game", "fire_x", fire_x)

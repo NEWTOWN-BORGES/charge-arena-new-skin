@@ -11,6 +11,14 @@ var heading: Label
 var title: Label
 var close: Button
 var badge: Label
+var where: Label
+# What each kind of notice says, and where in the game it points you.
+const KINDS = {
+	"skin": ["SKIN DESBLOQUEADA", "Vê-a e veste-a no HANGAR", "NOVO!"],
+	"power": ["PODER COMPRADO", "Equipa-o em PODERES", "NOVO!"],
+	"afford": ["JÁ PODES COMPRAR", "Vai a PODERES", "LOJA"],
+}
+const CARD_HEIGHT = 104.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -53,7 +61,14 @@ func _ready() -> void:
 	title.add_theme_color_override("font_color", UiKit.WHITE)
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	card.add_child(title)
-	for label in [heading, title, badge]: label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	where = Label.new()
+	where.position = Vector2(84, 70)
+	where.add_theme_font_override("font", UiKit.strong_font())
+	where.add_theme_font_size_override("font_size", 13)
+	where.add_theme_color_override("font_color", UiKit.MUTED)
+	where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	card.add_child(where)
+	for label in [heading, title, badge, where]: label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	close = Button.new()
 	close.text = "×"
 	close.tooltip_text = "Fechar notificação"
@@ -70,11 +85,12 @@ func _ready() -> void:
 
 func arrange() -> void:
 	var width = minf(380, maxf(260, size.x - 24))
-	card.size = Vector2(width, 84)
+	card.size = Vector2(width, CARD_HEIGHT)
 	card.position = Vector2((size.x - width) * 0.5, painter.safe_top + 14)
 	close.position = Vector2(width - 48, 20)
 	title.size = Vector2(width - 138, 34)
 	heading.size = Vector2(width - 138, 18)
+	where.size = Vector2(width - 100, 20)
 	badge.position = Vector2(width - 118, -11)
 
 func enqueue(item: Dictionary) -> void:
@@ -89,13 +105,19 @@ func show_next() -> void:
 		set_process(false)
 		return
 	current = pending.pop_front()
-	heading.text = "SKIN DESBLOQUEADA" if current.kind == "skin" else "PODER DESBLOQUEADO"
+	var words: Array = KINDS.get(String(current.kind), KINDS.power)
+	heading.text = words[0]
 	title.text = current.name
-	remaining = 4.0
+	where.text = "›  " + String(current.get("where", words[1]))
+	badge.text = words[2]
+	remaining = 4.5
 	arrange()
 	icon.queue_redraw()
 	card.show()
 	set_process(true)
+	# Heard as well as seen: the HUD plays the notification chime.
+	if painter.has_signal("notice_shown"):
+		painter.notice_shown.emit(String(current.kind))
 
 func dismiss() -> void:
 	show_next()
@@ -103,7 +125,7 @@ func dismiss() -> void:
 func _process(dt: float) -> void:
 	remaining -= dt
 	# A short fade with a small drop into place; it never slides across other controls.
-	var shown = minf(clampf((4.0 - remaining) / 0.18, 0, 1), clampf(remaining / 0.2, 0, 1))
+	var shown = minf(clampf((4.5 - remaining) / 0.18, 0, 1), clampf(remaining / 0.2, 0, 1))
 	card.modulate.a = shown
 	card.position.y = painter.safe_top + 14 - (1.0 - shown) * 10.0
 	if remaining <= 0: show_next()
