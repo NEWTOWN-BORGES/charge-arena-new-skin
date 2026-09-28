@@ -136,7 +136,8 @@ const SINGULARITY_REACH = 18.0
 # Sentries: two little gun platforms left standing in the middle of the ring. They fire by
 # themselves, take the open goal when they can see it, and the rival has to shoot them down
 # — they carry the same five lives a pilot does, and any loose ball can hurt them.
-const TURRET_LIVES = 2
+# Rosca's sentries are miniguns bolted to the floor: tough enough to keep firing a while.
+const TURRET_LIVES = 5
 const TURRET_RADIUS = 0.42
 const TURRET_DAMAGE = 2
 # Deliberately slower than a pilot's gun: two of them at the normal rate took the rival's
@@ -189,6 +190,19 @@ const VOLLEY_SECONDS = 1.1
 # Leque came to 44 of wall damage on the standard wall, which would put the second boss of
 # the campaign above the ninth; at one apiece it lands at 22, where a level 2 belongs.
 const VOLLEY_DAMAGE = 1
+# Salvo's missile barrage: four rockets out of the shoulder pod, one after another, each
+# coming down somewhere on the rival's wall and blasting a small area.
+const MISSILE_COUNT = 4
+const MISSILE_GAP = 0.28
+const MISSILE_FLIGHT = 0.75
+const MISSILE_DAMAGE = 2
+const MISSILE_RADIUS = 0.62
+# Magnus's bazooka: the arm turns into a rocket tube, one rocket down the aim that bursts
+# over a wide area on the first thing it meets.
+const BAZOOKA_WINDUP = 0.45
+const BAZOOKA_SPEED = 16.0
+const BAZOOKA_DAMAGE = 2
+const BAZOOKA_RADIUS = 3.0
 # Couraca de cristal: for seven seconds the miner's wall is plated, and every blow that
 # lands on it loses a life on the way in. An ordinary round stops doing anything at all, a
 # turbocharged one bites once instead of twice.
@@ -623,6 +637,7 @@ func reset_match() -> void:
 	match_clock = 0.0
 	powers = [new_power_state(), new_power_state()]
 	shield_carry = [0.0, 0.0]
+	rockets = []
 	reset_round()
 
 static func new_power_state() -> Dictionary:
@@ -842,6 +857,7 @@ func step(dt: float, commands: Array) -> void:
 	elapsed += dt
 	if phase == "play":
 		match_clock += dt
+		step_rockets(dt)
 	if phase != "play":
 		# The wall comes back down even when the round is over. A plunder still in the air
 		# when the match ended left every brick parked on the far side for good: the flight
@@ -1125,8 +1141,8 @@ func step_ultimate(team: int, dt: float) -> void:
 			state.ultimate_tick = THUNDER_SECONDS / THUNDER_COUNT
 			sky_strike(team, "thunder", THUNDER_DAMAGE, THUNDER_RADIUS)
 		"volley":
-			state.ultimate_tick = VOLLEY_SECONDS / VOLLEY_WAVES
-			volley_wave(team)
+			state.ultimate_tick = MISSILE_GAP
+			launch_missile(team)
 		"b_salvo":
 			state.ultimate_tick = VOLLEY_SECONDS / VOLLEY_WAVES
 			volley_wave(team)
@@ -1173,10 +1189,10 @@ func fire_ultimate(team: int) -> void:
 			players[team].cooldown = 0.0
 			events.append({"kind": "surge", "team": team, "p": players[team].p, "seconds": SURGE_SECONDS, "gain": BOOST_DAMAGE - 1})
 		"volley":
-			state.ultimate_time = VOLLEY_SECONDS
-			state.ultimate_tick = VOLLEY_SECONDS / VOLLEY_WAVES
-			state.ultimate_shots = VOLLEY_WAVES - 1
-			volley_wave(team)
+			state.ultimate_time = MISSILE_GAP * MISSILE_COUNT + MISSILE_FLIGHT
+			state.ultimate_tick = MISSILE_GAP
+			state.ultimate_shots = MISSILE_COUNT - 1
+			launch_missile(team)
 		"b_charge":
 			shoot(team, 1)
 			if not balls.is_empty():
@@ -1220,9 +1236,7 @@ func fire_ultimate(team: int) -> void:
 				powers[1 - team].freeze_time = FREEZE_SECONDS * 1.2
 			events.append({"kind": "freeze", "team": 1 - team, "p": players[1 - team].p, "seconds": FREEZE_SECONDS * 1.2})
 		"b_forge":
-			state.surge_time = SURGE_SECONDS * 0.7
-			players[team].cooldown = 0.0
-			events.append({"kind": "surge", "team": team, "p": players[team].p, "seconds": SURGE_SECONDS * 0.7, "gain": BOOST_DAMAGE - 1})
+			fire_bazooka(team)
 		"b_aim":
 			state.magnet_time = MAGNET_SECONDS * 1.2
 			events.append({"kind": "magnet", "team": team, "p": players[team].p, "seconds": MAGNET_SECONDS * 1.2})
@@ -1290,6 +1304,81 @@ func sky_hit(team: int, kind: String, damage: int, radius: float, at: Vector2) -
 	if players[enemy].p.distance_to(at) <= radius:
 		ultimate_hit_player(enemy, damage, players[enemy].p)
 	events.append({"kind": kind, "team": team, "p": at, "radius": radius})
+
+# Rockets in the air: {team, at, t (seconds to impact), damage, radius, kind}. The damage
+# lands when they do, so the blast and the broken bricks happen together.
+var rockets: Array = []
+
+func rocket_target(team: int) -> Vector2:
+	# A standing brick of the rival's, scattered a little; the open floor if none is left.
+	var enemy = 1 - team
+	var standing: Array = []
+	for brick in bricks:
+		if brick.alive and brick.team == enemy:
+			standing.append(brick.p)
+	if not standing.is_empty():
+		var mark: Vector2 = standing[power_rng.randi_range(0, standing.size() - 1)]
+		var at = mark + Vector2(power_rng.randf_range(-1, 1), power_rng.randf_range(-1, 1)) * 0.35
+		if point_inside(walls, at):
+			return at
+		return mark
+	var sign_y = 1.0 if enemy == 0 else -1.0
+	return Vector2(power_rng.randf_range(-HALF_WIDTH * 0.6, HALF_WIDTH * 0.6), sign_y * power_rng.randf_range(1.0, HALF_LENGTH - 1.2))
+
+func launch_missile(team: int) -> void:
+	var at = rocket_target(team)
+	rockets.append({"team": team, "at": at, "t": MISSILE_FLIGHT, "damage": MISSILE_DAMAGE, "radius": MISSILE_RADIUS, "kind": "missile"})
+	events.append({"kind": "missile_launch", "team": team, "p": players[team].p, "at": at, "seconds": MISSILE_FLIGHT})
+
+func fire_bazooka(team: int) -> void:
+	# Straight down the aim: it bursts on the first rival brick in its lane, or at the end
+	# of the rival's half.
+	var origin: Vector2 = players[team].p
+	var heading: Vector2 = forward_direction(team, players[team].angle)
+	players[team].aim = heading
+	var side = Vector2(-heading.y, heading.x)
+	# The first rival brick close to the line of fire; failing that, the one nearest to it,
+	# so a rocket aimed through a gap in the wall still lands on the wall.
+	var best = INF
+	var nearest = INF
+	var nearest_along = 0.0
+	for brick in bricks:
+		if not brick.alive or brick.team == team:
+			continue
+		var offset: Vector2 = brick.p - origin
+		var along = offset.dot(heading)
+		if along <= 0.3:
+			continue
+		var across = absf(offset.dot(side))
+		if across <= 0.9 + brick_extent.x and along < best:
+			best = along
+		if across < nearest:
+			nearest = across
+			nearest_along = along
+	if best == INF and nearest < INF:
+		best = nearest_along
+	if best != INF and best > 0.0:
+		# It punches into the wall before it bursts, so the blast takes rows, not a corner.
+		best += 0.8
+	if best == INF:
+		best = 0.0
+		for step in range(1, 80):
+			if not point_inside(walls, origin + heading * step * 0.25):
+				break
+			best = step * 0.25
+	var at: Vector2 = origin + heading * best
+	var flight = BAZOOKA_WINDUP + best / BAZOOKA_SPEED
+	rockets.append({"team": team, "at": at, "t": flight, "damage": BAZOOKA_DAMAGE, "radius": BAZOOKA_RADIUS, "kind": "bazooka"})
+	powers[team].ultimate_time = flight + 0.2
+	events.append({"kind": "bazooka_fire", "team": team, "p": origin, "at": at, "heading": heading, "seconds": flight, "windup": BAZOOKA_WINDUP})
+
+func step_rockets(dt: float) -> void:
+	for index in range(rockets.size() - 1, -1, -1):
+		var rocket: Dictionary = rockets[index]
+		rocket.t -= dt
+		if rocket.t <= 0.0:
+			rockets.remove_at(index)
+			sky_hit(int(rocket.team), String(rocket.kind), int(rocket.damage), float(rocket.radius), rocket.at)
 
 func volley_wave(team: int) -> void:
 	# The same fan the Leque throws, fired five times over. The pilot can keep walking the

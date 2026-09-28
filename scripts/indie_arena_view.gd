@@ -1504,6 +1504,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			job_index += 1
 	for callback in ready:
 		callback.call()
+	step_flights(dt)
 	if warm_frames > 0:
 		warm_frames -= 1
 		if warm_frames == 0 and is_instance_valid(warm_root):
@@ -2679,6 +2680,127 @@ func meteor_impact(at: Vector2, radius: float, color: Color, hot: Color) -> void
 	var crater = torus(self, Vector3(at.x, 0.12, at.y), radius * 0.9, 0.07, Color(hot, 0.95), true)
 	crater.scale = Vector3.ONE * 0.25
 	effects.append({"node": crater, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE * 2.1, "grow": true, "tint": color})
+
+# Rockets in flight (Salvo's missiles, Magnus's bazooka round): a kit model flown along a
+# curve, trailing fire and smoke. {node, from, apex, to, t, life, fire, big}
+var flights: Array = []
+
+func fly(node: Node3D, from: Vector3, apex: Vector3, to: Vector3, life: float, fire: Color, big: bool) -> void:
+	node.position = from
+	flights.append({"node": node, "from": from, "apex": apex, "to": to, "t": 0.0, "life": maxf(life, 0.05), "fire": fire, "big": big})
+
+func flight_point(f: Dictionary, k: float) -> Vector3:
+	var a: Vector3 = f.from.lerp(f.apex, k)
+	var b: Vector3 = f.apex.lerp(f.to, k)
+	return a.lerp(b, k)
+
+func step_flights(dt: float) -> void:
+	for i in range(flights.size() - 1, -1, -1):
+		var f: Dictionary = flights[i]
+		f.t += dt
+		var k = clampf(f.t / f.life, 0.0, 1.0)
+		var node: Node3D = f.node
+		if not is_instance_valid(node):
+			flights.remove_at(i)
+			continue
+		var here = flight_point(f, k)
+		var ahead = flight_point(f, minf(k + 0.04, 1.0))
+		node.position = here
+		if ahead.distance_to(here) > 0.001:
+			node.look_at(ahead, Vector3.UP if absf((ahead - here).normalized().y) < 0.98 else Vector3.RIGHT)
+		if fx != null:
+			# Fire out of the nozzle and a trail of smoke that hangs behind.
+			var back = -(ahead - here).normalized()
+			var nozzle = here + back * (0.62 if f.big else 0.42)
+			fx.emit("glow", nozzle, back * 2.5, Color(f.fire, 0.95), 0.55 if f.big else 0.38, 0.1, 0.18)
+			fx.emit("glow", nozzle, back * 1.2, Color("fff1c8", 0.9), 0.28 if f.big else 0.2, 0.05, 0.1)
+			if Engine.get_process_frames() % 2 == 0:
+				fx.smoke(nozzle, Color("5d5752"), 1, 0.55 if f.big else 0.4, 1.3, 0.05, 0.5)
+		if k >= 1.0:
+			node.queue_free()
+			flights.remove_at(i)
+
+func rocket_paint(team: int) -> Dictionary:
+	var paint = Robots.colors(int(unit_skins[team]), CYAN if team == 0 else CORAL)
+	paint["wear"] = 0.3
+	return paint
+
+func missile_launch(team: int, at: Vector2, seconds: float) -> void:
+	# Out of Salvo's shoulder pod, up in an arc and down on the wall.
+	var body: Node3D = units[team].get_node("Body")
+	var from: Vector3 = body.global_transform * Vector3(0.5, 1.55, -0.3)
+	var to = Vector3(at.x, 0.3, at.y)
+	var apex = from.lerp(to, 0.45) + Vector3.UP * 4.5
+	var missile = Node3D.new()
+	add_child(missile)
+	Robots.prop(self, missile, "fx_missile", ["fx_missile"], rocket_paint(team))
+	missile.scale = Vector3.ONE * 1.3
+	fly(missile, from, apex, to, seconds, Color("ff8a2a"), false)
+	emitter(from, Color("ffcf7a"), 10, 0.3, 4.0, 40.0, 0.2, -2.0, Vector3.UP)
+	dust(from, Color("8a8580"), 4, 0.9, 1.0, 0.5)
+	# Where it will land glows on the floor while it is on its way.
+	var target = torus(self, Vector3(at.x, 0.08, at.y), 0.9, 0.05, Color("ff8a2a", 0.9), true)
+	effects.append({"node": target, "v": Vector3.ZERO, "ttl": seconds, "life": seconds, "gravity": false, "base": Vector3.ONE, "keep": true})
+
+func bazooka_fire(team: int, at: Vector2, seconds: float, windup: float) -> void:
+	# The arm becomes a rocket tube, kicks back as it fires, then folds away.
+	var gun: Node3D = units[team].get_node_or_null("Body/Gun")
+	if gun == null:
+		return
+	var flash_node: Node3D = gun.get_node_or_null("Flash")
+	var muzzle: Vector3 = flash_node.position if flash_node != null else Vector3(0.44, 0.9, -1.1)
+	var tube = Node3D.new()
+	tube.name = "Bazooka"
+	gun.add_child(tube)
+	tube.position = muzzle + Vector3(0, 0.02, 0.62)
+	Robots.prop(self, tube, "fx_bazooka", ["fx_bazooka"], rocket_paint(team))
+	tube.scale = Vector3.ONE * 0.05
+	var grow = create_tween()
+	grow.tween_property(tube, "scale", Vector3.ONE * 1.05, windup * 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var color = Rules.power_color("b_forge")
+	emitter(gun.global_transform * muzzle, color, 14, 0.35, 2.5, 90.0, 0.16, -1.0, Vector3.UP)
+	schedule(windup, func():
+		if not is_instance_valid(tube):
+			return
+		var mouth: Vector3 = tube.global_transform * Vector3(0, 0, -0.72)
+		var to = Vector3(at.x, 0.4, at.y)
+		var rocket = Node3D.new()
+		add_child(rocket)
+		Robots.prop(self, rocket, "fx_rocket", ["fx_rocket"], rocket_paint(team))
+		rocket.scale = Vector3.ONE * 1.2
+		fly(rocket, mouth, mouth.lerp(to, 0.5) + Vector3.UP * 0.5, to, maxf(seconds - windup, 0.08), Color("ffb347"), true)
+		flash(mouth, Color("ffcf7a"), 6.0, 0.25, 8.0)
+		emitter(mouth, Color("fff0c8"), 18, 0.3, 6.0, 30.0, 0.24, -1.0, (to - mouth).normalized())
+		dust(mouth, Color("8a8580"), 6, 1.0, 1.6, 0.7)
+		shake_event(0.55, 0.3, 18.0, (to - mouth).normalized())
+		# Recoil: the tube kicks back along the arm.
+		var kick = create_tween()
+		kick.tween_property(tube, "position:z", tube.position.z + 0.25, 0.06)
+		kick.tween_property(tube, "position:z", tube.position.z, 0.2))
+	schedule(seconds + 0.45, func():
+		if is_instance_valid(tube):
+			var fold = create_tween()
+			fold.tween_property(tube, "scale", Vector3.ONE * 0.02, 0.2)
+			fold.tween_callback(tube.queue_free))
+
+func rocket_impact(at: Vector2, radius: float, big: bool) -> void:
+	# Salvo's missile: a tight fireball. Magnus's rocket: a wide blast with a shock ring.
+	var fire = Color("ff8a2a") if not big else Color("ffb347")
+	var hot = Color("fff0cf")
+	scorch(at, radius * 3.2, Color("2a1e18"), 1.8)
+	emitter(Vector3(at.x, 0.3, at.y), hot, 26 if big else 16, 0.45, 7.5 if big else 5.5, 80.0, 0.3, -8.0, Vector3.UP)
+	emitter(Vector3(at.x, 0.2, at.y), fire, 30 if big else 16, 0.7, 4.5 if big else 3.0, 90.0, 0.36, -2.0, Vector3.UP)
+	dust(Vector3(at.x, 0.2, at.y), Color("6a625c"), 14 if big else 7, 1.4, 1.6, 0.9 if big else 0.6)
+	flash(Vector3(at.x, 1.0, at.y), fire, 9.0 if big else 6.0, 0.4, 16.0 if big else 9.0)
+	if effects.size() + 3 < effect_limit:
+		var ball = sphere(self, Vector3(at.x, 0.3, at.y), Vector3.ONE * 0.3, fire, true)
+		effects.append({"node": ball, "v": Vector3.ZERO, "ttl": 0.35, "life": 0.35, "gravity": false, "base": Vector3.ONE, "expand": radius * 1.1, "height": radius * 0.9, "energy": []})
+		var ring = torus(self, Vector3(at.x, 0.15, at.y), 1.0, 0.08, Color(hot, 0.95), true)
+		ring.scale = Vector3.ONE * 0.2
+		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": 0.45, "life": 0.45, "gravity": false, "base": Vector3.ONE * radius * 1.2, "grow": true, "tint": fire})
+	shake(0.85 if big else 0.35)
+	if big:
+		light_field(fire, 0.9, 0.5)
 
 func thunder_bolt(at: Vector2, radius: float) -> void:
 	# A straight column of light dropped on the spot, not a drawn zigzag. It is built from

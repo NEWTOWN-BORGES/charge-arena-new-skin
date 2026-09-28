@@ -1234,6 +1234,49 @@ def _(p):
         p.ball("glow", at, (k, k, k * 0.6), detail=8)
 
 
+@part("fx_missile")
+def _(p):
+    """O míssil do SALVO, a apontar para -Z: corpo, ogiva, quatro aletas, bocal e a faixa acesa."""
+    p.tube("shell", (0, 0, 0.0), 0.07, 0.62, rot=(90, 0, 0), detail=14, bevel=0.01)
+    p.tube("trim", (0, 0, -0.4), 0.07, 0.18, rot=(90, 0, 0), detail=14, radius2=0.0)
+    p.ring("glow", (0, 0, -0.18), 0.071, 0.012, rot=(90, 0, 0), detail=18, sides=5)
+    p.tube("dark", (0, 0, 0.35), 0.055, 0.08, rot=(90, 0, 0), detail=12, radius2=0.07)
+    for k in range(4):
+        a = math.radians(45 + k * 90)
+        p.box("trim", (math.cos(a) * 0.1, math.sin(a) * 0.1, 0.24), (0.012 + abs(math.sin(a)) * 0.07, 0.012 + abs(math.cos(a)) * 0.07, 0.16), radius=0.004)
+    p.tube("glow", (0, 0, 0.4), 0.04, 0.02, rot=(90, 0, 0), detail=12)
+
+
+@part("fx_rocket")
+def _(p):
+    """O foguete da bazuca do MAGNUS, a apontar para -Z: ogiva dourada, corpo e aletas largas."""
+    p.tube("shell", (0, 0, 0.05), 0.12, 0.8, rot=(90, 0, 0), detail=18, bevel=0.015)
+    p.tube("trim", (0, 0, -0.52), 0.12, 0.26, rot=(90, 0, 0), detail=18, radius2=0.0)
+    p.ring("glow", (0, 0, -0.3), 0.122, 0.018, rot=(90, 0, 0), detail=22, sides=5)
+    p.ring("trim", (0, 0, 0.3), 0.122, 0.014, rot=(90, 0, 0), detail=22, sides=5)
+    for k in range(4):
+        a = math.radians(k * 90)
+        p.box("dark", (math.cos(a) * 0.17, math.sin(a) * 0.17, 0.36), (0.02 + abs(math.sin(a)) * 0.11, 0.02 + abs(math.cos(a)) * 0.11, 0.26), radius=0.006)
+    p.tube("dark", (0, 0, 0.5), 0.09, 0.1, rot=(90, 0, 0), detail=14, radius2=0.12)
+    p.tube("glow", (0, 0, 0.56), 0.07, 0.02, rot=(90, 0, 0), detail=14)
+
+
+@part("fx_bazooka")
+def _(p):
+    """A bazuca que se monta no braço do MAGNUS: tubo largo a apontar para -Z, boca com aro
+    aceso, mira, pega e escudo; o fim de trás aberto em funil."""
+    p.tube("dark", (0, 0, -0.1), 0.16, 1.2, rot=(90, 0, 0), detail=22, bevel=0.02)
+    for z in (-0.55, 0.0, 0.35):
+        p.ring("trim", (0, 0, z), 0.165, 0.022, rot=(90, 0, 0), detail=24, sides=6)
+    p.ring("glow", (0, 0, -0.7), 0.15, 0.022, rot=(90, 0, 0), detail=24, sides=6)
+    p.tube("glow", (0, 0, -0.66), 0.12, 0.02, rot=(90, 0, 0), detail=20)
+    p.tube("metal", (0, 0, 0.6), 0.16, 0.18, rot=(90, 0, 0), detail=22, radius2=0.22)
+    p.box("shell", (0, 0.2, -0.2), (0.09, 0.08, 0.34), radius=0.02)
+    p.tube("glow", (0, 0.2, -0.38), 0.03, 0.02, rot=(90, 0, 0), detail=12)
+    p.box("metal", (0, -0.22, 0.05), (0.07, 0.2, 0.08), radius=0.015)
+    p.box("shell", (0.19, 0.0, -0.05), (0.03, 0.22, 0.5), radius=0.012)
+
+
 part("goal_arch_02")(lambda p: goal_arch(p, "02"))
 
 

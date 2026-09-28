@@ -1199,6 +1199,20 @@ func play_events() -> void:
 			arena.surge_flash(event.p)
 			arena.gain_mark(event.p, int(event.get("gain", 0)), Rules.power_color("surge"))
 			play_tone("boost")
+		elif event.kind == "missile_launch":
+			arena.missile_launch(int(event.team), event.at, float(event.seconds))
+			if int(event.team) == local_team: haptic(18, 0.3)
+			play_tone("volley")
+		elif event.kind == "missile":
+			arena.rocket_impact(event.p, float(event.radius), false)
+			play_tone("blast")
+		elif event.kind == "bazooka_fire":
+			arena.bazooka_fire(int(event.team), event.at, float(event.seconds), float(event.windup))
+			if int(event.team) == local_team: haptic(40, 0.6)
+		elif event.kind == "bazooka":
+			arena.rocket_impact(event.p, float(event.radius), true)
+			if int(event.team) == local_team: haptic(45, 0.6)
+			play_tone("void_burst")
 		elif event.kind == "volley":
 			arena.volley_flash(event.p, event.heading)
 			if int(event.team) == local_team: haptic(18, 0.30)

@@ -378,20 +378,22 @@ func run() -> void:
 	hold_fire(surge, Rules.SURGE_SECONDS)
 	check(surge.powers[0].surge_time <= 0, "Sobrecarga: it runs out on its own")
 
-	# Rajada do Farol: the fan of the Leque, five times over.
+	# Chuva de mísseis: four rockets out of Salvo's pod, each blasting a small area.
 	var volley = playing("volley")
-	aim_at_bricks(volley)
 	var fan_before: int = team_health(volley, 1)
-	var first_id: int = volley.next_id
 	launch(volley)
-	var fired: Array = wait(volley, Rules.ULTIMATE_WINDUP + Rules.VOLLEY_SECONDS + 0.2)
-	var fans: Array = fired.filter(func(e): return e.kind == "volley")
-	check(fans.size() == Rules.VOLLEY_WAVES, "Rajada: five waves leave the lantern (%d)" % fans.size())
-	check(volley.next_id - first_id == Rules.VOLLEY_WAVES * Rules.AIR_PELLETS, "Rajada: five balls a wave, twenty-five in all (%d)" % (volley.next_id - first_id))
-	# A pellet that has met a bumper on the way is a boosted round and bites like one.
-	check(volley.balls.filter(func(b): return b.owner == 0 and not b.boosted).all(func(b): return b.damage == Rules.VOLLEY_DAMAGE), "Rajada: each pellet bites for one")
-	wait(volley, 1.6)
-	check(fan_before - team_health(volley, 1) > 0, "Rajada: and the wall feels it (%d de vida)" % (fan_before - team_health(volley, 1)))
+	var fired: Array = wait(volley, Rules.ULTIMATE_WINDUP + Rules.MISSILE_GAP * Rules.MISSILE_COUNT + Rules.MISSILE_FLIGHT + 0.3)
+	check(fired.filter(func(e): return e.kind == "missile_launch").size() == Rules.MISSILE_COUNT, "Mísseis: four leave the pod")
+	check(fired.filter(func(e): return e.kind == "missile").size() == Rules.MISSILE_COUNT, "Mísseis: and all four land")
+	check(fan_before - team_health(volley, 1) >= Rules.MISSILE_DAMAGE * Rules.MISSILE_COUNT, "Mísseis: and the wall feels it (%d de vida)" % (fan_before - team_health(volley, 1)))
+
+	# Bazuca imperial: one rocket down the aim, a wide blast on the wall.
+	var tube = playing("b_forge")
+	var tube_before: int = team_health(tube, 1)
+	launch(tube)
+	var blast_events: Array = wait(tube, Rules.ULTIMATE_WINDUP + 3.0)
+	check(blast_events.any(func(e): return e.kind == "bazooka_fire") and blast_events.any(func(e): return e.kind == "bazooka"), "Bazuca: the rocket is fired and bursts")
+	check(tube_before - team_health(tube, 1) >= Rules.BAZOOKA_DAMAGE * 6, "Bazuca: a wide blast takes a whole patch of wall (%d de vida)" % (tube_before - team_health(tube, 1)))
 
 	# Couraca de cristal: every blow on the miner's wall loses a life on the way in.
 	var armour = playing("plating")
