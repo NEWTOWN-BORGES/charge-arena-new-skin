@@ -625,7 +625,12 @@ static func new_power_state() -> Dictionary:
 		"ultimate_windup": 0.0, "ultimate_time": 0.0, "ultimate_tick": 0.0, "ultimate_shots": 0, "ultimate_id": "",
 		"dome_time": 0.0, "slow_time": 0.0, "sponge_time": 0.0, "immune_time": 0.0, "mortar_time": 0.0, "mortar_x": 0.0, "mortar_y": 0.0}
 
+# Set by the arena for the skins in the match: a hard-mode skin repaints its ultimate.
+static var color_overrides: Dictionary = {}
+
 static func power_color(id: String) -> Color:
+	if color_overrides.has(id):
+		return color_overrides[id]
 	var entry: Dictionary = Powers.entry(id)
 	return Color(entry.color) if not entry.is_empty() else Color("3d5a61")
 

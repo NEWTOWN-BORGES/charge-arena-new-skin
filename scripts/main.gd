@@ -412,15 +412,23 @@ func use_map(layout: Dictionary) -> void:
 # vencer um chefe dá a sua skin; em DIFÍCIL o chefe veste a skin difícil e é essa que ganhas.
 var story_run: Dictionary = {}
 
+const STORY_FINAL = 11
+
 func story_bosses() -> Array:
+	# BIT opens the story, the ten campaign bosses follow in their order, MAGNUS closes it.
 	var order: Array = []
 	for i in range(Campaign.LEVELS.size()):
 		var boss = int(Campaign.LEVELS[i].boss)
-		if not Campaign.is_minor(i) and boss > 0 and boss < Skins.CATALOG.size() and Skins.hard_of_boss(boss) >= 0 and not order.has(boss):
+		if not Campaign.is_minor(i) and boss >= 0 and boss < Skins.CATALOG.size() and Skins.hard_of_boss(boss) >= 0 and not order.has(boss):
 			order.append(boss)
+	if Skins.hard_of_boss(STORY_FINAL) >= 0 and not order.has(STORY_FINAL):
+		order.append(STORY_FINAL)
 	return order
 
 func story_level_of(boss: int) -> int:
+	# MAGNUS has no campaign level: the champion is met in the last arena, the Coroa Solar.
+	if boss == STORY_FINAL:
+		return Campaign.LEVELS.size() - 1
 	for i in range(Campaign.LEVELS.size()):
 		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].boss) == boss:
 			return i
@@ -429,8 +437,12 @@ func story_level_of(boss: int) -> int:
 func story_prize(boss: int, hard: bool) -> int:
 	return Skins.hard_of_boss(boss) if hard else boss
 
+func story_key(boss: int, hard: bool) -> String:
+	return ("h%d" if hard else "n%d") % boss
+
 func story_beaten(boss: int, hard: bool) -> bool:
-	return skins.defeated.has(story_prize(boss, hard))
+	# BIT is owned from the start, so the story keeps its own record of who has fallen.
+	return skins.story_won.has(story_key(boss, hard)) or (boss > 0 and skins.defeated.has(story_prize(boss, hard)))
 
 func story_entries(hard: bool) -> Array:
 	var order = story_bosses()
@@ -488,6 +500,9 @@ func finish_story() -> void:
 	var prize = story_prize(boss, hard)
 	hud.level_skin = ""
 	if won:
+		if not skins.story_won.has(story_key(boss, hard)):
+			skins.story_won.append(story_key(boss, hard))
+			save_skins()
 		if skins.defeat(prize):
 			save_skins()
 			hud.sync_skins(skins)
@@ -1115,9 +1130,12 @@ func play_events() -> void:
 			arena.ultimate_accent(event.p, String(event.get("id", "")))
 			if int(event.team) == local_team:
 				haptic(48 if String(event.get("id", "")) in ["meteors", "sun_ray", "singularity"] else 30, 0.55)
-			play_tone("unleash")
+			# A hard-mode skin's ultimate sounds deeper and heavier than its boss's.
+			var hard_skin = Skins.CATALOG[clampi(int(arena.unit_skins[int(event.team)]), 0, Skins.CATALOG.size() - 1)].has("hard_of") if int(arena.unit_skins[int(event.team)]) < Skins.CATALOG.size() else false
+			var pitch = 0.8 if hard_skin else 1.0
+			play_tone("unleash", 0.0, false, pitch)
 			if tones.has(String(event.get("id", ""))):
-				play_tone(String(event.id))
+				play_tone(String(event.id), 1.5 if hard_skin else 0.0, false, pitch)
 		elif event.kind == "sun_ray":
 			# The beam is drawn from the gun; this is the discharge around it.
 			arena.sun_ray(event.p, event.heading, event.width)
@@ -1626,7 +1644,7 @@ func sweep_wave(seconds: float, from_hz: float, to_hz: float, grit: float) -> Au
 	wave.data = bytes
 	return wave
 
-func play_tone(sound: String, gain_db: float = 0.0, vary: bool = false) -> void:
+func play_tone(sound: String, gain_db: float = 0.0, vary: bool = false, pitch: float = 1.0) -> void:
 	# `vary`: a touch of pitch and level variation, so the same shot heard a thousand times
 	# stays the same weapon without sounding pasted.
 	if audio_voices.is_empty() or not tones.has(sound):
@@ -1660,6 +1678,7 @@ func play_tone(sound: String, gain_db: float = 0.0, vary: bool = false) -> void:
 		var spread = feel.get_value("audio_pitch_variation")
 		voice.pitch_scale = 1.0 + randf_range(-spread, spread)
 		voice.volume_db += randf_range(-1.0, 1.0) * feel.get_value("audio_volume_variation")
+	voice.pitch_scale *= pitch
 	voice.stream = tones[sound]
 	voice.play()
 

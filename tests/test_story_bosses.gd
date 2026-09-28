@@ -18,9 +18,10 @@ func run() -> void:
 	root.add_child(game)
 	await create_timer(0.5).timeout
 	game.skins.defeated.clear()
+	game.skins.story_won.clear()
 	var Skins = game.Skins
 	var order: Array = game.story_bosses()
-	check(order.size() == 10, "Ten bosses in the story (%d)" % order.size())
+	check(order.size() == 12, "Twelve bosses in the story (%d)" % order.size())
 	for boss in order:
 		var hard = Skins.hard_of_boss(boss)
 		check(hard > 11 and int(Skins.CATALOG[hard].hard_of) == boss, "%s has a hard skin" % Skins.CATALOG[boss].name)

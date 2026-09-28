@@ -4105,7 +4105,7 @@ func show_bosses_tab(hard: bool) -> void:
 		UiKit.paint_key(bosses_tabs[i], "primary" if (i == 1) == hard else "secondary")
 	var list: Array = bosses_entries.get("hard" if hard else "normal", [])
 	var won = list.filter(func(e): return e.beaten).size()
-	bosses_note.text = ("DIFÍCIL · %d/10 · vence um chefe para ganhar a sua skin difícil (outra cor e adereços)." if hard else "NORMAL · %d/10 · enfrenta os chefes por ordem, sem ultimate. Vence um chefe para ganhar a sua skin.") % won
+	bosses_note.text = ("DIFÍCIL · %d/%d · vence um chefe para ganhar a sua skin difícil (outra cor e adereços)." if hard else "NORMAL · %d/%d · enfrenta os chefes por ordem, sem ultimate. Vence um chefe para ganhar a sua skin.") % [won, list.size()]
 	for child in bosses_grid.get_children():
 		child.queue_free()
 	for step in range(list.size()):

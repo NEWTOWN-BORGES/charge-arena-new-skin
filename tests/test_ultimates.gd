@@ -74,7 +74,7 @@ func run() -> void:
 	check(Powers.ULTIMATES.size() == 10 and Powers.ULTIMATES.all(func(u): return u.charge == Powers.ULTIMATE_CHARGE and u.price == 0), "Ten ultimates, none of them for sale and all charging the same")
 	check(Powers.ULTIMATES.all(func(u): return Powers.is_ultimate(u.id) and not Powers.entry(u.id).is_empty()), "Each one is found by id, like any other power")
 	var carriers = Skins.CATALOG.filter(func(s): return s.ultimate != "")
-	check(carriers.size() == Skins.CATALOG.size() - 1 and carriers.all(func(s): return Powers.is_ultimate(s.ultimate)), "Every skin but one carries an ultimate of its own")
+	check(carriers.size() == Skins.CATALOG.size() - 2 and carriers.all(func(s): return Powers.is_ultimate(s.ultimate)), "Every skin but BIT and its hard skin carries an ultimate of its own")
 	check(String(Skins.CATALOG[0].ultimate) == "", "The standard pilot is the one without: it is the training opponent, not a boss")
 	# Hard-mode skins share their boss's ultimate; the uniqueness is counted over the bosses.
 	var ids: Array = carriers.filter(func(s): return not s.has("hard_of")).map(func(s): return String(s.ultimate))

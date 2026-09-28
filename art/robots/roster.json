@@ -171,7 +171,11 @@
 		{"name": "GANCHO NEGRO", "base": 9, "hard": true, "parts_add": {"extra": "gancho_x_extra"},
 			"palette": {"shell": "23262e", "trim": "d9b25a", "dark": "121318", "metal": "c9a24a", "glow": "ffcf5a", "eyes": "ffd36a", "rubber": "0c0d10", "team": ""}},
 		{"name": "HÉLIO POENTE", "base": 10, "hard": true, "parts_add": {"extra": "helio_x_extra"},
-			"palette": {"shell": "c8452a", "trim": "ffcf4a", "dark": "3a1a12", "metal": "e8a040", "glow": "ff8a2a", "eyes": "ffd38a", "rubber": "1d0e0a", "team": ""}}
+			"palette": {"shell": "c8452a", "trim": "ffcf4a", "dark": "3a1a12", "metal": "e8a040", "glow": "ff8a2a", "eyes": "ffd38a", "rubber": "1d0e0a", "team": ""}},
+		{"name": "BIT DE ELITE", "base": 0, "hard": true, "parts_add": {"extra": "bit_x_extra", "hat": "bit_x_hat"},
+			"palette": {"shell": "1f2433", "trim": "ffd23f", "dark": "0e1118", "metal": "8b93a3", "glow": "3ff0ff", "team": "", "eyes": "8ff8ff", "rubber": "0b0d12"}},
+		{"name": "MAGNUS IMPERADOR", "base": 11, "hard": true, "parts_add": {"extra": "magnus_x_extra"},
+			"palette": {"shell": "ece6d8", "trim": "d4a73a", "dark": "2a1216", "metal": "c9a24a", "glow": "ffcf4a", "team": "", "eyes": "ffe08a", "rubber": "140a0c"}}
 	],
 	"station": {
 		"about": "Pilotos de estrada (skins 100-149): variante v, kind = v % 10, família = v / 10; cabeça = heads[kind % 5], topo = tops[kind], olhos = eyes[kind].",

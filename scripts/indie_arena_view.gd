@@ -973,6 +973,15 @@ func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null,
 	root.set_meta("last_cooldown", 0.0)
 	return root
 
+func refresh_ultimate_colors() -> void:
+	# The ultimates of the skins in the match take their skin's ultimate colour, if it has one.
+	Rules.color_overrides.clear()
+	for team in range(unit_skins.size()):
+		var skin = int(unit_skins[team])
+		var paint = Skins.ultimate_color(skin)
+		if paint != "" and not bool(unit_tints[team]):
+			Rules.color_overrides[String(Skins.CATALOG[skin].ultimate)] = Color(paint)
+
 func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> void:
 	# `tint`: dress the skin in a single colour instead of its own palette. `hue`: which
 	# colour, when it is not the team's - that is how the station pilots each get a look of
@@ -993,9 +1002,11 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 	# has to stay unmistakable, and make_brick works that out for itself.
 	set_brick_theme(team, skin, tint)
 	old.queue_free()
+	refresh_ultimate_colors()
 
 # Station pilots are addressed from here up, well clear of the eleven skins in the shop.
 const STATION_SKIN = 100
+
 
 func spin_parts(body: Node3D, time: float) -> void:
 	# Crests on the robots (a crown, a halo, an orbit) turn slowly.

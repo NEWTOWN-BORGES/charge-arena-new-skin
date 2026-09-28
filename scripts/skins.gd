@@ -35,26 +35,30 @@ const CATALOG = [
 		"body": "27387c", "light": "ffd477", "shot": "ffd477"},
 	# Modo difícil da história: o mesmo chefe, outra cor e alguns adereços. "hard_of" é o
 	# chefe; vencê-lo no difícil desbloqueia esta skin.
-	{"name": "SALVO BLINDADO", "ultimate": "volley", "weapon": "Lança-Mísseis Duplo", "bricks": "Caixas de munição", "hard_of": 1, "level": -1, "about": "Artilheiro de guerra: verde-militar e latão, um segundo casulo de mísseis e cartucheira às costas.",
+	{"name": "SALVO BLINDADO", "ult_color": "c6ff3a", "ultimate": "volley", "weapon": "Lança-Mísseis Duplo", "bricks": "Caixas de munição", "hard_of": 1, "level": -1, "about": "Artilheiro de guerra: verde-militar e latão, um segundo casulo de mísseis e cartucheira às costas.",
 		"body": "5b6b3a", "light": "ff6a2a", "shot": "ff6a2a"},
-	{"name": "ÓRBITA DOURADA", "ultimate": "meteors", "weapon": "Luneta de Plasma", "bricks": "Observatórios", "hard_of": 2, "level": -1, "about": "Navegadora do espaço fundo: azul-noite e ouro, anel orbital às costas com três satélites.",
+	{"name": "ÓRBITA DOURADA", "ult_color": "ffd76a", "ultimate": "meteors", "weapon": "Luneta de Plasma", "bricks": "Observatórios", "hard_of": 2, "level": -1, "about": "Navegadora do espaço fundo: azul-noite e ouro, anel orbital às costas com três satélites.",
 		"body": "1f2a5c", "light": "ffd76a", "shot": "ffd76a"},
-	{"name": "BROTO SELVAGEM", "ultimate": "bloom", "weapon": "Semeador", "bricks": "Canteiros", "hard_of": 3, "level": -1, "about": "A estufa virou selva: verde-escuro e musgo, folhas grandes na cabeça, uma flor e um arbusto com trepadeiras.",
+	{"name": "BROTO SELVAGEM", "ult_color": "3dffa8", "ultimate": "bloom", "weapon": "Semeador", "bricks": "Canteiros", "hard_of": 3, "level": -1, "about": "A estufa virou selva: verde-escuro e musgo, folhas grandes na cabeça, uma flor e um arbusto com trepadeiras.",
 		"body": "2f6b3a", "light": "b6ff5a", "shot": "b6ff5a"},
-	{"name": "BIGORNA DE FORJA", "ultimate": "plating", "weapon": "Perfuradora", "bricks": "Bigornas", "hard_of": 4, "level": -1, "about": "Direto da forja: aço escuro e brasa, duas chaminés acesas às costas e faróis nos ombros.",
+	{"name": "BIGORNA DE FORJA", "ult_color": "ff4a1c", "ultimate": "plating", "weapon": "Perfuradora", "bricks": "Bigornas", "hard_of": 4, "level": -1, "about": "Direto da forja: aço escuro e brasa, duas chaminés acesas às costas e faróis nos ombros.",
 		"body": "3a3d44", "light": "ff6a1a", "shot": "ff6a1a"},
-	{"name": "ECLIPSE RUBRO", "ultimate": "singularity", "weapon": "Lança de Anel", "bricks": "Monólitos Eclipse", "hard_of": 5, "level": -1, "about": "Eclipse de sangue: carmesim e negro, um sol negro com lâminas às costas e coroa de espigões.",
+	{"name": "ECLIPSE RUBRO", "ult_color": "ff1f5a", "ultimate": "singularity", "weapon": "Lança de Anel", "bricks": "Monólitos Eclipse", "hard_of": 5, "level": -1, "about": "Eclipse de sangue: carmesim e negro, um sol negro com lâminas às costas e coroa de espigões.",
 		"body": "5a1a24", "light": "ff2a3c", "shot": "ff2a3c"},
-	{"name": "ROSCA TURBO", "ultimate": "sentries", "weapon": "Rebitadora", "bricks": "Engrenagens", "hard_of": 6, "level": -1, "about": "Mecânica de corrida: azul-aço e amarelo, chave inglesa gigante às costas e pirilampo no topo.",
+	{"name": "ROSCA TURBO", "ult_color": "3fd0ff", "ultimate": "sentries", "weapon": "Rebitadora", "bricks": "Engrenagens", "hard_of": 6, "level": -1, "about": "Mecânica de corrida: azul-aço e amarelo, chave inglesa gigante às costas e pirilampo no topo.",
 		"body": "3f6f8f", "light": "ffd34a", "shot": "ffd34a"},
-	{"name": "FAÍSCA TEMPESTADE", "ultimate": "thunder", "weapon": "Bobina de Tesla", "bricks": "Bobinas de Tesla", "hard_of": 7, "level": -1, "about": "O olho da tempestade: cinza de trovoada e amarelo, dois para-raios gigantes e coroa de raios.",
+	{"name": "FAÍSCA TEMPESTADE", "ult_color": "fff04a", "ultimate": "thunder", "weapon": "Bobina de Tesla", "bricks": "Bobinas de Tesla", "hard_of": 7, "level": -1, "about": "O olho da tempestade: cinza de trovoada e amarelo, dois para-raios gigantes e coroa de raios.",
 		"body": "2a2f3a", "light": "fff04a", "shot": "fff04a"},
-	{"name": "BATIDA NEON", "ultimate": "surge", "weapon": "Megafone de Choque", "bricks": "Colunas de som", "hard_of": 8, "level": -1, "about": "Festa até de manhã: roxo-noite e ciano, torre de colunas às costas e crista de néon.",
+	{"name": "BATIDA NEON", "ult_color": "4ff0ff", "ultimate": "surge", "weapon": "Megafone de Choque", "bricks": "Colunas de som", "hard_of": 8, "level": -1, "about": "Festa até de manhã: roxo-noite e ciano, torre de colunas às costas e crista de néon.",
 		"body": "3a2a5c", "light": "4ff0ff", "shot": "4ff0ff"},
-	{"name": "GANCHO NEGRO", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Arcas do tesouro", "hard_of": 9, "level": -1, "about": "O capitão temido: negro e ouro, tricórnio, e um mastro com a bandeira negra às costas.",
+	{"name": "GANCHO NEGRO", "ult_color": "5aff9d", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Arcas do tesouro", "hard_of": 9, "level": -1, "about": "O capitão temido: negro e ouro, tricórnio, e um mastro com a bandeira negra às costas.",
 		"body": "23262e", "light": "ffcf5a", "shot": "ffcf5a"},
-	{"name": "HÉLIO POENTE", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "hard_of": 10, "level": -1, "about": "O sol a pôr-se: vermelho-poente e ouro, com um sol inteiro de raios atrás das asas.",
+	{"name": "HÉLIO POENTE", "ult_color": "ff6a2a", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "hard_of": 10, "level": -1, "about": "O sol a pôr-se: vermelho-poente e ouro, com um sol inteiro de raios atrás das asas.",
 		"body": "c8452a", "light": "ff8a2a", "shot": "ff8a2a"},
+	{"name": "BIT DE ELITE", "ultimate": "", "weapon": "Canhão de Braço", "bricks": "Baterias Aurora", "hard_of": 0, "level": -1, "about": "O robô de série, afinado para a elite: azul-noite e amarelo, bateria de três células acesas, escapes e aletas de luz.",
+		"body": "1f2433", "light": "3ff0ff", "shot": "3ff0ff"},
+	{"name": "MAGNUS IMPERADOR", "ult_color": "ffcf4a", "ultimate": "b_forge", "weapon": "Manopla Imperial", "bricks": "Emblemas do Penta", "hard_of": 11, "level": -1, "about": "O campeão coroado: marfim e ouro, coroa com gemas acesas, dois estandartes e a estrela do Penta acesa às costas.",
+		"body": "ece6d8", "light": "ffcf4a", "shot": "ffcf4a"},
 ]
 # Testing build: every skin can be worn without beating its boss first. Set to false to
 # earn them again; the bosses you have beaten are saved either way.
@@ -69,6 +73,8 @@ var defeated: Array = []
 # Skins won but not yet opened in the panel: the menu points at them until it is.
 var seen: Array = []
 var selected = 0
+# Story mode: who has fallen, "n<skin>" in NORMAL and "h<skin>" in DIFÍCIL.
+var story_won: Array = []
 
 static func colors(index: int, team_color: Color, boss_tint: bool = false) -> Dictionary:
 	# boss_tint: campaign bosses fight in their team's red until beaten.
@@ -80,6 +86,12 @@ static func colors(index: int, team_color: Color, boss_tint: bool = false) -> Di
 		"light": Color(entry.light) if entry.light != "" else team_color.lightened(0.3),
 		"shot": Color(entry.shot) if entry.shot != "" else team_color,
 	}
+
+static func ultimate_color(index: int) -> String:
+	# A hard-mode skin paints its ultimate in a colour of its own ("" keeps the power's).
+	if index >= 0 and index < CATALOG.size():
+		return String(CATALOG[index].get("ult_color", ""))
+	return ""
 
 static func base_of(index: int) -> int:
 	# A hard-mode skin sounds and plays like its boss.
@@ -139,6 +151,7 @@ func load_preferences() -> void:
 	for index in Array(config.get_value("skins", "defeated", [])):
 		if index is int and index > 0 and index < CATALOG.size() and not defeated.has(index):
 			defeated.append(index)
+	story_won = Array(config.get_value("skins", "story_won", [])).filter(func(k): return k is String)
 	seen = Array(config.get_value("skins", "seen", [])).filter(func(i): return i is int and i >= 0 and i < CATALOG.size())
 	var saved = int(config.get_value("skins", "selected", 0))
 	selected = saved if is_unlocked(saved) else 0
@@ -148,5 +161,6 @@ func save_preferences() -> Error:
 	config.set_value("skins", "version", SAVE_VERSION)
 	config.set_value("skins", "defeated", defeated)
 	config.set_value("skins", "seen", seen)
+	config.set_value("skins", "story_won", story_won)
 	config.set_value("skins", "selected", selected)
 	return config.save(config_path)
