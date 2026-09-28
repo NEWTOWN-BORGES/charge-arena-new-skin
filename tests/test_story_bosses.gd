@@ -49,7 +49,10 @@ func run() -> void:
 	check(recap.size() == Story.INTRO.size() + 1, "A new player's recap stops before the training (%d lines)" % recap.size())
 	game.skins.unlock_all = true
 	var whole: Array = game.story_recap()
+	var season_two: Array = game.story_recap(true)
 	game.skins.unlock_all = false
+	check(String(season_two[0][2].get("bg", "")) == "cidade" and String(season_two[-1][1]) == String(Story.hard_lines(Story.HELIO, "won")[-1][1]) and not season_two.any(func(l): return String(l[1]) == String(Story.INTRO[1][1])), "VER HISTÓRIA in DIFÍCIL tells season two, from the city to the final (%d lines)" % season_two.size())
+	check(game.story_recap(true).size() == 1, "Season two's recap waits for the NORMAL story to be finished")
 	check(String(whole[-1][1]) == String(Story.lines(Story.FINAL, "won")[-1][1]) and whole.any(func(l): return String(l[1]) == String(Story.lines(Story.TEACHER, "teach")[1][1])), "With everything open the recap runs to the end, HÉLIO's lesson included (%d lines)" % whole.size())
 	var normal: Array = game.story_entries(false)
 	check(normal[0].open and not normal[1].open, "Only the first rival is open at the start")

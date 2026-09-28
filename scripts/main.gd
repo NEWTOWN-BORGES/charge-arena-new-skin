@@ -194,7 +194,7 @@ func _ready() -> void:
 			maybe_lobby_tutorial())
 	hud.notice_shown.connect(func(_kind): play_tone("notify", 2.0))
 	hud.story_boss_chosen.connect(start_story)
-	hud.story_recap_requested.connect(func(): hud.play_story_talk(story_recap()))
+	hud.story_recap_requested.connect(func(hard): hud.play_story_talk(story_recap(hard)))
 	hud.story_voice_db = linear_to_db(maxf(game_settings.sfx_volume, 0.0001))
 	campaign.load_preferences()
 	sync_boss_skins()
@@ -538,9 +538,12 @@ func story_arena_name(boss: int) -> String:
 func story_trained() -> bool:
 	return skins.story_won.has("treino") or story_beaten(StoryScript.ORDER[0], false)
 
-func story_recap() -> Array:
+func story_recap(hard: bool = false) -> Array:
 	# Every conversation of the story in order, without the matches: up to where the player
-	# has got (the whole story in the LAB build, or once it is finished).
+	# has got (the whole story in the LAB build, or once it is finished). DIFÍCIL tells
+	# season two.
+	if hard:
+		return story_recap_hard()
 	var lines: Array = StoryScript.INTRO.duplicate()
 	if not (skins.unlock_all or story_trained()):
 		lines.append([StoryScript.NARRADOR, "Continua no Modo história: o treino com a BATIDA é já a seguir."])
@@ -562,6 +565,29 @@ func story_recap() -> Array:
 			lines += StoryScript.lines(boss, "won")
 		else:
 			lines.append([StoryScript.NARRADOR, "Continua no Modo história: vence o %s para veres o resto." % StoryScript.speaker_name(boss)])
+			break
+	return lines
+
+func story_recap_hard() -> Array:
+	# Season two, as it is told in DIFÍCIL: the city, then each corrupted friend in turn.
+	if not story_hard_open():
+		return [[StoryScript.NARRADOR, "A segunda temporada abre no DIFÍCIL depois de acabares a história no NORMAL."]]
+	var lines: Array = []
+	var order = story_bosses(true)
+	for step in range(order.size()):
+		var boss: int = order[step]
+		var reached = skins.unlock_all or step == 0 or story_passed(order[step - 1], true)
+		if not reached:
+			break
+		if step == 0:
+			lines += StoryScript.S2_INTRO
+		else:
+			lines.append(StoryScript.round_card(step, boss, story_place(boss, true), "arena_s2_%d" % boss))
+		lines += StoryScript.hard_lines(boss, "before")
+		if skins.unlock_all or story_beaten(boss, true):
+			lines += StoryScript.S2_AFTER_MAGNUS if boss == StoryScript.MAGNUS else StoryScript.hard_lines(boss, "won")
+		else:
+			lines.append([StoryScript.NARRADOR, "Continua no Modo história DIFÍCIL: vence o %s para veres o resto." % StoryScript.speaker_name(boss)])
 			break
 	return lines
 

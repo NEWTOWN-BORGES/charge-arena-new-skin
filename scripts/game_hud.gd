@@ -54,7 +54,7 @@ signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
 signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
-signal story_recap_requested
+signal story_recap_requested(hard: bool)
 var camera_choice: OptionButton
 var effects_choice: OptionButton
 var haptic_choice: CheckButton
@@ -4149,7 +4149,7 @@ func build_bosses_menu() -> void:
 	# it in the LAB build).
 	var recap = make_button("VER HISTÓRIA  ▶", false)
 	recap.add_theme_font_size_override("font_size", 20)
-	recap.pressed.connect(func(): story_recap_requested.emit())
+	recap.pressed.connect(func(): story_recap_requested.emit(bosses_hard))
 	stack.add_child(recap)
 	var buttons = HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
