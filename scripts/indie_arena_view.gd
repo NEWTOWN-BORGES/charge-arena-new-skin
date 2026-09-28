@@ -682,13 +682,7 @@ func build_goal(team: int) -> void:
 		add_child(post)
 		post.position = endpoint
 		Robots.prop(self, post, "goal_post", ["goal_post"], {"shell": theme.block_alt, "trim": theme.block, "dark": theme.frame, "metal": Color("9aa7b5"), "glow": color, "team": color})
-	# The gate of the Blender island over every goal: on the goal line, facing the field.
-	var arch = Node3D.new()
-	add_child(arch)
-	arch.position = Vector3(center.x, 0.0, center.y + signf(center.y) * 0.1)
-	arch.rotation.y = 0.0 if team == 0 else PI
-	var gate_key = "goal_arch_01" if team == 0 else "goal_arch_02"
-	Robots.prop(self, arch, gate_key, [gate_key], {"shell": theme.get("armour", Color("fff4e2")), "trim": theme.get("armour_trim", Color("ff7a3c")), "glow": color, "team": color, "dark": Color("2a3140")})
+	# (The arch over each goal is gone: seen from behind the pilot it filled the view.)
 	world_label("01" if team == 0 else "02", Vector3(0, 0.05, center.y * 0.89), color, 49)
 	var track = arc_points(center, Rules.TRACK_RADIUS, Rules.track_limit_for(map), team, 0.023)
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))
@@ -1682,20 +1676,33 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			color = Rules.power_color("ghost")
 		if not projectiles.has(ball.id):
 			projectiles[ball.id] = take_orb(ball.owner)
+			# A fresh round leaves from the muzzle of the gun that fired it and drops to the
+			# height of the bricks as it flies, so it meets even a worn, shrunken brick.
+			var launch = Vector3.ZERO
+			var owner_unit = units[ball.owner] if ball.owner < units.size() else null
+			if int(ball.get("bounces", 0)) == 0 and is_instance_valid(owner_unit):
+				var flash: Node3D = owner_unit.get_node_or_null("Body/Gun/Flash")
+				if flash != null and flash.is_inside_tree():
+					launch = flash.global_position - Vector3(ball.p.x, SHOT_HEIGHT, ball.p.y)
+			projectile_launch[ball.id] = [launch, 0.0]
 		var node: Node3D = projectiles[ball.id]
-		node.position = Vector3(ball.p.x, 0.58, ball.p.y)
+		node.position = Vector3(ball.p.x, SHOT_HEIGHT, ball.p.y)
 		if interpolate and previous_motion.balls.has(ball.id):
 			var old: Dictionary = previous_motion.balls[ball.id]
 			# Do not cut through walls when interpolating across a ricochet.
 			if old.bounces == ball.bounces:
 				var pos: Vector2 = old.p.lerp(ball.p, motion_alpha)
-				node.position = Vector3(pos.x, 0.58, pos.y)
+				node.position = Vector3(pos.x, SHOT_HEIGHT, pos.y)
+		if projectile_launch.has(ball.id):
+			var launch_state: Array = projectile_launch[ball.id]
+			launch_state[1] += dt
+			node.position += launch_state[0] * (1.0 - smoothstep(0.0, LAUNCH_BLEND, launch_state[1]))
 		# A heavy explosive round, a lean burst round: size alone says which is which.
 		var swell: float = POWER_BALL_SCALE[clampi(kind, 0, POWER_BALL_SCALE.size() - 1)]
 		var charged = ball.get("boosted", false) or ball.get("amplified", false)
 		var orb: MeshInstance3D = node.get_node("Orb")
 		# Small rubber balls: three quarters of the old energy orb.
-		orb.scale = Vector3.ONE * (0.8 if charged else 0.6) * swell
+		orb.scale = Vector3.ONE * (0.6 if charged else 0.44) * swell
 		orb.material_override.set_shader_parameter("tint", color)
 		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
 		# The comet tail: short-lived glows left behind every frame by the GPU batch.
@@ -1745,6 +1752,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			projectiles[id].hide()
 			orb_pool.append(projectiles[id])
 			projectiles.erase(id)
+			projectile_launch.erase(id)
 			ball_previous.erase(id)
 	update_sentries(rules, dt)
 	var player: Dictionary = rules.players[local_team]
@@ -1864,6 +1872,12 @@ func warm_shaders() -> void:
 	orb.scale = Vector3.ONE * 0.004
 	orb.show()
 	warm_frames = 4
+
+# Rounds fly at brick height; a new one starts at its gun's muzzle and blends down onto its
+# path over LAUNCH_BLEND seconds. projectile_launch: id -> [muzzle offset, age].
+const SHOT_HEIGHT = 0.3
+const LAUNCH_BLEND = 0.22
+var projectile_launch: Dictionary = {}
 
 func take_orb(owner: int) -> Node3D:
 	# One camera-facing card with the orb shader and a team-coloured glow on the floor.
@@ -2464,7 +2478,8 @@ func power_flash(pos: Vector2, id: String) -> void:
 
 func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
 	# Each bite sparks at the muzzle; the beam itself is drawn every frame below.
-	burst(from + heading * 0.6, Rules.power_color("laser"), false)
+	var muzzle: Vector3 = muzzle_of(team)
+	burst(Vector2(muzzle.x, muzzle.z) + heading * 0.2, Rules.power_color("laser"), false)
 
 func muzzle_of(team: int) -> Vector3:
 	# Where the pilot's weapon actually points from, so a beam leaves the barrel.
@@ -3294,9 +3309,13 @@ func update_power_effects(rules, dt: float) -> void:
 				if not limb.visible:
 					continue
 				var from: Vector2 = path[leg]
+				# The first leg leaves the barrel, and every leg runs at the barrel's height.
+				var muzzle: Vector3 = muzzle_of(team)
+				if leg == 0:
+					from = Vector2(muzzle.x, muzzle.z)
 				var travel: Vector2 = path[leg + 1] - from
 				# Each leg is modelled from 0 to 1 along +X, so it grows out of its corner.
-				limb.position = Vector3(from.x, 0.58, from.y)
+				limb.position = Vector3(from.x, muzzle.y, from.y)
 				limb.rotation.y = -travel.angle()
 				limb.scale = Vector3(travel.length(), flicker, flicker)
 
