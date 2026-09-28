@@ -126,6 +126,8 @@ func run() -> void:
 	check(bool(game.story_run.get("hard", false)) and int(game.story_run.boss) == Story.MAGNUS, "Then BIT takes MAGNUS on")
 	check(int(game.arena.unit_skins[0]) == Story.BIT_ELITE, "In the story DIFÍCIL you play as BIT DE ELITE, whatever skin is chosen")
 	check(int(game.arena.unit_skins[1]) == Story.MAGNUS_IMP, "MAGNUS fights in his IMPERADOR form, corrupted")
+	var talk = game.hud.story_talk
+	check(talk.corrupted(Story.ROSCA) == Skins.hard_of_boss(Story.ROSCA) and talk.corrupted(Story.MAGNUS_IMP) == Story.MAGNUS_IMP, "A corrupted friend speaks as its hard skin")
 	game.rules.winner = 0
 	game.finish_level()
 	check(game.skins.is_unlocked(Story.MAGNUS_IMP), "Freeing MAGNUS unlocks MAGNUS IMPERADOR")

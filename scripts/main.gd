@@ -1,6 +1,5 @@
 extends Node3D
 const StoryScript = preload("res://scripts/story_script.gd")
-const Robots = preload("res://scripts/robots.gd")
 const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaView = preload("res://scripts/indie_arena_view.gd")
@@ -670,10 +669,8 @@ func begin_story(step: int, hard: bool) -> void:
 		# The champion walks in with the sun already charged: this is the match he wins easily.
 		charge_rival_ultimate.call_deferred()
 	dress_pilots(local_team)
-	# Season two: the rival fights corrupted, a black shape with only its neon alight.
-	Robots.shadow_build = hard
+	# Season two: the corrupted friend fights in its hard skin, as it already is in the game.
 	arena.set_skin(1, wear, false)
-	Robots.shadow_build = false
 	hud.team_hues = arena.unit_hues
 	hud.level_info = {"number": step + 1, "name": ("TEMPORADA 2 · " if hard else "") + String(Campaign.LEVELS[index].name),
 		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),

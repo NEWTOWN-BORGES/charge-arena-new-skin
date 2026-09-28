@@ -219,6 +219,13 @@ func face(speaker: int, mood: String = "", dark: bool = false) -> Texture2D:
 func dark_line() -> bool:
 	return String(options().get("face", "")) == "dark"
 
+func corrupted(speaker: int) -> int:
+	# A corrupted friend of season two is its hard skin, as it already is in the game.
+	if speaker < 0 or speaker >= Skins.CATALOG.size() or Skins.CATALOG[speaker].has("hard_of"):
+		return speaker
+	var hard = Skins.hard_of_boss(speaker)
+	return hard if hard >= 0 else speaker
+
 func accent_of(speaker: int) -> Color:
 	match speaker:
 		Story.AGENTE: return Color("3b6fe0")
@@ -270,13 +277,11 @@ func show_entry() -> void:
 		text.text = line
 		text.visible_characters = 0
 		var dark = String(opts.get("face", "")) == "dark"
+		# Corrupted: the friend shows up in its hard skin, with that skin's name and colour.
+		var shown = corrupted(speaker) if dark else speaker
 		if dark:
-			# Corrupted: the boss's own name, in the corruption's violet.
-			var base = int(Skins.CATALOG[speaker].get("hard_of", speaker)) if speaker >= 0 else speaker
-			tag_label.text = Story.speaker_name(base if base >= 0 else speaker)
-			accent = Color("a24bff")
-		else:
-			tag_label.text = Story.speaker_name(speaker)
+			accent = accent_of(shown)
+		tag_label.text = Story.speaker_name(shown)
 		tag_label.add_theme_color_override("font_color", INK if accent.get_luminance() > 0.5 else Color.WHITE)
 		var tag_style = StyleBoxFlat.new()
 		tag_style.bg_color = accent
@@ -291,14 +296,14 @@ func show_entry() -> void:
 			if left_who != speaker:
 				slide_left = 0.0
 			left_who = speaker
-			left_face.texture = face(speaker, mood, dark)
+			left_face.texture = face(shown, mood)
 		else:
 			var phone = bool(opts.get("phone", false))
 			if right_who != speaker or right_phone != phone:
 				slide_right = 0.0
 			right_who = speaker
 			right_phone = phone
-			right_face.texture = face(speaker, mood, dark)
+			right_face.texture = face(shown, mood)
 	arrange()
 	call_deferred("arrange")
 
@@ -550,9 +555,8 @@ func draw_versus(c: Control) -> void:
 	var opts = options()
 	var left_skin = int(opts.get("left", Story.BIT))
 	var right_skin = int(opts.get("right", 0))
-	var dark = bool(opts.get("dark", false))
 	var left_col = accent_of(left_skin)
-	var right_col = Color("a24bff") if dark else accent_of(right_skin)
+	var right_col = accent_of(right_skin)
 	var t = state_time
 	var ease = 1.0 - pow(1.0 - clampf(t / 0.45, 0.0, 1.0), 3.0)
 	c.draw_rect(Rect2(Vector2.ZERO, size), Color("07080d"))
@@ -567,7 +571,7 @@ func draw_versus(c: Control) -> void:
 	var tall = size.y * 0.4
 	var wide = tall * 0.8
 	var left_pic = face(left_skin)
-	var right_pic = face(right_skin, "", dark)
+	var right_pic = face(right_skin)
 	if left_pic:
 		c.draw_texture_rect(left_pic, Rect2(Vector2(-wide * 0.18 - (1.0 - ease) * size.x * 0.6, mid - tall * 0.95), Vector2(wide, tall)), false)
 	if right_pic:
@@ -589,9 +593,7 @@ func draw_versus(c: Control) -> void:
 		c.draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, (0.5 - t) / 0.15 * 0.8))
 	# Names and the round.
 	var left_name = Story.speaker_name(left_skin)
-	var right_name = Story.speaker_name(int(Skins.CATALOG[right_skin].get("hard_of", right_skin)) if dark and right_skin >= 0 else right_skin)
-	if dark:
-		right_name = "??? · " + right_name
+	var right_name = Story.speaker_name(right_skin)
 	c.draw_string_outline(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, 10, Color.BLACK)
 	c.draw_string(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, left_col.lightened(0.3))
 	c.draw_string_outline(font, Vector2(size.x * 0.4 - 24, mid - 30), right_name, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, 10, Color.BLACK)

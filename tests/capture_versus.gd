@@ -19,5 +19,15 @@ func run() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(out + "/%s.png" % card[0])
 		game.hud.story_talk.close(true)
+	# A corrupted friend speaking: shown in its hard skin.
+	var lines = Story.hard_lines(Story.ROSCA, "before")
+	var from = 0
+	while int(lines[from][0]) != Story.ROSCA:
+		from += 1
+	game.hud.play_story_talk(lines.slice(from))
+	await create_timer(2.5).timeout
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(out + "/talk_corrupted.png")
+	game.hud.story_talk.close(true)
 	print("CAPTURE_VERSUS done")
 	quit()

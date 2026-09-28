@@ -275,8 +275,8 @@ const LINES = {
 # silhouettes; BIT beats them one by one, BATIDA the last surprise before ECLIPSE. ECLIPSE
 # was not behind it this time: the corruption came from HÉLIO, who swallowed the singularity
 # at the end of the first Taça. Beating HÉLIO in the final gives everyone their memory back.
-# In DIFÍCIL the rivals fight in their hard skins, dark: a line with {"face": "dark"} shows
-# that corrupted form.
+# In DIFÍCIL the rivals fight in their hard skins: a line with {"face": "dark"} is a corrupted
+# friend, shown in that hard skin (its portrait, name and colour) with a deeper voice.
 const MAGNUS_IMP = 23
 const HELIO_POENTE = 21
 const BATIDA_NEON = 19
