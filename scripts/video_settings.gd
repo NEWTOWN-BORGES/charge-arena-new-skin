@@ -16,9 +16,12 @@ const RENDER_SCALES = [1.0, 1.0, 1.0]
 # had to be undone, so a phone that cannot hold it does not see-saw.
 const RECOVER_WINDOWS = 12
 const CONFIG_PATH = "user://video_settings.cfg"
-var fps = 60
+# An entry-level phone (32-bit Android Go, like a Redmi A3, or under ~3.5 GB of memory)
+# starts on Leve at a steady 30 FPS: even frames and a cool CPU instead of a 60 it cannot
+# hold, which stutters every time it drops.
+var fps = 30 if low_end() else 60
 # A phone starts on the performance profile; a PC has no reason to.
-var quality = (1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2)
+var quality = 0 if low_end() else ((1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2))
 var vsync = true
 var show_fps = false
 var runtime_scale = 0.72
@@ -35,6 +38,13 @@ static func weak_gpu(adapter: String = "") -> bool:
 	var name = adapter if adapter != "" else RenderingServer.get_video_adapter_name()
 	var weak = RegEx.create_from_string("(?i)mali-(t|g3|g5|g68|g71|g72)|adreno[^0-9]*([2-5][0-9][0-9]|6[0-1][0-9])|powervr")
 	return weak.search(name) != null
+
+static func low_end(arm64: bool = OS.has_feature("arm64"), memory: int = -1) -> bool:
+	if not OS.has_feature("mobile") and memory < 0:
+		return false
+	if memory < 0:
+		memory = int(OS.get_memory_info().get("physical", 0))
+	return not arm64 or (memory > 0 and memory < 3500 * 1024 * 1024)
 
 # The frame rates a panel shows evenly: 60 on a 90 Hz screen alternates one and two refreshes
 # per frame, a steady judder, so a 90 Hz phone steps 90 -> 45 -> 30 instead.
@@ -54,7 +64,12 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 		saved_quality = 0
 	if OS.has_feature("open_test") and int(config.get_value("video", "presentation_version", 0)) < 3:
 		saved_quality = 1 if OS.has_feature("mobile") else 2
-	configure(int(config.get_value("video", "fps", 60)), saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)))
+	var saved_fps = int(config.get_value("video", "fps", 60))
+	# An entry-level phone moves once to Leve at 30 FPS (it can still pick more in Options).
+	if low_end() and int(config.get_value("video", "low_end_version", 0)) < 1:
+		saved_quality = 0
+		saved_fps = 30
+	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)))
 
 func configure(new_fps: int, new_quality: int, sync: bool, counter: bool) -> void:
 	# A setting saved by an older build may still say 120; it lands on 60.
@@ -77,6 +92,7 @@ func save_preferences(path: String = CONFIG_PATH) -> Error:
 	config.set_value("video", "show_fps", show_fps)
 	config.set_value("video", "performance_version", 2)
 	config.set_value("video", "presentation_version", 3)
+	config.set_value("video", "low_end_version", 1)
 	return config.save(path)
 
 func apply(viewport: Viewport, arena) -> void:
