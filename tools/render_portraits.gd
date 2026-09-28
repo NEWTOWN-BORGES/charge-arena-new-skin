@@ -6,7 +6,7 @@ extends SceneTree
 # (then run tools/glow_dark_portraits.py to bloom that neon).
 const View = preload("res://scripts/indie_arena_view.gd")
 const Robots = preload("res://scripts/robots.gd")
-const SIZE = 256
+const SIZE = 512
 const OUT = "res://art/robots/portraits/"
 
 func _initialize() -> void:

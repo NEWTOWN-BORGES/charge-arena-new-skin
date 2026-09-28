@@ -214,7 +214,13 @@ const LINES = {
 }
 
 static func lines(boss: int, moment: String) -> Array:
-	return Array(LINES.get(boss, {}).get(moment, [])).duplicate()
+	var out: Array = []
+	for line in LINES.get(boss, {}).get(moment, []):
+		out.append(Array(line).duplicate())
+	# Beaten, the rival says its first words dazed.
+	if moment == "won" and not out.is_empty() and int(out[0][0]) == boss:
+		out[0].append("hit")
+	return out
 
 static func speaker_name(who: int) -> String:
 	match who:

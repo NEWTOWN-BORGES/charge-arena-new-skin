@@ -24,6 +24,11 @@ def ink(path):
     if not os.path.exists(raw):
         shutil.copy(path, raw)
     image = Image.open(raw).convert("RGBA")
+    # Line widths are tuned for a 512 px wide render; bigger renders scale them.
+    k = image.width / 512.0
+    def odd(n):
+        n = max(3, int(round(n * k)))
+        return n if n % 2 else n + 1
     rgba = np.asarray(image).astype(np.float32) / 255.0
     rgb, alpha = rgba[..., :3], rgba[..., 3]
     solid = alpha > 0.5
@@ -44,11 +49,11 @@ def ink(path):
         e = np.asarray(channel.filter(ImageFilter.FIND_EDGES)).astype(np.float32) / 255.0
         edges = np.maximum(edges, e)
     inner = (edges > 0.2) & solid
-    inner = np.asarray(Image.fromarray((inner * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3))) > 0
+    inner = np.asarray(Image.fromarray((inner * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(odd(3)))) > 0
 
     # The silhouette: a bold outline just outside the shape.
     mask = Image.fromarray((solid * 255).astype(np.uint8))
-    grown = np.asarray(mask.filter(ImageFilter.MaxFilter(9))) > 0
+    grown = np.asarray(mask.filter(ImageFilter.MaxFilter(odd(9)))) > 0
     outline = grown & ~solid
 
     ink_colour = np.array([0.08, 0.07, 0.12], np.float32)

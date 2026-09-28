@@ -110,8 +110,8 @@ func start(new_lines: Array) -> void:
 func speaker() -> int:
 	return int(lines[index][0])
 
-func face(who: int) -> Texture2D:
-	var key = "agente" if who == Story.AGENTE else str(who)
+func face(who: int, mood: String = "") -> Texture2D:
+	var key = ("agente" if who == Story.AGENTE else str(who)) + ("_" + mood if mood != "" else "")
 	if not faces.has(key):
 		var path = FACES % key
 		faces[key] = load(path) if ResourceLoader.exists(path) else null
@@ -152,7 +152,9 @@ func show_line() -> void:
 		tag_style.content_margin_top = 6
 		tag_style.content_margin_bottom = 6
 		tag.add_theme_stylebox_override("panel", tag_style)
-		portrait.texture = face(who)
+		# A line may carry a mood (["hit"]: dazed after a defeat).
+		var mood = String(lines[index][2]) if lines[index].size() > 2 else ""
+		portrait.texture = face(who, mood) if face(who, mood) != null else face(who)
 		if changed:
 			slide = 0.0
 	hint.visible = false

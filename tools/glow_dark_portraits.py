@@ -24,7 +24,10 @@ def glow(path):
     raw = os.path.join(raw_dir, os.path.basename(path))
     if not os.path.exists(raw):
         shutil.copy(path, raw)
-    base = np.asarray(Image.open(raw).convert("RGBA")).astype(np.float32) / 255.0
+    source = Image.open(raw).convert("RGBA")
+    # The halo is sized for a 256 px portrait; bigger renders scale it with them.
+    k = source.width / 256.0
+    base = np.asarray(source).astype(np.float32) / 255.0
     rgb, alpha = base[..., :3], base[..., 3:]
     # The neon: whatever is lit well above the black body.
     lit = (rgb.max(axis=2, keepdims=True) > 0.18).astype(np.float32) * alpha
@@ -33,7 +36,7 @@ def glow(path):
     for radius, gain in ((2, 1.4), (6, 1.1), (14, 0.8)):
         blurred = []
         for channel in range(3):
-            c = Image.fromarray((neon[..., channel] * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius))
+            c = Image.fromarray((neon[..., channel] * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius * k))
             blurred.append(np.asarray(c).astype(np.float32) / 255.0)
         layers.append(np.stack(blurred, axis=2) * gain)
     halo = np.clip(sum(layers), 0, 1)

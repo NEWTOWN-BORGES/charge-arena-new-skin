@@ -4,12 +4,13 @@ extends SceneTree
 #   python3 tools/ink_story_faces.py
 # The real robot models in flat toon light (two or three hard bands, no gloss), framed from
 # the waist up; ink_story_faces.py then draws the anime ink lines. Writes
-# art/story/faces/<speaker>.png: a skin index, or "agente" for the traffic officer.
+# art/story/faces/<speaker>.png (and <speaker>_hit.png, dazed): a skin index, or "agente"
+# for the traffic officer.
 const View = preload("res://scripts/indie_arena_view.gd")
 const Robots = preload("res://scripts/robots.gd")
 const Story = preload("res://scripts/story_script.gd")
-const W = 512
-const H = 640
+const W = 1024
+const H = 1280
 const OUT = "res://art/story/faces/"
 
 func _initialize() -> void:
@@ -87,14 +88,16 @@ func run() -> void:
 		var screen: MeshInstance3D = body.get_node_or_null("Head/Robot_screen")
 		if screen == null:
 			screen = body.get_node_or_null("Robot_screen")
-		if screen != null and screen.material_override is ShaderMaterial:
-			Robots.set_mood(body, 1)
-			screen.material_override.set_shader_parameter("seed", 1.5 - Time.get_ticks_msec() / 1000.0)
-		for i in range(3):
-			await process_frame
-		await RenderingServer.frame_post_draw
-		var image = root.get_texture().get_image()
-		var file = OUT + String(job[1]) + ".png"
-		print("FACE ", file, " ", image.save_png(file))
+		# Two faces each: happy, and dazed ("_hit") for the line after a defeat.
+		for mood in [1, 2]:
+			if screen != null and screen.material_override is ShaderMaterial:
+				Robots.set_mood(body, mood)
+				screen.material_override.set_shader_parameter("seed", 1.5 - Time.get_ticks_msec() / 1000.0)
+			for i in range(3):
+				await process_frame
+			await RenderingServer.frame_post_draw
+			var image = root.get_texture().get_image()
+			var file = OUT + String(job[1]) + ("_hit" if mood == 2 else "") + ".png"
+			print("FACE ", file, " ", image.save_png(file))
 		pilot.free()
 	quit()
