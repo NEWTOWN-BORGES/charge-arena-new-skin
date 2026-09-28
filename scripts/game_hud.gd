@@ -616,9 +616,15 @@ func build_viewer_pilot() -> void:
 	viewer_bricks.clear()
 	# Two exhibition bricks of the skin's theme; the second shows a lost life.
 	for side in [-1, 1]:
-		# Beside the pilot and a step behind, so they never stand in front of it.
-		var data = {"team": 1 if locked else 0, "p": Vector2(side * 1.05, -0.45), "rotation": side * 0.6}
-		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index, locked))
+		# Beside the pilot and a step behind, so they never stand in front of it, and all of
+		# it on the pedestal (radius 0.99): out at 1.05 half the brick hung in the air.
+		var data = {"team": 1 if locked else 0, "p": Vector2(side * 0.6, -0.36), "rotation": side * 0.6}
+		# Its own themed brick; locked, a dark shape like the pilot (a hard skin keeps its neon).
+		Robots.shadow_build = locked
+		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index))
+		Robots.shadow_build = false
+		# Standing on the pedestal's top, not sunk into it.
+		viewer_bricks[-1].position.y = 0.02
 	viewer_bricks[1].scale = Vector3.ONE * arena_view.Rules.brick_scale(2)
 	viewer_bricks[1].get_node("HP2").hide()
 	if viewer_bricks[1].has_node("HP2b"):
@@ -835,7 +841,9 @@ func refresh_skins() -> void:
 	skins_total.text = "COLEÇÃO: %d / %d" % [skins_progress.unlocked_count(), Skins.CATALOG.size()]
 	skin_name.text = entry.name
 	skin_weapon.text = "ARMA  ·  " + entry.weapon.to_upper()
-	skin_bricks.text = "TIJOLOS  ·  CAIXAS DA EQUIPA"
+	# The wall this pilot defends: its own themed brick (a hard skin's with neon).
+	var brick_name = String(Skins.CATALOG[preview_index].get("bricks", "")).to_upper()
+	skin_bricks.text = "TIJOLOS  ·  " + brick_name + ("  ·  COM NÉON" if Skins.CATALOG[preview_index].has("hard_of") else "")
 	skin_about.text = entry.about
 	# The bar tracks the whole boss collection.
 	skin_progress.visible = level > 0
