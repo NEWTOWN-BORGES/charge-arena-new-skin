@@ -8,15 +8,19 @@ const TOWER_HALF_WIDTH = 5.3
 # bumpers and the moving obstacles all pull towards the middle by this much, so the field
 # comes out the shape of a phone held upright instead of a band across the middle of it.
 # Everything scales together, so the arena keeps its character — only its proportions change.
-const TALL_NARROW = 0.71
+const TALL_NARROW = 0.84
 const HALF_WIDTH = 6.0 * MAP_SCALE
 const BASE_HALF_LENGTH = 6.93 * MAP_SCALE
 # The field's half length. A map may stretch it ("stretch" in its layout); the arena being
 # played sets it, and the renderer and the rules read the same value.
 static var HALF_LENGTH: float = BASE_HALF_LENGTH
 
+# Every arena is this much longer than the original field (the size the test arena
+# proved), unless its layout says otherwise.
+const DEFAULT_STRETCH = 1.35
+
 static func apply_stretch(layout: Dictionary) -> void:
-	HALF_LENGTH = BASE_HALF_LENGTH * float(layout.get("stretch", 1.0))
+	HALF_LENGTH = BASE_HALF_LENGTH * float(layout.get("stretch", DEFAULT_STRETCH))
 const GOAL_RADIUS = 1.65
 # The pilot's rail is an ellipse, not a circle: wide across the arena and shallow into it.
 # A circle of radius 2.6 could never put the pilot further than 2.6 from the middle, no
@@ -61,10 +65,10 @@ const OBSTACLE_RADIUS = 0.46
 const OBSTACLE_TRAVEL = 2.15 * MAP_SCALE
 const OBSTACLE_FREQUENCY = 0.62
 const WIN_SCORE = 2
-# Four rows to a bank, five bricks each: every wall in the game is four deep now, so a
-# lane opened in the front of one still has three more behind it.
-const BRICK_ROWS = [5, 5, 5, 5]
-const BRICK_COUNT = 40
+# Five rows to a bank, five bricks each: every wall in the game is five deep now, so a
+# lane opened in the front of one still has four more behind it.
+const BRICK_ROWS = [5, 5, 5, 5, 5]
+const BRICK_COUNT = 50
 const BRICK_LIVES = 3
 const BRICK_EXTENT = Vector2(0.27, 0.14)
 const BOOST_SPEED = 1.65
@@ -745,7 +749,7 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 			"wall":
 				# Four unbroken rows in front of the goal: a lane has to be carved first,
 				# and carving one takes four bricks and not two.
-				for row in range(4):
+				for row in range(5):
 					for column in range(14):
 						add_brick(result, team, -1 if column < 7 else 1, Vector2((column - 6.5) * 0.72, goal.y - sign_y * (3.7 + row * 0.38)), 0.0, lives)
 			"deep":
@@ -755,7 +759,7 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 						add_brick(result, team, -1 if column < 7 else 1, Vector2((column - 6.5) * 0.72, goal.y - sign_y * (3.7 + row * 0.38)), 0.0, lives)
 			"arc":
 				# Four concentric arcs hugging the goal.
-				for ring in [[3.5, 13, 0.9], [4.0, 13, 0.89], [4.5, 13, 0.87], [5.0, 13, 0.85]]:
+				for ring in [[3.5, 13, 0.9], [4.0, 13, 0.89], [4.5, 13, 0.87], [5.0, 13, 0.85], [5.5, 13, 0.83]]:
 					for column in range(ring[1]):
 						var angle = lerpf(-ring[2], ring[2], column / float(ring[1] - 1))
 						var tangent = Vector2(cos(angle), sin(angle) * sign_y)
@@ -763,32 +767,32 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 			"islands":
 				# Four separate clusters with open lanes between them, each four deep.
 				for cluster in [Vector2(-4.0, 3.6), Vector2(-1.6, 4.2), Vector2(1.6, 4.2), Vector2(4.0, 3.6)]:
-					for row in range(4):
+					for row in range(5):
 						for column in range(3):
 							add_brick(result, team, -1 if cluster.x < 0 else 1, Vector2(cluster.x + (column - 1) * 0.62, goal.y - sign_y * (cluster.y + row * 0.38)), 0.0, lives)
 			"chevron":
 				# Two diagonal lines opening towards the middle of the arena, four deep.
 				for side in [-1, 1]:
 					var direction = Vector2(side * 0.94, -sign_y * 0.34)
-					for row in range(4):
+					for row in range(5):
 						for column in range(7):
 							var pos = Vector2(side * (0.6 + column * 0.68), goal.y - sign_y * (3.3 + column * 0.2 + row * 0.38))
 							add_brick(result, team, side, pos, direction.angle(), lives)
 			"torre":
 				# Four rows that reach wall to wall in the narrow arena.
-				for row in range(4):
+				for row in range(5):
 					var count = 12
 					for column in range(count):
 						var x = lerpf(-3.6, 3.6, float(column) / float(count - 1))
 						add_brick(result, team, -1 if x < 0 else 1, Vector2(x, goal.y - sign_y * (3.5 + row * 0.42)), 0.0, lives)
 			"bulwark":
 				# Four long rows: a boss wall you have to chew through, not slip past.
-				for row in range(4):
+				for row in range(5):
 					for column in range(16):
 						add_brick(result, team, -1 if column < 8 else 1, Vector2((column - 7.5) * 0.66, goal.y - sign_y * (3.6 + row * 0.38)), 0.0, lives)
 			"fortress":
 				# Four stacked rows, narrowing as they go back: the final wall of the run.
-				var deck = [17, 16, 16, 15]
+				var deck = [17, 16, 16, 15, 14]
 				for row in range(deck.size()):
 					var count: int = deck[row]
 					var span = 4.4 - row * 0.2
@@ -797,10 +801,10 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 						add_brick(result, team, -1 if x < 0 else 1, Vector2(x, goal.y - sign_y * (3.6 + row * 0.38)), 0.0, lives)
 			"colosseum":
 				# Four dense rows, the widest in front: the PvP wall, built to be broken.
-				for row in range(4):
+				for row in range(5):
 					var count = 14
 					var span = 4.1 - row * 0.18
-					var y_dist = 5.2 - row * 0.52
+					var y_dist = 5.7 - row * 0.52
 					for column in range(count):
 						var x = lerpf(-span, span, float(column) / float(count - 1))
 						add_brick(result, team, -1 if x < 0 else 1, Vector2(x, goal.y - sign_y * y_dist), 0.0, lives)

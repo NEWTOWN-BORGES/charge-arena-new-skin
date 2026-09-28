@@ -95,9 +95,10 @@ func run() -> void:
 			if screen == null: screen = unit.get_node("Body/Robot_screen")
 			var face: ShaderMaterial = screen.material_override
 			check(face.get_shader_parameter("style") == arena.Robots.EYES.find("slant"), "Eclipse's eyes are stern slants on its screen")
-		var themed = range(80).all(func(i): return arena.brick_nodes[i].get_meta("skin") == (skin if i < 40 else 0))
+		var total: int = arena.Rules.BRICK_COUNT * 2
+		var themed = range(total).all(func(i): return arena.brick_nodes[i].get_meta("skin") == (skin if i < arena.Rules.BRICK_COUNT else 0))
 		var lit = arena.brick_nodes.all(func(b): return b.has_node("HP0") and b.has_node("HP1") and b.has_node("HP2"))
-		check(themed and lit and arena.brick_nodes.size() == 80 and arena.brick_batches.size() < 24, "Skin %d styles team bricks with life lights and batching" % skin)
+		check(themed and lit and arena.brick_nodes.size() == total and arena.brick_batches.size() < 24, "Skin %d styles team bricks with life lights and batching" % skin)
 
 	arena.set_skin(0, 2)
 	var orbit: Node3D = arena.units[0].get_node("Body/Head/CrestMount/Spin")

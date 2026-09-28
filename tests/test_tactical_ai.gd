@@ -31,7 +31,7 @@ func _init() -> void:
 	for owner in [0, 1]:
 		for damage in [1, 2]:
 			var r = active()
-			var brick: Dictionary = r.bricks[owner * 40]
+			var brick: Dictionary = r.bricks[owner * Rules.BRICK_COUNT]
 			for other in r.bricks:
 				other.alive = other.id == brick.id
 			brick.hp = 1

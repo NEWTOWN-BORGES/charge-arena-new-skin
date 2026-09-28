@@ -26,12 +26,12 @@ func brick_corners(brick: Dictionary) -> Array:
 
 func layout_problems(r) -> Array:
 	var problems: Array = []
-	# Boss rounds carry deeper walls, so the count is no longer fixed at forty: what has to
+	# Boss rounds carry deeper walls, so the count is no longer fixed at fifty: what has to
 	# hold is that both sides get exactly the same wall, and that it is a wall worth the
 	# name without being a marathon.
 	var mine: int = r.bricks.filter(func(b): return b.team == 0).size()
 	var theirs: int = r.bricks.filter(func(b): return b.team == 1).size()
-	if mine != theirs or mine < 40 or mine > 64:
+	if mine != theirs or mine < 50 or mine > 82:
 		problems.append("%d bricks for one side and %d for the other" % [mine, theirs])
 	for brick in r.bricks:
 		if not brick_corners(brick).all(func(c): return Rules.point_inside(r.walls, c)):
@@ -125,7 +125,7 @@ func run() -> void:
 		check(escaped == 0 and hits > 5, "Level %d plays: no ball escapes, %d brick hits in 12 s" % [index + 1, hits])
 
 	check(worth[worth.size() - 1] >= worth[0] * 2, "The last wall is at least twice the first (%d contra %d)" % [worth[worth.size() - 1], worth[0]])
-	check(worth.max() <= 260, "And no wall is a marathon (%d no pior caso)" % worth.max())
+	check(worth.max() <= 340, "And no wall is a marathon (%d no pior caso)" % worth.max())
 
 	var default_rules = Rules.new()
 	var same_obstacles = range(40).all(func(t): return default_rules.obstacle_at(0, t * 0.1).is_equal_approx(Rules.obstacle_position(0, t * 0.1)) and default_rules.obstacle_at(1, t * 0.1).is_equal_approx(Rules.obstacle_position(1, t * 0.1)))
@@ -136,7 +136,7 @@ func run() -> void:
 	tower.set_map(Rules.tower_map())
 	var half: float = Rules.side_x("torre")
 	var tower_bricks: Array = tower.bricks.filter(func(b): return b.team == 0)
-	check(tower_bricks.size() == 48 and tower.bricks.size() == 96, "Tall arena: forty-eight bricks a side, four rows of twelve (%d)" % tower_bricks.size())
+	check(tower_bricks.size() == 60 and tower.bricks.size() == 120, "Tall arena: sixty bricks a side, five rows of twelve (%d)" % tower_bricks.size())
 	check(tower.bricks.all(func(b): return Rules.point_inside(tower.walls, b.p)), "Tall arena: every brick stands inside the walls")
 	check(tower.boost_centers.size() == 6 and tower.boost_centers.all(func(c): return absf(c.x) > half), "Tall arena: the bumper rail sits outside each wall")
 	var rail_reach: float = Rules.track_limit_for(Rules.tower_map())

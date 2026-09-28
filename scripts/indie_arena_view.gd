@@ -1167,7 +1167,7 @@ const PORTRAIT_EYE = Vector3(0, 22.2, 18.6)
 # to be narrow for this, which is why only the tall one asks for it.
 const LEAN_DIR = Vector3(0, 0.64, 0.77)
 const LEAN_FOV = 40.0
-const LEAN_MARGIN = 1.0
+const LEAN_MARGIN = 1.05
 
 func leaning() -> bool:
 	return map.get("lean", false)
@@ -2729,6 +2729,10 @@ func tally_mark(team: int, at: Vector2, amount: int, color: Color) -> void:
 	label.no_depth_test = true
 	label.render_priority = 6
 	label.outline_render_priority = 5
+	if chase:
+		# Seen from behind the pilot the figure stands over the bricks it is about.
+		label.position.x = at.x
+	stand_for_camera(label)
 	tally[team] = {"node": label, "total": amount, "left": TALLY_HOLD, "pop": 1.0}
 
 func step_tallies(dt: float) -> void:
@@ -2764,7 +2768,17 @@ func float_number(text: String, at: Vector3, color: Color, size: int, life: floa
 	label.no_depth_test = true
 	label.render_priority = 5
 	label.outline_render_priority = 4
+	stand_for_camera(label)
 	effects.append({"node": label, "v": Vector3(0, 0.8, 0), "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true})
+
+func stand_for_camera(label: Label3D) -> void:
+	# From above, the numbers lie on the field like paint. In third person they stand up and
+	# turn to the camera like a third-person game's, at a size read from close by.
+	if not chase:
+		return
+	label.rotation = Vector3.ZERO
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.pixel_size = 0.0042
 
 func damage_mark(team: int, at: Vector2, bite: int) -> void:
 	# What a single brick took, floating off it. A power hits a whole wall at once and the

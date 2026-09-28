@@ -42,16 +42,13 @@ func hit_brick(r, index: int, damage: int) -> void:
 func _init() -> void:
 	var r = active()
 	check(Rules.WALLS.size() == 6, "Map has six polygon walls")
-	check(r.bricks.size() == 80 and r.brick_count(0) == 40 and r.brick_count(1) == 40, "Four triangular banks, 20 bricks each")
+	check(r.bricks.size() == Rules.BRICK_COUNT * 2 and r.brick_count(0) == Rules.BRICK_COUNT and r.brick_count(1) == Rules.BRICK_COUNT, "Five-row triangular banks, 25 bricks each")
 	check(r.bricks.all(func(b): return b.hp == 3), "Every brick starts with 3 lives")
 	check(Rules.PLAYER_LIVES == 5 and Rules.STUN_SECONDS == 0.5 and r.players.all(func(p): return p.hp == 5), "Pilots start with five lives and use a half-second stun")
 	var valid_layout = true
 	for brick in r.bricks:
-		for i in range(Rules.WALLS.size()):
-			var a: Vector2 = Rules.WALLS[i]
-			var edge: Vector2 = Rules.WALLS[(i + 1) % 6] - a
-			valid_layout = valid_layout and edge.cross(brick.p - a) >= 0
-	check(valid_layout, "All bricks lie inside the hexagon")
+		valid_layout = valid_layout and Rules.point_inside(r.walls, brick.p)
+	check(valid_layout, "All bricks lie inside the arena's walls")
 	var start: Vector2 = r.players[0].p
 	r.step(0.2, [{"move": Vector2.RIGHT}, {"move": Vector2.LEFT}])
 	check(r.players[0].p.x > 0 and r.players[0].p.y > start.y, "Horizontal movement follows a curve rather than a straight line")
@@ -92,24 +89,24 @@ func _init() -> void:
 	r.advance_ball(b, 0.07)
 	check(b.boosted and b.v.y > 1, "Curved booster surface changes the reflection angle")
 	r = active()
-	hit_brick(r, 40, 1)
-	check(r.bricks[40].hp == 2 and r.bricks[40].alive and r.balls.is_empty(), "Normal hit removes one life without destroying a healthy brick")
+	hit_brick(r, Rules.BRICK_COUNT, 1)
+	check(r.bricks[Rules.BRICK_COUNT].hp == 2 and r.bricks[Rules.BRICK_COUNT].alive and r.balls.is_empty(), "Normal hit removes one life without destroying a healthy brick")
 	check(Rules.brick_scale(2) < Rules.brick_scale(3), "First lost life shrinks the brick")
-	hit_brick(r, 40, 1)
-	check(r.bricks[40].hp == 1 and Rules.brick_scale(1) < Rules.brick_scale(2), "Second hit leaves a smaller brick with one life")
-	hit_brick(r, 40, 1)
-	check(r.bricks[40].hp == 0 and not r.bricks[40].alive, "Third normal hit destroys the brick")
+	hit_brick(r, Rules.BRICK_COUNT, 1)
+	check(r.bricks[Rules.BRICK_COUNT].hp == 1 and Rules.brick_scale(1) < Rules.brick_scale(2), "Second hit leaves a smaller brick with one life")
+	hit_brick(r, Rules.BRICK_COUNT, 1)
+	check(r.bricks[Rules.BRICK_COUNT].hp == 0 and not r.bricks[Rules.BRICK_COUNT].alive, "Third normal hit destroys the brick")
 	r = active()
-	hit_brick(r, 40, 2)
-	check(r.bricks[40].hp == 1 and r.bricks[40].alive, "Boosted hit removes two of three lives")
-	hit_brick(r, 40, 1)
-	check(not r.bricks[40].alive and r.scores == [0, 0], "One normal hit finishes a damaged brick without awarding a goal")
+	hit_brick(r, Rules.BRICK_COUNT, 2)
+	check(r.bricks[Rules.BRICK_COUNT].hp == 1 and r.bricks[Rules.BRICK_COUNT].alive, "Boosted hit removes two of three lives")
+	hit_brick(r, Rules.BRICK_COUNT, 1)
+	check(not r.bricks[Rules.BRICK_COUNT].alive and r.scores == [0, 0], "One normal hit finishes a damaged brick without awarding a goal")
 	r = active()
 	for brick in r.bricks:
-		if brick.id != 40:
+		if brick.id != Rules.BRICK_COUNT:
 			brick.hp = 0
 			brick.alive = false
-	var target: Dictionary = r.bricks[40]
+	var target: Dictionary = r.bricks[Rules.BRICK_COUNT]
 	var direction = Vector2(0, 1).rotated(target.rotation)
 	b = ball(r, target.p - direction * 1.0, direction * 100, 1, 2)
 	r.advance_ball(b, 0.03)
@@ -119,7 +116,7 @@ func _init() -> void:
 		r = active()
 		clear_defense(r, 0)
 		clear_defense(r, 1)
-		target = r.bricks[40]
+		target = r.bricks[Rules.BRICK_COUNT]
 		target.hp = hp
 		target.alive = true
 		b = ball(r, target.p + Vector2(local_graze, -0.5).rotated(target.rotation), Vector2(0, 10).rotated(target.rotation))
@@ -155,7 +152,7 @@ func _init() -> void:
 	r.advance_ball(b, 0.04)
 	check(r.scores == [1, 0] and r.phase == "goal" and r.balls.is_empty(), "Clearing both banks unlocks the curved scoring zone")
 	r.step(3.0, IDLE)
-	check(r.phase == "countdown" and r.brick_count(1) == 40 and r.bricks.all(func(brick): return brick.hp == 3) and r.scores == [1, 0], "New round restores every brick's size/health and preserves the score")
+	check(r.phase == "countdown" and r.brick_count(1) == Rules.BRICK_COUNT and r.bricks.all(func(brick): return brick.hp == 3) and r.scores == [1, 0], "New round restores every brick's size/health and preserves the score")
 	r.phase = "play"
 	r.scores[0] = Rules.WIN_SCORE - 1
 	clear_defense(r, 1)
@@ -164,7 +161,7 @@ func _init() -> void:
 	r.advance_ball(b, 0.04)
 	check(r.phase == "finished" and r.winner == 0 and r.scores[0] == Rules.WIN_SCORE, "The deciding goal finishes the match at the configured score")
 	r = active()
-	hit_brick(r, 40, 2)
+	hit_brick(r, Rules.BRICK_COUNT, 2)
 	ball(r, Vector2(0, 0), Vector2(0, -20), 1, 2)
 	var replica = Rules.new()
 	replica.apply_snapshot(r.snapshot())
