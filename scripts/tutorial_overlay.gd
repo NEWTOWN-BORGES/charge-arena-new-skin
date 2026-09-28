@@ -80,6 +80,8 @@ func show_step() -> void:
 	next_button.text = "COMEÇAR" if index == steps.size() - 1 else "SEGUINTE  →"
 	skip_button.visible = index < steps.size() - 1
 	arrange()
+	# Labels settle their wrapped height a frame later: arrange once more then.
+	call_deferred("arrange")
 	queue_redraw()
 
 func advance() -> void:
@@ -108,9 +110,15 @@ func arrange() -> void:
 	if card == null or steps.is_empty():
 		return
 	var width = minf(size.x - 32.0, 560.0)
+	# Wrapped text must be told how wide it may be; left to itself it measures one letter
+	# per line and the card grows taller than the screen, with the words pushed out of it.
+	var inner = width - 48.0
+	for text_label in [counter, heading, body]:
+		text_label.custom_minimum_size = Vector2(inner, 0)
 	card.custom_minimum_size = Vector2(width, 0)
 	card.size = Vector2(width, 0)
-	card.size = card.get_combined_minimum_size().max(Vector2(width, 0))
+	var wanted = card.get_combined_minimum_size()
+	card.size = Vector2(width, minf(wanted.y, size.y - safe_top - safe_bottom - 32.0))
 	# The card keeps clear of what it points at: above it when it is low, below when high.
 	var focus = target_rect()
 	var y = size.y * 0.5 - card.size.y * 0.5
