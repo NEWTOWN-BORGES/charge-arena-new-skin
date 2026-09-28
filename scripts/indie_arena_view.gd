@@ -764,10 +764,17 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
-	Robots.brick(self, brick, skin, team_color, tint)
-	for i in range(3):
-		var pip = box(brick, Vector3((i - 1) * 0.13, 0.426, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
-		pip.name = "HP" + str(i)
+	if Robots.brick(self, brick, skin, team_color, tint):
+		# A themed brick is tall and busy on top: its three life lights sit on the plinth,
+		# front and back, where they are always in sight.
+		for i in range(3):
+			for face in [-1, 1]:
+				var pip = box(brick, Vector3((i - 1) * 0.1, 0.05, face * 0.151), Vector3(0.07, 0.035, 0.008), team_color.lightened(0.2), true, 0.004)
+				pip.name = "HP" + str(i) + ("b" if face > 0 else "")
+	else:
+		for i in range(3):
+			var pip = box(brick, Vector3((i - 1) * 0.13, 0.426, 0), Vector3(0.078, 0.012, 0.095), team_color.darkened(0.45), true, 0.006)
+			pip.name = "HP" + str(i)
 	return brick
 
 func set_brick_theme(team: int, skin: int, tint: bool = false) -> void:
@@ -1693,6 +1700,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		brick.scale = Vector3(Rules.narrow_of(map), 1.0, 1.0) * maxf(0.001, Rules.brick_scale(data.hp))
 		for n in range(3):
 			brick.get_node("HP" + str(n)).visible = n < data.hp
+			var back = brick.get_node_or_null("HP" + str(n) + "b")
+			if back != null:
+				back.visible = n < data.hp
 		update_brick_batch(i)
 	var active: Array = []
 	for ball in rules.balls:

@@ -621,6 +621,8 @@ func build_viewer_pilot() -> void:
 		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index, locked))
 	viewer_bricks[1].scale = Vector3.ONE * arena_view.Rules.brick_scale(2)
 	viewer_bricks[1].get_node("HP2").hide()
+	if viewer_bricks[1].has_node("HP2b"):
+		viewer_bricks[1].get_node("HP2b").hide()
 	viewer_skin = preview_index
 	viewer_locked = locked
 	tint_backdrop()

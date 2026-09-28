@@ -13,6 +13,12 @@ const OUTLINE = preload("res://shaders/robot_outline.gdshader")
 const LEG_PIVOT = Vector3(0.19, 0.40, 0.0)
 const MUZZLE = Vector3(0.29, 0.70, -0.86)
 const STATION_SKIN = 100
+# Each robot's wall brick, by cast index: a mechanical block on its theme (see
+# tools/blender/mech_cast.py). A hard skin uses its boss's brick in its own colours, with the
+# neon kit on top.
+const BRICKS = ["brick_bit_mech", "brick_salvo_mech", "brick_orbita_mech", "brick_broto", "brick_bigorna_mech",
+	"brick_eclipse_mech", "brick_rosca_mech", "brick_faisca_mech", "brick_batida_mech", "brick_gancho_mech",
+	"brick_helio_mech", "brick_magnus_mech"]
 const EYES = ["capsule", "dots", "bars", "square", "slant", "monocle", "visor", "equalizer", "single", "rings", "stars", "arcs", "slits"]
 # Tops and crests are modelled for a head whose top is at HEAD_TOP and centre at HEAD_CENTER;
 # the roster's "heads" table says where each real head sits, and the parts follow it.
@@ -289,19 +295,42 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 	if glass != "":
 		face.set_shader_parameter("glass", Color(glass))
 
-static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> void:
-	# Every wall is the same arena brick, whoever defends it: a soft rubbery block in the
-	# team's colour (blue for the near side, red for the far one) with a cream cushion on top,
-	# so the two walls always read as the two teams and never as the robots' merchandise.
+static func brick_part(skin: int, tint: bool = false) -> String:
+	# The themed brick of a cast skin (a hard skin takes its boss's); "" for the station pilots
+	# and single-colour builds, which keep the soft arena brick.
+	if tint or skin < 0 or skin >= ROSTER.data.cast.size():
+		return ""
+	var base = int(ROSTER.data.cast[skin].get("base", skin))
+	return String(BRICKS[base]) if base >= 0 and base < BRICKS.size() else ""
+
+static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> bool:
+	# The wall of whoever defends it: that robot's mechanical brick in its own colours, with
+	# the team's colour on the lid and the band of the plinth (blue near, red far) so the two
+	# walls always read as the two teams. A hard skin adds its neon. Returns false when the
+	# soft arena brick was used instead (station pilots): a rubbery block in the team colour
+	# with a cream cushion on top.
+	var part = brick_part(skin, tint)
+	var strong = Color.from_hsv(team.h, maxf(team.s * 1.6, 0.76), team.v * 0.88)
+	if part != "":
+		var themed = colors(skin, team, tint)
+		themed["wear"] = 0.15
+		themed["team"] = strong
+		var placed = [[part, Transform3D.IDENTITY]]
+		var hard = ROSTER.data.cast[skin].has("base")
+		if hard:
+			placed.append(["brick_neon", Transform3D.IDENTITY])
+		_mount(view, node, "brick:%s:%s" % [part, "neon" if hard else ""], placed, themed, false)
+		return true
 	var paint = colors(0, team, tint)
 	paint["wear"] = 0.0
 	# The rubber of the Blender island: the team colour at full strength under the cream
 	# cushion (the pale pilot tints read as white once the colours are Blender's).
-	paint["team"] = Color.from_hsv(team.h, maxf(team.s * 1.6, 0.76), team.v * 0.88)
+	paint["team"] = strong
 	# The cushion takes the world's tint (arena_theme "cushion"); cream on the island.
 	var cushion: Color = view.theme.get("cushion", Color("fff4e2")) if "theme" in view else Color("fff4e2")
 	paint["shell"] = cushion
 	_mount(view, node, "brick:soft", [["brick_soft", Transform3D.IDENTITY]], paint, false)
+	return false
 
 static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionary) -> Array:
 	# Arena furniture from the same kit (bumpers, goal posts), painted like the robots.
