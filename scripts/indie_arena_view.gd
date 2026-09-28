@@ -1100,7 +1100,7 @@ var chase = false
 # pilot; let go and it swings back to where the pilot aims.
 var chase_look = 0.0
 var chase_held = false
-const CHASE_LOOK_MAX = 1.5
+const CHASE_LOOK_MAX = 1.9
 
 func set_chase(on: bool) -> void:
 	chase = on

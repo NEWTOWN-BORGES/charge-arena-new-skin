@@ -2968,7 +2968,12 @@ func on_map(at: Vector2) -> bool:
 	var top: float = score_rect.end.y
 	for rect in card_rects:
 		top = maxf(top, rect.end.y if vertical else 0.0)
-	return at.y > top + 6 and at.y < touch_top
+	# In third person the look-round takes most of the screen: only the thumb band at the
+	# bottom still moves the pilot.
+	var bottom: float = touch_top
+	if arena_view != null and is_instance_valid(arena_view) and arena_view.chase:
+		bottom = maxf(touch_top, size.y * 0.7)
+	return at.y > top + 6 and at.y < bottom
 
 func camera_span() -> float:
 	if camera_touches.size() < 2:
