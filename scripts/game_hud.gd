@@ -22,6 +22,7 @@ const POWER_GAP = 100.0
 const POWER_RISE = 176.0
 const Powers = preload("res://scripts/powers.gd")
 signal test_arena_requested
+signal powers_opened
 signal pvp_ai_requested
 signal play_requested
 signal host_requested
@@ -2130,6 +2131,7 @@ func open_powers() -> void:
 	move_child(powers_overlay, -1)
 	powers_overlay.show()
 	refresh_powers()
+	powers_opened.emit()
 
 func close_powers() -> void:
 	powers_overlay.hide()
@@ -4306,7 +4308,28 @@ func start_tutorial(kind: String) -> void:
 	tutorial_kind = kind
 	tutorial.safe_top = safe_top
 	tutorial.safe_bottom = safe_bottom
-	tutorial.start(lobby_steps() if kind == "lobby" else match_steps())
+	tutorial.start(lobby_steps() if kind == "lobby" else (shop_steps() if kind == "shop" else match_steps()))
+
+func shop_steps() -> Array:
+	# The PODERES shop, step by step: the wallet, the items and their price, what one does,
+	# its demonstration, buying it and taking it into a match.
+	var first_card = func(): return power_cards[0].get_global_rect() if not power_cards.is_empty() and power_cards[0].is_visible_in_tree() else Rect2()
+	var slots = func():
+		var box = Rect2()
+		for b in power_slot_buttons:
+			if b.is_visible_in_tree():
+				box = b.get_global_rect() if not box.has_area() else box.merge(b.get_global_rect())
+		return box
+	return [
+		{"title": "Loja de poderes", "text": "Aqui trocas os tijolos que partes nas partidas por habilidades novas. O teu saldo de tijolos está aqui em cima; juntas mais partindo muralhas em qualquer modo.", "target": control_rect(powers_wallet)},
+		{"title": "Os itens", "text": "Cada cartão é uma habilidade: o nome, se é de ATAQUE ou DEFESA e, em baixo, quanto custa em tijolos (ou NA MOCHILA, se já a tens). Arrasta para ver todas e toca numa para a escolher.", "target": control_rect(shop_scroll)},
+		{"title": "Um item", "text": "Este cartão, por exemplo: toca nele e a loja mostra-te tudo sobre essa habilidade.", "target": first_card},
+		{"title": "O que faz", "text": "Aqui lês o que a habilidade faz. Por cima vês o tipo, a CARGA (quantos tijolos tens de partir na partida para a encher) e a RECARGA (quanto tempo espera até poder voltar a ser usada).", "target": control_rect(powers_detail)},
+		{"title": "Vídeo demonstrativo", "text": "Este vídeo mostra a habilidade em ação, sempre em repetição, para veres o que faz antes de gastares os tijolos.", "target": control_rect(power_demo)},
+		{"title": "Comprar", "text": "Gostaste? Carrega em COMPRAR · (preço) TIJOLOS. Se o botão estiver apagado é porque ainda não tens tijolos que cheguem; se disser COMPRADO, já é tua.", "target": control_rect(power_buy)},
+		{"title": "Levar para o combate", "text": "Depois de comprada, põe-na no SLOT 1 ou no SLOT 2: são os dois botões de habilidade que levas para a partida. A ultimate (slot 3) vem com a skin que vestes.", "target": slots},
+		{"title": "Tudo pronto!", "text": "Podes rever este tutorial em OPÇÕES › JOGO › REVER TUTORIAIS. Boas compras!", "target": null},
+	]
 
 func lobby_steps() -> Array:
 	var level_row = func():

@@ -35,5 +35,8 @@ func run() -> void:
 	game.hud.auto_fire = false
 	var titles = game.hud.match_steps().map(func(s): return String(s.title))
 	check(titles.has("Disparar no joystick") and titles.has("Mudar o disparo") and titles.has("Câmara") and titles.has("3.ª pessoa"), "The match tutorial teaches joystick fire, where to change it and the camera")
+	var shop = game.hud.shop_steps().map(func(s): return String(s.title))
+	check(shop.has("Os itens") and shop.has("O que faz") and shop.has("Vídeo demonstrativo") and shop.has("Comprar"), "The shop tour shows the items, what one does, its video and how to buy")
+	check(not game.game_settings.tutorial_shop, "The shop tour has not been seen on a new device")
 	print("FIRE_DEFAULT_RESULT failures=%d" % failures)
 	quit(failures)

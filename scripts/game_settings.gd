@@ -28,6 +28,8 @@ var view_chase = false
 # Tutorials already seen on this device: the lobby tour and the first quick match.
 var tutorial_lobby = false
 var tutorial_match = false
+# The shop tour, the first time the PODERES shop opens.
+var tutorial_shop = false
 
 func configure(level: int, guide: bool, sensitivity: int = -1) -> void:
 	difficulty = clampi(level, 0, DIFFICULTIES.size() - 1)
@@ -60,6 +62,7 @@ func load_preferences() -> void:
 	view_chase = bool(config.get_value("game", "view_chase", false))
 	tutorial_lobby = bool(config.get_value("game", "tutorial_lobby", false))
 	tutorial_match = bool(config.get_value("game", "tutorial_match", false))
+	tutorial_shop = bool(config.get_value("game", "tutorial_shop", false))
 
 func save_preferences() -> Error:
 	var config = ConfigFile.new()
@@ -77,6 +80,7 @@ func save_preferences() -> Error:
 	config.set_value("game", "view_chase", view_chase)
 	config.set_value("game", "tutorial_lobby", tutorial_lobby)
 	config.set_value("game", "tutorial_match", tutorial_match)
+	config.set_value("game", "tutorial_shop", tutorial_shop)
 	config.set_value("game", "fire_control", fire_control)
 	config.set_value("game", "fire_size", fire_size)
 	config.set_value("game", "fire_x", fire_x)

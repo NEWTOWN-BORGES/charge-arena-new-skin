@@ -184,9 +184,11 @@ func _ready() -> void:
 	hud.fire_layout_changed.connect(change_fire_layout)
 	hud.bosses_requested.connect(open_bosses)
 	hud.tutorial_finished.connect(tutorial_done)
+	hud.powers_opened.connect(maybe_shop_tutorial)
 	hud.tutorials_reset.connect(func():
 		game_settings.tutorial_lobby = false
 		game_settings.tutorial_match = false
+		game_settings.tutorial_shop = false
 		save_game_settings()
 		if mode == "menu":
 			maybe_lobby_tutorial())
@@ -1788,9 +1790,20 @@ func maybe_lobby_tutorial() -> void:
 		return
 	hud.start_tutorial("lobby")
 
+func maybe_shop_tutorial() -> void:
+	# The shop tour, once per device, the first time the PODERES shop opens (after it is laid out).
+	if game_settings.tutorial_shop or hud.tutorial_running() or not tutorials_allowed():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if hud.powers_overlay.visible and not hud.tutorial_running():
+		hud.start_tutorial("shop")
+
 func tutorial_done(kind: String, _skipped: bool) -> void:
 	if kind == "lobby":
 		game_settings.tutorial_lobby = true
+	elif kind == "shop":
+		game_settings.tutorial_shop = true
 	else:
 		game_settings.tutorial_match = true
 		if mode == "pve":
