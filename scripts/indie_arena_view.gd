@@ -1096,6 +1096,11 @@ func unsteer() -> void:
 # Third person: the camera behind the player's own pilot, following it and looking the way
 # it aims. Entered by pulling the zoom in past its closest; the framed seat returns on exit.
 var chase = false
+# Looking round in third person: the same drag that turns the map turns the view about the
+# pilot; let go and it swings back to where the pilot aims.
+var chase_look = 0.0
+var chase_held = false
+const CHASE_LOOK_MAX = 1.5
 
 func set_chase(on: bool) -> void:
 	chase = on
@@ -1109,6 +1114,9 @@ func place_chase_camera(rules, team: int, dt: float) -> void:
 	var aim: Vector2 = rules.players[team].aim
 	var forward = Vector3(aim.x, 0.0, aim.y)
 	forward = forward.normalized() if forward.length() > 0.01 else Vector3.FORWARD
+	if not chase_held:
+		chase_look = lerpf(chase_look, 0.0, 1.0 - exp(-dt * 5.0))
+	forward = forward.rotated(Vector3.UP, chase_look)
 	var pilot: Vector3 = units[team].global_position
 	var eye = pilot - forward * 4.4 + Vector3.UP * 3.2
 	var look = pilot + forward * 6.0 + Vector3.UP * 0.5
@@ -3323,15 +3331,19 @@ func update_power_effects(rules, dt: float) -> void:
 				if not limb.visible:
 					continue
 				var from: Vector2 = path[leg]
-				# The first leg leaves the barrel, and every leg runs at the barrel's height.
-				var muzzle: Vector3 = muzzle_of(team)
+				# The first leg leaves the barrel and dips to the bricks' height; every leg
+				# after it runs at that height, so the beam meets small bricks too.
+				var start_y: float = SHOT_HEIGHT
 				if leg == 0:
+					var muzzle: Vector3 = muzzle_of(team)
 					from = Vector2(muzzle.x, muzzle.z)
+					start_y = muzzle.y
 				var travel: Vector2 = path[leg + 1] - from
+				var drop: float = SHOT_HEIGHT - start_y
 				# Each leg is modelled from 0 to 1 along +X, so it grows out of its corner.
-				limb.position = Vector3(from.x, muzzle.y, from.y)
-				limb.rotation.y = -travel.angle()
-				limb.scale = Vector3(travel.length(), flicker, flicker)
+				limb.position = Vector3(from.x, start_y, from.y)
+				limb.rotation = Vector3(0.0, -travel.angle(), atan2(drop, travel.length()))
+				limb.scale = Vector3(sqrt(travel.length_squared() + drop * drop), flicker, flicker)
 
 
 func build_power_effects() -> void:

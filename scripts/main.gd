@@ -758,6 +758,7 @@ func steer_camera(_dt: float) -> void:
 	var pinch: float = hud.camera_zoom
 	hud.camera_drag = Vector2.ZERO
 	hud.camera_zoom = 1.0
+	arena.chase_held = not hud.camera_touches.is_empty()
 	if drag == Vector2.ZERO and is_equal_approx(pinch, 1.0):
 		if hud.camera_moved:
 			hud.camera_moved = false
@@ -766,6 +767,11 @@ func steer_camera(_dt: float) -> void:
 	hud.camera_moved = true
 	var step: float = exp(-drag.y * 0.006) * pinch
 	if arena.chase:
+		# Sideways looks round the pilot (it swings back when the finger lifts); only a
+		# mostly vertical pull back, or a pinch, leaves third person.
+		arena.chase_look = clampf(arena.chase_look - drag.x * 0.006, -arena.CHASE_LOOK_MAX, arena.CHASE_LOOK_MAX)
+		if absf(drag.y) < absf(drag.x) and is_equal_approx(pinch, 1.0):
+			return
 		chase_push = chase_push * step if step < 1.0 else 1.0
 		if chase_push < CHASE_LEAVE:
 			game_settings.view_zoom = arena.VIEW_ZOOM_MAX * 0.9

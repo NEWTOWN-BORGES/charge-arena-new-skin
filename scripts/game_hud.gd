@@ -757,9 +757,18 @@ func refresh_news() -> void:
 	# The rail keys carry the counts, and a red dot while something waits behind them.
 	if lobby != null:
 		lobby.refresh()
-	if is_instance_valid(level_strip):
-		level_strip.visible = lobby.mode_id == "campaign"
-		level_label.queue_redraw()
+	show_level_strip()
+
+func show_level_strip() -> void:
+	# The strip adds a row to the dock: when it comes or goes the dock has to be laid out
+	# again, or the row lands on top of the mode card and the PLAY key.
+	if not is_instance_valid(level_strip):
+		return
+	var wanted: bool = lobby.mode_id == "campaign"
+	if level_strip.visible != wanted:
+		level_strip.visible = wanted
+		call_deferred("layout")
+	level_label.queue_redraw()
 
 func tint_backdrop() -> void:
 	# The halo and the floor rings take the colour of the pilot on show.
@@ -940,8 +949,10 @@ func _process(dt: float) -> void:
 	# The hangar covers the whole screen: drawing the arena underneath it every frame was half
 	# of what a weaker phone spent in there.
 	var hide_world = skins_overlay.visible or levels_overlay.visible
-	if get_viewport().disable_3d != hide_world:
-		get_viewport().disable_3d = hide_world
+	if arena_view != null and is_instance_valid(arena_view) and arena_view.visible == hide_world:
+		# The stadium is hidden, not the whole 3D of the window: switching the window's 3D
+		# off could take the hangar's own viewer with it on a phone.
+		arena_view.visible = not hide_world
 	if coach_at.x >= 0:
 		queue_redraw()
 	if powers_overlay != null and powers_overlay.visible:
@@ -2265,9 +2276,7 @@ func refresh_menu_level() -> void:
 	campaign_button.disabled = locked
 	lobby.refresh()
 	# The level strip belongs to ARENAS; the story picks its own arena, round by round.
-	if is_instance_valid(level_strip):
-		level_strip.visible = lobby.mode_id == "campaign"
-		level_label.queue_redraw()
+	show_level_strip()
 	queue_redraw()
 
 func menu_overlay_open() -> bool:

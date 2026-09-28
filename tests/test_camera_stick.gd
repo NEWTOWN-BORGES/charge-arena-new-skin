@@ -77,6 +77,18 @@ func run() -> void:
 		arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
 	var pilot: Vector3 = arena.units[game.local_team].global_position
 	check(arena.camera.global_position.distance_to(pilot) < 7.0 and arena.camera.projection == Camera3D.PROJECTION_PERSPECTIVE, "Em 3.ª pessoa a câmara segue o robô de perto")
+	hud.camera_tap_ms = -1000
+	touch(hud, middle, true)
+	for i in range(10):
+		drag(hud, middle + Vector2(18 * (i + 1), 0))
+		game.steer_camera(1.0 / 60.0)
+		arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
+	check(arena.chase and absf(arena.chase_look) > 0.5, "Em 3.ª pessoa arrastar para o lado olha à volta do robô")
+	touch(hud, middle + Vector2(180, 0), false)
+	for i in range(90):
+		game.steer_camera(1.0 / 60.0)
+		arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
+	check(arena.chase and absf(arena.chase_look) < 0.05, "Ao largar, a vista volta para a frente do robô")
 	for i in range(4):
 		swipe(game, hud, middle, Vector2(0, 200))
 	check(not arena.chase, "Afastar sai da 3.ª pessoa")
