@@ -493,11 +493,102 @@ def block(p, w, d, h, seed):
         mbox(p, "trim", T(0, 0.18, sz * (d / 2 - 0.08)), (w - 0.3, 0.36, 0.16), 0.03, 1)
 
 
+# ======================================================================================
+# Vida: árvores de copa, arbustos com flores, tufos de flores, nuvens fofas, montanhas com
+# neve e ilhas flutuantes. Facetadas (poucos lados) para o jogo as pôr aos montes.
+# ======================================================================================
+def oak(p, seed, size=1.0):
+    """Árvore de copa: tronco que afunila com dois ramos e a copa em cachos facetados, em
+    dois tons (shell e label), com o topo mais claro."""
+    rng = random.Random(seed)
+    lathe(p, "trim", T(0, 0, 0), [(0.16 * size, 0.0), (0.11 * size, 0.5 * size), (0.08 * size, 1.1 * size), (0.0, 1.25 * size)], 7)
+    for side in (-1, 1):
+        a = Vector((0, rng.uniform(0.55, 0.8) * size, 0))
+        b = a + Vector((side * rng.uniform(0.35, 0.5) * size, rng.uniform(0.3, 0.45) * size, rng.uniform(-0.2, 0.2) * size))
+        rod(p, "trim", a, b, 0.045 * size, 5)
+    blobs = [(0, 1.45, 0, 0.62)] + [(rng.uniform(-0.5, 0.5), rng.uniform(1.05, 1.5), rng.uniform(-0.45, 0.45), rng.uniform(0.34, 0.48)) for _ in range(5)]
+    for k, (x, y, z, r) in enumerate(blobs):
+        p.ball("shell" if k % 2 == 0 else "label", (x * size, y * size, z * size), (r * 2 * size, r * 1.7 * size, r * 2 * size), rot=(0, rng.uniform(0, 90), 0), detail=7)
+
+
+def bush(p, seed, size=1.0):
+    """Arbusto baixo em três cachos, salpicado de flores (papel hazard)."""
+    rng = random.Random(seed)
+    for k in range(3):
+        x, z = rng.uniform(-0.3, 0.3) * size, rng.uniform(-0.25, 0.25) * size
+        r = rng.uniform(0.28, 0.4) * size
+        p.ball("shell" if k != 1 else "label", (x, r * 0.7, z), (r * 2, r * 1.5, r * 2), detail=7)
+    for _ in range(7):
+        a = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.2, 0.42) * size
+        ball(p, "hazard", (math.cos(a) * rr, rng.uniform(0.3, 0.55) * size, math.sin(a) * rr), 0.045 * size, 6)
+
+
+def flowers(p, seed, size=1.0):
+    """Tufo de erva com flores: lâminas finas e cabeças coloridas (hazard e label)."""
+    rng = random.Random(seed)
+    for _ in range(9):
+        x, z = rng.uniform(-0.35, 0.35) * size, rng.uniform(-0.35, 0.35) * size
+        h = rng.uniform(0.18, 0.34) * size
+        p.wedge("shell", (x, h / 2, z), (0.05 * size, h, 0.02 * size), rot=(rng.uniform(-15, 15), rng.uniform(0, 180), rng.uniform(-15, 15)), taper=0.9, radius=0.0)
+    for k in range(5):
+        x, z = rng.uniform(-0.3, 0.3) * size, rng.uniform(-0.3, 0.3) * size
+        h = rng.uniform(0.25, 0.4) * size
+        rod(p, "shell", (x, 0, z), (x, h, z), 0.01 * size, 4)
+        ball(p, "hazard" if k % 2 == 0 else "label", (x, h, z), 0.05 * size, 6)
+
+
+def cloud_puff(p, seed, size=1.0):
+    """Nuvem fofa: bolas achatadas de vários tamanhos, a base um pouco mais escura (trim)."""
+    rng = random.Random(seed)
+    count = rng.randint(5, 7)
+    for k in range(count):
+        x = (k - (count - 1) / 2) * 0.55 * size + rng.uniform(-0.15, 0.15) * size
+        r = rng.uniform(0.45, 0.8) * size * (1.2 if abs(k - (count - 1) / 2) < 1 else 1.0)
+        # Glow: lit from within, so a cloud stays white on any side instead of greying like stone.
+        p.ball("glow", (x, rng.uniform(0.0, 0.25) * size + r * 0.35, rng.uniform(-0.2, 0.2) * size), (r * 2, r * 1.5, r * 1.7), detail=14)
+    p.ball("trim", (0, 0.05 * size, 0), (count * 0.55 * size, 0.35 * size, 1.1 * size), detail=12)
+
+
+def mountain(p, seed, size=1.0):
+    """Montanha distante: três picos facetados de cinco lados e neve nos cimos (trim)."""
+    rng = random.Random(seed)
+    for k in range(3):
+        x = (k - 1) * rng.uniform(4.0, 6.0) * size
+        h = rng.uniform(6.0, 11.0) * size * (1.25 if k == 1 else 1.0)
+        r = h * rng.uniform(0.6, 0.8)
+        m = sub(T(x, 0, rng.uniform(-2, 2) * size), rot=(0, rng.uniform(0, 72), 0))
+        lathe(p, "shell", m, [(r, 0.0), (r * 0.55, h * 0.45), (0.0, h)], 5, cap_bottom=True)
+        lathe(p, "trim", sub(m, 0, h * 0.72, 0), [(r * 0.55 * 0.62 + 0.05, 0.0), (0.0, h * 0.29 + 0.05)], 5, cap_bottom=True)
+
+
+def float_island(p, seed, size=1.0):
+    """Ilha flutuante: rocha em cone virado para baixo, relva por cima e duas árvores."""
+    rng = random.Random(seed)
+    lathe(p, "trim", sub(T(0, 0, 0), rot=(0, rng.uniform(0, 60), 0)), [(0.0, -2.2 * size), (1.1 * size, -0.9 * size), (1.6 * size, -0.2 * size), (1.6 * size, 0.0)], 6, cap_bottom=False)
+    lathe(p, "shell", T(0, 0, 0), [(1.62 * size, 0.0), (1.55 * size, 0.18 * size), (0.0, 0.2 * size)], 8, cap_bottom=True)
+    for k in range(2):
+        a = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.2, 0.9) * size
+        x, z = math.cos(a) * rr, math.sin(a) * rr
+        s = rng.uniform(0.6, 0.85) * size
+        mtube(p, "dark", T(x, 0.2 * size + 0.35 * s, z), 0.07 * s, 0.7 * s, 5)
+        p.ball("label", (x, 0.2 * size + 1.0 * s, z), (1.0 * s, 0.9 * s, 1.0 * s), detail=7)
+
+
 def define(part):
     for i in range(3):
         part("env_rock_%d" % i)(lambda p, s=i: rock(p, 11 + s * 7, 1.0 + s * 0.25))
         part("env_pine_%d" % i)(lambda p, s=i: pine(p, 3 + s, 1.3 + s * 0.35))
     part("env_cactus")(lambda p: cactus(p, 4, 1.2))
+    for i in range(3):
+        part("env_oak_%d" % i)(lambda p, s=i: oak(p, 51 + s * 13, 1.2 + s * 0.3))
+        part("env_cloud_%d" % i)(lambda p, s=i: cloud_puff(p, 61 + s * 7, 1.0 + s * 0.3))
+    for i in range(2):
+        part("env_bush_%d" % i)(lambda p, s=i: bush(p, 71 + s * 5, 1.0 + s * 0.3))
+        part("env_flowers_%d" % i)(lambda p, s=i: flowers(p, 81 + s * 5, 1.0))
+        part("env_mountain_%d" % i)(lambda p, s=i: mountain(p, 91 + s * 9, 1.0))
+        part("env_island_%d" % i)(lambda p, s=i: float_island(p, 101 + s * 3, 1.0 + s * 0.4))
     part("env_solar")(solar)
     part("env_turbine")(turbine)
     part("env_radar")(radar)

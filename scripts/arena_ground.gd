@@ -6,6 +6,7 @@ extends RefCounted
 ## Kit parts and flat slabs only: static, opaque and merged by material after the build.
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaSky = preload("res://scripts/arena_sky.gd")
+const ArenaLife = preload("res://scripts/arena_life.gd")
 
 const WHITE = Color("f4f6f8")
 const ORANGE = Color("ff7a3c")
@@ -153,3 +154,7 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 		var paint = {"shell": Color("e3b07a") if sand else Color("b9c3cc"), "trim": Color("f3cf98") if sand else Color("e4e9ee")}
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(0.7, 1.4))
 		ArenaSky.place(view, "env_rock_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, height_at(q, tiers) - 0.05, q.y)), paint)
+	taken.append_array(rocks)
+	# Broad-leaved copses, flowering bushes and tufts of flowers between the pines, batched.
+	var green = ArenaSky.spots(rng, ArenaSky.rich(view, 110), sample, 0.9, taken)
+	ArenaLife.woods(view, rng, green, func(q): return height_at(q, tiers))

@@ -24,6 +24,7 @@ const ArenaSea = preload("res://scripts/arena_sea.gd")
 const ArenaSpace = preload("res://scripts/arena_space.gd")
 const ArenaCity = preload("res://scripts/arena_city.gd")
 const ArenaDiorama = preload("res://scripts/arena_diorama.gd")
+const ArenaLife = preload("res://scripts/arena_life.gd")
 const Fx = preload("res://scripts/fx.gd")
 const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
@@ -46,6 +47,8 @@ var effects: Array = []
 var presentation_environment: Environment
 # The scenery the dressing built (exported to be baked), and whether this build is for that.
 var world_nodes: Array = []
+# Pivots of the moving scenery (clouds, fish schools, asteroids) and their turn per second.
+var drifters: Array = []
 var bake_export = false
 var court_material: ShaderMaterial
 # The arena environment (colours of floor, sky, blocks and stadium); see arena_theme.gd.
@@ -551,6 +554,9 @@ func build(new_map: Dictionary = {}) -> void:
 			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
 			ArenaDressing.perimeter(self, theme)
 			ArenaDressing.stadium(self, theme, quality_level)
+	# Life on top of the world: trees, flowers, mountains on the horizon, drifting clouds.
+	if not bake_export:
+		ArenaLife.build(self, theme, String(theme.get("dressing", "")))
 	world_nodes = get_children().slice(first_world_node)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):
@@ -1521,6 +1527,8 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	for drift in drifters:
+		drift[0].rotation.y += dt * float(drift[1])
 	advance_fx_clock(dt)
 	if fx != null: fx.tick(fx_clock)
 	if lobby_view:
