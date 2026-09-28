@@ -2,7 +2,8 @@ extends SceneTree
 # Renders the HUD portraits from the real robot models (needs a GPU; omit --headless):
 #   godot -s tools/render_portraits.gd
 # Writes art/robots/portraits/cast_<skin>.png and road_<kind>.png, each with a _dizzy twin,
-# and for every hard skin a cast_<skin>_dark.png: the locked silhouette with only its neon lit.
+# and for every hard skin a cast_<skin>_dark.png: the locked silhouette with only its neon lit
+# (then run tools/glow_dark_portraits.py to bloom that neon).
 const View = preload("res://scripts/indie_arena_view.gd")
 const Robots = preload("res://scripts/robots.gd")
 const SIZE = 256
