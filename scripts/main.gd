@@ -770,7 +770,7 @@ func steer_camera(_dt: float) -> void:
 		# Sideways looks round the pilot (it swings back when the finger lifts); only a
 		# mostly vertical pull back, or a pinch, leaves third person.
 		arena.chase_look = clampf(arena.chase_look - drag.x * 0.006, -arena.CHASE_LOOK_MAX, arena.CHASE_LOOK_MAX)
-		if absf(drag.y) < absf(drag.x) and is_equal_approx(pinch, 1.0):
+		if is_zero_approx(drag.y) and is_equal_approx(pinch, 1.0):
 			return
 		chase_push = chase_push * step if step < 1.0 else 1.0
 		if chase_push < CHASE_LEAVE:

@@ -93,6 +93,14 @@ func run() -> void:
 		swipe(game, hud, middle, Vector2(0, 200))
 	check(not arena.chase, "Afastar sai da 3.ª pessoa")
 
+	# Quick swipes one after another are turns, never a double tap.
+	swipe(game, hud, middle, Vector2(120, 0))
+	swipe(game, hud, middle, Vector2(120, 0))
+	check(not hud.camera_reset and absf(game.game_settings.view_yaw) > 0.3, "Deslizes seguidos rodam e não repõem a câmara")
+	var yaw_before = game.game_settings.view_yaw
+	var zoom_before = game.game_settings.view_zoom
+	swipe(game, hud, middle, Vector2(-150, 30))
+	check(is_equal_approx(game.game_settings.view_zoom, zoom_before) and game.game_settings.view_yaw != yaw_before, "Um deslize para o lado que desce um pouco só roda, não aproxima")
 	hud.camera_tap_ms = -1000
 	touch(hud, middle, true)
 	touch(hud, middle, false)

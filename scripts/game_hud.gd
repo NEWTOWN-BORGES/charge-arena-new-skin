@@ -131,6 +131,15 @@ var camera_tap_ms = -1000
 var camera_touches: Dictionary = {}
 var camera_drag = Vector2.ZERO
 var camera_zoom = 1.0
+# Each one-finger gesture is locked to the axis it starts along - sideways turns, up and
+# down zooms - so a turn that drifts a little never zooms (or leaves third person).
+var camera_axis = ""
+var camera_travel = Vector2.ZERO
+var camera_press_ms = 0
+var camera_press_at = Vector2.ZERO
+const CAMERA_AXIS_LOCK = 14.0
+const CAMERA_TAP_MS = 260
+const CAMERA_TAP_MOVE = 18.0
 var move_vector = Vector2.ZERO
 var move_center = Vector2.ZERO
 var power_centers: Array = [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
@@ -2908,15 +2917,27 @@ func _input(event: InputEvent) -> void:
 		if event.pressed and on_map(event.position) and power_at(event.position) < 0:
 			if camera_touches.is_empty():
 				camera_id = event.index
-				var now = Time.get_ticks_msec()
-				if now - camera_tap_ms < 320:
-					camera_reset = true
-				camera_tap_ms = now
+				camera_axis = ""
+				camera_travel = Vector2.ZERO
+				camera_press_ms = Time.get_ticks_msec()
+				camera_press_at = event.position
 			camera_touches[event.index] = event.position
 			return
 		if not event.pressed and camera_touches.has(event.index):
 			camera_touches.erase(event.index)
 			if event.index == camera_id:
+				# Only two short, still taps in a row put the camera back; quick swipes one
+				# after another are turns, not a double tap.
+				var now = Time.get_ticks_msec()
+				var tap = now - camera_press_ms < CAMERA_TAP_MS and event.position.distance_to(camera_press_at) < CAMERA_TAP_MOVE
+				if tap:
+					if now - camera_tap_ms < 360:
+						camera_reset = true
+						camera_tap_ms = -1000
+					else:
+						camera_tap_ms = now
+				else:
+					camera_tap_ms = -1000
 				camera_id = -1 if camera_touches.is_empty() else int(camera_touches.keys()[0])
 			return
 		if event.pressed:
@@ -2956,8 +2977,15 @@ func _input(event: InputEvent) -> void:
 			if before > 1.0 and after > 1.0:
 				camera_zoom *= after / before
 		else:
-			camera_drag += event.position - camera_touches[event.index]
+			var step: Vector2 = event.position - camera_touches[event.index]
 			camera_touches[event.index] = event.position
+			camera_travel += step
+			if camera_axis == "" and camera_travel.length() > CAMERA_AXIS_LOCK:
+				camera_axis = "x" if absf(camera_travel.x) >= absf(camera_travel.y) else "y"
+			if camera_axis == "x":
+				camera_drag.x += step.x
+			elif camera_axis == "y":
+				camera_drag.y += step.y
 		return
 	if event is InputEventScreenDrag and event.index == move_id:
 		move_vector = ((event.position - move_center) / 44).limit_length()
