@@ -41,5 +41,6 @@ void fragment() {
 	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.45), 0.0, 1.0);
 	vec3 hot = mix(vivid, vec3(1.0, 0.98, 0.92), 0.75);
 	ALBEDO = mix(vivid * (0.8 + 0.45 * live), hot, clamp(core * 0.7, 0.0, 1.0));
-	ALPHA = clamp(strength * fade * (0.22 + 0.7 * core + 0.35 * edge * live), 0.0, 1.0);
+	// Solid: a dense body with a brighter core, only thinning a little at the very rim.
+	ALPHA = clamp(strength * fade * (0.72 + 0.45 * core + 0.2 * edge * live), 0.0, 1.0);
 }

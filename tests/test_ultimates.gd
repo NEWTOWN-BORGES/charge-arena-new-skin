@@ -196,7 +196,7 @@ func run() -> void:
 	for i in range(1, fronts.size()):
 		if fronts[i] > fronts[i - 1] + 0.01:
 			restarts += 1
-	check(waves == [0, 1, 2], "Three waves break, one after the other, and both sides hear them (%s)" % str(waves))
+	check(waves == range(Rules.SINGULARITY_WAVES), "Every wave breaks, one after the other, and both sides hear them (%s)" % str(waves))
 	check(restarts >= 1, "The front restarts at the rim for each new wave (%d recomeços em %d amostras)" % [restarts, fronts.size()])
 	check(fronts.max() > Rules.HALF_LENGTH and fronts.min() < 1.5, "The front washes over everything, from %.1f down to %.1f" % [fronts.max(), fronts.min()])
 	# Whatever a wave has passed over is held, crawling, and pointed at the pilot.

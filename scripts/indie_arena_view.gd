@@ -141,6 +141,25 @@ var pending: Array = []
 const LIGHT_POOL_LIMIT = 8
 var light_pool: Array[OmniLight3D] = []
 var active_lights = 0
+# Ultimate mood: from the first spark of a windup to the last blow of the ultimate, the sky
+# and the room dim a little, so what the ultimate throws out is the brightest thing in the
+# arena. Big blasts light the whole field for a moment through the key light itself (free on
+# a phone, unlike a lamp), and the sun ray keeps it lit warm for as long as it burns.
+const MOOD_DARK = 0.34
+const MOOD_SKY_DARK = 0.42
+var key_light: DirectionalLight3D
+var backdrop_mat: ShaderMaterial
+var mood_base: Dictionary = {}
+var mood = 0.0
+var mood_hold = 0.0
+var sun_glow = 0.0
+var laser_glow = 0.0
+var field_light = 0.0
+var field_decay = 1.0
+var field_tint = Color.WHITE
+# Two lamps per side that follow the laser and the sun ray: one halfway down the beam,
+# one where it lands. Always part of the scene (warmed with the shaders), dark when idle.
+var beam_lamps: Array = []
 
 func prepare_fx_pool() -> void:
 	for i in range(LIGHT_POOL_LIMIT):
@@ -149,6 +168,18 @@ func prepare_fx_pool() -> void:
 		lamp.hide()
 		add_child(lamp)
 		light_pool.append(lamp)
+	beam_lamps.clear()
+	for team in range(2):
+		var pair: Array = []
+		for i in range(2):
+			var lamp = OmniLight3D.new()
+			lamp.shadow_enabled = false
+			lamp.light_energy = 0.0
+			lamp.omni_range = 0.1
+			lamp.position = Vector3(0, -50, 0)
+			add_child(lamp)
+			pair.append(lamp)
+		beam_lamps.append(pair)
 
 func material(color: Color, luminous: bool = false) -> StandardMaterial3D:
 	var key = str(color) + str(luminous)
@@ -335,6 +366,7 @@ func soft_disc_material(color: Color) -> ShaderMaterial:
 func set_quality(level: int) -> void:
 	quality_level = clampi(level, 0, 2)
 	if presentation_environment != null: ArenaFinish.environment(presentation_environment, quality_level)
+	capture_mood_base()
 	if court_material != null: court_material.set_shader_parameter("finish_quality", float(quality_level))
 	Robots.set_quality(self, quality_level)
 	if fx != null: fx.quality = quality_level
@@ -409,6 +441,7 @@ func build(new_map: Dictionary = {}) -> void:
 		bg_mat.set_shader_parameter(key, theme[key])
 	bg_mat.set_shader_parameter("stars", theme.get("stars", 0.0))
 	background.material = bg_mat
+	backdrop_mat = bg_mat
 	background_layer.add_child(background)
 	# Studio light: a large warm key from the upper left and a cool, gentle fill from behind
 	# on the right. The grey dome of the environment does the rest.
@@ -418,11 +451,13 @@ func build(new_map: Dictionary = {}) -> void:
 	light.light_energy = 1.1
 	light.shadow_enabled = false
 	add_child(light)
+	key_light = light
 	secondary_light = DirectionalLight3D.new()
 	secondary_light.rotation_degrees = Vector3(-30, 145, 0)
 	secondary_light.light_color = Color("e4ecf6")
 	secondary_light.light_energy = 0.35
 	add_child(secondary_light)
+	capture_mood_base()
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = LANDSCAPE_SIZE
@@ -1459,6 +1494,14 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if warm_frames == 0 and is_instance_valid(warm_root):
 			warm_root.queue_free()
 			warm_root = null
+		if warm_frames == 0:
+			for pair in beam_lamps:
+				for lamp in pair:
+					lamp.light_energy = 0.0
+					lamp.omni_range = 0.1
+					lamp.position = Vector3(0, -50, 0)
+	if not lobby_view and not tour_view and rules != null and rules.get("powers") != null:
+		apply_mood(rules, dt)
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
 	var offset = shake_offset(dt)
 	if chase and match_seat and not lobby_view and not tour_view:
@@ -1739,6 +1782,12 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		if effect.get("lamp", 0.0) > 0.0:
 			# A lamp dies down instead of shrinking.
 			effect.node.light_energy = effect.lamp * remaining * remaining
+		elif effect.has("expand"):
+			# A solid shape that opens out at a steady speed and sinks away at the end.
+			var opened = 1.0 - remaining
+			var radius = lerpf(0.6, effect.expand, opened)
+			var tall = effect.height * clampf(remaining * 1.8, 0.0, 1.0) * (0.5 + 0.5 * minf(opened * 6.0, 1.0))
+			effect.node.scale = Vector3(radius, maxf(tall, 0.01), radius)
 		elif effect.get("keep", false):
 			pass
 		elif effect.get("grow", false):
@@ -1828,6 +1877,13 @@ func warm_shaders() -> void:
 	orb.scale = Vector3.ONE * 0.004
 	orb.show()
 	warm_frames = 4
+	# The beam lamps touch the whole arena once now, so every material has its lit variant
+	# ready before the first laser - not compiled in the middle of it.
+	for pair in beam_lamps:
+		for lamp in pair:
+			lamp.position = Vector3(0, 2.0, 0)
+			lamp.omni_range = Rules.HALF_LENGTH * 2.2
+			lamp.light_energy = 0.001
 
 # Rounds fly at brick height; a new one starts at its gun's muzzle and blends down onto its
 # path over LAUNCH_BLEND seconds. projectile_launch: id -> [muzzle offset, age].
@@ -1976,6 +2032,9 @@ func flash(at: Vector3, color: Color, energy: float, life: float, reach: float =
 		life *= 0.7
 	if fx != null:
 		fx.glow(at, color, clampf(reach * 0.14, 0.4, 1.6), life * 0.8)
+	# A big blast lights the whole field for a moment, on every device.
+	if reach >= 9.0:
+		light_field(color, clampf(energy / 8.0, 0.25, 1.1) * clampf(reach / 14.0, 0.7, 1.3), life)
 	if light_pool.is_empty() or active_lights >= light_cap(): return
 	var lamp = light_pool.pop_back()
 	active_lights += 1
@@ -1986,6 +2045,97 @@ func flash(at: Vector3, color: Color, energy: float, life: float, reach: float =
 	lamp.omni_range = reach
 	lamp.shadow_enabled = false
 	effects.append({"node": lamp, "light_pool": true, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true, "lamp": energy})
+
+func dim_beam_lamps(team: int) -> void:
+	if team >= beam_lamps.size():
+		return
+	for lamp in beam_lamps[team]:
+		if lamp.light_energy > 0.0:
+			lamp.light_energy = 0.0
+			lamp.omni_range = 0.1
+			lamp.position = Vector3(0, -50, 0)
+
+func place_beam_lamp(team: int, index: int, at: Vector3, color: Color, energy: float, reach: float) -> void:
+	if team >= beam_lamps.size() or not beam_lamps_on():
+		return
+	var lamp: OmniLight3D = beam_lamps[team][index]
+	lamp.position = at
+	lamp.light_color = color
+	lamp.light_energy = energy
+	lamp.omni_range = reach
+	lamp.omni_attenuation = 0.8
+
+func light_field(color: Color, strength: float, life: float) -> void:
+	# The key light itself takes the colour of the blast and swells, then dies back.
+	strength *= feel.intensity if feel != null else 1.0
+	if strength < field_light * 0.6:
+		return
+	field_tint = color if field_light <= 0.05 else field_tint.lerp(color, 0.6)
+	field_light = maxf(field_light, strength)
+	field_decay = field_light / maxf(life * 1.5, 0.2)
+
+func hold_mood(seconds: float) -> void:
+	# Ultimates that land in one blow still keep the room dim for a beat after.
+	mood_hold = maxf(mood_hold, seconds)
+
+func capture_mood_base() -> void:
+	if presentation_environment == null or not is_instance_valid(key_light):
+		return
+	mood_base = {
+		"ambient": presentation_environment.ambient_light_energy,
+		"key": key_light.light_energy,
+		"key_color": key_light.light_color,
+		"fill": secondary_light.light_energy if is_instance_valid(secondary_light) else 0.0,
+		"sky": [theme.get("sky_top", Color.BLACK), theme.get("sky_mid", Color.BLACK), theme.get("sky_low", Color.BLACK)],
+	}
+	mood = 0.0
+
+func beam_lamps_on() -> bool:
+	# One laser's worth of lamps is affordable on a phone from Médio up; Leve keeps only the
+	# field light.
+	return quality_level >= 1 and light_override != 0 and (feel == null or feel.intensity >= 1.0)
+
+func apply_mood(rules, dt: float) -> void:
+	if mood_base.is_empty():
+		return
+	var target = 0.0
+	var sun = 0.0
+	var laser = 0.0
+	for team in range(mini(2, rules.powers.size())):
+		var state: Dictionary = rules.powers[team]
+		if float(state.get("ultimate_windup", 0.0)) > 0.0 or float(state.get("ultimate_time", 0.0)) > 0.0:
+			target = 1.0
+		if float(state.get("ultimate_time", 0.0)) > 0.0 and String(state.get("ultimate_id", "")) == "sun_ray":
+			sun = 1.0
+		if float(state.get("laser_time", 0.0)) > 0.0:
+			laser = 1.0
+	mood_hold = maxf(mood_hold - dt, 0.0)
+	if mood_hold > 0.0:
+		target = 1.0
+	mood = move_toward(mood, target, dt * (3.2 if target > mood else 1.1))
+	sun_glow = move_toward(sun_glow, sun, dt * 5.0)
+	laser_glow = move_toward(laser_glow, laser, dt * 8.0)
+	field_light = maxf(field_light - dt * field_decay, 0.0)
+	var dark = 1.0 - MOOD_DARK * mood
+	var sun_color = Color("ffb467")
+	var tint_mix = clampf(field_light * 0.55, 0.0, 0.7)
+	var key_color: Color = mood_base.key_color.lerp(field_tint, tint_mix)
+	key_color = key_color.lerp(sun_color, sun_glow * 0.65)
+	key_color = key_color.lerp(Rules.power_color("laser"), laser_glow * 0.3)
+	key_light.light_color = key_color
+	key_light.light_energy = mood_base.key * dark + 1.25 * field_light + 1.1 * sun_glow + 0.15 * laser_glow
+	presentation_environment.ambient_light_energy = mood_base.ambient * (1.0 - 0.3 * mood) + 0.3 * field_light + 0.35 * sun_glow
+	if is_instance_valid(secondary_light):
+		secondary_light.light_energy = mood_base.fill * (1.0 - 0.45 * mood)
+	if backdrop_mat != null:
+		var names = ["sky_top", "sky_mid", "sky_low"]
+		var sky_dark = 1.0 - MOOD_SKY_DARK * mood
+		for i in range(3):
+			var base = mood_base.sky[i]
+			if not (base is Color):
+				continue
+			var shade: Color = base.darkened(1.0 - sky_dark).lerp(Color("ffb467"), sun_glow * 0.12 * (1.0 if i > 0 else 0.4)).lerp(field_tint, tint_mix * 0.12)
+			backdrop_mat.set_shader_parameter(names[i], shade)
 
 func schedule(seconds: float, call: Callable) -> void:
 	pending.append({"time": seconds, "call": call})
@@ -2758,7 +2908,7 @@ func gain_mark(at: Vector2, gain: int, tint: Color) -> void:
 		return
 	float_number("+%d" % gain, Vector3(at.x, 1.6, at.y), tint.lightened(0.45), 84, 1.7)
 
-func shock_mark(team: int, at: Vector2, bite: int) -> void:
+func shock_mark(team: int, at: Vector2, bite: int, source: Vector2 = Vector2.ZERO) -> void:
 	# One brick, caught by the wave: a halo in the colour of the blow and the lives it took
 	# floating off it. Without this the ultimate is all sky and you cannot read what it did.
 	if effects.size() + 2 >= effect_limit:
@@ -2766,30 +2916,89 @@ func shock_mark(team: int, at: Vector2, bite: int) -> void:
 	var color: Color = [Color("ffe9c0"), Color("ffd27a"), Color("ff9f5c"), Color("ff6a5c")][clampi(bite, 0, 3)]
 	var halo = torus(self, Vector3(at.x, 0.42, at.y), 0.32, 0.05, Color(color, 0.95), true)
 	effects.append({"node": halo, "v": Vector3(0, 1.0, 0), "ttl": 0.5, "life": 0.5, "gravity": false, "base": Vector3.ONE * 2.0, "grow": true, "tint": color})
+	# Chips torn off the brick and thrown the way the wave is going.
+	var away = (at - source).normalized() if at.distance_to(source) > 0.01 else Vector2.UP
+	for i in range(2 + mini(bite, 3)):
+		var kick = Vector3(away.x, 0, away.y) * randf_range(2.5, 5.0) + Vector3(randf_range(-1, 1), randf_range(2.5, 4.5), randf_range(-1, 1))
+		feedback_chip(Vector3(at.x, 0.4, at.y), kick, Color("2a1d38").lerp(color, 0.35), 0.55, Vector3.ONE * randf_range(0.07, 0.12), true)
 	tally_mark(team, at, bite, color)
 
+func shock_wall_shape() -> ArrayMesh:
+	# An open band one unit wide and one unit tall, with a rounded lip: scaled out it is the
+	# wall of force of the singularity's release.
+	if shapes.has("shock_wall"):
+		return shapes["shock_wall"]
+	var profile = [Vector2(1.0, 0.0), Vector2(1.0, 0.72), Vector2(0.992, 0.9), Vector2(0.975, 1.0), Vector2(0.958, 0.9), Vector2(0.95, 0.72), Vector2(0.95, 0.0)]
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sides = 64
+	for i in range(sides):
+		var a0 = float(i) / sides * TAU
+		var a1 = float(i + 1) / sides * TAU
+		for k in range(profile.size() - 1):
+			var p0: Vector2 = profile[k]
+			var p1: Vector2 = profile[k + 1]
+			var v00 = Vector3(cos(a0) * p0.x, p0.y, sin(a0) * p0.x)
+			var v01 = Vector3(cos(a1) * p0.x, p0.y, sin(a1) * p0.x)
+			var v10 = Vector3(cos(a0) * p1.x, p1.y, sin(a0) * p1.x)
+			var v11 = Vector3(cos(a1) * p1.x, p1.y, sin(a1) * p1.x)
+			triangle(st, v00, v10, v11)
+			triangle(st, v00, v11, v01)
+			triangle(st, v00, v11, v10)
+			triangle(st, v00, v01, v11)
+	var shape = st.commit()
+	shapes["shock_wall"] = shape
+	return shape
+
 func shock_wave(at: Vector2, marks: Array = [], hurt: int = 1) -> void:
-	# The same blow as the stun pulse, on the scale of the whole stadium: rings that leave
-	# the core and keep going out past the walls, with the ground lit under them.
+	# The core lets go: a solid wall of dark force, lit white on the inside, that leaves the
+	# pilot at the speed the bricks are struck and runs out past the walls. The ground is
+	# scorched under the core, dust rises where the front passes, the whole arena flashes
+	# violet and the camera takes the blow.
 	var color = Rules.power_color("singularity")
-	var pale = Color("fff0d2")
-	for wave in range(3):
-		if effects.size() >= effect_limit:
-			break
-		var life = 0.85 + wave * 0.18
-		var ring = torus(self, Vector3(at.x, 0.3 + wave * 0.22, at.y), 1.0, 0.13 - wave * 0.03, Color(pale if wave == 0 else color, 0.95), true)
-		ring.scale = Vector3.ONE * 0.16
-		effects.append({"node": ring, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE * (22.0 + wave * 6.0), "grow": true, "tint": color})
-	var dome = sphere(self, Vector3(at.x, 0.6, at.y), Vector3.ONE * 1.4, Color(color, 0.5), true)
-	effects.append({"node": dome, "v": Vector3.ZERO, "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE * 6.5, "grow": true, "tint": color})
-	emitter(Vector3(at.x, 0.6, at.y), pale, 40, 0.9, 13.0, 90.0, 0.34, -4.0, Vector3.UP)
-	flash(Vector3(at.x, 1.4, at.y), color, 8.0, 0.7, 22.0)
-	shake(0.85)
+	var deep = color.darkened(0.55)
+	var pale = Color("f1e2ff")
+	var reach = Rules.HALF_LENGTH * 2.0 + 4.0
+	var life = reach / SHOCK_SPEED
+	var centre = Vector3(at.x, 0.0, at.y)
+	if effects.size() + 6 < effect_limit:
+		# Two bands: the dark front and a bright inner face right behind it.
+		var front = mesh(self, shock_wall_shape(), centre, deep, true)
+		effects.append({"node": front, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach * 1.03, "height": 1.9, "energy": []})
+		var inner = mesh(self, shock_wall_shape(), centre, pale, true)
+		effects.append({"node": inner, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "expand": reach, "height": 1.15, "energy": []})
+		var floor_ring = mesh(self, shock_wall_shape(), centre, color.lightened(0.15), true)
+		effects.append({"node": floor_ring, "v": Vector3.ZERO, "ttl": life * 1.1, "life": life * 1.1, "gravity": false, "base": Vector3.ONE, "expand": reach * 0.96, "height": 0.22, "energy": []})
+		# The core bursts: a dome that swells and flattens, and a pillar thrown straight up.
+		var dome = sphere(self, centre, Vector3.ONE * 0.8, deep.lerp(color, 0.4), true)
+		effects.append({"node": dome, "v": Vector3.ZERO, "ttl": 0.55, "life": 0.55, "gravity": false, "base": Vector3.ONE, "expand": 5.5, "height": 3.2, "energy": []})
+		var pillar = cylinder(self, centre + Vector3.UP * 3.0, 0.5, 6.0, pale, true, 24)
+		effects.append({"node": pillar, "v": Vector3(0, 6.0, 0), "ttl": 0.4, "life": 0.4, "gravity": false, "base": Vector3(1.4, 1.0, 1.4), "energy": []})
+	scorch(at, 7.5, Color("1a0d26"), 2.6)
+	emitter(Vector3(at.x, 0.6, at.y), pale, 44, 0.9, 14.0, 90.0, 0.34, -4.0, Vector3.UP)
+	emitter(Vector3(at.x, 0.3, at.y), color, 30, 0.7, 11.0, 180.0, 0.3, -2.0, Vector3.UP)
+	# Dust kicked up by the front as it runs across the floor.
+	if fx != null:
+		for step in range(1, 7):
+			var radius = SHOCK_SPEED * step * 0.12
+			schedule(step * 0.12, func():
+				for k in range(16):
+					var around = k * TAU / 16.0 + step * 0.4
+					var spot = at + Vector2(cos(around), sin(around)) * radius
+					if absf(spot.x) < Rules.HALF_WIDTH + 1.0 and absf(spot.y) < Rules.HALF_LENGTH + 1.0:
+						fx.smoke(Vector3(spot.x, 0.25, spot.y), Color("3b2a4d"), 1, 0.9, 0.9, 0.3, 0.9))
+	flash(Vector3(at.x, 1.4, at.y), color.lightened(0.25), 9.0, 0.8, 24.0)
+	light_field(color.lightened(0.35), 1.35, 1.0)
+	hold_mood(1.6)
+	hitstop(0.07)
+	dilate(0.55, 0.32)
+	shake_event(1.25, 0.55, 15.0)
+	schedule(0.3, func(): shake_event(0.5, 0.6, 9.0))
 	# Every brick the wave catches lights up as the front reaches it, and says what it took.
 	for mark in marks:
 		var spot: Vector2 = mark.p
 		var bite: int = int(mark.bite)
-		pending.append({"time": clampf(at.distance_to(spot) / SHOCK_SPEED, 0.0, 0.8), "call": func(): shock_mark(hurt, spot, bite)})
+		pending.append({"time": clampf(at.distance_to(spot) / SHOCK_SPEED, 0.0, 0.8), "call": func(): shock_mark(hurt, spot, bite, at)})
 
 func frost_flash(at: Vector2) -> void:
 	# The frost taking hold: three rings racing out across the floor, a burst of crystal
@@ -3208,6 +3417,8 @@ func update_power_effects(rules, dt: float) -> void:
 				var ring_at = pilot + Vector2(cos(clock * 5.0), sin(clock * 5.0)) * lerpf(2.4, 0.8, wind)
 				emitter(Vector3(ring_at.x, 0.15, ring_at.y), glow, 8, 0.45, 1.6 + wind * 2.4, 16.0, 0.26, -2.5, Vector3.UP)
 				flash(Vector3(pilot.x, 0.9, pilot.y), glow, 1.2 + wind * 3.5, 0.2, 6.0)
+		if warm_frames <= 0:
+			dim_beam_lamps(team)
 		var ray: Node3D = power_nodes[team].get_node("SunRay")
 		var firing_sun: bool = state.ultimate_time > 0 and String(state.ultimate_id) == "sun_ray"
 		ray.visible = firing_sun
@@ -3230,6 +3441,11 @@ func update_power_effects(rules, dt: float) -> void:
 			if fmod(clock, 0.1) < dt:
 				emitter(muzzle, Color("fff4d2"), 10, 0.4, 7.0, 24.0, 0.3, -1.5, Vector3(aim.x, 0, aim.y))
 				shake(0.28)
+			# The ray lights the arena it crosses: a wide warm lamp down its length and a
+			# white-hot one at the barrel.
+			var down = Vector3(aim.x, 0, aim.y)
+			place_beam_lamp(team, 0, muzzle + down * Rules.HALF_LENGTH * 0.9 + Vector3.UP * 1.6, Color("ffa04a"), 4.8 * fade, Rules.HALF_LENGTH * 2.1)
+			place_beam_lamp(team, 1, muzzle + Vector3.UP * 0.6, Color("fff1d6"), 3.6 * fade, 6.5)
 		var vortex: Node3D = power_nodes[team].get_node("Vortex")
 		var collapsing: bool = state.ultimate_time > 0 and String(state.ultimate_id) == "singularity"
 		vortex.visible = collapsing
@@ -3293,6 +3509,14 @@ func update_power_effects(rules, dt: float) -> void:
 				limb.position = Vector3(from.x, start_y, from.y)
 				limb.rotation = Vector3(0.0, -travel.angle(), atan2(drop, travel.length()))
 				limb.scale = Vector3(sqrt(travel.length_squared() + drop * drop), flicker, flicker)
+				if leg == 0:
+					# The laser lights the floor along its path and burns bright where it lands.
+					var length = travel.length()
+					var mid = Vector3(from.x, 0.7, from.y) + Vector3(travel.x, 0, travel.y) * 0.5
+					place_beam_lamp(team, 0, mid, Rules.power_color("laser").lightened(0.2), 4.6 * flicker, length * 0.6 + 2.6)
+				if leg == path.size() - 2:
+					var landing: Vector2 = path[leg + 1]
+					place_beam_lamp(team, 1, Vector3(landing.x, 0.55, landing.y), Color("ffc14a"), 5.0 * flicker, 4.2)
 				if leg == path.size() - 2 and fx != null and fmod(clock, 0.05) < dt:
 					# Where it lands: small yellow and orange sparks, thrown back off the hit.
 					var hit: Vector2 = path[leg + 1]
@@ -3596,6 +3820,9 @@ func goal_scored(team_scoring: int, spot: Vector3) -> void:
 func ultimate_accent(at: Vector2, id: String) -> void:
 	# Small silhouette accents augment, rather than replace, each themed main effect.
 	var tint = Rules.power_color(id)
+	# The release itself lights the field and keeps the room dim for a beat.
+	hold_mood(1.4)
+	light_field(tint.lightened(0.2), 0.8, 0.5)
 	var origin = Vector3(at.x, 0.7, at.y)
 	var count = 5 if quality_level == 0 else 9
 	var rising = id in ["bloom", "meteors", "sun_ray"]

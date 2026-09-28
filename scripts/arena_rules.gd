@@ -125,13 +125,13 @@ const THUNDER_DAMAGE = 2
 const THUNDER_RADIUS = 0.42
 # Singularity: the pilot becomes the epicentre. Every shot in flight loses its course and
 # crawls into the core; when the core lets go it is one wall of force, not a fan of rounds.
-const SINGULARITY_PULL = 2.1
+const SINGULARITY_PULL = 1.5
 const SINGULARITY_SWALLOW = 0.55
 const SINGULARITY_SLOW = 0.22
 const SINGULARITY_HOLD = 44
 # Three waves come in out of the sky and sweep the arena, each one reaching further in;
 # a shot is only caught once its wave has washed over it.
-const SINGULARITY_WAVES = 3
+const SINGULARITY_WAVES = 2
 const SINGULARITY_REACH = 18.0
 # Sentries: two little gun platforms left standing in the middle of the ring. They fire by
 # themselves, take the open goal when they can see it, and the rival has to shoot them down
