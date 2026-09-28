@@ -4348,6 +4348,8 @@ func match_steps() -> Array:
 		{"title": "O objetivo", "text": "Parte a muralha do adversário, lá em cima, e mete a bola na baliza dele. Defende a tua muralha, cá em baixo. Ganha quem marcar 2 golos.", "target": field},
 		{"title": "Mover e apontar", "text": "Toca e arrasta no campo: o teu robô vira-se e aponta para onde tocas. As setas saltam de alvo em alvo.", "target": circle_rect(func(): return move_home, STICK_RADIUS + 14.0)},
 		fire_step(),
+		{"title": "Câmara", "text": "Arrasta um dedo no campo (fora do joystick) para mexer a câmara: para os lados roda à volta da arena e volta ao sítio quando largas; para cima aproxima e para baixo afasta. Com dois dedos também fazes zoom.", "target": field},
+		{"title": "3.ª pessoa", "text": "Chegando ao zoom máximo, continua a arrastar para cima: a câmara passa para trás do teu robô, em 3.ª pessoa, a segui-lo e a olhar para onde apontas. Arrasta para os lados para olhar à volta; puxa para baixo para voltar à vista de cima. Dois toques rápidos no campo repõem a câmara padrão.", "target": field},
 		{"title": "Mudar o disparo", "text": "Preferes outra maneira? No lobby, em OPÇÕES › CONTROLOS › Modo de disparo, escolhes: No joystick (o padrão), Botão (um botão TIRO à parte, com tamanho e posição à tua medida) ou Automático (o robô dispara sozinho).", "target": null},
 		{"title": "Habilidades", "text": "Estes dois botões são as tuas habilidades. Enchem à medida que partes tijolos; quando brilharem, toca para as usar.", "target": powers_row},
 		{"title": "Ultimate", "text": "O botão grande é a ultimate da tua skin: demora mais a encher e pode virar o jogo. O BIT não tem ultimate; ganha skins no Modo história.", "target": circle_rect(func(): return power_centers[2], power_button_radius(2) + 6.0)},

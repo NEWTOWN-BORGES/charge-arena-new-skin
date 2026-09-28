@@ -34,6 +34,6 @@ func run() -> void:
 	game.hud.fire_control = 1
 	game.hud.auto_fire = false
 	var titles = game.hud.match_steps().map(func(s): return String(s.title))
-	check(titles.has("Disparar no joystick") and titles.has("Mudar o disparo"), "The match tutorial teaches joystick fire and where to change it")
+	check(titles.has("Disparar no joystick") and titles.has("Mudar o disparo") and titles.has("Câmara") and titles.has("3.ª pessoa"), "The match tutorial teaches joystick fire, where to change it and the camera")
 	print("FIRE_DEFAULT_RESULT failures=%d" % failures)
 	quit(failures)
