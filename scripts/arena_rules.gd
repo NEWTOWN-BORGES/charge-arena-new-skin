@@ -682,6 +682,8 @@ func running_power(team: int) -> bool:
 func reset_round() -> void:
 	# Keep earned charges between goals, but no effect survives the round end.
 	cached_firing_angles.clear()
+	# Rockets still in the air do not carry into the next round.
+	rockets.clear()
 	obstacle_stun = 0.0
 	for state in powers:
 		state.rapid_time = 0.0

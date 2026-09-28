@@ -636,6 +636,10 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		save_skins()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Back during a tutorial skips it, like its own SALTAR.
+		if hud.tutorial_running():
+			hud.tutorial.close(true)
+			return
 		request_menu()
 
 func host_game() -> void:
@@ -1554,7 +1558,9 @@ func tutorial_done(kind: String, _skipped: bool) -> void:
 	else:
 		game_settings.tutorial_match = true
 		if mode == "pve":
-			pve_paused = false
+			# Also clears a pause menu raised while the tutorial was up (the app went to the
+			# background and came back).
+			resume_pve()
 	save_game_settings()
 
 func go_background(away: bool) -> void:

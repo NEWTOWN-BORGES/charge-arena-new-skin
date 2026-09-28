@@ -76,6 +76,7 @@ static func head(name: String) -> Dictionary:
 # Set around a build to draw a locked pilot as a silhouette: everything near black, eyes out,
 # and only a hard-mode skin's neon still faintly alight - a hint, not a look.
 static var shadow_build = false
+const SHADOW_BLACK = Color("050507")
 
 static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	# Every role resolved to a colour. Empty entries in the roster follow the team colour.
@@ -96,12 +97,17 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 		out.eyes = team.lightened(0.45)
 	out["team"] = team
 	if shadow_build:
+		# In the dark: the body black, only the neon alight (drawn unlit, see _mount), so the
+		# glow alone traces the pilot's shape. A hard skin's accents turn to neon as well.
 		var entry: Dictionary = ROSTER.data.cast[clampi(skin, 0, ROSTER.data.cast.size() - 1)] if skin < STATION_SKIN else {}
-		var neon: Color = Color(out.glow).darkened(0.68) if entry.has("base") else Color("0c0d11")
-		for role in ["shell", "trim", "dark", "metal", "rubber", "hazard", "label", "team"]:
-			out[role] = Color("0c0d11").lerp(Color(out[role]), 0.06)
+		var hard: bool = entry.has("base")
+		var neon: Color = Color(out.glow) if hard else Color(out.glow).darkened(0.5)
+		var accent: Color = Color(out.trim).darkened(0.7) if hard else SHADOW_BLACK
+		for role in ["shell", "dark", "metal", "rubber", "hazard", "label", "team"]:
+			out[role] = SHADOW_BLACK
+		out.trim = accent
 		out.glow = neon
-		out.eyes = neon if entry.has("base") else Color("0c0d11")
+		out.eyes = neon
 		return out
 	if tint:
 		# A boss not yet beaten fights in gunmetal and its team's colour.
@@ -320,6 +326,10 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 			node.material_override = _outline(view)
 			node.add_to_group(OUTLINE_GROUP)
 			node.visible = view.quality_level > 0
+		elif shadow_build:
+			# Unlit: no highlight, no reflection gives the body away; only the vertex colours
+			# (black and neon) are drawn.
+			node.material_override = _shadow_material(role == "screen")
 		elif role == "screen":
 			var face = ShaderMaterial.new()
 			face.shader = FACE
@@ -329,6 +339,17 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 		parent.add_child(node)
 		nodes.append(node)
 	return nodes
+
+static var _shadow_materials: Dictionary = {}
+
+static func _shadow_material(screen: bool) -> Material:
+	if not _shadow_materials.has(screen):
+		var mat = StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = SHADOW_BLACK if screen else Color.WHITE
+		mat.vertex_color_use_as_albedo = not screen
+		_shadow_materials[screen] = mat
+	return _shadow_materials[screen]
 
 static func _joint(view, body: Node3D, joint_name: String, key: String, placed: Array, paint: Dictionary, below: bool) -> Node3D:
 	# A jointed piece: mounted in body space, then its node moved to the pivot (the bottom of
@@ -358,7 +379,10 @@ static func _face(body: Node3D) -> ShaderMaterial:
 	var screen: MeshInstance3D = body.get_node_or_null("Head/Robot_screen")
 	if screen == null:
 		screen = body.get_node_or_null("Robot_screen")
-	return screen.material_override if screen != null else ShaderMaterial.new()
+	# A silhouette's screen is plain black: its face settings go to a throwaway material.
+	if screen != null and screen.material_override is ShaderMaterial:
+		return screen.material_override
+	return ShaderMaterial.new()
 
 static func set_mood(body: Node3D, mood: int) -> void:
 	# 0 calm, 1 happy, 2 dizzy. Cheap to call every frame: only writes on change.

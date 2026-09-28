@@ -529,7 +529,11 @@ func build_skin_viewer() -> void:
 		light.rotation_degrees = rig[0]
 		light.light_color = rig[1]
 		light.light_energy = rig[2]
+		light.set_meta("energy", rig[2])
 		viewer_stage.add_child(light)
+		viewer_lights.append(light)
+	viewer_environment = environment.environment
+	viewer_environment.set_meta("ambient", viewer_environment.ambient_light_energy)
 	viewer_camera = Camera3D.new()
 	viewer_camera.fov = 30
 	viewer_camera.current = true
@@ -541,6 +545,9 @@ func build_skin_viewer() -> void:
 	viewer_audio.bus = preload("res://scripts/combat_audio.gd").prepare_bus()
 	viewer_audio.volume_db = -18
 	add_child(viewer_audio)
+
+var viewer_lights: Array = []
+var viewer_environment: Environment
 
 func frame_viewer(tall: float) -> void:
 	# Pull the camera back until the whole pilot fits, however tall this one is. A crown, a
@@ -790,7 +797,17 @@ func tint_backdrop() -> void:
 	# The halo and the floor rings take the colour of the pilot on show.
 	if is_instance_valid(viewer_backdrop):
 		var body: Color = viewer_palette().get("light", CYAN)
-		viewer_backdrop.material.set_shader_parameter("accent", body)
+		# A locked pilot stands in the dark: the backdrop goes almost black, so the black
+		# body melts into it and only its neon traces the shape.
+		var dark = viewer_locked
+		viewer_backdrop.material.set_shader_parameter("accent", Color("15161c") if dark else body)
+		viewer_backdrop.material.set_shader_parameter("top", Color("0b0c10") if dark else Color(0.2, 0.25, 0.34))
+		viewer_backdrop.material.set_shader_parameter("bottom", Color("040405") if dark else Color(0.06, 0.08, 0.12))
+		# The lights of the stage go down too: the pedestal and its props fade into the dark.
+		for light in viewer_lights:
+			light.light_energy = float(light.get_meta("energy")) * (0.12 if dark else 1.0)
+		if viewer_environment != null:
+			viewer_environment.ambient_light_energy = float(viewer_environment.get_meta("ambient")) * (0.1 if dark else 1.0)
 
 func viewer_palette() -> Dictionary:
 	return Skins.colors(viewer_skin, CORAL, true) if viewer_locked else Skins.colors(viewer_skin, CYAN)
