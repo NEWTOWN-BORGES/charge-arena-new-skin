@@ -408,7 +408,7 @@ func use_map(layout: Dictionary) -> void:
 	hud.layout()
 
 # --------------------------------------------------------------------------------------
-# Modo história: os dez chefes por ordem, sem ultimate de nenhum dos lados. Em NORMAL
+# Modo história: os doze chefes por ordem; cada lado traz a ultimate da skin que veste. Em NORMAL
 # vencer um chefe dá a sua skin; em DIFÍCIL o chefe veste a skin difícil e é essa que ganhas.
 var story_run: Dictionary = {}
 
@@ -475,16 +475,16 @@ func start_story(step: int, hard: bool) -> void:
 	use_map(Campaign.LEVELS[index].map)
 	story_run = {"step": step, "hard": hard, "boss": boss}
 	rules.ai_profile = Campaign.ai_profile(index, 2 if hard else 1)
-	# No ultimates on either side: two powers each, the third key empty.
-	rules.loadouts = [power_shop.loadout(""), Campaign.boss_kit(index) + [""]]
-	credited_bricks = 0
+	var wear = story_prize(boss, hard)
+	# You bring the ultimate of the skin you wear (BIT has none, so a new player starts
+	# without one); the boss brings the ultimate of the skin it wears.
+	use_loadouts(Campaign.boss_kit(index), wear)
 	rules.reset_match()
 	dress_pilots(local_team)
-	var wear = story_prize(boss, hard)
 	arena.set_skin(1, wear, false)
 	hud.team_hues = arena.unit_hues
 	hud.level_info = {"number": step + 1, "name": ("DIFÍCIL · " if hard else "") + String(Campaign.LEVELS[index].name),
-		"challenge": "Sem ultimate. Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
+		"challenge": "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
 		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size()}
 	hud.level_result = ""
 	hud.level_skin = ""

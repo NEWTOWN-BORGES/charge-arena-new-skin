@@ -29,15 +29,18 @@ func run() -> void:
 	check(normal[0].open and not normal[1].open, "Only the first boss is open at the start")
 	game.start_story(0, false)
 	await create_timer(0.2).timeout
-	check(String(game.rules.loadouts[0][2]) == "" and String(game.rules.loadouts[1][2]) == "", "Neither side has an ultimate")
+	check(String(game.rules.loadouts[0][2]) == String(Skins.CATALOG[game.skins.selected].ultimate), "You bring the ultimate of the skin you wear")
+	check(String(game.rules.loadouts[1][2]) == String(Skins.CATALOG[order[0]].ultimate), "The boss brings the ultimate of its skin")
 	check(int(game.arena.unit_skins[1]) == order[0], "The boss wears its own skin in NORMAL")
 	game.rules.winner = 0
 	game.finish_level()
 	check(game.skins.is_unlocked(order[0]), "Beating the boss in NORMAL unlocks its skin")
 	check(game.story_entries(false)[1].open, "The next boss opens")
 	check(not game.skins.is_unlocked(Skins.hard_of_boss(order[0])), "The hard skin is not won in NORMAL")
+	game.skins.selected = 5
 	game.start_story(0, true)
 	await create_timer(0.2).timeout
+	check(String(game.rules.loadouts[0][2]) == "singularity", "Wearing ECLIPSE you have its ultimate in the story")
 	check(int(game.arena.unit_skins[1]) == Skins.hard_of_boss(order[0]), "In DIFÍCIL the boss wears its hard skin")
 	game.rules.winner = 0
 	game.finish_level()

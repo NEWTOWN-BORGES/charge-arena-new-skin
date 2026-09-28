@@ -15,7 +15,7 @@ const MODES = [
 	# The story mode (the Taça Aurora) is out of the lobby until its new form is decided; its
 	# code stays behind the "story" id.
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
-	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "Os 12 chefes, sem ultimate"},
+	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "Os 12 chefes, um a um"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
 	{"id": "test", "name": "ARENA DE TESTE", "about": "Mais comprida, mais tijolos, bumpers dourados"},
