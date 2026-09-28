@@ -1326,7 +1326,9 @@ func show_showroom(skin: int, boss: int, boss_dark: bool) -> void:
 	if showroom_skins[1] != boss or showroom_skins[2] != boss_dark:
 		if is_instance_valid(showroom_boss):
 			showroom_boss.queue_free()
-		showroom_boss = build_player(CORAL, 1, boss, showroom, boss_dark)
+		Robots.shadow_build = boss_dark
+		showroom_boss = build_player(CORAL, 1, boss, showroom, false)
+		Robots.shadow_build = false
 		showroom_boss.position = BOSS_SPOT + Vector3(0, 0.24, 0)
 		showroom_boss.scale = Vector3.ONE * 0.9
 		showroom_boss.rotation.y = PI - 0.45

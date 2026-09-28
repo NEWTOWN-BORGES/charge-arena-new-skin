@@ -6,6 +6,7 @@
 #   nome       por omissão "Charge Arena Teste"
 #   versão     por omissão o hash curto do commit
 #   features   por omissão nenhuma; "open_test" faz a versão LAB (tudo desbloqueado)
+#   ícone      por omissão "bit"; usa art/icon/<ícone>_icon.png, _foreground e _background
 #
 # Usa o preset "Android" só com arm64-v8a (os telemóveis atuais) e assina com a chave de
 # depuração do Godot: serve para testes, não para distribuir. Precisa de
@@ -18,14 +19,15 @@ label="${3:-Charge Arena Teste}"
 root="$(git rev-parse --show-toplevel)"
 version="${4:-$(git -C "$root" rev-parse --short HEAD)}"
 features="${5:-}"
+icon="${6:-bit}"
 keystore="${HOME}/.local/share/godot/keystores/debug.keystore"
 
 work="$(mktemp -d)"
 trap 'rm -r "$work"' EXIT
 git -C "$root" archive HEAD | tar -x -C "$work"
-python3 - "$work/export_presets.cfg" "$out" "$package" "$label" "$version" "$features" <<'EOF'
+python3 - "$work/export_presets.cfg" "$out" "$package" "$label" "$version" "$features" "$icon" <<'EOF'
 import re, sys
-path, out, package, label, version, features = sys.argv[1:]
+path, out, package, label, version, features, icon = sys.argv[1:]
 text = open(path).read()
 head, rest = text.split("[preset.1]", 1)
 def put(key, value):
@@ -39,6 +41,9 @@ put("package/name", f'"{label}"')
 put("version/name", f'"{version}"')
 put("architectures/x86_64", "false")
 put("architectures/arm64-v8a", "true")
+put("launcher_icons/main_192x192", f'"res://art/icon/{icon}_icon.png"')
+put("launcher_icons/adaptive_foreground_432x432", f'"res://art/icon/{icon}_foreground.png"')
+put("launcher_icons/adaptive_background_432x432", f'"res://art/icon/{icon}_background.png"')
 open(path, "w").write(head + "[preset.1]" + rest)
 EOF
 mkdir -p "$(dirname "$out")"

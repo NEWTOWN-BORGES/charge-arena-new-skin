@@ -587,8 +587,10 @@ func build_viewer_pilot() -> void:
 	clear_viewer_shots()
 	if is_instance_valid(viewer_pilot):
 		viewer_pilot.queue_free()
-	# Every pilot is shown in the colours it was drawn in, beaten or not.
+	# A locked pilot is a dark silhouette: only a hard skin's neon glows faintly through.
+	Robots.shadow_build = locked
 	viewer_pilot = arena_view.build_player(CYAN, 0, preview_index, viewer_turntable, false)
+	Robots.shadow_build = false
 	viewer_pilot.position = Vector3(0, 0.02, 0)
 	if not is_instance_valid(viewer_shadow):
 		# A soft contact shadow, so the pilot stands on the plate instead of floating over it.
@@ -3241,7 +3243,8 @@ func portrait(center: Vector2, color: Color, stunned: bool, skin: int = 0, canva
 	var picture: Texture2D = robot_portrait(skin, stunned)
 	if picture == null:
 		return
-	var tone = Color(color.darkened(0.55), 1.0) if tint else Color.WHITE
+	# A locked pilot's portrait is almost black: a shape to win, not a look to copy.
+	var tone = Color(0.1, 0.1, 0.13, 1.0) if tint else Color.WHITE
 	var frame = Rect2(center - Vector2(52, 58) * zoom, Vector2(104, 104) * zoom)
 	if c == self:
 		later(func(): draw_texture_rect(picture, frame, false, tone))

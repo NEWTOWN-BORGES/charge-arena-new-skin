@@ -73,6 +73,10 @@ static func _vector(values: Array, fallback: Vector3) -> Vector3:
 static func head(name: String) -> Dictionary:
 	return ROSTER.data.heads.get(name, {"top": HEAD_TOP, "center": HEAD_CENTER, "aspect": 1.45})
 
+# Set around a build to draw a locked pilot as a silhouette: everything near black, eyes out,
+# and only a hard-mode skin's neon still faintly alight - a hint, not a look.
+static var shadow_build = false
+
 static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	# Every role resolved to a colour. Empty entries in the roster follow the team colour.
 	var palette: Dictionary = recipe(skin).palette
@@ -91,6 +95,14 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 	if String(palette.get("eyes", "")) == "":
 		out.eyes = team.lightened(0.45)
 	out["team"] = team
+	if shadow_build:
+		var entry: Dictionary = ROSTER.data.cast[clampi(skin, 0, ROSTER.data.cast.size() - 1)] if skin < STATION_SKIN else {}
+		var neon: Color = Color(out.glow).darkened(0.68) if entry.has("base") else Color("0c0d11")
+		for role in ["shell", "trim", "dark", "metal", "rubber", "hazard", "label", "team"]:
+			out[role] = Color("0c0d11").lerp(Color(out[role]), 0.06)
+		out.glow = neon
+		out.eyes = neon if entry.has("base") else Color("0c0d11")
+		return out
 	if tint:
 		# A boss not yet beaten fights in gunmetal and its team's colour.
 		out.shell = Color("3d404a")

@@ -123,6 +123,9 @@ func build_sheet() -> void:
 	list.add_child(hud.label("ESCOLHE O MODO", 28, UiKit.WHITE, true))
 	list.add_child(hud.label("O modo fica no lobby: depois é só carregar em JOGAR.", 14, UiKit.MUTED))
 	for entry in MODES:
+		# The test arena belongs to the LAB build only.
+		if entry.id == "test" and not (OS.has_feature("open_test") or OS.has_feature("editor")):
+			continue
 		var card = Button.new()
 		card.custom_minimum_size = Vector2(0, 82)
 		card.focus_mode = Control.FOCUS_NONE
