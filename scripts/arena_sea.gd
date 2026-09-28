@@ -82,24 +82,24 @@ static func reef(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, re
 			return null
 		return q
 	# Kelp in tall clumps, coral heads and fans, then bubble streams and a few boulders.
-	var kelp = ArenaSky.spots(rng, 56, sample, 1.4, taken)
+	var kelp = ArenaSky.spots(rng, ArenaSky.rich(view, 56), sample, 1.25, taken)
 	for q in kelp:
 		var tone = KELP[rng.randi() % KELP.size()]
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(1.3, 2.2))
 		ArenaSky.place(view, "env_kelp_%d" % (rng.randi() % 2), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers), q.y)), {"shell": tone[0], "trim": tone[1], "label": tone[2]})
 	taken = taken + kelp
-	var corals = ArenaSky.spots(rng, 50, sample, 1.5, taken)
+	var corals = ArenaSky.spots(rng, ArenaSky.rich(view, 50), sample, 1.35, taken)
 	for q in corals:
 		var tone = CORALS[rng.randi() % CORALS.size()]
 		var kind = "env_coral_tubes_%d" % (rng.randi() % 2) if rng.randf() < 0.55 else "env_coral_fan_%d" % (rng.randi() % 2)
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(1.3, 2.2))
 		ArenaSky.place(view, kind, Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers), q.y)), {"shell": tone[0], "trim": tone[1].darkened(0.1), "label": tone[1]})
 	taken = taken + corals
-	for q in ArenaSky.spots(rng, 12, sample, 2.0, taken):
+	for q in ArenaSky.spots(rng, ArenaSky.rich(view, 12), sample, 2.0, taken):
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(1.0, 1.6))
 		ArenaSky.place(view, "env_bubbles_%d" % (rng.randi() % 2), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers), q.y)), {"label": Color("e6fbff")})
 		taken.append(q)
-	for q in ArenaSky.spots(rng, 16, sample, 2.0, taken):
+	for q in ArenaSky.spots(rng, ArenaSky.rich(view, 16), sample, 2.0, taken):
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(0.8, 1.5))
 		ArenaSky.place(view, "env_rock_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers) - 0.05, q.y)), {"shell": Color("5f7d99"), "trim": Color("a9c4d6")})
 	# Schools of fish in the open water round the deck, never over the field.

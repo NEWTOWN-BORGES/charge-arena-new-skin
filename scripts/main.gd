@@ -381,6 +381,8 @@ func use_map(layout: Dictionary) -> void:
 	old.queue_free()
 	arena = ArenaView.new()
 	add_child(arena)
+	# The world is dressed for the chosen profile (richer on the nicer ones).
+	arena.quality_level = video.quality
 	arena.build(layout)
 	# A new stadium starts on team 0's side. The PvP guest joins on the PvP map, which
 	# rebuilds the stadium after its seat was turned round: without this the guest saw its

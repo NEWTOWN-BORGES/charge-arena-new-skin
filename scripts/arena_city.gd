@@ -128,7 +128,7 @@ static func roof_plant(view, rng: RandomNumberGenerator, reach: float, far: floa
 			ArenaSky.place(view, "prop_crane", ArenaSky.facing(Vector3(c.x, top, c.y), Vector3(0.3, 0, 1)), {"shell": WHITE, "trim": Color("ff7a3c"), "dark": dark, "metal": steel, "hazard": ArenaSky.HAZARD, "label": Color("c9794a")})
 			crane_done = true
 			continue
-		for k in range(rng.randi_range(1, 2)):
+		for k in range(rng.randi_range(1, 2 if int(view.quality_level) == 0 else 3)):
 			var spot = Vector3(c.x + rng.randf_range(-size.x * 0.28, size.x * 0.28), top + 0.04, c.y + rng.randf_range(-size.y * 0.28, size.y * 0.28))
 			match rng.randi() % 3:
 				0:

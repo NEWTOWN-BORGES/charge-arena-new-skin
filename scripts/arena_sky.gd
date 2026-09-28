@@ -159,6 +159,13 @@ static func slab(view, outline: Array, top: float, bottom: float, cap: Color, si
 	view.mesh(view, cap_st.commit(), Vector3.ZERO, cap)
 	view.mesh(view, wall_st.commit(), Vector3.ZERO, side)
 
+# Richer worlds on the two nicer profiles: this many more trees, rocks, corals, props and
+# asteroids than the light profile, which keeps the old count for weaker phones.
+const RICH = 1.7
+
+static func rich(view, count: int) -> int:
+	return int(round(count * (RICH if int(view.quality_level) > 0 else 1.0)))
+
 static func spots(rng: RandomNumberGenerator, count: int, sample: Callable, gap: float, taken: Array = []) -> Array:
 	# Up to `count` points drawn from `sample` (which returns null to reject a draw), each at
 	# least `gap` from the others and from `taken`.
@@ -280,7 +287,8 @@ static func furniture(view, walls: Array, hull: Array, theme: Dictionary) -> voi
 	var kinds = ["prop_scrap_a", "prop_scrap_b", "prop_crates", "prop_barrels", "prop_crates", "prop_barrels", "prop_scrap_bits"]
 	var placed: Array = []
 	var tries = 0
-	while placed.size() < 24 and tries < 3000:
+	var props: int = rich(view, 24)
+	while placed.size() < props and tries < 3000:
 		tries += 1
 		var q = Vector2(rng.randf_range(-side_x - 2.0, side_x + 2.0), rng.randf_range(-Rules.HALF_LENGTH - 3.0, Rules.HALF_LENGTH + 3.0))
 		if inside(q, inner) or not inside(q, outer):

@@ -137,7 +137,7 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 		if not flat_at(q, tiers, 0.8):
 			return null
 		return q
-	var pines = ArenaSky.spots(rng, 90, sample, 1.35, taken)
+	var pines = ArenaSky.spots(rng, ArenaSky.rich(view, 90), sample, 1.2, taken)
 	var shades = [[Color("2fa35a"), Color("45c46e")], [Color("3aa84f"), Color("5fcf6a")], [Color("23915a"), Color("3db87a")]]
 	for q in pines:
 		var shade = shades[rng.randi() % shades.size()]
@@ -147,7 +147,7 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 		ArenaSky.place(view, "env_pine_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, height_at(q, tiers), q.y)), {"shell": shade[0], "label": shade[1], "trim": Color("8a5a3c")})
 	taken.append_array(pines)
 	# Rocks where the cliffs meet the ground, grey granite and a few sandstone boulders.
-	var rocks = ArenaSky.spots(rng, 26, sample, 1.8, taken)
+	var rocks = ArenaSky.spots(rng, ArenaSky.rich(view, 26), sample, 1.6, taken)
 	for q in rocks:
 		var sand = rng.randf() < 0.35
 		var paint = {"shell": Color("e3b07a") if sand else Color("b9c3cc"), "trim": Color("f3cf98") if sand else Color("e4e9ee")}

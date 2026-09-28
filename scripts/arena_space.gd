@@ -90,7 +90,8 @@ static func drifting(view, rng: RandomNumberGenerator, reach: float, far: float)
 		ArenaSky.place(view, "env_satellite", sat, {"trim": WHITE, "label": CELLS, "shell": Color("e6e9f2"), "metal": ArenaSky.STEEL, "dark": ArenaSky.GRAPHITE})
 	var placed: Array = []
 	var tries = 0
-	while placed.size() < 18 and tries < 2000:
+	var rocks: int = ArenaSky.rich(view, 18)
+	while placed.size() < rocks and tries < 2000:
 		tries += 1
 		var at = Vector3(rng.randf_range(-(reach + 30.0), reach + 30.0), rng.randf_range(-16.0, -3.0), rng.randf_range(-(far + 40.0), far + 6.0))
 		# Well clear of the station and never between the camera and the field.
