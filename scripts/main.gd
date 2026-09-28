@@ -259,7 +259,7 @@ func use_loadouts(boss_kit: Array, boss_skin: int = 0, rival_ultimate: String = 
 	# pilot is not always team 0 — in PvP the guest plays team 1 — so the kits are placed
 	# by side. Built the other way round, the guest walked in with the host's ultimate in
 	# its keys and none of its own.
-	var mine: Array = power_shop.loadout(String(Skins.CATALOG[skins.selected].ultimate))
+	var mine: Array = power_shop.loadout(String(Skins.CATALOG[worn_skin()].ultimate))
 	# A station pilot has no skin to bring one, so its level names the ultimate instead.
 	var theirs: Array = boss_kit + [rival_ultimate if rival_ultimate != "" else String(Skins.CATALOG[boss_skin].ultimate)]
 	rules.loadouts = [mine, theirs] if local_team == 0 else [theirs, mine]
@@ -454,6 +454,14 @@ func story_level_of(boss: int) -> int:
 			return i
 	return 0
 
+func story_pilot(hard: bool) -> int:
+	# The story is BIT's: NORMAL is played as BIT, DIFÍCIL as BIT DE ELITE. The other skins
+	# are for the other modes.
+	return Skins.hard_of_boss(0) if hard else 0
+
+func worn_skin() -> int:
+	return story_pilot(bool(story_run.hard)) if not story_run.is_empty() else skins.selected
+
 func story_prize(boss: int, hard: bool) -> int:
 	return Skins.hard_of_boss(boss) if hard else boss
 
@@ -464,23 +472,30 @@ func story_beaten(boss: int, hard: bool) -> bool:
 	# BIT is owned from the start, so the story keeps its own record of who has fallen.
 	return skins.story_won.has(story_key(boss, hard)) or (boss > 0 and skins.defeated.has(story_prize(boss, hard)))
 
+func story_hard_open() -> bool:
+	# DIFÍCIL only opens once every NORMAL boss has fallen (the LAB build opens it to test).
+	return skins.unlock_all or story_bosses().all(func(boss): return story_beaten(boss, false))
+
 func story_entries(hard: bool) -> Array:
 	var order = story_bosses()
 	var list: Array = []
+	var reachable = not hard or story_hard_open()
 	for step in range(order.size()):
 		var boss: int = order[step]
 		var wear = story_prize(boss, hard)
 		list.append({"name": String(Skins.CATALOG[wear].name), "skin": wear, "beaten": story_beaten(boss, hard),
-			"open": step == 0 or story_beaten(order[step - 1], hard) or story_beaten(boss, hard)})
+			"open": reachable and (step == 0 or story_beaten(order[step - 1], hard) or story_beaten(boss, hard))})
 	return list
 
 func open_bosses() -> void:
-	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true)})
+	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true), "hard_open": story_hard_open()})
 
 func start_story(step: int, hard: bool) -> void:
 	var order = story_bosses()
 	if step < 0 or step >= order.size():
 		return_to_menu()
+		return
+	if hard and not story_hard_open():
 		return
 	var boss: int = order[step]
 	var index = story_level_of(boss)
@@ -788,7 +803,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func dress_pilots(team: int) -> void:
 	# The local pilot wears the chosen skin; the rival stays default until PvP shares theirs.
-	arena.set_skin(team, skins.selected)
+	arena.set_skin(team, worn_skin())
 	arena.set_skin(1 - team, 0)
 
 func select_skin(index: int) -> void:
@@ -922,7 +937,9 @@ func steer_camera(dt: float) -> void:
 			game_settings.view_yaw = 0.0
 		arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
 	if drag == Vector2.ZERO and is_equal_approx(pinch, 1.0):
-		if hud.camera_moved:
+		# Saved once the finger lifts: saving syncs the HUD, which drops every touch, and a
+		# held look (or stick) would snap back as if let go.
+		if hud.camera_moved and hud.camera_touches.is_empty():
 			hud.camera_moved = false
 			save_game_settings()
 		return

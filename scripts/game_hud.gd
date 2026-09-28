@@ -4160,6 +4160,8 @@ func show_bosses_tab(hard: bool) -> void:
 	var list: Array = bosses_entries.get("hard" if hard else "normal", [])
 	var won = list.filter(func(e): return e.beaten).size()
 	bosses_note.text = ("DIFÍCIL · %d/%d · os chefes lutam com as skins difíceis; vence um para ganhar a sua." if hard else "NORMAL · %d/%d · enfrenta os chefes por ordem. Vence um chefe para ganhar a sua skin.") % [won, list.size()]
+	if hard and not bool(bosses_entries.get("hard_open", true)):
+		bosses_note.text = "DIFÍCIL · BLOQUEADO · vence primeiro os %d chefes do NORMAL para abrir o DIFÍCIL." % list.size()
 	for child in bosses_grid.get_children():
 		child.queue_free()
 	for step in range(list.size()):
@@ -4269,7 +4271,10 @@ func lobby_steps() -> Array:
 		{"title": "Dificuldade", "text": "Escolhe a força da IA: Fácil, Normal ou Difícil.", "target": level_row},
 		{"title": "Hangar", "text": "No HANGAR vês todas as skins: as que já tens e as que ganhas ao vencer os chefes. Toca numa skin para a vestir.", "target": control_rect(lobby.rail_keys.hangar)},
 		{"title": "Poderes", "text": "Em PODERES gastas os tijolos que partes nas partidas: compras habilidades novas e escolhes as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
-		{"title": "Modo história", "text": "Em HISTÓRIA enfrentas os 12 chefes, um a um. Em NORMAL ganhas a skin de cada chefe; em DIFÍCIL, a sua skin difícil.", "target": control_rect(lobby.rail_keys.story)},
+		{"title": "Comprar na loja", "text": "Na loja de PODERES toca numa habilidade para ver o que faz e carrega em COMPRAR · (preço) TIJOLOS. Os tijolos juntas partindo muralhas em qualquer modo. Depois escolhe as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
+		{"title": "Modo história", "text": "Em HISTÓRIA enfrentas os 12 chefes, um a um. Aqui jogas sempre com o BIT no NORMAL e com o BIT DE ELITE no DIFÍCIL; as outras skins usas nos outros modos.", "target": control_rect(lobby.rail_keys.story)},
+		{"title": "Ganhar skins", "text": "As skins não se compram: ganham-se. No Modo história, em NORMAL, vence um chefe e a skin dele fica tua no HANGAR, com a sua ultimate. Veste-a no HANGAR e leva-a para o Jogo rápido, as Arenas e o PvP.", "target": control_rect(lobby.rail_keys.hangar)},
+		{"title": "Skins difíceis", "text": "Vence os 12 chefes do NORMAL e abre-se o DIFÍCIL. Aí os chefes vestem as skins difíceis, com néon e adereços novos: vence um e a sua skin difícil é tua. No HANGAR, as que ainda não tens aparecem no escuro, só com o néon aceso.", "target": control_rect(lobby.rail_keys.story)},
 		{"title": "PvP", "text": "Em PvP jogas contra outra pessoa na mesma rede Wi-Fi.", "target": control_rect(lobby.rail_keys.pvp)},
 		{"title": "Opções", "text": "Aqui ajustas os controlos, a imagem e o som. Em Opções › Jogo podes rever estes tutoriais quando quiseres.", "target": control_rect(lobby.gear)},
 	]
