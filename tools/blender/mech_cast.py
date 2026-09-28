@@ -5488,7 +5488,382 @@ def helio_x_extra(p):
 
 
 # ======================================================================================
+# Tijolos temáticos mecânicos (espaço do tijolo: 0,56 x 0,30, topo perto de 0,6).
+# ======================================================================================
+def broto_brick(p):
+    """BROTO: um jarro de cerâmica mecânico. Soco com a faixa da equipa e encaixes laterais
+    (macho à direita, fêmea à esquerda) para os tijolos se prenderem uns aos outros; o jarro
+    oval em creme com cintas verdes, braçadeiras de latão aparafusadas, um visor de seiva
+    aceso à frente e atrás, e a tampa na cor da equipa com um rebento aceso."""
+    oval = Matrix.Diagonal((1.72, 1.0, 0.92, 1.0))
+    # Soco: placa escura, faixa da equipa à volta e parafusos nos cantos.
+    mbox(p, "dark", T(0.0, 0.035, 0.0), (0.54, 0.07, 0.29), 0.02, 2)
+    mbox(p, "team", T(0.0, 0.08, 0.0), (0.52, 0.03, 0.27), 0.01, 1)
+    for x in (-0.23, 0.23):
+        for z in (-0.11, 0.11):
+            mtube(p, "metal", T(x, 0.1, z), 0.014, 0.012, 8)
+    # Encaixes: língua em cauda de andorinha à direita, ranhura à esquerda.
+    extruded(p, "metal", T(0.27, 0.05, 0.0) @ Matrix.Rotation(math.radians(90), 4, "X"),
+             [(0.0, -0.05), (0.035, -0.07), (0.035, 0.07), (0.0, 0.05)], 0.05)
+    mbox(p, "dark", T(-0.275, 0.05, 0.0), (0.03, 0.08, 0.2), 0.008, 1)
+    mbox(p, "glow", T(-0.29, 0.05, 0.0), (0.006, 0.02, 0.12), 0.0, 1)
+    # O jarro: bojo largo, ombro, gargalo e boca.
+    body = T(0.0, 0.1, 0.0) @ oval
+    lathe(p, "trim", body, [(0.1, 0.0), (0.135, 0.03), (0.152, 0.1), (0.15, 0.2), (0.132, 0.27),
+                            (0.1, 0.31), (0.088, 0.335), (0.09, 0.37)], 28, cap_bottom=True)
+    # Cintas verdes e aros de latão.
+    for y, r in ((0.13, 0.153), (0.22, 0.149)):
+        mring(p, "shell", T(0.0, y, 0.0) @ oval, r, 0.014, 32, 6)
+    mring(p, "metal", T(0.0, 0.13 - 0.1 + 0.1, 0.0) @ oval, 0.136, 0.008, 32, 5)
+    mring(p, "metal", T(0.0, 0.435, 0.0) @ oval, 0.09, 0.009, 28, 5)
+    # Braçadeiras: quatro tiras de latão do soco ao ombro, com parafusos.
+    for side in (-1, 1):
+        for z in (-1, 1):
+            base = Vector((side * 0.2, 0.1, z * 0.08))
+            top = Vector((side * 0.17, 0.33, z * 0.07))
+            rod(p, "metal", base, top, 0.011, 6)
+            ball(p, "metal", top, 0.016, 8)
+            ball(p, "dark", base + Vector((0, 0.012, 0)), 0.018, 8)
+    # Visor de seiva, à frente e atrás: moldura de latão, vidro verde aceso e marcas.
+    for z in (-1, 1):
+        mbox(p, "metal", T(0.0, 0.24, z * 0.132), (0.09, 0.15, 0.02), 0.01, 1)
+        mbox(p, "glow", T(0.0, 0.235, z * 0.142), (0.05, 0.11, 0.006), 0.004, 1)
+        for dy in (-0.035, 0.0, 0.035):
+            mbox(p, "dark", T(0.03, 0.235 + dy, z * 0.146), (0.018, 0.005, 0.004), 0.0, 1)
+        # Folhas verdes em relevo dos dois lados do visor.
+        for side in (-1, 1):
+            leaf(p, "shell", frame(Vector((side * 0.07, 0.18, z * 0.134)), Vector((side * 0.8, 1.0, 0.0)),
+                                   front=(0, 0, z)), 0.11, 0.07)
+    # Válvula lateral com volante verde.
+    valve = axis_frame((0.24, 0.24, 0.0), "x")
+    mtube(p, "metal", valve, 0.022, 0.06, 10)
+    mring(p, "shell", sub(valve, 0, 0.04, 0), 0.03, 0.007, 14, 4)
+    # Tampa na cor da equipa (é o que a câmara de jogo vê), puxador e rebento aceso.
+    lid = T(0.0, 0.47, 0.0) @ oval
+    lathe(p, "team", lid, [(0.0, 0.03), (0.06, 0.028), (0.1, 0.012), (0.104, 0.0)], 28, cap_bottom=True)
+    mring(p, "dark", T(0.0, 0.47, 0.0) @ oval, 0.102, 0.008, 28, 5)
+    mtube(p, "metal", T(0.0, 0.52, 0.0), 0.02, 0.04, 10)
+    for side in (-1, 1):
+        leaf(p, "shell", frame(Vector((0.0, 0.54, 0.0)), Vector((side * 1.0, 0.8, 0.1)), front=(0, 0, -1)), 0.13, 0.08)
+    ball(p, "glow", Vector((0.0, 0.575, 0.0)), 0.025, 10)
+
+
+def broto_cube(p):
+    """BROTO, segunda proposta: um cubo mecânico. Caixa creme em painéis aparafusados, com
+    cantoneiras verdes, grelha de ventilação e o visor de seiva aceso à frente e atrás; os
+    mesmos encaixes laterais (macho à direita, fêmea à esquerda); em cima, a tampa na cor da
+    equipa, com um canteiro de terra e o rebento com a flor acesa."""
+    # Soco escuro com a faixa da equipa.
+    mbox(p, "dark", T(0.0, 0.03, 0.0), (0.56, 0.06, 0.3), 0.015, 2)
+    mbox(p, "team", T(0.0, 0.07, 0.0), (0.54, 0.025, 0.285), 0.006, 1)
+    # O cubo: corpo creme e dois painéis embutidos à frente e atrás.
+    mbox(p, "trim", T(0.0, 0.265, 0.0), (0.5, 0.36, 0.27), 0.03, 2)
+    for z in (-1, 1):
+        mbox(p, "trim", T(0.0, 0.265, z * 0.137), (0.42, 0.29, 0.012), 0.012, 1)
+        mbox(p, "dark", T(0.0, 0.265, z * 0.136), (0.43, 0.3, 0.008), 0.004, 1)
+        # Visor de seiva ao centro, com moldura de latão e marcas de nível.
+        mbox(p, "metal", T(0.0, 0.265, z * 0.146), (0.1, 0.2, 0.014), 0.008, 1)
+        mbox(p, "glow", T(0.0, 0.262, z * 0.154), (0.06, 0.15, 0.005), 0.003, 1)
+        for dy in (-0.05, 0.0, 0.05):
+            mbox(p, "dark", T(0.035, 0.262 + dy, z * 0.157), (0.02, 0.005, 0.004), 0.0, 1)
+        # Grelha de ventilação à esquerda e folha verde em relevo à direita.
+        for i in range(4):
+            mbox(p, "dark", T(-0.14, 0.2 + i * 0.045, z * 0.146), (0.1, 0.014, 0.006), 0.004, 1)
+        leaf(p, "shell", frame(Vector((0.1, 0.17, z * 0.146)), Vector((0.6, 1.0, 0.0)), front=(0, 0, z)), 0.16, 0.1)
+        # Parafusos nos cantos do painel.
+        for x in (-0.19, 0.19):
+            for y in (0.14, 0.39):
+                mtube(p, "metal", axis_frame((x, y, z * 0.144), "z"), 0.011, 0.01, 8)
+    # Cantoneiras verdes nas oito arestas verticais e de topo.
+    for x in (-1, 1):
+        for z in (-1, 1):
+            mbox(p, "shell", T(x * 0.245, 0.265, z * 0.13), (0.04, 0.38, 0.04), 0.012, 1)
+    for z in (-1, 1):
+        mbox(p, "shell", T(0.0, 0.445, z * 0.13), (0.52, 0.035, 0.035), 0.01, 1)
+    # Encaixes: língua em cauda de andorinha à direita, ranhura acesa à esquerda.
+    extruded(p, "metal", T(0.27, 0.2, 0.0) @ Matrix.Rotation(math.radians(90), 4, "X"),
+             [(0.0, -0.05), (0.035, -0.07), (0.035, 0.07), (0.0, 0.05)], 0.12)
+    mbox(p, "dark", T(-0.262, 0.2, 0.0), (0.03, 0.14, 0.18), 0.008, 1)
+    mbox(p, "glow", T(-0.277, 0.2, 0.0), (0.005, 0.1, 0.1), 0.0, 1)
+    # Tampa na cor da equipa com o canteiro de terra embutido.
+    mbox(p, "team", T(0.0, 0.47, 0.0), (0.5, 0.03, 0.26), 0.012, 1)
+    mbox(p, "dark", T(0.0, 0.487, 0.0), (0.24, 0.012, 0.16), 0.006, 1)
+    mbox(p, "rubber", T(0.0, 0.492, 0.0), (0.22, 0.008, 0.14), 0.004, 1)
+    # O rebento: caule, duas folhas grandes e a flor acesa de cinco pétalas.
+    rod(p, "shell", Vector((0.0, 0.49, 0.0)), Vector((0.0, 0.62, 0.0)), 0.012, 8)
+    for side in (-1, 1):
+        leaf(p, "shell", frame(Vector((0.0, 0.54, 0.0)), Vector((side * 1.0, 0.55, 0.15)), front=(0, 0, -1)), 0.15, 0.09)
+    for k in range(5):
+        a = math.radians(90 + k * 72)
+        tip = Vector((math.cos(a) * 0.05, 0.63, math.sin(a) * 0.05))
+        ball(p, "glow", Vector((0.0, 0.63, 0.0)).lerp(tip, 0.6), 0.024, 8)
+    ball(p, "metal", Vector((0.0, 0.64, 0.0)), 0.018, 8)
+
+
+def brick_socle(p):
+    """Soco comum dos tijolos mecânicos: placa escura, faixa da equipa, parafusos nos cantos e
+    os encaixes laterais (língua em cauda de andorinha à direita, ranhura acesa à esquerda)."""
+    mbox(p, "dark", T(0.0, 0.035, 0.0), (0.54, 0.07, 0.29), 0.02, 2)
+    mbox(p, "team", T(0.0, 0.08, 0.0), (0.52, 0.03, 0.27), 0.01, 1)
+    for x in (-0.23, 0.23):
+        for z in (-0.11, 0.11):
+            mtube(p, "metal", T(x, 0.1, z), 0.014, 0.012, 8)
+    extruded(p, "metal", T(0.27, 0.05, 0.0) @ Matrix.Rotation(math.radians(90), 4, "X"),
+             [(0.0, -0.05), (0.035, -0.07), (0.035, 0.07), (0.0, 0.05)], 0.05)
+    mbox(p, "dark", T(-0.275, 0.05, 0.0), (0.03, 0.08, 0.2), 0.008, 1)
+    mbox(p, "glow", T(-0.29, 0.05, 0.0), (0.006, 0.02, 0.12), 0.0, 1)
+
+
+def both_faces(fn):
+    """Desenha um pormenor na face da frente e na de trás (z = -1 e z = +1)."""
+    for z in (-1, 1):
+        fn(z)
+
+
+def bit_brick(p):
+    """BIT: um monitor retro de secretária. Caixa creme com ecrã recuado onde brilham os olhos
+    do BIT, grelha de ventilação, botões, antena e a tampa na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.28, 0.0), (0.5, 0.34, 0.27), 0.05, 3)
+    def face(z):
+        mbox(p, "dark", T(-0.04, 0.29, z * 0.13), (0.34, 0.24, 0.02), 0.03, 2)
+        for x in (-0.1, 0.02):
+            mbox(p, "team", T(x, 0.3, z * 0.142), (0.035, 0.08, 0.006), 0.017, 2)
+        mbox(p, "team", T(-0.04, 0.24, z * 0.142), (0.06, 0.012, 0.006), 0.006, 1)
+        for i in range(3):
+            mtube(p, "metal", axis_frame((0.18, 0.36 - i * 0.06, z * 0.135), "z"), 0.018, 0.02, 10)
+        for i in range(4):
+            mbox(p, "dark", T(0.18, 0.18 + i * 0.001, z * 0.136), (0.07, 0.008, 0.006), 0.003, 1)
+    both_faces(face)
+    mbox(p, "team", T(0.0, 0.465, 0.0), (0.46, 0.03, 0.24), 0.012, 1)
+    rod(p, "metal", Vector((0.15, 0.47, 0.0)), Vector((0.19, 0.64, 0.0)), 0.008, 6)
+    ball(p, "team", Vector((0.19, 0.645, 0.0)), 0.022, 10)
+
+
+def salvo_brick(p):
+    """SALVO: caixa de munições militar. Laterais com riscas de perigo e pegas, tampa aberta
+    e três obuses de pé numa grelha, com as pontas na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.25, 0.0), (0.5, 0.28, 0.27), 0.025, 2)
+    def face(z):
+        for i in range(6):
+            mbox(p, "trim" if i % 2 == 0 else "dark", T(-0.2 + i * 0.08, 0.14, z * 0.137), (0.08, 0.04, 0.008), 0.0, 1)
+        mbox(p, "metal", T(0.0, 0.27, z * 0.14), (0.22, 0.09, 0.012), 0.01, 1)
+        for x in (-0.08, 0.08):
+            mtube(p, "dark", axis_frame((x, 0.27, z * 0.147), "z"), 0.012, 0.008, 8)
+    both_faces(face)
+    for x in (-1, 1):
+        mbox(p, "trim", T(x * 0.245, 0.25, 0.0), (0.03, 0.3, 0.29), 0.01, 1)
+        rod(p, "metal", Vector((x * 0.27, 0.3, -0.07)), Vector((x * 0.27, 0.3, 0.07)), 0.012, 6)
+    mbox(p, "dark", T(0.0, 0.4, 0.0), (0.48, 0.025, 0.25), 0.008, 1)
+    for x in (-0.14, 0.0, 0.14):
+        mtube(p, "metal", T(x, 0.47, 0.0), 0.052, 0.13, 12)
+        mring(p, "trim", T(x, 0.44, 0.0), 0.053, 0.008, 14, 4)
+        lathe(p, "team", T(x, 0.535, 0.0), [(0.052, 0.0), (0.045, 0.04), (0.025, 0.08), (0.0, 0.1)], 14)
+    mbox(p, "glow", T(0.0, 0.405, 0.13), (0.3, 0.01, 0.006), 0.0, 1)
+
+
+def orbita_brick(p):
+    """ÓRBITA: um módulo de observatório. Casa de painéis com cúpula na cor da equipa, a fenda
+    da luneta, um telescópio de latão e um anel orbital aceso à volta da cúpula."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.22, 0.0), (0.5, 0.22, 0.27), 0.03, 2)
+    def face(z):
+        for x in (-0.15, 0.15):
+            mtube(p, "glow", axis_frame((x, 0.22, z * 0.137), "z"), 0.03, 0.01, 14)
+            mring(p, "metal", axis_frame((x, 0.22, z * 0.14), "z"), 0.034, 0.007, 14, 4)
+        mbox(p, "trim", T(0.0, 0.22, z * 0.137), (0.08, 0.14, 0.008), 0.02, 1)
+    both_faces(face)
+    mring(p, "trim", T(0.0, 0.335, 0.0), 0.13, 0.014, 28, 5)
+    dome(p, "team", T(0.0, 0.335, 0.0), 0.13, 0.13, 24, 6)
+    mbox(p, "dark", T(0.0, 0.41, -0.07) @ Matrix.Rotation(math.radians(-35), 4, "X"), (0.05, 0.13, 0.02), 0.01, 1)
+    tele = frame(Vector((0.0, 0.4, -0.05)), Vector((0.25, 0.55, -0.8)))
+    mtube(p, "metal", sub(tele, 0, 0.08, 0), 0.03, 0.2, 12)
+    mring(p, "trim", sub(tele, 0, 0.18, 0), 0.034, 0.008, 12, 4)
+    mring(p, "glow", T(0.0, 0.36, 0.0) @ Matrix.Rotation(math.radians(14), 4, "Z") @ Matrix.Diagonal((1.6, 1.0, 0.85, 1.0)), 0.15, 0.007, 36, 4)
+    ball(p, "trim", Vector((0.24, 0.42, 0.0)), 0.025, 10)
+
+
+def bigorna_brick(p):
+    """BIGORNA: uma bigorna de ferreiro num banco de forja. O banco em amarelo de obras com
+    grelhas de brasa acesas; a bigorna de aço com o chifre, e o tampo na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.19, 0.0), (0.46, 0.16, 0.26), 0.02, 2)
+    def face(z):
+        for i in range(5):
+            mbox(p, "glow", T(-0.16 + i * 0.08, 0.19, z * 0.131), (0.045, 0.08, 0.006), 0.004, 1)
+        hazard_band(p, T(0.0, 0.12, z * 0.131), 0.44, 0.03, 8)
+    both_faces(face)
+    mbox(p, "trim", T(0.0, 0.3, 0.0), (0.16, 0.08, 0.14), 0.015, 1, taper=(0.7, 0.8))
+    mbox(p, "trim", T(-0.02, 0.38, 0.0), (0.34, 0.08, 0.18), 0.015, 2)
+    lathe(p, "trim", frame(Vector((0.15, 0.39, 0.0)), Vector((1.0, 0.05, 0.0))), [(0.045, 0.0), (0.03, 0.06), (0.0, 0.11)], 12)
+    mbox(p, "team", T(-0.02, 0.425, 0.0), (0.33, 0.012, 0.17), 0.004, 1)
+    for x in (-0.14, 0.1):
+        mtube(p, "metal", T(x, 0.3, 0.1), 0.015, 0.12, 8)
+
+
+def eclipse_brick(p):
+    """ECLIPSE: um monólito negro. Bloco facetado com o anel do eclipse aceso à frente e
+    atrás, veios de luz, espinhos nos ombros e o topo em pirâmide na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.27, 0.0), (0.46, 0.34, 0.25), 0.02, 1, taper=(0.9, 0.9))
+    def face(z):
+        ring = axis_frame((0.0, 0.29, z * 0.126), "z")
+        mtube(p, "dark", ring, 0.085, 0.012, 24)
+        mring(p, "glow", ring, 0.085, 0.01, 28, 4)
+        mtube(p, "dark", sub(ring, 0.02, 0.0, 0.0), 0.072, 0.016, 24)
+        for x in (-0.18, 0.18):
+            mbox(p, "glow", T(x, 0.27, z * 0.124), (0.008, 0.26, 0.006), 0.0, 1)
+    both_faces(face)
+    for x in (-1, 1):
+        lathe(p, "trim", frame(Vector((x * 0.2, 0.43, 0.0)), Vector((x * 0.5, 1.0, 0.0))), [(0.03, 0.0), (0.015, 0.06), (0.0, 0.12)], 8)
+    lathe(p, "team", T(0.0, 0.44, 0.0) @ Matrix.Diagonal((1.7, 1.0, 1.0, 1.0)), [(0.12, 0.0), (0.0, 0.12)], 4)
+
+
+def rosca_brick(p):
+    """ROSCA: uma caixa de engrenagens. Corpo de cobre com uma roda dentada grande de latão
+    à frente e atrás, pistões nos lados, manómetro aceso e a tampa na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.27, 0.0), (0.5, 0.33, 0.25), 0.03, 2)
+    def face(z):
+        g = axis_frame((-0.06, 0.28, z * 0.13), "z")
+        mtube(p, "metal", g, 0.1, 0.02, 20)
+        for k in range(12):
+            a = k / 12 * math.tau
+            mbox(p, "metal", sub(g, math.cos(a) * 0.112, 0.0, math.sin(a) * 0.112, rot=(0, -math.degrees(a), 0)), (0.03, 0.02, 0.025), 0.004, 1)
+        mtube(p, "dark", sub(g, 0, 0.012, 0), 0.03, 0.01, 12)
+        mtube(p, "glow", axis_frame((0.16, 0.34, z * 0.13), "z"), 0.035, 0.012, 16)
+        mring(p, "trim", axis_frame((0.16, 0.34, z * 0.135), "z"), 0.038, 0.007, 16, 4)
+    both_faces(face)
+    for x in (-1, 1):
+        piston(p, Vector((x * 0.26, 0.14, 0.0)), Vector((x * 0.26, 0.4, 0.0)), 0.02)
+    mbox(p, "team", T(0.0, 0.45, 0.0), (0.46, 0.03, 0.22), 0.012, 1)
+    mtube(p, "metal", T(0.0, 0.49, 0.0), 0.05, 0.05, 6)
+
+
+def faisca_brick(p):
+    """FAÍSCA: um gerador de Tesla. Base branca com painéis azuis e avisos de alta tensão,
+    a bobina de cobre ao centro e a esfera acesa no topo, sobre o disco na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.19, 0.0), (0.5, 0.18, 0.27), 0.03, 2)
+    def face(z):
+        mbox(p, "trim", T(0.0, 0.19, z * 0.137), (0.4, 0.1, 0.008), 0.01, 1)
+        warning(p, plane((-0.15, 0.19, z * 0.143), (0, 0, z), (-z, 0, 0)), 0.05)
+        for i in range(4):
+            mbox(p, "glow", T(0.06 + i * 0.04, 0.19, z * 0.143), (0.02, 0.06, 0.004), 0.0, 1)
+    both_faces(face)
+    mtube(p, "team", T(0.0, 0.29, 0.0), 0.12, 0.02, 24)
+    mtube(p, "dark", T(0.0, 0.37, 0.0), 0.05, 0.15, 16)
+    for i in range(6):
+        mring(p, "metal", T(0.0, 0.31 + i * 0.025, 0.0), 0.058, 0.009, 18, 5)
+    mring(p, "trim", T(0.0, 0.45, 0.0), 0.09, 0.02, 24, 6)
+    ball(p, "glow", Vector((0.0, 0.52, 0.0)), 0.05, 14)
+    for x in (-1, 1):
+        rod(p, "metal", Vector((x * 0.2, 0.28, 0.0)), Vector((x * 0.2, 0.42, 0.0)), 0.01, 6)
+        ball(p, "glow", Vector((x * 0.2, 0.43, 0.0)), 0.018, 8)
+
+
+def batida_brick(p):
+    """BATIDA: uma coluna de som. Caixa rosa com dois altifalantes à frente e atrás, barras de
+    equalizador acesas, botões, e a tampa na cor da equipa com um gira-discos."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.27, 0.0), (0.5, 0.33, 0.26), 0.04, 3)
+    def face(z):
+        for x, r in ((-0.12, 0.085), (0.1, 0.06)):
+            c = axis_frame((x, 0.27, z * 0.13), "z")
+            mring(p, "trim", c, r, 0.012, 24, 5)
+            lathe(p, "dark", c if z > 0 else c @ Matrix.Rotation(math.radians(180), 4, "X"), [(r, 0.0), (r * 0.6, -0.02), (r * 0.25, -0.01), (0.0, 0.0)], 20)
+            ball(p, "metal", Vector((x, 0.27, z * 0.125)), r * 0.25, 10)
+        for i in range(5):
+            h = 0.02 + 0.015 * ((i * 3) % 4)
+            mbox(p, "glow", T(0.1 + (i - 2) * 0.022, 0.38 + h / 2, z * 0.132), (0.014, h, 0.006), 0.0, 1)
+        for x in (0.19, 0.22):
+            mtube(p, "metal", axis_frame((x, 0.17, z * 0.132), "z"), 0.012, 0.012, 8)
+    both_faces(face)
+    mbox(p, "team", T(0.0, 0.45, 0.0), (0.46, 0.03, 0.22), 0.012, 1)
+    mtube(p, "dark", T(-0.07, 0.475, 0.0), 0.085, 0.012, 24)
+    mtube(p, "glow", T(-0.07, 0.483, 0.0), 0.02, 0.006, 12)
+    rod(p, "metal", Vector((0.13, 0.48, 0.06)), Vector((0.02, 0.49, 0.02)), 0.007, 6)
+
+
+def gancho_brick(p):
+    """GANCHO: um baú de pirata. Caixa de madeira vermelha com cintas de latão, fechadura
+    acesa, tampa curva na cor da equipa e um gancho de ferro de lado."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.24, 0.0), (0.5, 0.26, 0.26), 0.02, 2)
+    mtube(p, "team", T(0.0, 0.37, 0.0) @ Matrix.Rotation(math.radians(90), 4, "Z") @ Matrix.Diagonal((1.0, 1.0, 0.95, 1.0)), 0.13, 0.5, 20)
+    for x in (-0.17, 0.17):
+        mbox(p, "metal", T(x, 0.25, 0.0), (0.04, 0.28, 0.275), 0.006, 1)
+        mtube(p, "metal", T(x, 0.37, 0.0) @ Matrix.Rotation(math.radians(90), 4, "Z"), 0.135, 0.04, 20)
+    def face(z):
+        mbox(p, "metal", T(0.0, 0.33, z * 0.132), (0.07, 0.09, 0.012), 0.01, 1)
+        mbox(p, "glow", T(0.0, 0.325, z * 0.139), (0.014, 0.03, 0.004), 0.0, 1)
+        for x in (-0.08, 0.08):
+            for y in (0.16, 0.3):
+                ball(p, "metal", Vector((x * 2.4, y, z * 0.131)), 0.01, 6)
+    both_faces(face)
+    hook = [Vector((0.25, 0.2, 0.0)), Vector((0.29, 0.27, 0.0)), Vector((0.29, 0.34, 0.0)), Vector((0.26, 0.37, 0.0)), Vector((0.23, 0.34, 0.0))]
+    for a, b in zip(hook, hook[1:]):
+        rod(p, "metal", a, b, 0.012, 6)
+
+
+def helio_brick(p):
+    """HÉLIO: um obelisco solar. Pedestal marfim com cintas de ouro, a coluna que afunila em
+    pirâmide na cor da equipa, e o disco do sol aceso com raios à frente e atrás."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.17, 0.0), (0.5, 0.14, 0.27), 0.02, 2)
+    mbox(p, "trim", T(0.0, 0.25, 0.0), (0.48, 0.025, 0.25), 0.008, 1)
+    mbox(p, "shell", T(0.0, 0.34, 0.0), (0.3, 0.16, 0.2), 0.015, 1, taper=(0.8, 0.8))
+    lathe(p, "team", T(0.0, 0.42, 0.0) @ Matrix.Rotation(math.radians(45), 4, "Y") @ Matrix.Diagonal((1.0, 1.0, 0.7, 1.0)), [(0.12, 0.0), (0.0, 0.16)], 4, cap_bottom=True)
+    def face(z):
+        sun = axis_frame((0.0, 0.2, z * 0.137), "z")
+        mtube(p, "glow", sun, 0.045, 0.01, 20)
+        for k in range(12):
+            a = k / 12 * math.tau
+            mbox(p, "trim", sub(sun, math.cos(a) * 0.07, 0.0, math.sin(a) * 0.07, rot=(0, -math.degrees(a), 0)), (0.03, 0.008, 0.01), 0.0, 1)
+        mbox(p, "metal", T(0.0, 0.34, z * 0.09), (0.03, 0.12, 0.006), 0.0, 1)
+    both_faces(face)
+
+
+def magnus_brick(p):
+    """MAGNUS: um bastião imperial. Bloco de blindagem negra com ameias, o escudo com a
+    estrela do Penta acesa à frente e atrás, e a coroa de espigões na cor da equipa."""
+    brick_socle(p)
+    mbox(p, "shell", T(0.0, 0.26, 0.0), (0.5, 0.32, 0.27), 0.02, 1)
+    for x in (-0.19, 0.0, 0.19):
+        mbox(p, "shell", T(x, 0.45, 0.0), (0.1, 0.06, 0.25), 0.01, 1)
+    def face(z):
+        shield = T(0.0, 0.27, z * 0.14) @ Matrix.Rotation(math.radians(90 if z < 0 else -90), 4, "X")
+        extruded(p, "trim", shield, [(-0.11, 0.1), (0.11, 0.1), (0.11, -0.02), (0.0, -0.12), (-0.11, -0.02)], 0.015)
+        pts = []
+        for i in range(10):
+            a = math.radians(90 + i * 36)
+            r = 0.06 if i % 2 == 0 else 0.026
+            pts.append((math.cos(a) * r, math.sin(a) * r))
+        extruded(p, "glow", T(0.0, 0.28, z * 0.15) @ Matrix.Rotation(math.radians(90 if z < 0 else -90), 4, "X"), pts, 0.01)
+        for x in (-0.2, 0.2):
+            mbox(p, "metal", T(x, 0.26, z * 0.137), (0.04, 0.28, 0.01), 0.004, 1)
+    both_faces(face)
+    mbox(p, "team", T(0.0, 0.43, 0.0), (0.5, 0.02, 0.27), 0.004, 1)
+    for x in (-0.19, 0.0, 0.19):
+        lathe(p, "team", T(x, 0.48, 0.0), [(0.03, 0.0), (0.0, 0.08)], 6)
+
+
+# ======================================================================================
 def define(part):
+    part("brick_broto")(broto_brick)
+    part("brick_broto_cube")(broto_cube)
+    part("brick_bit_mech")(bit_brick)
+    part("brick_salvo_mech")(salvo_brick)
+    part("brick_orbita_mech")(orbita_brick)
+    part("brick_bigorna_mech")(bigorna_brick)
+    part("brick_eclipse_mech")(eclipse_brick)
+    part("brick_rosca_mech")(rosca_brick)
+    part("brick_faisca_mech")(faisca_brick)
+    part("brick_batida_mech")(batida_brick)
+    part("brick_gancho_mech")(gancho_brick)
+    part("brick_helio_mech")(helio_brick)
+    part("brick_magnus_mech")(magnus_brick)
     part("bigorna3_hull")(bigorna_hull)
     part("salvo3_hull")(salvo_hull)
     part("gancho3_hull")(gancho_hull)
