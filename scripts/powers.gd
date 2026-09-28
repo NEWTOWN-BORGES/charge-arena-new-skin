@@ -68,7 +68,7 @@ const ULTIMATES = [
 	{"id": "sun_ray", "short": "SOL", "name": "COROA SOLAR", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffe45c",
 		"about": "Um raio de sol grosso que atravessa a arena e segue para lá dela: 2 de dano em tudo o que apanha, largo o bastante para quatro tijolos em fila."},
 	{"id": "sun_beam", "short": "RAIO", "name": "RAIO DE ELITE", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "ffe45c",
-		"about": "O raio solar que o HÉLIO ensinou ao BIT: mais fino e mais curto que o original, um a dois tijolos de largura, 2 de dano em tudo o que apanha."},
+		"about": "O raio solar que o HÉLIO ensinou ao BIT: da largura de dois tijolos: em cada fila que atravessa acerta nos dois tijolos mais perto do raio, 2 de dano, e dura tanto como o raio solar original."},
 	{"id": "meteors", "short": "METEOROS", "name": "CHUVA DE METEOROS", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "cbb2ff",
 		"about": "Um segundo de meteoros roxos e amarelos a cair sobre metade do campo do rival, 1 de dano cada."},
 	{"id": "thunder", "short": "TROVOADA", "name": "TROVOADA", "kind": "ultimate", "charge": ULTIMATE_CHARGE, "wait": ULTIMATE_WAIT, "price": 0, "color": "7fe6ff",

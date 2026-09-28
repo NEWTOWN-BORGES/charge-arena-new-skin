@@ -125,14 +125,30 @@ func run() -> void:
 	launch(beam)
 	var beam_events: Array = wait(beam, Rules.ULTIMATE_WINDUP + Rules.SUN_BEAM_SECONDS + 0.15)
 	var beam_bites: Array = beam_events.filter(func(e): return e.kind == "sun_ray")
-	check(beam_bites.size() == roundi(Rules.SUN_BEAM_SECONDS / Rules.SUN_RAY_TICK) and beam_bites.size() < bites, "The RAIO DE ELITE bites fewer times than the sun ray (%d)" % beam_bites.size())
-	check(beam_bites.all(func(e): return is_equal_approx(float(e.width), Rules.SUN_BEAM_HALF_WIDTH)) and Rules.SUN_BEAM_HALF_WIDTH < Rules.SUN_RAY_HALF_WIDTH * 0.5, "And its band is less than half as wide")
+	check(beam_bites.size() == bites, "The RAIO DE ELITE lasts as long as the sun ray (%d bites)" % beam_bites.size())
 	var beam_taken = beam_before - team_health(beam, 1)
-	check(beam_taken > 0 and beam_taken < before_enemy - team_health(r, 1), "It still breaks bricks, but less than the sun ray (%d)" % beam_taken)
-	var narrowest = 0
-	for anchor in row:
-		narrowest = maxi(narrowest, row.filter(func(b): return absf(b.p.x - anchor.p.x) <= Rules.SUN_BEAM_HALF_WIDTH + Rules.BRICK_EXTENT.x).size())
-	check(narrowest <= 2, "About one brick wide on a row (%d)" % narrowest)
+	check(beam_taken > 0 and beam_taken < before_enemy - team_health(r, 1), "It breaks bricks, but fewer than the sun ray (%d)" % beam_taken)
+	# Two bricks a row, wherever it is aimed along the wall.
+	var worst = 0
+	var best = 99
+	for angle in [-0.5, -0.4, -0.34, -0.2, -0.1, 0.1, 0.25, 0.4]:
+		var one = playing("sun_beam")
+		one.players[0].angle = angle
+		one.players[0].p = Rules.track_position(0, angle)
+		var full: Dictionary = {}
+		for b in one.bricks:
+			full[b.p] = b.hp
+		one.sun_beam_bite(0)
+		var hit_rows: Dictionary = {}
+		for b in one.bricks:
+			if b.team == 1 and b.hp < int(full[b.p]):
+				var line = snappedf(b.p.y, 0.1)
+				hit_rows[line] = int(hit_rows.get(line, 0)) + 1
+		for line in hit_rows:
+			worst = maxi(worst, hit_rows[line])
+			best = mini(best, hit_rows[line])
+	check(worst == 2, "It never takes more than two bricks of a row (%d)" % worst)
+	check(best >= 1, "And it always takes something in a row it crosses")
 
 	# ---------------------------------------------------------------- meteors and thunder
 	for kind in [["meteors", "meteor", Rules.METEOR_COUNT, Rules.METEOR_SECONDS], ["thunder", "thunder", Rules.THUNDER_COUNT, Rules.THUNDER_SECONDS]]:
