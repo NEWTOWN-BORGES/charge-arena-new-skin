@@ -1709,7 +1709,10 @@ func _physics_process(dt: float) -> void:
 			elif rules.can_activate_power(1 - local_team, remote_power):
 				remote_slot = remote_power
 				remote_power = -1
-		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or take_queued_shot(1 - local_team), "power": remote_slot}
+		# The guest's taps are manual shots like the host's own: without the flag the host fired
+		# them at the slower automatic cadence, so only the host had the quick tap fire.
+		var remote_tap = false if (not stale and remote_command.fire) else take_queued_shot(1 - local_team)
+		other = {"move": Vector2.ZERO if stale else remote_command.move, "fire": (false if stale else remote_command.fire) or remote_tap, "manual": remote_tap, "power": remote_slot}
 	arena.capture_motion(rules)
 	rules.step(dt, [command, other])
 	bank_bricks()
