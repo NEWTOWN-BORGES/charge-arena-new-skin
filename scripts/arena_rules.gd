@@ -334,13 +334,12 @@ static func quick_map(world: String) -> Dictionary:
 
 static func test_map() -> Dictionary:
 	# The test arena: a much bigger field (35% longer, a little wider than the tall maps)
-	# with a clean middle. Two bumpers cross it from wall to wall, four side accelerators
-	# wait on the walls, and the long sides are serpent walls that ripple in and out.
+	# with a clean middle. Two bumpers cross it from wall to wall and four side accelerators
+	# wait on the walls. (Serpent walls were tried here and taken out; "snake" still works.)
 	# Walls five rows deep; just the floor, nothing around it.
 	return {
-		"id": "teste", "name": "Arena de Teste", "tall": true, "narrow": 0.84, "lean": true, "outline": "snake", "stretch": 1.35,
+		"id": "teste", "name": "Arena de Teste", "tall": true, "narrow": 0.84, "lean": true, "outline": "colosseum", "stretch": 1.35,
 		"boosters": true, "boost_depths": [-3.4, 3.4], "bricks": "deep", "barriers": [], "bare": true,
-		"snake": {"amp": 1.3, "speed": 0.9, "wave": 0.55},
 		"obstacles": [
 			{"kind": "slide", "center": Vector2(0, 2.3), "axis": Vector2.RIGHT, "travel": 5.6, "frequency": 0.3, "phase": 0.0, "radius": 0.5},
 			{"kind": "slide", "center": Vector2(0, -2.3), "axis": Vector2.RIGHT, "travel": 5.6, "frequency": 0.3, "phase": PI, "radius": 0.5},
