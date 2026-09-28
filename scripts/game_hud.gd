@@ -53,6 +53,7 @@ signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
 signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
+signal story_recap_requested
 var camera_choice: OptionButton
 var effects_choice: OptionButton
 var haptic_choice: CheckButton
@@ -4142,6 +4143,12 @@ func build_bosses_menu() -> void:
 	bosses_scroll.add_child(bosses_grid)
 	# Stuck on a boss? The shop is one tap away: the powers bought there are what turn a
 	# lost fight into a won one.
+	# The whole story as conversations only, no matches: as far as you have played it (all of
+	# it in the LAB build).
+	var recap = make_button("VER HISTÓRIA  ▶", false)
+	recap.add_theme_font_size_override("font_size", 20)
+	recap.pressed.connect(func(): story_recap_requested.emit())
+	stack.add_child(recap)
 	var buttons = HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	stack.add_child(buttons)
@@ -4234,7 +4241,7 @@ func layout_bosses() -> void:
 		return
 	var width = minf(size.x - 24.0, 720.0)
 	bosses_grid.columns = 2 if width < 420 else 3
-	bosses_scroll.custom_minimum_size = Vector2(width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 330.0))
+	bosses_scroll.custom_minimum_size = Vector2(width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 420.0))
 	bosses_panel.size = Vector2(width, bosses_panel.get_combined_minimum_size().y)
 	bosses_panel.position = Vector2((size.x - width) * 0.5, maxf(safe_top + 10.0, (size.y - bosses_panel.size.y) * 0.5))
 

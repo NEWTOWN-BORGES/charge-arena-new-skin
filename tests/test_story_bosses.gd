@@ -30,6 +30,13 @@ func run() -> void:
 	for who in [Story.BIT, Story.BIT_ELITE, Story.AGENTE] + order:
 		var key = "agente" if who == Story.AGENTE else str(who)
 		check(ResourceLoader.exists("res://art/story/faces/%s.png" % key), "%s has a talking portrait" % Story.speaker_name(who))
+	# VER HISTÓRIA: the conversations only, as far as the player has got.
+	var recap: Array = game.story_recap()
+	check(recap.size() == Story.PROLOGUE.size() + 1 + Story.lines(order[0], "before").size() + 1, "A new player's recap stops at the first rival (%d lines)" % recap.size())
+	game.skins.unlock_all = true
+	var whole: Array = game.story_recap()
+	game.skins.unlock_all = false
+	check(String(whole[-1][1]) == String(Story.lines(Story.FINAL, "won")[-1][1]) and whole.any(func(l): return String(l[1]) == String(Story.lines(Story.TEACHER, "teach")[1][1])), "With everything open the recap runs to the end, HÉLIO's lesson included (%d lines)" % whole.size())
 	var normal: Array = game.story_entries(false)
 	check(normal[0].open and not normal[1].open, "Only the first rival is open at the start")
 	# The first match opens with the prologue, then ROSCA's lines; the match starts when they end.

@@ -191,6 +191,7 @@ func _ready() -> void:
 			maybe_lobby_tutorial())
 	hud.notice_shown.connect(func(_kind): play_tone("notify", 2.0))
 	hud.story_boss_chosen.connect(start_story)
+	hud.story_recap_requested.connect(func(): hud.play_story_talk(story_recap()))
 	campaign.load_preferences()
 	sync_boss_skins()
 	hud.sync_campaign(campaign)
@@ -500,6 +501,28 @@ func story_entries(hard: bool) -> Array:
 			"passed": story_passed(boss, hard),
 			"open": reachable and (step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
 	return list
+
+func story_recap() -> Array:
+	# Every conversation of the story in order, without the matches: up to where the player
+	# has got (the whole story in the LAB build, or once it is finished).
+	var lines: Array = StoryScript.PROLOGUE.duplicate()
+	var order = story_bosses()
+	for step in range(order.size()):
+		var boss: int = order[step]
+		var reached = skins.unlock_all or step == 0 or story_passed(order[step - 1], false)
+		if not reached:
+			break
+		lines.append([StoryScript.NARRADOR, "RONDA %d DE %d · %s" % [step + 1, order.size(), StoryScript.speaker_name(boss)]])
+		lines += StoryScript.lines(boss, "before")
+		if boss == StoryScript.TEACHER and (skins.unlock_all or story_passed(boss, false)):
+			lines += StoryScript.lines(boss, "won" if story_beaten(boss, false) else "lost")
+			lines += StoryScript.lines(boss, "teach")
+		elif skins.unlock_all or story_beaten(boss, false):
+			lines += StoryScript.lines(boss, "won")
+		else:
+			lines.append([StoryScript.NARRADOR, "Continua no Modo história: vence o %s para veres o resto." % StoryScript.speaker_name(boss)])
+			break
+	return lines
 
 func open_bosses() -> void:
 	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true), "hard_open": story_hard_open()})
