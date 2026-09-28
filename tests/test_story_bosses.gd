@@ -31,6 +31,8 @@ func run() -> void:
 		var key = Story.face_key(who)
 		check(ResourceLoader.exists("res://art/story/faces/%s.png" % key) and ResourceLoader.exists("res://art/story/faces/%s_hit.png" % key), "%s has a talking portrait and a dazed one" % Story.speaker_name(who))
 		check(ResourceLoader.exists("res://audio/voices/%s_0.wav" % key), "%s has a voice" % Story.speaker_name(who))
+	for hard_skin in range(12, 24):
+		check(ResourceLoader.exists("res://art/story/faces/%d.png" % hard_skin) and ResourceLoader.exists("res://art/story/faces/%d_dark.png" % hard_skin), "%s has a portrait and a corrupted one" % Skins.CATALOG[hard_skin].name)
 	# Every scene card points at a backdrop that exists.
 	var cards: Array = []
 	for entry in Story.INTRO + Story.OPENING:
@@ -38,6 +40,9 @@ func run() -> void:
 			cards.append(entry)
 	for step in range(order.size()):
 		cards.append(Story.round_card(step, order[step], "x"))
+	for entry in Story.S2_INTRO + Story.S2_AFTER_MAGNUS + Story.hard_lines(Story.HELIO, "before") + Story.hard_lines(Story.HELIO, "won"):
+		if int(entry[0]) == Story.SCENE:
+			cards.append(entry)
 	check(cards.all(func(c): return ResourceLoader.exists("res://art/story/scenes/%s.png" % String(c[2].bg))), "Every scene has its backdrop (%d)" % cards.size())
 	# VER HISTÓRIA: the conversations only, as far as the player has got.
 	var recap: Array = game.story_recap()
@@ -51,7 +56,7 @@ func run() -> void:
 	# A new story: chapters 1 to 3, then the training match with BATIDA and the tutorial.
 	game.start_story(0, false)
 	await create_timer(0.2).timeout
-	check(game.hud.story_talk_running() and game.hud.story_talk.lines.size() == Story.INTRO.size(), "The story opens on the fine, the call and the way to training")
+	check(game.hud.story_talk_running() and game.hud.story_talk.lines.size() == Story.INTRO.size() + 1 and int(game.hud.story_talk.lines[-1][0]) == Story.VERSUS, "The story opens on the fine, the call and the way to training, and the BIT vs BATIDA card")
 	check(game.story_run.is_empty(), "The match waits for the conversation")
 	game.hud.story_talk.close(true)
 	await create_timer(0.3).timeout
@@ -105,15 +110,30 @@ func run() -> void:
 		if not game.skins.story_won.has(game.story_key(boss, false)):
 			game.skins.story_won.append(game.story_key(boss, false))
 	check(game.story_entries(true)[0].open, "Finishing NORMAL opens DIFÍCIL")
+	# Season two: MAGNUS loose in the city, the corrupted friends, HÉLIO in the final.
+	var hard_order: Array = game.story_bosses(true)
+	check(hard_order[0] == Story.MAGNUS and hard_order[-1] == Story.HELIO and hard_order[-2] == Story.ECLIPSE and hard_order[-3] == Story.BATIDA and hard_order.size() == 11, "Season two: MAGNUS first, BATIDA just before ECLIPSE, HÉLIO in the final")
+	for boss in hard_order:
+		check(not Story.hard_lines(boss, "lost").is_empty() and (boss == Story.MAGNUS or not Story.hard_lines(boss, "before").is_empty()), "%s has season-two lines" % Story.speaker_name(boss))
+	check(Story.hard_lines(Story.HELIO, "won").any(func(l): return int(l[0]) == Story.BATIDA_NEON), "Beating HÉLIO brings everyone back, BATIDA first")
 	game.skins.selected = 5
 	game.start_story(0, true)
 	await create_timer(0.2).timeout
-	check(not game.hud.story_talk_running(), "DIFÍCIL goes straight to the match")
+	var s2: Array = game.hud.story_talk.lines
+	check(game.hud.story_talk_running() and String(s2[0][2].bg) == "cidade" and int(s2[-1][0]) == Story.VERSUS and bool(s2[-1][2].dark), "Season two opens on the city in chaos and a BIT vs corrupted MAGNUS card")
+	game.hud.story_talk.close(true)
+	await create_timer(0.3).timeout
+	check(bool(game.story_run.get("hard", false)) and int(game.story_run.boss) == Story.MAGNUS, "Then BIT takes MAGNUS on")
 	check(int(game.arena.unit_skins[0]) == Story.BIT_ELITE, "In the story DIFÍCIL you play as BIT DE ELITE, whatever skin is chosen")
-	check(int(game.arena.unit_skins[1]) == Skins.hard_of_boss(order[0]), "In DIFÍCIL the boss wears its hard skin")
+	check(int(game.arena.unit_skins[1]) == Story.MAGNUS_IMP, "MAGNUS fights in his IMPERADOR form, corrupted")
 	game.rules.winner = 0
 	game.finish_level()
-	check(game.skins.is_unlocked(Skins.hard_of_boss(order[0])), "Beating it in DIFÍCIL unlocks the hard skin")
+	check(game.skins.is_unlocked(Story.MAGNUS_IMP), "Freeing MAGNUS unlocks MAGNUS IMPERADOR")
+	await create_timer(1.8).timeout
+	var after_magnus: Array = game.hud.story_talk.lines
+	check(game.hud.story_talk_running() and after_magnus.any(func(l): return l.size() > 2 and l[2] is Dictionary and String(l[2].get("fx", "")) == "lineup"), "Freed, MAGNUS tells his story and the dark entrants walk into the second Taça")
+	game.hud.story_talk.close(true)
+	check(game.story_entries(true)[1].open, "The next corrupted friend opens")
 	# The hard skins build and carry their added pieces.
 	var body = Node3D.new()
 	game.arena.add_child(body)

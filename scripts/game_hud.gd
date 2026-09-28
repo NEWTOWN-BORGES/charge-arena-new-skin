@@ -1180,7 +1180,7 @@ func build_map_picker() -> void:
 		picture.position = Vector2(7, 7)
 		picture.size = Vector2(104, 104)
 		tile.add_child(picture)
-		var name = label(String(ArenaTheme.THEMES[world].name).to_upper().replace("ARENA ", ""), 12, WHITE, true)
+		var name = label(String(ArenaTheme.theme(world).name).to_upper().replace("ARENA ", ""), 12, WHITE, true)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1251,7 +1251,7 @@ func close_map_picker() -> void:
 
 func pick_world(world: String) -> void:
 	chosen_world = world
-	map_title.text = String(ArenaTheme.THEMES[world].name).to_upper()
+	map_title.text = String(ArenaTheme.theme(world).name).to_upper()
 	for key in map_tiles:
 		var chosen: bool = key == world
 		var tile: Button = map_tiles[key]

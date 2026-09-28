@@ -1,5 +1,7 @@
 extends Node3D
 const StoryScript = preload("res://scripts/story_script.gd")
+const Robots = preload("res://scripts/robots.gd")
+const ArenaTheme = preload("res://scripts/arena_theme.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaView = preload("res://scripts/indie_arena_view.gd")
 const HUD = preload("res://scripts/game_hud.gd")
@@ -437,8 +439,9 @@ func use_map(layout: Dictionary) -> void:
 # do NORMAL: os chefes vestem as skins difíceis, e é essa que ganhas.
 var story_run: Dictionary = {}
 
-func story_bosses() -> Array:
-	return StoryScript.ORDER.duplicate()
+func story_bosses(hard: bool = false) -> Array:
+	# NORMAL is the first Taça; DIFÍCIL is the second season, in its own order.
+	return (StoryScript.ORDER_HARD if hard else StoryScript.ORDER).duplicate()
 
 func campaign_level_of(boss: int) -> int:
 	for i in range(Campaign.LEVELS.size()):
@@ -446,7 +449,10 @@ func campaign_level_of(boss: int) -> int:
 			return i
 	return Campaign.LEVELS.size() - 1
 
-func story_level_of(boss: int) -> int:
+func story_level_of(boss: int, hard: bool = false) -> int:
+	# Season two opens with MAGNUS loose in the city: the city arena.
+	if hard and boss == StoryScript.MAGNUS:
+		return campaign_level_of(StoryScript.ROSCA)
 	# The arena: each boss plays at home. MAGNUS, ECLIPSE's henchman, guards the last Eclipse
 	# outpost; his kit is still the champion's (see story_kit_level).
 	if boss == StoryScript.MAGNUS:
@@ -454,6 +460,18 @@ func story_level_of(boss: int) -> int:
 			if String(Campaign.LEVELS[i].name) == "Posto Eclipse V":
 				return i
 	return campaign_level_of(boss)
+
+func story_map(boss: int, hard: bool) -> Dictionary:
+	# Season two plays the same courts in the corrupted worlds, dark and lit by neon.
+	var layout: Dictionary = Campaign.LEVELS[story_level_of(boss, hard)].map.duplicate(true)
+	if hard:
+		layout.id = String(StoryScript.S2_WORLD.get(boss, "cidade_negra"))
+	return layout
+
+func story_place(boss: int, hard: bool) -> String:
+	if hard:
+		return String(ArenaTheme.theme(String(StoryScript.S2_WORLD.get(boss, "cidade_negra"))).name)
+	return story_arena_name(boss)
 
 func story_kit_level(boss: int) -> int:
 	return Campaign.LEVELS.size() - 1 if boss == StoryScript.MAGNUS else campaign_level_of(boss)
@@ -492,7 +510,7 @@ func story_hard_open() -> bool:
 	return skins.unlock_all or story_bosses().all(func(boss): return story_passed(boss, false))
 
 func story_entries(hard: bool) -> Array:
-	var order = story_bosses()
+	var order = story_bosses(hard)
 	var list: Array = []
 	var reachable = not hard or story_hard_open()
 	for step in range(order.size()):
@@ -540,7 +558,7 @@ func open_bosses() -> void:
 	hud.open_bosses({"normal": story_entries(false), "hard": story_entries(true), "hard_open": story_hard_open()})
 
 func start_story(step: int, hard: bool, talk: bool = true) -> void:
-	var order = story_bosses()
+	var order = story_bosses(hard)
 	if step < 0 or step >= order.size():
 		return_to_menu()
 		return
@@ -550,7 +568,7 @@ func start_story(step: int, hard: bool, talk: bool = true) -> void:
 	if not hard and step == 0 and not story_trained():
 		# A new story: chapters 1 to 3 (the fine, the call, the way to training), then the
 		# training match with BATIDA, which is the game's tutorial.
-		hud.play_story_talk(StoryScript.INTRO.duplicate(), begin_training)
+		hud.play_story_talk(StoryScript.INTRO + [StoryScript.versus(StoryScript.BIT, StoryScript.BATIDA, -1, 0, "Circuito Aurora")], begin_training)
 		return
 	if talk and not hard:
 		# The story is told in NORMAL: each round opens on its card and the rival's lines; the
@@ -561,6 +579,21 @@ func start_story(step: int, hard: bool, talk: bool = true) -> void:
 		else:
 			lines.append(StoryScript.round_card(step, boss, story_arena_name(boss)))
 		lines += StoryScript.lines(boss, "before")
+		lines.append(StoryScript.versus(story_pilot(boss, false), boss, step, order.size(), story_arena_name(boss)))
+		hud.play_story_talk(lines, func(): begin_story(step, hard))
+		return
+	if talk and hard:
+		# Season two: the city under attack before MAGNUS, then a round card and the words of
+		# each corrupted friend; the fight card closes every talk.
+		var lines: Array = []
+		var wear = story_prize(boss, true)
+		var place = story_place(boss, true)
+		if step == 0 and not story_beaten(boss, true):
+			lines += StoryScript.S2_INTRO
+		else:
+			lines.append(StoryScript.round_card(step, boss, place, "arena_s2_%d" % boss))
+		lines += StoryScript.hard_lines(boss, "before")
+		lines.append(StoryScript.versus(story_pilot(boss, true), wear, step, order.size(), place, true))
 		hud.play_story_talk(lines, func(): begin_story(step, hard))
 		return
 	begin_story(step, hard)
@@ -607,15 +640,15 @@ func finish_training() -> void:
 	hud.level_result = "won" if won else "lost"
 	hud.level_opened = false
 	hud.level_info["has_next"] = true
-	var lines: Array = (StoryScript.TRAINING_WON if won else StoryScript.TRAINING_LOST) + StoryScript.TRAINING_AFTER + StoryScript.OPENING + StoryScript.lines(StoryScript.ORDER[0], "before")
+	var lines: Array = (StoryScript.TRAINING_WON if won else StoryScript.TRAINING_LOST) + StoryScript.TRAINING_AFTER + StoryScript.OPENING + StoryScript.lines(StoryScript.ORDER[0], "before") + [StoryScript.versus(StoryScript.BIT, StoryScript.ORDER[0], 0, StoryScript.ORDER.size(), story_arena_name(StoryScript.ORDER[0]))]
 	get_tree().create_timer(1.6).timeout.connect(func():
 		if mode == "pve" and bool(story_run.get("training", false)):
 			hud.play_story_talk(lines, func(): begin_story(0, false)))
 
 func begin_story(step: int, hard: bool) -> void:
-	var order = story_bosses()
+	var order = story_bosses(hard)
 	var boss: int = order[step]
-	var index = story_level_of(boss)
+	var index = story_level_of(boss, hard)
 	close_cup_screen()
 	pve_paused = false
 	close_network()
@@ -624,7 +657,7 @@ func begin_story(step: int, hard: bool) -> void:
 	arena.set_view_team(local_team)
 	network_status = ""
 	level_index = index
-	use_map(Campaign.LEVELS[index].map)
+	use_map(story_map(boss, hard))
 	story_run = {"step": step, "hard": hard, "boss": boss}
 	rules.ai_profile = Campaign.ai_profile(story_ai_level(step), 2 if hard else 1)
 	var wear = story_prize(boss, hard)
@@ -637,9 +670,12 @@ func begin_story(step: int, hard: bool) -> void:
 		# The champion walks in with the sun already charged: this is the match he wins easily.
 		charge_rival_ultimate.call_deferred()
 	dress_pilots(local_team)
+	# Season two: the rival fights corrupted, a black shape with only its neon alight.
+	Robots.shadow_build = hard
 	arena.set_skin(1, wear, false)
+	Robots.shadow_build = false
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": step + 1, "name": ("DIFÍCIL · " if hard else "") + String(Campaign.LEVELS[index].name),
+	hud.level_info = {"number": step + 1, "name": ("TEMPORADA 2 · " if hard else "") + String(Campaign.LEVELS[index].name),
 		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
 		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size(), "story": true}
 	hud.level_result = ""
@@ -687,7 +723,18 @@ func finish_story() -> void:
 	hud.level_result = "won" if won else "lost"
 	hud.level_opened = false
 	# The next boss only opens once this one has fallen (HÉLIO: once his match is over).
-	hud.level_info["has_next"] = (won or teacher) and int(story_run.step) + 1 < story_bosses().size()
+	hud.level_info["has_next"] = (won or teacher) and int(story_run.step) + 1 < story_bosses(hard).size()
+	if hard:
+		var place = story_place(boss, true)
+		var s2: Array = [StoryScript.round_card(int(story_run.step), boss, place, "arena_s2_%d" % boss)]
+		s2[0][2]["quiet"] = true
+		if won and boss == StoryScript.MAGNUS:
+			s2 += StoryScript.S2_AFTER_MAGNUS
+		else:
+			s2 += StoryScript.hard_lines(boss, "won" if won else "lost")
+		get_tree().create_timer(1.6).timeout.connect(func():
+			if s2.size() > 1 and mode == "pve" and not story_run.is_empty():
+				hud.play_story_talk(s2))
 	if not hard:
 		var lines: Array = [StoryScript.round_card(int(story_run.step), boss, story_arena_name(boss))]
 		lines[0][2]["quiet"] = true

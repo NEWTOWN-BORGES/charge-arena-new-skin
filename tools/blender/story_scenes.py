@@ -455,7 +455,80 @@ def scene_estadio(samples):
     render("estadio", samples)
 
 
-SCENES = {"rua": scene_rua, "quarto": scene_quarto, "estadio": scene_estadio}
+def scene_cidade(samples):
+    """Temporada 2: o centro futurista de Voltara em caos, de noite, depois do ataque do MAGNUS."""
+    reset()
+    rng = random.Random(21)
+    world_color("1a0b2e", 0.9)
+    road = mat("road_wet", "14161d", rough=0.12, metal=0.3)
+    box((0, 40, -0.05), (12, 140, 0.1), road)
+    lane = mat("lane", "0b1a20", emit="3ff0ff", strength=4.0)
+    for i in range(34):
+        box((0, 2 + i * 4, 0.005), (0.14, 2.0, 0.02), lane)
+    for sx in (-1, 1):
+        box((sx * 7.5, 40, 0.1), (3, 140, 0.3), mat("walk2", "3a3f4d", rough=0.5))
+    glass = mat("tower_glass", "10131d", rough=0.08, metal=0.7)
+    neon_cols = ["3ff0ff", "ff3fbf", "a24bff", "ffd23f"]
+    win_cool = mat("t_win", "0a0f1e", emit="6fb8ff", strength=3.0)
+    for sx in (-1, 1):
+        y = -4.0
+        while y < 110:
+            width = rng.uniform(7, 12)
+            height = rng.uniform(30, 75)
+            x = sx * (9.0 + 6)
+            box((x, y + width / 2, height / 2), (12, width - 0.6, height), glass, bevel=0.1)
+            neon = rng.choice(neon_cols)
+            strip = mat("strip" + neon, "111111", emit=neon, strength=14.0)
+            for k in range(2):
+                box((x - sx * 6.05, y + 1.0 + k * (width - 2.0), height / 2), (0.08, 0.15, height), strip)
+            for r in range(int(height / 3)):
+                if rng.random() < 0.5:
+                    box((x - sx * 6.03, y + width / 2 + rng.uniform(-width / 3, width / 3), 2 + r * 3), (0.04, rng.uniform(0.6, 2.5), 0.9), win_cool)
+            # Hologram panels on the facades, some knocked askew.
+            if rng.random() < 0.7:
+                holo_col = rng.choice(neon_cols)
+                holo = mat("holo" + holo_col, "000000", emit=holo_col, strength=5.0, alpha=0.5)
+                tilt = rng.uniform(-0.4, 0.4) if rng.random() < 0.5 else 0.0
+                panel = box((x - sx * 6.6, y + width / 2, rng.uniform(8, 18)), (0.05, width * 0.6, 3.5), holo)
+                panel.rotation_euler[0] = tilt
+            y += width
+    # A fallen hologram billboard across the road, still flickering.
+    fallen = box((-2.0, 18, 0.6), (5.5, 0.1, 3.0), mat("fallen", "000000", emit="ff3fbf", strength=6.0, alpha=0.55))
+    fallen.rotation_euler = (math.radians(70), math.radians(8), math.radians(25))
+    # Overturned cars and debris.
+    car = mat("car2", "3a4a6a", rough=0.3, metal=0.4)
+    for (cx, cy, rz, flip) in ((3.2, 10, 30, 180), (-3.8, 26, -60, 90), (2.4, 34, 80, 180)):
+        c = box((cx, cy, 0.7), (1.9, 4.2, 1.2), car, bevel=0.25)
+        c.rotation_euler = (math.radians(flip if flip == 90 else 0), math.radians(flip if flip == 180 else 0), math.radians(rz))
+    rubble = mat("rubble", "4a4d57", rough=0.8)
+    for k in range(70):
+        box((rng.uniform(-6, 6), rng.uniform(4, 45), 0.2), (rng.uniform(0.2, 0.9), rng.uniform(0.2, 0.9), rng.uniform(0.1, 0.6)), rubble, rot=rng.uniform(0, 6.28))
+    # The crater MAGNUS left, its rim still glowing, fires and smoke.
+    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.35, location=(0.5, 22, 0.05))
+    bpy.context.active_object.data.materials.append(mat("crater", "2a1208", emit="ff5a1a", strength=8.0))
+    fire = mat("fire", "ff5a10", emit="ff4a08", strength=7.0)
+    smoke = mat("smoke", "141218", rough=1.0, alpha=0.6)
+    for (fx, fy) in ((0.5, 22), (3.4, 10.5), (-3.9, 26.5), (-6.5, 38), (5.5, 44)):
+        for k in range(5):
+            sphere((fx + rng.uniform(-0.5, 0.5), fy + rng.uniform(-0.5, 0.5), 0.4 + k * 0.35), 0.5 - k * 0.07, fire)
+        light("POINT", (fx, fy, 1.5), 1800, "ff5a1a", size=0.8)
+        for k in range(6):
+            sphere((fx + rng.uniform(-1.5, 1.5), fy + rng.uniform(-1.5, 1.5), 3 + k * 2.2), 1.4 + k * 0.4, smoke)
+    # Alarm lights and drones in the sky.
+    for k in range(6):
+        light("POINT", (rng.choice([-6.5, 6.5]), 6 + k * 8, 5.0), 1500, "ff1030", size=0.4)
+    drone = mat("drone", "1b1d24", rough=0.4, metal=0.6)
+    red = mat("drone_red", "ff1030", emit="ff1030", strength=25.0)
+    for k in range(8):
+        at = (rng.uniform(-8, 8), rng.uniform(15, 70), rng.uniform(12, 30))
+        box(at, (1.0, 0.8, 0.2), drone, bevel=0.05)
+        sphere((at[0], at[1], at[2] - 0.15), 0.12, red)
+    light("AREA", (0, 30, 40), 3000, "a24bff", size=40, target=(0, 30, 0))
+    camera((-1.5, -7.0, 1.6), (0.5, 30, 6.0), lens=22)
+    render("cidade", samples)
+
+
+SCENES = {"rua": scene_rua, "quarto": scene_quarto, "estadio": scene_estadio, "cidade": scene_cidade}
 
 
 def main():
@@ -463,7 +536,7 @@ def main():
     quick = "--quick" in args
     names = [a for a in args if a in SCENES] or list(SCENES)
     for name in names:
-        SCENES[name](16 if quick else (64 if name == "estadio" else 96))
+        SCENES[name](16 if quick else (64 if name in ("estadio", "cidade") else 96))
 
 
 if __name__ == "__main__":

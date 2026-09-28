@@ -428,6 +428,12 @@ func build(new_map: Dictionary = {}) -> void:
 	presentation_environment = environment.environment
 	ArenaFinish.environment(presentation_environment, quality_level)
 	ArenaFinish.fog(presentation_environment, theme.get("fog", {}))
+	# The season-two worlds bring their own night light (dawn, dusk or midnight).
+	if theme.has("ambient"):
+		presentation_environment.ambient_light_color = theme.ambient
+		presentation_environment.ambient_light_energy *= float(theme.get("ambient_energy", 1.0))
+		# No bright studio dome in the reflections: the night stays dark.
+		presentation_environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	add_child(environment)
 	var background_layer = CanvasLayer.new()
 	background_layer.layer = -1
@@ -447,15 +453,15 @@ func build(new_map: Dictionary = {}) -> void:
 	# on the right. The grey dome of the environment does the rest.
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-52, -35, 0)
-	light.light_color = theme.get("sun", Color("fff3e6"))
-	light.light_energy = 1.1
+	light.light_color = theme.get("key", theme.get("sun", Color("fff3e6")))
+	light.light_energy = float(theme.get("key_energy", 1.1))
 	light.shadow_enabled = false
 	add_child(light)
 	key_light = light
 	secondary_light = DirectionalLight3D.new()
 	secondary_light.rotation_degrees = Vector3(-30, 145, 0)
-	secondary_light.light_color = Color("e4ecf6")
-	secondary_light.light_energy = 0.35
+	secondary_light.light_color = theme.get("fill", Color("e4ecf6"))
+	secondary_light.light_energy = float(theme.get("fill_energy", 0.35))
 	add_child(secondary_light)
 	capture_mood_base()
 	camera = Camera3D.new()
@@ -465,6 +471,8 @@ func build(new_map: Dictionary = {}) -> void:
 	add_child(camera)
 	camera.look_at(Vector3(0, -0.15, 0))
 	camera.current = true
+	if theme.has("neon"):
+		build_neon_rim()
 	# Each world builds its own ground around the field (arena_theme.gd names it); a theme
 	# without one falls back to the studio plinth and stands.
 	# A bare map (the test arena) is just the floor: no plinth, no world around it.
@@ -801,6 +809,18 @@ func build_boosters() -> void:
 		var label = world_label("BOOST", Vector3(sign_x * (side + 0.42), 0.5, 0), theme.accent, 29)
 		label.rotation.y = -sign_x * PI * 0.5
 		booster_nodes.append(root)
+
+func build_neon_rim() -> void:
+	# Season two: a neon tube round the court, on the floor at the foot of the walls, and a
+	# second, in the other neon, a little outside it.
+	for ring in [[1.0, theme.neon, 0.035], [1.06, theme.get("neon_alt", theme.neon), 0.025]]:
+		var points: Array = walls
+		for i in range(points.size()):
+			var a: Vector2 = points[i] * float(ring[0])
+			var b: Vector2 = points[(i + 1) % points.size()] * float(ring[0])
+			var mid = (a + b) * 0.5
+			var tube = box(self, Vector3(mid.x, 0.04, mid.y), Vector3(a.distance_to(b) + 0.05, 0.05, float(ring[2]) * 2.0), ring[1], true, 0.0)
+			tube.rotation.y = -atan2(b.y - a.y, b.x - a.x)
 
 # The walls of a bare map, one block per edge of the outline; on a map with serpent walls
 # they follow the ripple every frame (Rules.snake_walls).

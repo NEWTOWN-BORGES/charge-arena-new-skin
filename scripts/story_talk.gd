@@ -16,6 +16,7 @@ const VOICES = "res://audio/voices/%s_%d.wav"
 const TYPE_SPEED = 40.0
 const TITLE_SECONDS = 2.2
 const FADE_SECONDS = 0.35
+const VERSUS_SECONDS = 2.8
 const INK = Color("0b0a12")
 
 signal finished(skipped: bool)
@@ -210,10 +211,13 @@ func texture(path: String) -> Texture2D:
 		textures[path] = load(path) if ResourceLoader.exists(path) else null
 	return textures[path]
 
-func face(speaker: int, mood: String = "") -> Texture2D:
-	var key = Story.face_key(speaker)
+func face(speaker: int, mood: String = "", dark: bool = false) -> Texture2D:
+	var key = Story.face_key(speaker) + ("_dark" if dark else "")
 	var picture = texture(FACES % (key + ("_" + mood if mood != "" else "")))
 	return picture if picture != null else texture(FACES % key)
+
+func dark_line() -> bool:
+	return String(options().get("face", "")) == "dark"
 
 func accent_of(speaker: int) -> Color:
 	match speaker:
@@ -221,7 +225,9 @@ func accent_of(speaker: int) -> Color:
 		Story.LOCUTOR: return Color("b27cff")
 	if speaker < 0:
 		return UiKit.SUN
-	return Color(String(Skins.CATALOG[speaker].get("light", "ffd23f")))
+	var light = String(Skins.CATALOG[speaker].get("light", ""))
+	# Skins in the team's colours (BIT) have no light of their own: jade, as they play.
+	return Color(light) if light != "" else Color("4fd3b9")
 
 func on_left(speaker: int) -> bool:
 	return speaker == Story.BIT or speaker == Story.BIT_ELITE
@@ -232,6 +238,12 @@ func show_entry() -> void:
 	typed = 0.0
 	voiced_upto = 0
 	state_time = 0.0
+	if speaker == Story.VERSUS:
+		# The fight card: it plays by itself and hands over to the match.
+		state = "versus"
+		voice.stop()
+		arrange()
+		return
 	if speaker == Story.SCENE and bool(opts.get("quiet", false)):
 		# Just the backdrop, no card: the talk after a match, in the arena it was played in.
 		backdrop.texture = texture(SCENES % String(opts.get("bg", "estadio")))
@@ -257,7 +269,14 @@ func show_entry() -> void:
 	else:
 		text.text = line
 		text.visible_characters = 0
-		tag_label.text = Story.speaker_name(speaker)
+		var dark = String(opts.get("face", "")) == "dark"
+		if dark:
+			# Corrupted: the boss's own name, in the corruption's violet.
+			var base = int(Skins.CATALOG[speaker].get("hard_of", speaker)) if speaker >= 0 else speaker
+			tag_label.text = Story.speaker_name(base if base >= 0 else speaker)
+			accent = Color("a24bff")
+		else:
+			tag_label.text = Story.speaker_name(speaker)
 		tag_label.add_theme_color_override("font_color", INK if accent.get_luminance() > 0.5 else Color.WHITE)
 		var tag_style = StyleBoxFlat.new()
 		tag_style.bg_color = accent
@@ -272,14 +291,14 @@ func show_entry() -> void:
 			if left_who != speaker:
 				slide_left = 0.0
 			left_who = speaker
-			left_face.texture = face(speaker, mood)
+			left_face.texture = face(speaker, mood, dark)
 		else:
 			var phone = bool(opts.get("phone", false))
 			if right_who != speaker or right_phone != phone:
 				slide_right = 0.0
 			right_who = speaker
 			right_phone = phone
-			right_face.texture = face(speaker, mood)
+			right_face.texture = face(speaker, mood, dark)
 	arrange()
 	call_deferred("arrange")
 
@@ -403,6 +422,10 @@ func _process(delta: float) -> void:
 		"title":
 			if state_time >= TITLE_SECONDS:
 				next_entry()
+		"versus":
+			fade = 0.0
+			if state_time >= VERSUS_SECONDS:
+				next_entry()
 		"line":
 			fade = maxf(0.0, fade - delta / FADE_SECONDS)
 			type_line(delta)
@@ -430,14 +453,15 @@ func speak(line: String, upto: int) -> void:
 			continue
 		if voiced_upto % every != 0:
 			continue
-		var path = VOICES % [Story.face_key(who()), randi() % 6]
+		var path = VOICES % [Story.voice_key(who()), randi() % 6]
 		if not voices.has(path):
 			voices[path] = load(path) if ResourceLoader.exists(path) else null
 		if voices[path] == null:
 			return
 		voice.stream = voices[path]
-		voice.pitch_scale = randf_range(0.93, 1.08)
-		voice.volume_db = voice_db + (-10.0 if who() == Story.NARRADOR else -4.0)
+		# A corrupted robot speaks lower and slower.
+		voice.pitch_scale = randf_range(0.76, 0.84) if dark_line() else randf_range(0.93, 1.08)
+		voice.volume_db = voice_db + (-6.0 if who() == Story.NARRADOR else 2.0)
 		voice.play()
 		return
 
@@ -449,6 +473,10 @@ func _gui_input(event: InputEvent) -> void:
 
 func advance() -> void:
 	if lines.is_empty() or state == "fade":
+		return
+	if state == "versus":
+		if state_time > 0.6:
+			next_entry()
 		return
 	if state == "title":
 		# A tap cuts the chapter card short.
@@ -491,13 +519,22 @@ func draw_under() -> void:
 	c.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y)]), shade)
 	if state != "line":
 		return
-	if who() != Story.NARRADOR:
-		# The speaker's colour glows behind them.
-		var center = Vector2(size.x * (0.22 if on_left(who()) else 0.78), size.y * 0.45)
-		for i in range(5):
-			c.draw_circle(center, size.x * (0.55 - i * 0.09), Color(accent, 0.06))
-	else:
+	if who() == Story.NARRADOR:
 		c.draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
+	if String(options().get("fx", "")) == "lineup":
+		# The mysterious entrants walk in one by one: dark shapes, eyes and neon alight.
+		var cast = [12, 13, 14, 15, 17, 18, 20, 16, 19, 21]
+		var w = size.x / 5.0
+		for i in range(cast.size()):
+			var shown = clampf(state_time * 3.0 - i * 0.6, 0.0, 1.0)
+			if shown <= 0.0:
+				continue
+			var picture = face(cast[i], "", true)
+			if picture == null:
+				continue
+			var row = i / 5
+			var r = Rect2(Vector2((i % 5) * w - w * 0.1, size.y * (0.1 + row * 0.2)), Vector2(w * 1.2, w * 1.5))
+			c.draw_texture_rect(picture, r, false, Color(1, 1, 1, shown))
 	if String(options().get("fx", "")) == "siren":
 		var red = fmod(clock * 3.0, 1.0) < 0.5
 		c.draw_rect(Rect2(Vector2.ZERO, size), Color("ff2030", 0.2) if red else Color("2050ff", 0.2))
@@ -507,10 +544,71 @@ func draw_under() -> void:
 		c.draw_rect(body, Color("15161c"), true)
 		c.draw_rect(body, Color(1, 1, 1, 0.3), false, 2.0)
 
+func draw_versus(c: Control) -> void:
+	# BIT against the rival: the screen split on a slant in their two colours, the portraits
+	# sliding in from the sides, and VS punching in between them.
+	var opts = options()
+	var left_skin = int(opts.get("left", Story.BIT))
+	var right_skin = int(opts.get("right", 0))
+	var dark = bool(opts.get("dark", false))
+	var left_col = accent_of(left_skin)
+	var right_col = Color("a24bff") if dark else accent_of(right_skin)
+	var t = state_time
+	var ease = 1.0 - pow(1.0 - clampf(t / 0.45, 0.0, 1.0), 3.0)
+	c.draw_rect(Rect2(Vector2.ZERO, size), Color("07080d"))
+	var slant = size.x * 0.18
+	var mid = size.y * 0.5
+	c.draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x * 0.5 + slant, 0), Vector2(size.x * 0.5 - slant, size.y), Vector2(0, size.y)]), left_col.darkened(0.55))
+	c.draw_colored_polygon(PackedVector2Array([Vector2(size.x * 0.5 + slant, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x * 0.5 - slant, size.y)]), right_col.darkened(0.55))
+	# Speed streaks in each colour.
+	for i in range(14):
+		var y = fmod(i * 97.0 + t * 900.0 * (1 if i % 2 else -1), size.y)
+		c.draw_rect(Rect2(Vector2(0 if i % 2 else size.x * 0.5, y), Vector2(size.x * 0.5, 2)), Color(left_col if i % 2 else right_col, 0.18))
+	var tall = size.y * 0.4
+	var wide = tall * 0.8
+	var left_pic = face(left_skin)
+	var right_pic = face(right_skin, "", dark)
+	if left_pic:
+		c.draw_texture_rect(left_pic, Rect2(Vector2(-wide * 0.18 - (1.0 - ease) * size.x * 0.6, mid - tall * 0.95), Vector2(wide, tall)), false)
+	if right_pic:
+		# Mirrored, so the rival faces BIT.
+		var r = Rect2(Vector2(size.x - wide * 0.82 + (1.0 - ease) * size.x * 0.6, mid + tall * 0.02), Vector2(wide, tall))
+		c.draw_set_transform(Vector2(r.position.x * 2.0 + r.size.x, 0), 0.0, Vector2(-1, 1))
+		c.draw_texture_rect(right_pic, r, false)
+		c.draw_set_transform(Vector2.ZERO)
+	# The white slash between them.
+	c.draw_line(Vector2(size.x * 0.5 + slant, 0), Vector2(size.x * 0.5 - slant, size.y), Color.WHITE, 5.0)
+	var font = UiKit.title_font()
+	var pop = 1.0 + 0.6 * maxf(0.0, 1.0 - (t - 0.35) / 0.25) if t > 0.35 else 0.0
+	if pop > 0.0:
+		var vs_size = int(120 * pop)
+		var at = Vector2(size.x * 0.5, mid + vs_size * 0.35)
+		c.draw_string_outline(font, at - Vector2(vs_size * 0.62, 0), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, 18, Color("0b0a12"))
+		c.draw_string(font, at - Vector2(vs_size * 0.62, 0), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, UiKit.SUN)
+	if t > 0.35 and t < 0.5:
+		c.draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, (0.5 - t) / 0.15 * 0.8))
+	# Names and the round.
+	var left_name = Story.speaker_name(left_skin)
+	var right_name = Story.speaker_name(int(Skins.CATALOG[right_skin].get("hard_of", right_skin)) if dark and right_skin >= 0 else right_skin)
+	if dark:
+		right_name = "??? · " + right_name
+	c.draw_string_outline(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, 10, Color.BLACK)
+	c.draw_string(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, left_col.lightened(0.3))
+	c.draw_string_outline(font, Vector2(size.x * 0.4 - 24, mid - 30), right_name, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, 10, Color.BLACK)
+	c.draw_string(font, Vector2(size.x * 0.4 - 24, mid - 30), right_name, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, right_col.lightened(0.3))
+	var bar = cinema_bar()
+	c.draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, safe_top + bar + 64)), Color(0, 0, 0, 0.85))
+	c.draw_string(UiKit.strong_font(), Vector2(0, safe_top + bar + 30), String(opts.get("round", "")), HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, UiKit.SUN)
+	c.draw_string(UiKit.body_font(), Vector2(0, safe_top + bar + 54), String(opts.get("place", "")), HORIZONTAL_ALIGNMENT_CENTER, size.x, 17, Color(1, 1, 1, 0.8))
+	c.draw_rect(Rect2(Vector2(0, size.y - safe_bottom - bar), Vector2(size.x, safe_bottom + bar + 40)), Color.BLACK)
+
 func draw_over() -> void:
 	if lines.is_empty():
 		return
 	var c = over
+	if state == "versus":
+		draw_versus(c)
+		return
 	var bar = cinema_bar()
 	if state == "line":
 		if right_phone and right_holder.visible:

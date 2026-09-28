@@ -32,6 +32,8 @@ const FINAL = ECLIPSE
 # A line may carry options as a third element: {"mood": "hit"} (dazed face), {"phone": true}
 # (heard over the phone), {"fx": "siren" / "shake"}.
 const SCENE = -3
+# The fight card shown right before a match: [VERSUS, "", {"left", "right", "round", "place", ...}].
+const VERSUS = -5
 const LOCUTOR = -4
 
 # Chapters 1 to 3: the fine, the phone call and the way to the training arena. The training
@@ -266,6 +268,217 @@ const LINES = {
 	},
 }
 
+# ==============================================================================
+# DIFÍCIL - Temporada 2. Months later MAGNUS wrecks the city, dark and corrupted; BIT, the
+# only arena pilot there, takes him on. Freed, MAGNUS IMPERADOR (HÉLIO's old right hand)
+# becomes his ally. The other pilots have vanished and come back to the tournament as dark
+# silhouettes; BIT beats them one by one, BATIDA the last surprise before ECLIPSE. ECLIPSE
+# was not behind it this time: the corruption came from HÉLIO, who swallowed the singularity
+# at the end of the first Taça. Beating HÉLIO in the final gives everyone their memory back.
+# In DIFÍCIL the rivals fight in their hard skins, dark: a line with {"face": "dark"} shows
+# that corrupted form.
+const MAGNUS_IMP = 23
+const HELIO_POENTE = 21
+const BATIDA_NEON = 19
+const ORDER_HARD = [MAGNUS, ROSCA, SALVO, BIGORNA, BROTO, GANCHO, ORBITA, FAISCA, BATIDA, ECLIPSE, HELIO]
+const FINAL_HARD = HELIO
+# Where each season-two fight happens: the corrupted worlds (arena_theme.gd DARK_THEMES).
+const S2_WORLD = {MAGNUS: "cidade_negra", ROSCA: "vale_corrompido", SALVO: "abismo_neon", BIGORNA: "vale_corrompido",
+	BROTO: "aurora_sombria", GANCHO: "abismo_neon", ORBITA: "eclipse_orbital", FAISCA: "aurora_sombria",
+	BATIDA: "cidade_negra", ECLIPSE: "eclipse_orbital", HELIO: "aurora_sombria"}
+const DARK = {"face": "dark"}
+
+const S2_INTRO = [
+	[SCENE, "O REGRESSO", {"bg": "cidade", "chapter": "TEMPORADA 2 · CAPÍTULO 1", "place": "Centro de Voltara · meses depois"}],
+	[NARRADOR, "Meses depois da Taça. O BIT pagou a universidade, voltou às aulas… e Voltara parecia em paz."],
+	[NARRADOR, "BUUUM!", {"fx": "shake"}],
+	[BIT_ELITE, "O que foi isto?! Vem do centro da cidade!"],
+	[NARRADOR, "Hologramas a cair, carros virados, alarmes por todo o lado. E no meio do caos, uma figura enorme e escura.", {"fx": "siren"}],
+	[MAGNUS_IMP, "SUCATA… TUDO SUCATA… A CIDADE TEM DE FICAR EM SILÊNCIO.", {"face": "dark", "fx": "shake"}],
+	[BIT_ELITE, "O MAGNUS?! Está diferente… a armadura, os olhos… está todo escuro."],
+	[AGENTE, "Civis, afastem-se! Já chamámos os pilotos de arena, estão a caminho!", {"fx": "siren"}],
+	[BIT_ELITE, "Não há tempo para esperar pelos mais experientes. Sou o único piloto de arena aqui."],
+	[BIT_ELITE, "MAGNUS! Aqui! Se queres uma luta, é comigo!"],
+	[MAGNUS_IMP, "O ESTUDANTE… DISSERAM-ME QUE VIRIAS.", {"face": "dark"}],
+]
+
+const S2_AFTER_MAGNUS = [
+	[MAGNUS_IMP, "Argh… a minha cabeça… que luz é esta…?", {"face": "dark", "mood": "hit"}],
+	[NARRADOR, "A escuridão desfaz-se da armadura do MAGNUS. Por baixo, marfim e ouro: a sua forma original."],
+	[MAGNUS_IMP, "Onde… onde estou? Tu és… o BIT? O campeão da Taça?"],
+	[BIT_ELITE, "MAGNUS? Estavas a destruir a cidade! O que te aconteceu?"],
+	[MAGNUS_IMP, "Eu não era assim. Antes do ECLIPSE, eu era o braço direito do HÉLIO. Treinávamos ao nascer do sol; estas cores douradas são as do sol dele."],
+	[MAGNUS_IMP, "Mas não me lembro de nada… Um dia estava ao lado do HÉLIO; no dia seguinte, estava contra ele e contra todos."],
+	[BIT_ELITE, "Senhor agente! Onde estão os outros pilotos de arena?"],
+	[AGENTE, "Ninguém sabe. Desapareceram todos. A segunda temporada da Taça vai começar e não há sinal de nenhum piloto de arena."],
+	[SCENE, "SEM SINAL", {"bg": "quarto", "chapter": "TEMPORADA 2 · CAPÍTULO 2", "place": "Casa do BIT · nessa noite"}],
+	[BIT_ELITE, "Vou ligar à BATIDA. Ela sabe sempre o que fazer…"],
+	[NARRADOR, "« O número para que ligou não está disponível. »  Sem sinal."],
+	[BIT_ELITE, "E o HÉLIO…? Nada. Também sem sinal."],
+	[MAGNUS_IMP, "Eu fico contigo, BIT. Devo-te isso. Vamos descobrir o que se passa."],
+	[SCENE, "A SEGUNDA TEMPORADA", {"bg": "estadio", "chapter": "TEMPORADA 2 · CAPÍTULO 3", "place": "Estádio de Voltara · dias depois"}],
+	[LOCUTOR, "BEM-VINDOS À SEGUNDA TEMPORADA DA TAÇA CHARGE ARENA!", {"fx": "shake"}],
+	[LOCUTOR, "Este ano temos… participantes misteriosos. Ninguém sabe os seus nomes."],
+	[NARRADOR, "Um a um, os participantes entram na arena: silhuetas escuras, com luzes a arder onde deviam estar os olhos.", {"fx": "lineup"}],
+	[MAGNUS_IMP, "BIT… aquelas formas, eu conheço-as. São os teus amigos. Estão como eu estava: corrompidos."],
+	[BIT_ELITE, "Então vou vencê-los um a um. Para os trazer de volta."],
+]
+
+const S2_LINES = {
+	MAGNUS: {
+		"lost": [
+			[MAGNUS_IMP, "SUCATA. COMO TODOS OS OUTROS.", {"face": "dark"}],
+			[AGENTE, "Recua, miúdo! Reagrupa e tenta outra vez: ele ainda está aqui."],
+		],
+	},
+	ROSCA: {
+		"before": [
+			[LOCUTOR, "Primeiro combate: o campeão da temporada passada, o BIT DE ELITE… contra a sombra do ROSCA!"],
+			[ROSCA, "Vruum… a tua sucata vai ser minha, estudante.", DARK],
+			[BIT_ELITE, "ROSCA, sou eu, o BIT! Não te lembras?"],
+		],
+		"won": [
+			[ROSCA, "…BIT? Não… não me lembro de ti. Só de uma luz… quente demais.", {"face": "dark", "mood": "hit"}],
+			[MAGNUS_IMP, "Também eu me lembro de uma luz. Vamos continuar."],
+		],
+		"lost": [[ROSCA, "Vruum. Próximo.", DARK]],
+	},
+	SALVO: {
+		"before": [
+			[SALVO, "Alvo identificado. Ordens: eliminar.", DARK],
+			[BIT_ELITE, "Ordens de quem, SALVO?"],
+		],
+		"won": [
+			[SALVO, "Ordens… de quem? Não sei de quem são as minhas ordens.", {"face": "dark", "mood": "hit"}],
+		],
+		"lost": [[SALVO, "Alvo neutralizado.", DARK]],
+	},
+	BIGORNA: {
+		"before": [
+			[BIGORNA, "A forja arde. E tu vais para o fogo.", DARK],
+		],
+		"won": [
+			[BIGORNA, "A minha cabeça é um martelo a bater… deixa-me.", {"face": "dark", "mood": "hit"}],
+			[MAGNUS_IMP, "Todos falam de fogo e de luz. Isto não é obra do ECLIPSE sozinho."],
+		],
+		"lost": [[BIGORNA, "Derretido. Como tudo o resto.", DARK]],
+	},
+	BROTO: {
+		"before": [
+			[BROTO, "As minhas flores… ficaram negras. Tu também vais ficar.", DARK],
+			[BIT_ELITE, "BROTO… até tu."],
+		],
+		"won": [
+			[BROTO, "Porque é que me sinto tão triste…?", {"face": "dark", "mood": "hit"}],
+		],
+		"lost": [[BROTO, "Murcha, pequena flor.", DARK]],
+	},
+	GANCHO: {
+		"before": [
+			[GANCHO, "Arr… o tesouro agora é do sol negro. E tu és a próxima presa.", DARK],
+			[MAGNUS_IMP, "Sol negro… ouviste isto, BIT?"],
+		],
+		"won": [
+			[GANCHO, "Perdi o rumo, marinheiro… não sei quem me deu este mapa.", {"face": "dark", "mood": "hit"}],
+		],
+		"lost": [[GANCHO, "Ao fundo do mar contigo.", DARK]],
+	},
+	ORBITA: {
+		"before": [
+			[ORBITA, "Probabilidade de resistires à escuridão: zero.", DARK],
+		],
+		"won": [
+			[ORBITA, "Erro… os meus dados foram… reescritos.", {"face": "dark", "mood": "hit"}],
+			[BIT_ELITE, "Reescritos por quem, ÓRBITA?"],
+			[ORBITA, "Por uma luz… no céu. Uma luz que queima.", DARK],
+		],
+		"lost": [[ORBITA, "Como calculado.", DARK]],
+	},
+	FAISCA: {
+		"before": [
+			[FAISCA, "A tempestade agora é negra!", DARK],
+		],
+		"won": [
+			[FAISCA, "Curto-circuito… na memória…", {"face": "dark", "mood": "hit"}],
+			[LOCUTOR, "E agora, senhoras e senhores… uma participante que ninguém esperava!"],
+		],
+		"lost": [[FAISCA, "Trovão. Fim.", DARK]],
+	},
+	BATIDA: {
+		"before": [
+			[BATIDA, "…", DARK],
+			[BIT_ELITE, "BATIDA?! Não… tu não!", {"mood": "hit", "fx": "shake"}],
+			[BATIDA, "Não conheço nenhum BIT. Solta o som… para te calar.", DARK],
+			[MAGNUS_IMP, "Ela não te reconhece, BIT. Vence-a: é a única maneira de a ajudar."],
+		],
+		"won": [
+			[BATIDA, "BIT…? Esse nome soa-me a casa. Mas não sei porquê…", {"face": "dark", "mood": "hit"}],
+			[BIT_ELITE, "Eu vou trazer-te de volta, BATIDA. Prometo."],
+		],
+		"lost": [[BATIDA, "Silêncio. Finalmente.", DARK]],
+	},
+	ECLIPSE: {
+		"before": [
+			[LOCUTOR, "SEMIFINAL! O vilão da temporada passada está de volta: o ECLIPSE!"],
+			[BIT_ELITE, "Foste tu outra vez, ECLIPSE! Corrompeste toda a gente!"],
+			[ECLIPSE, "Eu? Desta vez não, estudante… mas vou gostar de te apagar na mesma.", DARK],
+		],
+		"won": [
+			[ECLIPSE, "Tolos… acham que acabou? A luz que os corrompeu não é minha. Olhem para o sol.", {"face": "dark", "mood": "hit"}],
+			[NARRADOR, "O BIT venceu o ECLIPSE. Mas os amigos continuam sem memória. Nada voltou ao normal."],
+			[MAGNUS_IMP, "O sol… Não pode ser. O HÉLIO."],
+		],
+		"lost": [[ECLIPSE, "A escuridão tem paciência.", DARK]],
+	},
+	HELIO: {
+		"before": [
+			[SCENE, "A FINAL", {"bg": "estadio", "chapter": "TEMPORADA 2 · FINAL", "place": "Estádio de Voltara · a grande final"}],
+			[LOCUTOR, "A GRANDE FINAL! Do outro lado da arena… o finalista mistério!", {"fx": "shake"}],
+			[HELIO, "Pequeno BIT. Ensinei-te o meu raio… agora vou apagá-lo.", DARK],
+			[MAGNUS_IMP, "HÉLIO! Sou eu, o teu braço direito! Quando venceste o ECLIPSE, a singularidade dele ficou dentro de ti!"],
+			[HELIO, "Então sabes o que vem aí. O sol negro vai engolir a Taça… e a memória de todos.", DARK],
+			[BIT_ELITE, "Vou devolver a luz a todos. Até a ti, HÉLIO."],
+		],
+		"won": [
+			[HELIO, "Esta luz… é a minha. A que te ensinei…", {"face": "dark", "mood": "hit"}],
+			[NARRADOR, "O sol negro desfaz-se. Por todo o estádio, as silhuetas voltam a ganhar cor."],
+			[SCENE, "A LUZ DE VOLTA", {"bg": "estadio", "chapter": "EPÍLOGO", "place": "Estádio de Voltara"}],
+			[HELIO_POENTE, "BIT… o que é que eu fiz? Obrigado por me trazeres de volta."],
+			[MAGNUS_IMP, "Bem-vindo de volta, mestre."],
+			[BATIDA_NEON, "BIT! Lembro-me de tudo! Da multa, do treino… de ti!", {"fx": "shake"}],
+			[BIT_ELITE, "Bem-vinda de volta, BATIDA."],
+			[LOCUTOR, "O BIT DE ELITE É BICAMPEÃO DA TAÇA CHARGE ARENA!", {"fx": "shake"}],
+			[NARRADOR, "FIM DA SEGUNDA TEMPORADA. Obrigado por jogares!"],
+		],
+		"lost": [
+			[HELIO, "O sol nunca se põe para ti, pequeno.", DARK],
+			[MAGNUS_IMP, "Levanta-te, BIT. Usa o RAIO DE ELITE: a luz dele também é tua."],
+		],
+	},
+}
+
+static func hard_lines(boss: int, moment: String) -> Array:
+	var out: Array = []
+	for line in S2_LINES.get(boss, {}).get(moment, []):
+		var copy = Array(line).duplicate()
+		if copy.size() > 2 and copy[2] is Dictionary:
+			copy[2] = copy[2].duplicate()
+		out.append(copy)
+	return out
+
+static func versus(left: int, right: int, step: int, total: int, place: String, rival_dark: bool = false) -> Array:
+	# The fight card: BIT on the left, the rival on the right, the round and the arena.
+	return [VERSUS, "", {"left": left, "right": right, "round": "RONDA %d DE %d" % [step + 1, total] if step >= 0 else "TREINO",
+		"place": place, "dark": rival_dark}]
+
+static func voice_key(who: int) -> String:
+	# Hard skins speak with their boss's voice (BIT DE ELITE has its own).
+	if who >= 0 and who != BIT_ELITE:
+		var base = int(preload("res://scripts/skins.gd").CATALOG[who].get("hard_of", -1))
+		if base >= 0:
+			return str(base)
+	return face_key(who)
+
 static func lines(boss: int, moment: String) -> Array:
 	var out: Array = []
 	for line in LINES.get(boss, {}).get(moment, []):
@@ -275,9 +488,9 @@ static func lines(boss: int, moment: String) -> Array:
 		out[0].append({"mood": "hit"})
 	return out
 
-static func round_card(step: int, boss: int, arena_name: String) -> Array:
+static func round_card(step: int, boss: int, arena_name: String, bg: String = "") -> Array:
 	# The card that opens each round: the rival's name over its own arena.
-	return [SCENE, speaker_name(boss), {"bg": "arena_%d" % boss, "chapter": "RONDA %d DE %d" % [step + 1, ORDER.size()], "place": arena_name}]
+	return [SCENE, speaker_name(boss), {"bg": bg if bg != "" else "arena_%d" % boss, "chapter": "RONDA %d DE %d" % [step + 1, ORDER.size()], "place": arena_name}]
 
 static func face_key(who: int) -> String:
 	match who:
