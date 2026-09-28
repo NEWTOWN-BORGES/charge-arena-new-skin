@@ -1,0 +1,34 @@
+# Publica as APKs de teste numa Release (ficheiros até 2 GB cada, sem o limite de 100 MB
+# do Git). As APKs chegam a este ramo divididas em partes (parts/<apk>.partNN); aqui são
+# juntadas e enviadas para a Release "apk", com links de download fixos:
+#   https://github.com/<dono>/<repo>/releases/download/apk/<nome>.apk
+name: Publicar APK
+on:
+  push:
+    branches: [apk-teste]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Juntar as partes
+        run: |
+          mkdir out
+          for base in $(ls parts | sed 's/\.part[0-9]*$//' | sort -u); do
+            cat $(ls parts/"$base".part* | sort) > out/"$base"
+          done
+          ls -la out
+          cd out && sha256sum *.apk | tee SHA256SUMS.txt
+      - name: Publicar na Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=apk
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --title "APK de teste" --notes-file LEIA-ME.md --prerelease --target "$GITHUB_SHA"
+          fi
+          gh release edit "$TAG" --notes-file LEIA-ME.md
+          gh release upload "$TAG" out/*.apk out/SHA256SUMS.txt --clobber
