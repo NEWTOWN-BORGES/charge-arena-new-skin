@@ -8,7 +8,7 @@ func run() -> void:
 	game.hud.announce_unlock([game.Skins.CATALOG[5].name, game.Skins.CATALOG[10].name])
 	var notice = game.hud.unlock_notice
 	assert(notice.current.id == 5 and notice.pending.size() == 1)
-	assert(notice.card.size.x <= 380 and notice.card.size.y == 84)
+	assert(notice.card.size.x <= 380 and notice.card.size.y == notice.CARD_HEIGHT)
 	assert(notice.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(notice.close.size.x >= 44)
 	game.hud.announce_unlock([game.Skins.CATALOG[5].name])
@@ -17,7 +17,7 @@ func run() -> void:
 	assert(notice.card.is_visible_in_tree() and notice.get_parent().layer == 20)
 	notice.dismiss()
 	assert(notice.current.id == 10)
-	notice._process(4.1)
+	notice._process(4.6)
 	assert(notice.current.is_empty() and not notice.card.visible)
 	game.hud.announce_power("rapid", "Metralhadora")
 	assert(notice.current.kind == "power" and notice.current.id == "rapid")

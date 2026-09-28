@@ -97,11 +97,12 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 		out.eyes = team.lightened(0.45)
 	out["team"] = team
 	if shadow_build:
-		# In the dark: the body black, only the neon alight (drawn unlit, see _mount), so the
-		# glow alone traces the pilot's shape. A hard skin's accents turn to neon as well.
+		# In the dark: the body black and drawn unlit (see _mount). Only a hard skin carries
+		# neon - its lights and colour accents burn and trace its shape; a standard pilot is
+		# a plain black silhouette.
 		var entry: Dictionary = ROSTER.data.cast[clampi(skin, 0, ROSTER.data.cast.size() - 1)] if skin < STATION_SKIN else {}
 		var hard: bool = entry.has("base")
-		var neon: Color = Color(out.glow) if hard else Color(out.glow).darkened(0.5)
+		var neon: Color = Color(out.glow) if hard else SHADOW_BLACK
 		var accent: Color = Color(out.trim).darkened(0.7) if hard else SHADOW_BLACK
 		for role in ["shell", "dark", "metal", "rubber", "hazard", "label", "team"]:
 			out[role] = SHADOW_BLACK

@@ -134,6 +134,9 @@ func run() -> void:
 	# Weapon sounds follow the pilot's skin.
 	var streams: Array = []
 	for skin in range(game.Skins.CATALOG.size()):
+		# A hard-mode skin fires with its boss's sound, on purpose.
+		if game.Skins.CATALOG[skin].has("hard_of"):
+			continue
 		var stream: AudioStream = game.tones.get("shot_%d" % skin)
 		check(stream != null and stream.get_length() > 0.1, "Weapon %d has its own shot sound" % skin)
 		streams.append(stream)

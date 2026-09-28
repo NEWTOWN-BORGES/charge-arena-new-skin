@@ -117,7 +117,7 @@ func run() -> void:
 	var aura = func(id): return arena.projectiles[id].get_node("Orb").material_override.get_shader_parameter("tint")
 	check(aura.call(900) == Color("c6a8ff"), "Órbita shots glow violet")
 	check(aura.call(901) == cyan.lerp(coral, 1.0), "Default rival keeps coral shots")
-	check(floor_glow(arena.projectiles[900]) == Color(cyan, 0.42) and floor_glow(arena.projectiles[901]) == Color(coral, 0.42), "Floor glow shows team")
+	check(floor_glow(arena.projectiles[900]) == Color(cyan, 0.6) and floor_glow(arena.projectiles[901]) == Color(coral, 0.6), "Floor glow shows team")
 	check(aura.call(902) == arena.GOLD and arena.projectiles[902].get_node("Orb").material_override.get_shader_parameter("charged") == 1.0, "Boosted shots stay gold, with their charge ring")
 	game.rules.balls.clear()
 	arena.update_state(game.rules, 0, 1.0 / 60)

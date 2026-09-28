@@ -91,13 +91,13 @@ func run() -> void:
 	var after = wall_health(r, 1)
 	check(after < before, "The mortar lands behind a raised mirror and takes lives (%d -> %d)" % [before, after])
 
-	# CÚPULA: ultimates do nothing to a domed wall.
+	# CÚPULA: like every shield, it takes 45% of what an ultimate throws at the wall.
 	r = playing(["dome", "sniper", "b_charge"])
 	r.activate_power(0, 0)
 	var target = first_brick(r, 0)
 	var hp = r.bricks[target].hp
 	r.sky_hit(1, "meteor", 2, 0.6, r.bricks[target].p)
-	check(r.bricks[target].hp == hp, "A meteor on a domed wall takes nothing")
+	check(hp - r.bricks[target].hp == 1, "A meteor on a domed wall takes 1 of its 2 (%d)" % (hp - r.bricks[target].hp))
 	r.powers[0].dome_time = 0.0
 	r.sky_hit(1, "meteor", 2, 0.6, r.bricks[target].p)
 	check(r.bricks[target].hp < hp, "Without the dome the same meteor bites")
