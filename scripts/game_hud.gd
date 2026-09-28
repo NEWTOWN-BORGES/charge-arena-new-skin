@@ -2097,6 +2097,8 @@ func centered_on(c: CanvasItem, text: String, at: Vector2, font_size: int, color
 
 func open_powers() -> void:
 	reset_touch()
+	# Always on top, also when it is opened from the story or a result screen.
+	move_child(powers_overlay, -1)
 	powers_overlay.show()
 	refresh_powers()
 
@@ -3204,6 +3206,8 @@ func update_match(rules, status: String) -> void:
 	# Only one bright button at a time: replay steps back when a next level is offered.
 	paint_button(replay, not next_button.visible)
 	levels_button.visible = finished and in_campaign
+	# In the story the second button is the shop: lost to a boss, buy the powers to beat it.
+	levels_button.text = "LOJA DE PODERES" if level_info.get("story", false) else "NÍVEIS"
 	place_result_buttons()
 	ask_redraw()
 
@@ -4080,9 +4084,20 @@ func build_bosses_menu() -> void:
 	bosses_grid.add_theme_constant_override("h_separation", 10)
 	bosses_grid.add_theme_constant_override("v_separation", 10)
 	bosses_scroll.add_child(bosses_grid)
+	# Stuck on a boss? The shop is one tap away: the powers bought there are what turn a
+	# lost fight into a won one.
+	var buttons = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 10)
+	stack.add_child(buttons)
+	var shop = make_button("LOJA DE PODERES", false)
+	shop.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shop.add_theme_font_size_override("font_size", 20)
+	shop.pressed.connect(open_powers)
+	buttons.add_child(shop)
 	var done = make_button("FECHAR", true)
+	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	done.pressed.connect(close_bosses)
-	stack.add_child(done)
+	buttons.add_child(done)
 	bosses_overlay.hide()
 
 func open_bosses(entries: Dictionary) -> void:

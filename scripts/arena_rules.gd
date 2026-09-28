@@ -208,6 +208,10 @@ const SHOCK_PLAYER = 3
 const ULTIMATE_STUN = 2.0
 # Depths this close together count as the same row of the wall.
 const SHOCK_ROW = 0.2
+# Every shield, barrier and guard - Cúpula, Muralha, Espelho, Esponja, Imune, the Couraça
+# ultimate and the bosses' Barreira - takes 45% of what an ultimate throws at its side,
+# at the wall and at the pilot alike.
+const SHIELD_ABSORB = 0.45
 # Pilhagem: how long the two walls spend crossing over in the air before they land.
 const PLUNDER_SWAP = 1.15
 # Solda: one life back on every brick of yours that has taken a hit. It never raises the
@@ -615,6 +619,7 @@ func reset_match() -> void:
 	winner = -1
 	elapsed = 0.0
 	powers = [new_power_state(), new_power_state()]
+	shield_carry = [0.0, 0.0]
 	reset_round()
 
 static func new_power_state() -> Dictionary:
@@ -1788,14 +1793,31 @@ func credit_destroyed_brick(team: int) -> void:
 		if previous < cost and powers[team].charge[index] == cost:
 			events.append({"kind": "power_ready", "power": index, "team": team, "p": players[team].p})
 
+# What the shields have held back but not yet rounded off, per side: 45% of a blow of 1
+# is not a whole life, so the fractions are kept and the average comes out exact.
+var shield_carry = [0.0, 0.0]
+
+func shielded(team: int) -> bool:
+	var state: Dictionary = powers[team]
+	return state.dome_time > 0 or state.walls_time > 0 or state.mirror_time > 0 or state.sponge_time > 0 \
+		or state.immune_time > 0 or state.plating_time > 0
+
+func absorb(team: int, damage: int) -> int:
+	# The part of an ultimate's blow that gets through a shield.
+	var kept: float = damage * (1.0 - SHIELD_ABSORB) + shield_carry[team]
+	var whole: int = int(floor(kept + 0.0001))
+	shield_carry[team] = maxf(0.0, kept - whole)
+	return whole
+
 func damage_brick(index: int, damage: int, owner: int, at: Vector2, mark: bool = false, incoming: Vector2 = Vector2.ZERO) -> void:
 	var brick: Dictionary = bricks[index]
 	if not brick.alive or brick.team == owner:
 		return
-	if ultimate_blow and powers[brick.team].dome_time > 0:
-		# The dome takes what an ultimate throws at the wall under it.
-		events.append({"kind": "brick_hit", "p": at, "team": brick.team, "soaked": true, "bite": 0, "brick_id": index, "heading": incoming, "defense_open": false})
-		return
+	if ultimate_blow and shielded(brick.team):
+		damage = absorb(brick.team, damage)
+		if damage <= 0:
+			events.append({"kind": "brick_hit", "p": at, "team": brick.team, "soaked": true, "bite": 0, "brick_id": index, "heading": incoming, "defense_open": false})
+			return
 	# Crystal plating soaks a life off every blow that lands, whatever threw it.
 	var bite: int = maxi(0, damage - (PLATING_SOAK if powers[brick.team].plating_time > 0 else 0))
 	brick.hp = maxi(0, brick.hp - bite)
@@ -1809,8 +1831,11 @@ func damage_brick(index: int, damage: int, owner: int, at: Vector2, mark: bool =
 
 func ultimate_hit_player(team: int, damage: int, at: Vector2) -> void:
 	# What an ultimate does to a pilot it catches: the damage, and then a moment on the
-	# floor. Worth more than the life it takes, most of the time.
-	damage_player(team, damage, at)
+	# floor. Worth more than the life it takes, most of the time. A shield takes its share.
+	if shielded(team):
+		damage = absorb(team, damage)
+	if damage > 0:
+		damage_player(team, damage, at)
 	if players[team].stun < ULTIMATE_STUN and powers[team].immune_time <= 0:
 		players[team].stun = ULTIMATE_STUN
 		events.append({"kind": "stun", "p": at, "team": team})

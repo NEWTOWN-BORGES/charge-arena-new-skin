@@ -5206,7 +5206,7 @@ def gancho_x_extra(p):
     for tilt in (-1, 1):
         extruded(p, "trim", T(0.19, 1.84, 0.63) @ Matrix.Rotation(math.radians(90), 4, "Y") @ Matrix.Rotation(math.radians(tilt * 40), 4, "Z"),
                  [(-0.012, -0.08), (0.012, -0.08), (0.012, 0.08), (-0.012, 0.08)], 0.016)
-    hat = T(0.0, 1.5, -0.01) @ Matrix.Rotation(math.radians(14), 4, "X")
+    hat = T(0.0, 1.4, 0.01) @ Matrix.Rotation(math.radians(20), 4, "X")
     lathe(p, "dark", hat, [(0.0, 0.0), (0.33, 0.0), (0.345, 0.02), (0.32, 0.036), (0.0, 0.036)], 32)
     dome(p, "dark", sub(hat, 0, 0.03, 0), 0.25, 0.2, 28, 7)
     mring(p, "trim", sub(hat, 0, 0.055, 0), 0.252, 0.016, 28, 5)

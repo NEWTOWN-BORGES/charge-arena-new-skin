@@ -50,6 +50,15 @@ func run() -> void:
 	game.arena.add_child(body)
 	preload("res://scripts/robots.gd").build(game.arena, body, Skins.hard_of_boss(order[0]), Color.RED)
 	check(body.get_child_count() > 3, "A hard skin builds")
+	# Shields take 45% of an ultimate's blow.
+	var rules = game.rules
+	rules.reset_match()
+	rules.powers[1].walls_time = 5.0
+	var taken = 0
+	for i in range(20):
+		taken += rules.absorb(1, 10)
+	check(taken == 110, "A shield lets 55%% of an ultimate through (%d of 200)" % taken)
+	check(rules.shielded(1) and not rules.shielded(0), "Only the shielded side is shielded")
 	game.return_to_menu()
 	check(game.story_run.is_empty(), "Leaving the match leaves the story")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://story-test-skins.cfg"))

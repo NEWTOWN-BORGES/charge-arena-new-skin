@@ -191,7 +191,11 @@ func _ready() -> void:
 			start_story(int(story_run.step) + 1, bool(story_run.hard))
 		else:
 			start_level(Campaign.menu_level(level_index + 1)))
-	hud.levels_requested.connect(show_levels)
+	hud.levels_requested.connect(func():
+		if not story_run.is_empty():
+			hud.open_powers()
+		else:
+			show_levels())
 	hud.menu_level_changed.connect(step_menu_level)
 	menu_level = Campaign.menu_level(campaign.suggested_level())
 	hud.sync_menu_level(menu_level)
@@ -485,7 +489,7 @@ func start_story(step: int, hard: bool) -> void:
 	hud.team_hues = arena.unit_hues
 	hud.level_info = {"number": step + 1, "name": ("DIFÍCIL · " if hard else "") + String(Campaign.LEVELS[index].name),
 		"challenge": "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
-		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size()}
+		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size(), "story": true}
 	hud.level_result = ""
 	hud.level_skin = ""
 	arena.warm_shaders.call_deferred()
