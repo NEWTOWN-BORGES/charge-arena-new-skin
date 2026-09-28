@@ -5108,6 +5108,12 @@ def rosca_x_extra(p):
     rod(p, "trim", c, c.lerp(d2, 0.4), 0.04, 12)
     rod(p, "metal", c.lerp(d2, 0.4), d2, 0.016, 8)
     mbox(p, "dark", T(0.0, 1.2, back - 0.05), (0.14, 0.12, 0.06), 0.015)
+    gauge = axis_frame((0.0, 1.2, back - 0.015), "z")
+    mtube(p, "glow", gauge, 0.035, 0.012, 16)
+    mring(p, "trim", gauge, 0.038, 0.008, 16, 4)
+    for t in (0.3, 0.7):
+        q = a.lerp(b, t)
+        mring(p, "glow", frame(q, b - a), 0.034, 0.008, 12, 4)
     dome(p, "glow", T(0.0, 1.71, 0.0), 0.05, 0.06, 14, 4)
     mring(p, "dark", T(0.0, 1.71, 0.0), 0.054, 0.012, 16, 4)
 
@@ -5121,7 +5127,13 @@ def gancho_x_extra(p):
     rod(p, "metal", (0.18, 2.2, 0.46), (0.18, 2.2, 0.8), 0.012, 8)
     flag = T(0.18, 1.9, 0.63) @ Matrix.Rotation(math.radians(90), 4, "Y")
     extruded(p, "dark", flag, [(-0.17, -0.28), (0.17, -0.28), (0.14, 0.0), (0.17, 0.28), (-0.17, 0.28)], 0.01)
-    ball(p, "trim", (0.19, 1.93, 0.63), 0.05, 12)
+    ball(p, "glow", (0.19, 1.93, 0.63), 0.05, 12)
+    # Lanterna acesa pendurada na verga.
+    rod(p, "metal", (0.18, 2.2, 0.72), (0.18, 2.08, 0.72), 0.006, 6)
+    lantern = T(0.18, 2.02, 0.72)
+    mtube(p, "glow", lantern, 0.035, 0.08, 12)
+    lathe(p, "dark", sub(lantern, 0, 0.04, 0), [(0.045, 0.0), (0.0, 0.035)], 12)
+    mring(p, "dark", sub(lantern, 0, -0.04, 0), 0.04, 0.008, 12, 4)
     for tilt in (-1, 1):
         extruded(p, "trim", T(0.19, 1.84, 0.63) @ Matrix.Rotation(math.radians(90), 4, "Y") @ Matrix.Rotation(math.radians(tilt * 40), 4, "Z"),
                  [(-0.012, -0.08), (0.012, -0.08), (0.012, 0.08), (-0.012, 0.08)], 0.016)
@@ -5132,7 +5144,8 @@ def gancho_x_extra(p):
     for i in range(3):
         a = math.radians(-90 + i * 120)
         lathe(p, "dark", sub(hat, math.cos(a) * 0.2, 0.02, math.sin(a) * 0.2), [(0.07, 0.0), (0.075, 0.07), (0.0, 0.09)], 12)
-    ball(p, "trim", at(hat, 0.0, 0.1, -0.17), 0.028, 10)
+    ball(p, "glow", at(hat, 0.0, 0.1, -0.17), 0.03, 10)
+    mring(p, "trim", sub(hat, 0.0, 0.1, -0.17, rot=(90, 0, 0)), 0.034, 0.006, 12, 4)
 
 
 def bit_x_extra(p):
