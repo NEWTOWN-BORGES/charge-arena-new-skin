@@ -5009,6 +5009,7 @@ def broto_x_hat(p):
         a = math.radians(-150 + i * 50)
         at_ring = Vector((math.cos(a) * (BR_HEAD_R + 0.01), c.y + 0.075, math.sin(a) * (BR_HEAD_R + 0.01)))
         leaf_to(p, "shell", at_ring, (math.cos(a), 0.6, math.sin(a)), 0.09, 0.06, front=(0, 1, 0))
+        ball(p, "glow", at_ring + Vector((0, 0.03, 0)), 0.016, 8)
 
 
 def broto_x_extra(p):
@@ -5033,6 +5034,20 @@ def broto_x_extra(p):
             rod(p, "dark", prev, q, 0.009, 6)
             leaf_to(p, "shell", q, (side * 0.4, -0.3 if i % 2 else 0.5, 0.6 - t), 0.1, 0.07, front=(0, 1, 0))
             prev = q
+    # Néon selvagem: pirilampos acesos ao longo das trepadeiras, seiva acesa a subir pelos
+    # caules e um aro aceso na boca do vaso.
+    for side in (-1, 1):
+        for i in range(6):
+            t = (i + 1) / 6
+            q = Vector((side * (0.1 + 0.3 * t), BR_CHEST.y + 0.2 + 0.1 * math.sin(t * 3.0), pot.z - 0.45 * t))
+            ball(p, "glow", q + Vector((0, 0.03, 0)), 0.022, 8)
+    for k, (dx, dz, h) in enumerate(((-0.07, 0.0, 0.55), (0.06, 0.03, 0.7), (0.0, -0.04, 0.45))):
+        base = pot + Vector((dx, 0.0, dz))
+        tip = base + Vector((dx * 2.2, h, 0.06))
+        rod(p, "glow", base + Vector((0, 0, -0.018)), tip + Vector((0, -0.03, -0.018)), 0.007, 6)
+        for t in (0.3, 0.55, 0.8):
+            ball(p, "glow", base.lerp(tip, t) + Vector((0, 0, -0.02)), 0.018, 8)
+    mring(p, "glow", T(*pot), 0.16, 0.012, 24, 5)
 
 
 def salvo_x_extra(p):
@@ -5079,6 +5094,18 @@ def salvo_x_extra(p):
         mtube(p, "metal", sub(pipe, 0, 0.25, 0), 0.03, 0.5, 12)
         lathe(p, "dark", sub(pipe, 0, 0.5, 0), [(0.03, 0.0), (0.04, 0.06), (0.03, 0.06)], 12)
         mtube(p, "glow", sub(pipe, 0, 0.555, 0), 0.026, 0.01, 12)
+    # Néon de luxo: filetes acesos à volta do casulo e das placas dos ombros, anéis nos
+    # escapes e uma linha acesa ao longo da cartucheira.
+    for dy in (-0.105, 0.105):
+        for dx in (-0.135, 0.135):
+            rod(p, "glow", (-0.5 + dx, 1.52 + dy, -0.19), (-0.5 + dx, 1.52 + dy, 0.17), 0.009, 6)
+    for side in (-1, 1):
+        plate = T(side * 0.56, 1.4, 0.0) @ Matrix.Rotation(math.radians(-side * 18), 4, "Z")
+        for dz in (-0.155, 0.155):
+            rod(p, "glow", at(plate, -0.1, 0.028, dz), at(plate, 0.1, 0.028, dz), 0.009, 6)
+        for v in (0.1, 0.3):
+            mring(p, "glow", T(side * 0.26, 1.05 + v, 0.4), 0.034, 0.008, 14, 4)
+    rod(p, "glow", (-0.3, 1.47, 0.36), (0.3, 0.97, 0.36), 0.009, 6)
 
 
 def bigorna_x_extra(p):
@@ -5094,6 +5121,17 @@ def bigorna_x_extra(p):
         dome(p, "glow", T(side * 0.6, 1.53, 0.0), 0.06, 0.07, 14, 4)
         mring(p, "dark", T(side * 0.6, 1.53, 0.0), 0.064, 0.012, 16, 4)
     rod(p, "dark", (-0.16, 1.55, 0.42), (0.16, 1.55, 0.42), 0.02, 8)
+    # Néon de forja: aros em brasa pelas chaminés, veios acesos a descer por elas e uma
+    # barra acesa na travessa.
+    for side in (-1, 1):
+        base = T(side * 0.16, 1.22, 0.42)
+        for v in (0.26, 0.54):
+            mring(p, "glow", sub(base, 0, v, 0), 0.064, 0.012, 20, 5)
+        for a in (0, 120, 240):
+            r = math.radians(a)
+            rod(p, "glow", at(base, math.cos(r) * 0.062, 0.02, math.sin(r) * 0.062), at(base, math.cos(r) * 0.062, 0.62, math.sin(r) * 0.062), 0.008, 6)
+        mring(p, "glow", T(side * 0.6, 1.53, 0.0), 0.076, 0.008, 16, 4)
+    rod(p, "glow", (-0.15, 1.55, 0.445), (0.15, 1.55, 0.445), 0.01, 6)
 
 
 def batida_x_extra(p):
@@ -5185,6 +5223,16 @@ def rosca_x_extra(p):
     # Faixas de corrida pelo casco, à frente.
     for dx in (-0.06, 0.06):
         mbox(p, "trim", T(dx, 1.12, -0.28), (0.04, 0.5, 0.012), 0.004, 1)
+    # Néon de corrida: filetes acesos ao lado das faixas, aros acesos nos turbos e nas
+    # bordas da asa.
+    for dx in (-0.1, 0.1):
+        mbox(p, "glow", T(dx, 1.12, -0.282), (0.014, 0.5, 0.012), 0.003, 1)
+    for side in (-1, 1):
+        turbo = axis_frame((side * 0.2, 1.0, 0.52), "z")
+        mring(p, "glow", sub(turbo, 0, -0.06, 0), 0.1, 0.012, 22, 5)
+        mring(p, "glow", sub(turbo, 0, 0.075, 0), 0.085, 0.008, 22, 4)
+        mbox(p, "glow", T(side * 0.362, 1.76, 0.62), (0.006, 0.12, 0.18), 0.002, 1)
+    mbox(p, "glow", T(0.0, 1.8, 0.715), (0.66, 0.012, 0.012), 0.003, 1)
 
 
 def gancho_x_extra(p):
@@ -5228,6 +5276,15 @@ def gancho_x_extra(p):
     for k in range(4):
         a = math.radians(k * 90 + 45)
         rod(p, "dark", at(hip_lamp, math.cos(a) * 0.042, -0.045, math.sin(a) * 0.042), at(hip_lamp, math.cos(a) * 0.042, 0.045, math.sin(a) * 0.042), 0.005, 4)
+    # Néon pirata: a bandeira contornada a luz, uma fita acesa no chapéu e anéis no mastro.
+    border = [(-0.17, -0.28), (0.17, -0.28), (0.14, 0.0), (0.17, 0.28), (-0.17, 0.28)]
+    for i in range(len(border)):
+        u0, v0 = border[i]
+        u1, v1 = border[(i + 1) % len(border)]
+        rod(p, "glow", at(flag, u0, v0, 0.0), at(flag, u1, v1, 0.0), 0.008, 6)
+    mring(p, "glow", sub(hat, 0, 0.08, 0), 0.24, 0.01, 28, 4)
+    for y in (1.2, 1.6, 2.0):
+        mring(p, "glow", T(0.18, y, 0.46), 0.03, 0.008, 12, 4)
 
 
 def bit_x_extra(p):
@@ -5284,6 +5341,20 @@ def magnus_x_extra(p):
         banner = T(side * 0.42, 1.92, 0.47) @ Matrix.Rotation(math.radians(90), 4, "Y")
         extruded(p, "dark", banner, [(-0.02, -0.24), (0.2, -0.3), (0.2, 0.24), (-0.02, 0.24)] if side > 0 else [(0.02, -0.24), (-0.2, -0.3), (-0.2, 0.24), (0.02, 0.24)], 0.012)
         mbox(p, "glow", T(side * 0.42, 1.74, 0.57), (0.03, 0.03, 0.2), 0.008, 1)
+    # Néon imperial: estandartes debruados a luz, um aro aceso na coroa e anéis nas hastes.
+    for side in (-1, 1):
+        banner = T(side * 0.42, 1.92, 0.47) @ Matrix.Rotation(math.radians(90), 4, "Y")
+        edge = [(-0.02, -0.24), (0.2, -0.3), (0.2, 0.24), (-0.02, 0.24)]
+        for i in range(len(edge)):
+            u0, v0 = edge[i]
+            u1, v1 = edge[(i + 1) % len(edge)]
+            if i == 3:
+                continue
+            rod(p, "glow", at(banner, u0 * side, v0, 0.0), at(banner, u1 * side, v1, 0.0), 0.008, 6)
+        for t in (0.25, 0.5):
+            q = Vector((side * 0.36, 0.95, 0.42)).lerp(Vector((side * 0.42, 2.25, 0.45)), t)
+            mring(p, "glow", T(*q), 0.026, 0.007, 12, 4)
+    mring(p, "glow", T(0.0, 1.765, 0.02), 0.165, 0.01, 32, 4)
 
 
 def faisca_x_extra(p):
@@ -5321,6 +5392,13 @@ def orbita_x_extra(p):
         pts.append((math.cos(a) * r, math.sin(a) * r))
     extruded(p, "glow", star, pts, 0.03)
     rod(p, "metal", (0.0, 1.8, 0.5), (0.0, 1.47, 0.5), 0.01, 6)
+    # Néon orbital: uma órbita acesa entre os anéis de ouro, aros acesos nos satélites e um
+    # halo à volta da estrela.
+    mring(p, "glow", m, 0.4, 0.012, 48, 5)
+    for i in range(3):
+        a = math.radians(30 + i * 120)
+        mring(p, "glow", sub(m, math.cos(a) * 0.44, 0.0, math.sin(a) * 0.44, rot=(0, 0, 90)), 0.065, 0.008, 16, 4)
+    mring(p, "glow", axis_frame((0.0, 1.9, 0.5), "z"), 0.12, 0.008, 28, 4)
 
 
 def eclipse_x_extra(p):
