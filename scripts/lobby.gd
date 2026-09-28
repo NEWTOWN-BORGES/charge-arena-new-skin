@@ -65,7 +65,7 @@ func _ready() -> void:
 	navbar = HBoxContainer.new()
 	navbar.add_theme_constant_override("separation", 10)
 	add_child(navbar)
-	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["story", "ARENAS"], ["pvp", "PvP"]]:
+	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["story", "HISTÓRIA"], ["pvp", "PvP"]]:
 		var key = Button.new()
 		key.custom_minimum_size = RAIL_KEY
 		key.focus_mode = Control.FOCUS_NONE
@@ -88,7 +88,9 @@ func _ready() -> void:
 	rail_keys.hangar.pressed.connect(func(): hud.open_skins())
 	rail_keys.powers.pressed.connect(func(): hud.open_powers())
 	rail_keys.pvp.pressed.connect(func(): hud.open_pvp())
-	rail_keys.story.pressed.connect(func(): hud.open_levels())
+	# The story is one tap away: the twelve bosses, NORMAL and DIFÍCIL. The arenas stay
+	# in the mode list.
+	rail_keys.story.pressed.connect(func(): hud.bosses_requested.emit())
 	build_sheet()
 
 func build_mode_card() -> Button:
@@ -201,7 +203,7 @@ func refresh() -> void:
 	var buyable = shop != null and not shop.affordable().is_empty()
 	rail_keys.hangar.text = "HANGAR"
 	rail_keys.powers.text = "PODERES"
-	rail_keys.story.text = "ARENAS"
+	rail_keys.story.text = "HISTÓRIA"
 	rail_keys.hangar.set_meta("dot", fresh)
 	rail_keys.powers.set_meta("dot", buyable)
 	rail_keys.hangar.set_meta("count", "%d/%d" % [skins.unlocked_count() if skins != null else 0, Skins.CATALOG.size()])
