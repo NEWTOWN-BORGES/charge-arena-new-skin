@@ -239,8 +239,10 @@ func _ready() -> void:
 	var scroll_gestures = preload("res://scripts/ui_scroll.gd").new()
 	scroll_gestures.name = "ScrollGestures"
 	scroll_gestures.surface = func():
-		for overlay in [hud.pause_overlay, hud.video_overlay, hud.powers_overlay, hud.skins_overlay, hud.levels_overlay, hud.pvp_overlay]:
-			if overlay.visible: return overlay
+		# Topmost first: the shop can open over the story, both over the lobby. The story
+		# screen and the quick-play map strip were missing, so their lists would not drag.
+		for overlay in [hud.powers_overlay, hud.pause_overlay, hud.video_overlay, hud.bosses_overlay, hud.skins_overlay, hud.levels_overlay, hud.pvp_overlay, hud.map_overlay]:
+			if is_instance_valid(overlay) and overlay.visible: return overlay
 		return cup_screen if cup_screen.visible else hud.menu
 	hud.add_child(scroll_gestures)
 	arena.show()
