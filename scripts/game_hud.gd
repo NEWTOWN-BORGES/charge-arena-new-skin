@@ -119,12 +119,18 @@ var mode = "menu"
 var network_status = ""
 var touches: Dictionary = {}
 var move_id = -1
+# The camera is steered on the map itself: one finger dragged across the arena turns it
+# (sideways) and pulls it in or out (up and down), two fingers pinch the zoom, a double tap
+# puts it back. main.gd reads what the fingers did since the last frame.
 var camera_id = -1
 var camera_home = Vector2.ZERO
 var camera_vector = Vector2.ZERO
 var camera_reset = false
 var camera_moved = false
 var camera_tap_ms = -1000
+var camera_touches: Dictionary = {}
+var camera_drag = Vector2.ZERO
+var camera_zoom = 1.0
 var move_vector = Vector2.ZERO
 var move_center = Vector2.ZERO
 var power_centers: Array = [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
@@ -2854,6 +2860,9 @@ func reset_touch() -> void:
 	move_id = -1
 	camera_id = -1
 	camera_vector = Vector2.ZERO
+	camera_touches.clear()
+	camera_drag = Vector2.ZERO
+	camera_zoom = 1.0
 	move_vector = Vector2.ZERO
 	move_center = move_home
 	power_request = -1
@@ -2887,18 +2896,19 @@ func _input(event: InputEvent) -> void:
 	if video_overlay.visible or pause_overlay.visible:
 		return
 	if event is InputEventScreenTouch:
-		if event.pressed and camera_id < 0 and event.position.distance_to(camera_home) <= CAMERA_RADIUS + 12:
-			camera_id = event.index
-			var now = Time.get_ticks_msec()
-			if now - camera_tap_ms < 320:
-				camera_reset = true
-			camera_tap_ms = now
-			ask_redraw()
+		if event.pressed and on_map(event.position) and power_at(event.position) < 0:
+			if camera_touches.is_empty():
+				camera_id = event.index
+				var now = Time.get_ticks_msec()
+				if now - camera_tap_ms < 320:
+					camera_reset = true
+				camera_tap_ms = now
+			camera_touches[event.index] = event.position
 			return
-		if not event.pressed and event.index == camera_id:
-			camera_id = -1
-			camera_vector = Vector2.ZERO
-			ask_redraw()
+		if not event.pressed and camera_touches.has(event.index):
+			camera_touches.erase(event.index)
+			if event.index == camera_id:
+				camera_id = -1 if camera_touches.is_empty() else int(camera_touches.keys()[0])
 			return
 		if event.pressed:
 			if not auto_fire and fire_control == 0 and event.position.distance_to(fire_center) <= 49 * fire_size:
@@ -2928,15 +2938,34 @@ func _input(event: InputEvent) -> void:
 				move_id = -1
 				move_vector = Vector2.ZERO
 				move_center = move_home
-	if event is InputEventScreenDrag and event.index == camera_id:
-		var pull = ((event.position - camera_home) / 26.0).limit_length()
-		# A small dead zone, so resting the thumb on it does not drift the camera.
-		camera_vector = pull if pull.length() > 0.18 else Vector2.ZERO
-		ask_redraw()
+	if event is InputEventScreenDrag and camera_touches.has(event.index):
+		if camera_touches.size() >= 2:
+			# Two fingers: the pinch zooms.
+			var before = camera_span()
+			camera_touches[event.index] = event.position
+			var after = camera_span()
+			if before > 1.0 and after > 1.0:
+				camera_zoom *= after / before
+		else:
+			camera_drag += event.position - camera_touches[event.index]
+			camera_touches[event.index] = event.position
 		return
 	if event is InputEventScreenDrag and event.index == move_id:
 		move_vector = ((event.position - move_center) / 44).limit_length()
 	ask_redraw()
+
+func on_map(at: Vector2) -> bool:
+	# The arena between the top cards and the thumb band: where the camera is steered.
+	var top: float = score_rect.end.y
+	for rect in card_rects:
+		top = maxf(top, rect.end.y if vertical else 0.0)
+	return at.y > top + 6 and at.y < touch_top
+
+func camera_span() -> float:
+	if camera_touches.size() < 2:
+		return 0.0
+	var points = camera_touches.values()
+	return (points[0] as Vector2).distance_to(points[1])
 
 func face(font_size: int, bold: bool) -> Font:
 	return (font_title if font_size >= 17 else font_bold) if bold else font
@@ -3265,7 +3294,6 @@ func draw_hud() -> void:
 		centered("PARALISADO   %.1f s" % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, UiKit.SUN_INK, true)
 	draw_moment()
 	draw_stick()
-	draw_camera_stick()
 	if defense_notice_time > 0 and match_data.phase == "play":
 		# A warning, not news: red plate, white capitals, and it sits over your own half.
 		var notice_at = Vector2(arena_rect.get_center().x, arena_rect.position.y + 28) if vertical else Vector2(size.x * 0.5, 145)

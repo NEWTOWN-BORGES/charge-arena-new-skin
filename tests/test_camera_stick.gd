@@ -1,7 +1,8 @@
 extends SceneTree
-# Joystick de câmara: para o lado roda a câmara à volta da arena (no máximo 61 graus para
-# cada lado, nunca do lado do rival), para cima aproxima, para baixo afasta, e dois toques
-# repõem a câmara de origem. A escolha fica guardada para a partida seguinte.
+# Câmara no próprio mapa: arrastar um dedo para o lado roda a câmara à volta da arena (no
+# máximo 61 graus para cada lado, nunca do lado do rival), para cima aproxima, para baixo
+# afasta; dois dedos fazem pinça; dois toques repõem a câmara. Puxar o zoom para lá do
+# máximo põe a câmara atrás do robô (3.ª pessoa); afastar sai. A escolha fica guardada.
 var failures = 0
 
 func check(ok: bool, description: String) -> void:
@@ -27,15 +28,14 @@ func drag(hud, at: Vector2, index: int = 3) -> void:
 	event.position = at
 	hud._input(event)
 
-func hold(game, hud, push: Vector2, seconds: float) -> void:
-	# Separate holds, not a double tap.
+func swipe(game, hud, from: Vector2, by: Vector2) -> void:
 	hud.camera_tap_ms = -1000
-	touch(hud, hud.camera_home, true)
-	drag(hud, hud.camera_home + push * 30.0)
-	for f in range(int(seconds * 60)):
+	touch(hud, from, true)
+	for i in range(10):
+		drag(hud, from + by * (i + 1) / 10.0)
 		game.steer_camera(1.0 / 60.0)
 		game.arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
-	touch(hud, hud.camera_home + push * 30.0, false)
+	touch(hud, from + by, false)
 	game.steer_camera(1.0 / 60.0)
 	game.arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
 
@@ -53,40 +53,40 @@ func run() -> void:
 	game.frame_arena()
 	arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
 	var seat: Transform3D = arena.camera.global_transform
-	var size: float = arena.camera.size
-	check(arena.match_seat and arena.seat_size > 0.0, "A partida tem um lugar de câmara para o joystick")
-	check(hud.camera_home.x > hud.size.x * 0.5 and hud.camera_home.y < hud.arena_rect.get_center().y, "O joystick de câmara fica em cima, à direita")
+	var middle = Vector2(hud.size.x * 0.5, (hud.score_rect.end.y + hud.touch_top) * 0.5)
+	check(hud.on_map(middle), "O meio da arena é zona de câmara")
+	check(not hud.on_map(Vector2(hud.size.x * 0.5, hud.touch_top + 20)), "A faixa dos polegares continua a ser para mover")
 
-	hold(game, hud, Vector2(1, 0), 0.4)
-	var now_z: Vector3 = arena.camera.global_transform.basis.z
-	var turned: float = Vector2(now_z.x, now_z.z).angle_to(Vector2(seat.basis.z.x, seat.basis.z.z))
-	check(absf(arena.view_yaw) > 0.3 and absf(turned) > 0.3, "Arrastar para o lado roda a câmara (%.2f rad)" % arena.view_yaw)
-	check(hud.camera_vector == Vector2.ZERO, "Largar o joystick para a câmara")
+	swipe(game, hud, middle, Vector2(160, 0))
+	check(game.game_settings.view_yaw < -0.3, "Arrastar para o lado roda a câmara")
+	check(not arena.camera.global_transform.origin.is_equal_approx(seat.origin), "A câmara saiu do lugar")
+	for i in range(8):
+		swipe(game, hud, middle, Vector2(900, 0))
+	check(absf(game.game_settings.view_yaw) <= arena.VIEW_YAW_MAX + 0.001, "A rotação para nos 61 graus")
 
-	hold(game, hud, Vector2(1, 0), 5.0)
-	check(absf(arena.view_yaw) <= arena.VIEW_YAW_MAX + 0.001, "A rotação pára nos 61 graus")
-	var ahead: Vector3 = -arena.camera.global_transform.basis.z
-	var home_ahead: Vector3 = -seat.basis.z
-	check(Vector2(ahead.x, ahead.z).dot(Vector2(home_ahead.x, home_ahead.z)) > 0.0, "Nem no máximo a câmara passa para o lado do rival")
-	hold(game, hud, Vector2(-1, 0), 10.0)
-	check(arena.view_yaw <= arena.VIEW_YAW_MAX + 0.001 and arena.view_yaw > 1.0, "Roda o mesmo para o outro lado")
+	swipe(game, hud, middle, Vector2(0, -120))
+	check(game.game_settings.view_zoom > 1.2, "Arrastar para cima aproxima")
+	swipe(game, hud, middle, Vector2(0, 90))
+	var zoom_after_out = game.game_settings.view_zoom
+	check(zoom_after_out < 1.7, "Arrastar para baixo afasta")
 
-	hold(game, hud, Vector2(0, -1), 0.6)
-	check(arena.view_zoom > 1.3 and arena.camera.size < size, "Para cima aproxima (zoom %.2f)" % arena.view_zoom)
-	hold(game, hud, Vector2(0, -1), 5.0)
-	check(arena.view_zoom <= arena.VIEW_ZOOM_MAX + 0.001, "O zoom tem limite")
-	check(game.game_settings.view_zoom == arena.view_zoom, "A escolha fica nas opções guardadas")
-	hold(game, hud, Vector2(0, 1), 5.0)
-	check(arena.view_zoom < 1.0 and arena.view_zoom >= arena.VIEW_ZOOM_MIN, "Para baixo afasta, até um limite")
+	for i in range(6):
+		swipe(game, hud, middle, Vector2(0, -260))
+	check(arena.chase, "Puxar para lá do zoom máximo põe a câmara em 3.ª pessoa")
+	for i in range(30):
+		arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
+	var pilot: Vector3 = arena.units[game.local_team].global_position
+	check(arena.camera.global_position.distance_to(pilot) < 7.0 and arena.camera.projection == Camera3D.PROJECTION_PERSPECTIVE, "Em 3.ª pessoa a câmara segue o robô de perto")
+	for i in range(4):
+		swipe(game, hud, middle, Vector2(0, 200))
+	check(not arena.chase, "Afastar sai da 3.ª pessoa")
 
-	touch(hud, hud.camera_home, true)
-	touch(hud, hud.camera_home, false)
-	touch(hud, hud.camera_home, true)
-	touch(hud, hud.camera_home, false)
+	hud.camera_tap_ms = -1000
+	touch(hud, middle, true)
+	touch(hud, middle, false)
+	touch(hud, middle, true)
+	touch(hud, middle, false)
 	game.steer_camera(1.0 / 60.0)
-	arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
-	check(arena.view_yaw == 0.0 and arena.view_zoom == 1.0, "Dois toques repõem a câmara")
-	check(arena.camera.global_transform.basis.z.is_equal_approx(seat.basis.z) and is_equal_approx(arena.camera.size, size), "E ela volta exatamente ao lugar de origem")
-
+	check(game.game_settings.view_yaw == 0.0 and game.game_settings.view_zoom == 1.0, "Dois toques repõem a câmara")
 	print("CAMERA_STICK_RESULT failures=", failures)
 	quit(1 if failures > 0 else 0)

@@ -1099,6 +1099,32 @@ func unsteer() -> void:
 		camera.position = camera_home
 		camera.look_at(VIEW_PIVOT)
 
+# Third person: the camera behind the player's own pilot, following it and looking the way
+# it aims. Entered by pulling the zoom in past its closest; the framed seat returns on exit.
+var chase = false
+
+func set_chase(on: bool) -> void:
+	chase = on
+	if not on:
+		camera_home = Vector3.ZERO
+		view_bounds = Rect2()
+
+func place_chase_camera(rules, team: int, dt: float) -> void:
+	if team >= units.size() or not is_instance_valid(units[team]):
+		return
+	var aim: Vector2 = rules.players[team].aim
+	var forward = Vector3(aim.x, 0.0, aim.y)
+	forward = forward.normalized() if forward.length() > 0.01 else Vector3.FORWARD
+	var pilot: Vector3 = units[team].global_position
+	var eye = pilot - forward * 4.4 + Vector3.UP * 3.2
+	var look = pilot + forward * 6.0 + Vector3.UP * 0.5
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 62.0
+	camera.h_offset = 0.0
+	camera.v_offset = 0.0
+	var target = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+	camera.global_transform = camera.global_transform.interpolate_with(target, 1.0 - exp(-dt * 8.0))
+
 func steer_view(yaw: float, zoom: float) -> void:
 	view_yaw = clampf(yaw, -VIEW_YAW_MAX, VIEW_YAW_MAX)
 	view_zoom = clampf(zoom, VIEW_ZOOM_MIN, VIEW_ZOOM_MAX)
@@ -1487,7 +1513,9 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			warm_root = null
 	# Camera shake: a quick decaying wobble, never enough to lose the ball.
 	var offset = shake_offset(dt)
-	if match_seat and not lobby_view and not tour_view and seat_size > 0.0:
+	if chase and match_seat and not lobby_view and not tour_view:
+		place_chase_camera(rules, local_team, dt)
+	elif match_seat and not lobby_view and not tour_view and seat_size > 0.0:
 		place_match_seat(offset)
 	elif offset != Vector3.ZERO:
 		camera.position = camera_home + offset

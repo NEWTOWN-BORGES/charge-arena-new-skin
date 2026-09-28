@@ -443,6 +443,8 @@ func return_to_menu(message: String = "") -> void:
 	cup_active = false
 	pve_paused = false
 	close_network()
+	chase_push = 1.0
+	arena.set_chase(false)
 	mode = "menu"
 	network_status = ""
 	menu_preview_timer = -1.0
@@ -729,28 +731,61 @@ func frame_arena() -> void:
 	arena.remember_seat()
 	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
 
-func steer_camera(dt: float) -> void:
-	# The camera stick: sideways turns round the arena, up pulls in, down pulls back. Where
-	# the player leaves it is kept for the next match; a double tap puts it back.
+# How far the player keeps pulling in past the closest zoom before the camera drops behind
+# the pilot (third person), and how far it has to be pushed back out to leave it.
+const CHASE_PAST = 1.35
+const CHASE_LEAVE = 0.72
+var chase_push = 1.0
+
+func steer_camera(_dt: float) -> void:
+	# Steered on the map itself: a finger dragged sideways turns round the arena, up pulls
+	# in, down pulls back; two fingers pinch. Pulling in past the closest zoom puts the
+	# camera behind the pilot, following it and looking where it aims; pulling back out
+	# leaves. The turn and zoom are kept for the next match; a double tap puts them back.
 	if mode == "menu":
 		return
 	if hud.camera_reset:
 		hud.camera_reset = false
 		game_settings.view_yaw = 0.0
 		game_settings.view_zoom = 1.0
+		leave_chase()
 		arena.steer_view(0.0, 1.0)
 		save_game_settings()
 		return
-	var push: Vector2 = hud.camera_vector
-	if push == Vector2.ZERO:
+	var drag: Vector2 = hud.camera_drag
+	var pinch: float = hud.camera_zoom
+	hud.camera_drag = Vector2.ZERO
+	hud.camera_zoom = 1.0
+	if drag == Vector2.ZERO and is_equal_approx(pinch, 1.0):
 		if hud.camera_moved:
 			hud.camera_moved = false
 			save_game_settings()
 		return
 	hud.camera_moved = true
-	game_settings.view_yaw = clampf(game_settings.view_yaw - push.x * 1.5 * dt, -arena.VIEW_YAW_MAX, arena.VIEW_YAW_MAX)
-	game_settings.view_zoom = clampf(game_settings.view_zoom * exp(-push.y * 1.3 * dt), arena.VIEW_ZOOM_MIN, arena.VIEW_ZOOM_MAX)
+	var step: float = exp(-drag.y * 0.006) * pinch
+	if arena.chase:
+		chase_push = chase_push * step if step < 1.0 else 1.0
+		if chase_push < CHASE_LEAVE:
+			game_settings.view_zoom = arena.VIEW_ZOOM_MAX * 0.9
+			leave_chase()
+		return
+	game_settings.view_yaw = clampf(game_settings.view_yaw - drag.x * 0.005, -arena.VIEW_YAW_MAX, arena.VIEW_YAW_MAX)
+	var wanted: float = game_settings.view_zoom * step
+	if wanted > arena.VIEW_ZOOM_MAX and game_settings.view_zoom >= arena.VIEW_ZOOM_MAX - 0.001:
+		chase_push *= step
+		if chase_push > CHASE_PAST:
+			chase_push = 1.0
+			arena.set_chase(true)
+	else:
+		chase_push = 1.0
+	game_settings.view_zoom = clampf(wanted, arena.VIEW_ZOOM_MIN, arena.VIEW_ZOOM_MAX)
 	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
+
+func leave_chase() -> void:
+	chase_push = 1.0
+	if arena.chase:
+		arena.set_chase(false)
+		frame_arena()
 
 func change_difficulty(level: int) -> void:
 	game_settings.configure(level, game_settings.aim_guide)
