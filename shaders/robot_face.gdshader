@@ -2,7 +2,8 @@ shader_type spatial;
 // The robot's face: a dark glass screen with glowing eyes drawn as distance fields, so every
 // style stays crisp from the gallery close-up down to a few pixels in the arena.
 // style: 0 capsule, 1 dots, 2 bars, 3 square, 4 slant, 5 monocle, 6 visor, 7 equalizer,
-//        8 single, 9 rings, 10 stars, 11 arcs, 12 slits.  mood: 0 calm, 1 happy, 2 dizzy.
+//        8 single, 9 rings, 10 stars, 11 arcs, 12 slits.  mood: 0 calm, 1 happy, 2 dizzy,
+//        3 angry (season two's corrupted friends: brows slanting down to the middle).
 // "slits" fills a narrow eye slit cut into a hull, not a screen: two bars nearly its height.
 render_mode unshaded, shadows_disabled;
 
@@ -48,6 +49,13 @@ mat2 turn(float a) {
 
 float eye(vec2 q, float side) {
 	if (mood == 1) return sd_arch(q + vec2(0.0, 0.03), 0.09, 0.028);
+	if (mood == 3) {
+		// A brow slanting down towards the middle, and the eye half shut under it.
+		vec2 b = turn(-0.45 * side) * (q - vec2(0.0, 0.06));
+		float brow = sd_box(b, vec2(0.13, 0.026), 0.022);
+		float lens = max(length(q + vec2(0.0, 0.02)) - 0.085, b.y + 0.045);
+		return min(brow, lens);
+	}
 	if (mood == 2) {
 		vec2 r = turn(TIME * 5.0 * side) * q;
 		return min(sd_box(r, vec2(0.1, 0.022), 0.02), sd_box(r, vec2(0.022, 0.1), 0.02));
@@ -90,7 +98,7 @@ void fragment() {
 	} else {
 		d = min(eye(at - vec2(-gap, 0.0), -1.0), eye(at - vec2(gap, 0.0), 1.0));
 	}
-	if (mouth > 0.5 && mood != 2) {
+	if (mouth > 0.5 && mood != 2 && mood != 3) {
 		vec2 m = p - vec2(0.0, -0.2);
 		d = min(d, m.y < 0.0 ? abs(length(m) - 0.05) - 0.012 : length(vec2(abs(m.x) - 0.05, m.y)) - 0.012);
 	}

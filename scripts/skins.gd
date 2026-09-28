@@ -55,8 +55,8 @@ const CATALOG = [
 		"body": "23262e", "light": "ffcf5a", "shot": "ffcf5a"},
 	{"name": "HÉLIO POENTE", "ult_color": "ff6a2a", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "hard_of": 10, "level": -1, "about": "O sol a pôr-se: vermelho-poente e ouro, com um sol inteiro de raios atrás das asas.",
 		"body": "c8452a", "light": "ff8a2a", "shot": "ff8a2a"},
-	{"name": "BIT DE ELITE", "ult_color": "ffe45c", "ultimate": "sun_beam", "weapon": "Canhão de Braço", "bricks": "Baterias Aurora", "hard_of": 0, "level": -1, "about": "O robô de série, afinado para a elite: azul-elétrico, ouro e prata, bateria de três células acesas com a luz do sol que o HÉLIO lhe ensinou, escapes e aletas de luz.",
-		"body": "2f6df6", "light": "ffd84a", "shot": "ffd84a"},
+	{"name": "BIT DE ELITE", "ult_color": "ffe45c", "ultimate": "sun_beam", "weapon": "Canhão de Braço", "bricks": "Baterias Aurora", "hard_of": 0, "level": -1, "about": "O robô de série, afinado para a elite: marfim, ouro e sol, como o HÉLIO e o MAGNUS IMPERADOR, com uma coroa solar de néon, bateria de três células acesas com a luz do sol que o HÉLIO lhe ensinou, escapes e aletas de luz.",
+		"body": "fff1d0", "light": "ffcf4a", "shot": "ffcf4a"},
 	{"name": "MAGNUS IMPERADOR", "ult_color": "ffcf4a", "ultimate": "b_forge", "weapon": "Manopla Imperial", "bricks": "Emblemas do Penta", "hard_of": 11, "level": -1, "about": "O campeão coroado: marfim e ouro, coroa com gemas acesas, dois estandartes e a estrela do Penta acesa às costas.",
 		"body": "ece6d8", "light": "ffcf4a", "shot": "ffcf4a"},
 ]

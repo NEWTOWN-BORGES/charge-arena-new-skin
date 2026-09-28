@@ -174,7 +174,7 @@
 		{"name": "HÉLIO POENTE", "base": 10, "hard": true, "parts_add": {"extra": "helio_x_extra"},
 			"palette": {"shell": "c8452a", "trim": "ffcf4a", "dark": "3a1a12", "metal": "e8a040", "glow": "ff8a2a", "eyes": "ffd38a", "rubber": "1d0e0a", "team": ""}},
 		{"name": "BIT DE ELITE", "base": 0, "hard": true, "parts_add": {"extra": "bit_x_extra", "hat": "bit_x_hat"},
-			"palette": {"shell": "2f6df6", "trim": "ffd23f", "dark": "1d3a8f", "metal": "dfe6f2", "glow": "ffd84a", "team": "", "eyes": "fff3b0", "rubber": "182a66"}},
+			"palette": {"shell": "fff1d0", "trim": "f0a81c", "dark": "3a2418", "metal": "e2b659", "glow": "ffcf4a", "team": "", "eyes": "fff2a6", "rubber": "1d1712"}},
 		{"name": "MAGNUS IMPERADOR", "base": 11, "hard": true, "parts_add": {"extra": "magnus_x_extra"},
 			"palette": {"shell": "ece6d8", "trim": "d4a73a", "dark": "2a1216", "metal": "c9a24a", "glow": "ffcf4a", "team": "", "eyes": "ffe08a", "rubber": "140a0c"}}
 	],

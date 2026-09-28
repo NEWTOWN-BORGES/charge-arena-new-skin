@@ -94,6 +94,8 @@ var view_bounds = Rect2()
 var map: Dictionary = {}
 var walls: Array = []
 var unit_skins: Array = [0, 0]
+# Which pilots glare: season two's corrupted friends (the story sets it).
+var angry: Array = [false, false]
 # Cape, goal curtain and repulsor rings, one set per team.
 var power_nodes: Array = []
 # Campaign bosses wear their team's red until beaten (see Skins.colors).
@@ -1661,7 +1663,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var halo: Node3D = node.get_node("Stun")
 		halo.visible = data.stun > 0
 		halo.rotation.y = clock * 2.7
-		Robots.set_mood(body, 2 if data.stun > 0 else 0)
+		Robots.set_mood(body, 2 if data.stun > 0 else (3 if angry[team] else 0))
 		if data.stun > stuns_before[team] + 0.2:
 			burst(data.p, GOLD, false)
 		stuns_before[team] = data.stun

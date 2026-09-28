@@ -8,6 +8,7 @@ Monta cada robô com a sua receita (roster.json, como Robots.recipe no jogo: as 
 juntam as peças "parts_add" ao seu chefe; os pilotos de estrada ganham a sua cabeça e topo) e
 renderiza-o da cintura para cima, com fundo transparente, em luz de estúdio com contraluz.
 Escreve art/story/faces/<quem>.png (olhos felizes) e <quem>_hit.png (atordoado, olhos em X);
+os corrompidos da temporada 2 também <quem>_angry.png (cara de poucos amigos);
 para as skins difíceis também <quem>_dark.png: o corpo negro e só o néon aceso, a forma
 corrompida da segunda temporada.
 """
@@ -31,6 +32,9 @@ TEAM = "72ddc6"
 # Who speaks in the story: skin indices, and the two station robots with a role.
 JOBS = [(str(i), i, TEAM) for i in range(24)] + [("agente", STATION + 9, "3b6fe0"), ("locutor", STATION + 6, "a45cff")]
 CENTRED_SPINS = ("spin_rays", "spin_halo", "spin_orbit")
+# Quem fala corrompido na temporada 2: o MAGNUS (na skin normal) e as skins difíceis, menos o
+# BIT DE ELITE (22) e o MAGNUS IMPERADOR (23), que nunca estão corrompidos.
+ANGRY = {"11"} | {str(i) for i in range(12, 22)}
 
 
 def godot(v):
@@ -86,7 +90,16 @@ def face_texture(eye_hex, mood, dark_screen=(0.01, 0.015, 0.03)):
             for cx in (92, 164):
                 # Blender images run bottom-up: flip so the arcs point up (^ ^).
                 dx, dy = x - cx, (h - 1 - y) - 66
-                if mood == "hit":
+                if mood == "angry":
+                    # Cara de poucos amigos: sobrancelha a descer para o meio, olho meio fechado.
+                    inner = 1 if cx < 128 else -1
+                    up = -dy
+                    brow = 14 - 0.5 * inner * dx
+                    if abs(dx) < 22 and abs(up - brow) < 4:
+                        c = ec
+                    elif math.hypot(dx, up + 2) < 15 and up < brow - 7:
+                        c = ec
+                elif mood == "hit":
                     # Um X de traço grosso.
                     if abs(dx) < 20 and abs(dy) < 20 and (abs(dx - dy) < 5 or abs(dx + dy) < 5):
                         c = ec
@@ -243,6 +256,11 @@ def main():
         entry = recipe(skin, team)
         hard = skin < STATION and "base" in ROSTER["cast"][skin]
         variants = [("", "happy", False), ("_hit", "hit", False)] + ([("_dark", "happy", True)] if hard else [])
+        # Os amigos corrompidos da temporada 2 (as skins difíceis e o MAGNUS antes da reviravolta).
+        if key in ANGRY:
+            variants.append(("_angry", "angry", False))
+        if "--angry" in args:
+            variants = [v for v in variants if v[0] == "_angry"]
         for suffix, mood, dark in variants:
             mats = materials(entry["palette"], mood, dark)
             created, shape = assemble(objects, entry, mats)

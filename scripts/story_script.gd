@@ -276,7 +276,9 @@ const LINES = {
 # was not behind it this time: the corruption came from HÉLIO, who swallowed the singularity
 # at the end of the first Taça. Beating HÉLIO in the final gives everyone their memory back.
 # In DIFÍCIL the rivals fight in their hard skins: a line with {"face": "dark"} is a corrupted
-# friend, shown in that hard skin (its portrait, name and colour) with a deeper voice.
+# friend, shown in that hard skin (its portrait, name and colour) with a deeper voice. The
+# twist: MAGNUS wrecks the city in his usual skin; only once BIT beats him does the armour
+# fall and MAGNUS IMPERADOR, his true form, step out.
 const MAGNUS_IMP = 23
 const HELIO_POENTE = 21
 const BATIDA_NEON = 19
@@ -294,20 +296,21 @@ const S2_INTRO = [
 	[NARRADOR, "BUUUM!", {"fx": "shake"}],
 	[BIT_ELITE, "O que foi isto?! Vem do centro da cidade!"],
 	[NARRADOR, "Hologramas a cair, carros virados, alarmes por todo o lado. E no meio do caos, uma figura enorme e escura.", {"fx": "siren"}],
-	[MAGNUS_IMP, "SUCATA… TUDO SUCATA… A CIDADE TEM DE FICAR EM SILÊNCIO.", {"face": "dark", "fx": "shake"}],
+	[MAGNUS, "SUCATA… TUDO SUCATA… A CIDADE TEM DE FICAR EM SILÊNCIO.", {"face": "dark", "fx": "shake"}],
 	[BIT_ELITE, "O MAGNUS?! Está diferente… a armadura, os olhos… está todo escuro."],
 	[AGENTE, "Civis, afastem-se! Já chamámos os pilotos de arena, estão a caminho!", {"fx": "siren"}],
 	[BIT_ELITE, "Não há tempo para esperar pelos mais experientes. Sou o único piloto de arena aqui."],
 	[BIT_ELITE, "MAGNUS! Aqui! Se queres uma luta, é comigo!"],
-	[MAGNUS_IMP, "O ESTUDANTE… DISSERAM-ME QUE VIRIAS.", {"face": "dark"}],
+	[MAGNUS, "O ESTUDANTE… DISSERAM-ME QUE VIRIAS.", {"face": "dark"}],
 ]
 
 const S2_AFTER_MAGNUS = [
-	[MAGNUS_IMP, "Argh… a minha cabeça… que luz é esta…?", {"face": "dark", "mood": "hit"}],
-	[NARRADOR, "A escuridão desfaz-se da armadura do MAGNUS. Por baixo, marfim e ouro: a sua forma original."],
+	[MAGNUS, "Argh… a minha cabeça… que luz é esta…?", {"face": "dark", "mood": "hit"}],
+	[NARRADOR, "A armadura do MAGNUS estala e cai aos pedaços. Por baixo, marfim e ouro: MAGNUS IMPERADOR, a sua forma verdadeira.", {"fx": "shake"}],
+	[BIT_ELITE, "Espera… o MAGNUS que todos conhecíamos era só uma armadura?!"],
 	[MAGNUS_IMP, "Onde… onde estou? Tu és… o BIT? O campeão da Taça?"],
 	[BIT_ELITE, "MAGNUS? Estavas a destruir a cidade! O que te aconteceu?"],
-	[MAGNUS_IMP, "Eu não era assim. Antes do ECLIPSE, eu era o braço direito do HÉLIO. Treinávamos ao nascer do sol; estas cores douradas são as do sol dele."],
+	[MAGNUS_IMP, "Aquela carapaça nunca fui eu. Antes do ECLIPSE, eu era o braço direito do HÉLIO. Treinávamos ao nascer do sol; estas cores douradas são as do sol dele."],
 	[MAGNUS_IMP, "Mas não me lembro de nada… Um dia estava ao lado do HÉLIO; no dia seguinte, estava contra ele e contra todos."],
 	[BIT_ELITE, "Senhor agente! Onde estão os outros pilotos de arena?"],
 	[AGENTE, "Ninguém sabe. Desapareceram todos. A segunda temporada da Taça vai começar e não há sinal de nenhum piloto de arena."],
@@ -327,7 +330,7 @@ const S2_AFTER_MAGNUS = [
 const S2_LINES = {
 	MAGNUS: {
 		"lost": [
-			[MAGNUS_IMP, "SUCATA. COMO TODOS OS OUTROS.", {"face": "dark"}],
+			[MAGNUS, "SUCATA. COMO TODOS OS OUTROS.", {"face": "dark"}],
 			[AGENTE, "Recua, miúdo! Reagrupa e tenta outra vez: ele ainda está aqui."],
 		],
 	},

@@ -309,6 +309,7 @@ func start_pvp_ai() -> void:
 
 func start_level(index: int) -> void:
 	story_run = {}
+	arena.angry = [false, false]
 	close_cup_screen()
 	if not campaign.is_unlocked(index):
 		return
@@ -351,6 +352,7 @@ func start_level(index: int) -> void:
 
 func leave_campaign(layout: Dictionary = {}) -> void:
 	story_run = {}
+	arena.angry = [false, false]
 	level_index = -1
 	rules.ai_profile = {}
 	hud.level_info = {}
@@ -494,6 +496,13 @@ func worn_skin() -> int:
 func story_prize(boss: int, hard: bool) -> int:
 	return Skins.hard_of_boss(boss) if hard else boss
 
+func story_rival(boss: int, hard: bool) -> int:
+	# The skin the rival fights in: its prize, except season two's MAGNUS, who wrecks the city
+	# in his usual skin; MAGNUS IMPERADOR, his true form, is the twist once BIT frees him.
+	if hard and boss == StoryScript.MAGNUS:
+		return boss
+	return story_prize(boss, hard)
+
 func story_key(boss: int, hard: bool) -> String:
 	return ("h%d" if hard else "n%d") % boss
 
@@ -514,7 +523,7 @@ func story_entries(hard: bool) -> Array:
 	var reachable = not hard or story_hard_open()
 	for step in range(order.size()):
 		var boss: int = order[step]
-		var wear = story_prize(boss, hard)
+		var wear = story_prize(boss, hard) if story_beaten(boss, hard) else story_rival(boss, hard)
 		list.append({"name": String(Skins.CATALOG[wear].name), "skin": wear, "beaten": story_beaten(boss, hard),
 			"passed": story_passed(boss, hard),
 			"open": reachable and (step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
@@ -585,7 +594,7 @@ func start_story(step: int, hard: bool, talk: bool = true) -> void:
 		# Season two: the city under attack before MAGNUS, then a round card and the words of
 		# each corrupted friend; the fight card closes every talk.
 		var lines: Array = []
-		var wear = story_prize(boss, true)
+		var wear = story_rival(boss, true)
 		var place = story_place(boss, true)
 		if step == 0 and not story_beaten(boss, true):
 			lines += StoryScript.S2_INTRO
@@ -611,6 +620,7 @@ func begin_training() -> void:
 	level_index = index
 	use_map(Campaign.LEVELS[index].map)
 	story_run = {"step": -1, "hard": false, "boss": StoryScript.BATIDA, "training": true}
+	arena.angry = [false, false]
 	rules.ai_profile = Campaign.ai_profile(0, 0)
 	use_loadouts(Campaign.boss_kit(index), StoryScript.BATIDA)
 	rules.loadouts[1 - local_team][2] = ""
@@ -658,8 +668,10 @@ func begin_story(step: int, hard: bool) -> void:
 	level_index = index
 	use_map(story_map(boss, hard))
 	story_run = {"step": step, "hard": hard, "boss": boss}
+	# Season two's rivals are corrupted: they glare.
+	arena.angry = [false, hard]
 	rules.ai_profile = Campaign.ai_profile(story_ai_level(step), 2 if hard else 1)
-	var wear = story_prize(boss, hard)
+	var wear = story_rival(boss, hard)
 	# You bring the ultimate of the skin you wear (BIT has none; BIT DE ELITE brings the RAIO
 	# DE ELITE); the boss brings the ultimate of the skin it wears.
 	use_loadouts(Campaign.boss_kit(story_kit_level(boss)), wear)
@@ -673,7 +685,7 @@ func begin_story(step: int, hard: bool) -> void:
 	arena.set_skin(1, wear, false)
 	hud.team_hues = arena.unit_hues
 	hud.level_info = {"number": step + 1, "name": ("TEMPORADA 2 · " if hard else "") + String(Campaign.LEVELS[index].name),
-		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
+		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Trava o MAGNUS antes que destrua a cidade!" if wear != story_prize(boss, hard) else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
 		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size(), "story": true}
 	hud.level_result = ""
 	hud.level_skin = ""
@@ -795,6 +807,7 @@ func return_to_menu(message: String = "") -> void:
 	chase_push = 1.0
 	arena.set_chase(false)
 	story_run = {}
+	arena.angry = [false, false]
 	mode = "menu"
 	network_status = ""
 	menu_preview_timer = -1.0

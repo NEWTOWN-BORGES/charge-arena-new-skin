@@ -386,7 +386,7 @@ static func _face(body: Node3D) -> ShaderMaterial:
 	return ShaderMaterial.new()
 
 static func set_mood(body: Node3D, mood: int) -> void:
-	# 0 calm, 1 happy, 2 dizzy. Cheap to call every frame: only writes on change.
+	# 0 calm, 1 happy, 2 dizzy, 3 angry. Cheap to call every frame: only writes on change.
 	if body.get_meta("robot_mood", 0) == mood:
 		return
 	body.set_meta("robot_mood", mood)

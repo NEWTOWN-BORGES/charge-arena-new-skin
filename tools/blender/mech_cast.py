@@ -5313,6 +5313,21 @@ def bit_x_hat(p):
                  [(-0.12, -0.04), (0.1, -0.02), (0.14, 0.1), (-0.06, 0.05)], 0.02)
     rod(p, "metal", (-0.12, 2.05, 0.05), (-0.16, 2.4, 0.08), 0.01, 6)
     ball(p, "glow", (-0.16, 2.42, 0.08), 0.03, 10)
+    # Coroa solar, herança do HÉLIO e do MAGNUS IMPERADOR: aro de ouro com gemas acesas e
+    # raios de sol alternados, um aro de luz na base.
+    crown = T(0.0, 1.95, 0.02)
+    mring(p, "trim", crown, 0.2, 0.022, 36, 6)
+    mring(p, "glow", sub(crown, 0, -0.02, 0), 0.205, 0.008, 36, 4)
+    for i in range(10):
+        a = math.radians(-90 + i * 36)
+        base = Vector((math.cos(a) * 0.2, 1.96, math.sin(a) * 0.2 + 0.02))
+        tall = 0.17 if i % 2 == 0 else 0.1
+        lathe(p, "metal" if i % 2 else "trim", frame(base, (0, 1, 0)), [(0.034, 0.0), (0.018, tall * 0.55), (0.0, tall)], 8)
+        if i % 2 == 0:
+            ball(p, "glow", base + Vector((0, tall + 0.015, 0)), 0.018, 8)
+        mring(p, "glow", frame(base + Vector((0, 0.012, 0)), (0, 1, 0)), 0.036, 0.006, 10, 4)
+    # Néon solar: um segundo aro aceso no topo da banda.
+    mring(p, "glow", sub(crown, 0, 0.024, 0), 0.2, 0.007, 36, 4)
 
 
 def magnus_x_extra(p):

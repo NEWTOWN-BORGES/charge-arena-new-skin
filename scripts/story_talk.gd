@@ -220,8 +220,9 @@ func dark_line() -> bool:
 	return String(options().get("face", "")) == "dark"
 
 func corrupted(speaker: int) -> int:
-	# A corrupted friend of season two is its hard skin, as it already is in the game.
-	if speaker < 0 or speaker >= Skins.CATALOG.size() or Skins.CATALOG[speaker].has("hard_of"):
+	# A corrupted friend of season two is its hard skin, as it already is in the game. MAGNUS
+	# is the twist: corrupted in his usual skin, IMPERADOR only once freed.
+	if speaker < 0 or speaker == Story.MAGNUS or speaker >= Skins.CATALOG.size() or Skins.CATALOG[speaker].has("hard_of"):
 		return speaker
 	var hard = Skins.hard_of_boss(speaker)
 	return hard if hard >= 0 else speaker
@@ -292,6 +293,9 @@ func show_entry() -> void:
 		tag_style.content_margin_bottom = 5
 		tag.add_theme_stylebox_override("panel", tag_style)
 		var mood = String(opts.get("mood", ""))
+		if dark and mood == "":
+			# Corrupted friends glare.
+			mood = "angry"
 		if on_left(speaker):
 			if left_who != speaker:
 				slide_left = 0.0
