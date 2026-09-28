@@ -739,7 +739,7 @@ const CHASE_PAST = 1.35
 const CHASE_LEAVE = 0.72
 var chase_push = 1.0
 
-func steer_camera(_dt: float) -> void:
+func steer_camera(dt: float) -> void:
 	# Steered on the map itself: a finger dragged sideways turns round the arena, up pulls
 	# in, down pulls back; two fingers pinch. Pulling in past the closest zoom puts the
 	# camera behind the pilot, following it and looking where it aims; pulling back out
@@ -759,6 +759,13 @@ func steer_camera(_dt: float) -> void:
 	hud.camera_drag = Vector2.ZERO
 	hud.camera_zoom = 1.0
 	arena.chase_held = not hud.camera_touches.is_empty()
+	# The turn is a look, not a setting: let go and the view swings back to its seat
+	# (the zoom stays where it was left).
+	if not arena.chase and hud.camera_touches.is_empty() and game_settings.view_yaw != 0.0:
+		game_settings.view_yaw = lerpf(game_settings.view_yaw, 0.0, 1.0 - exp(-dt * 5.0))
+		if absf(game_settings.view_yaw) < 0.002:
+			game_settings.view_yaw = 0.0
+		arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
 	if drag == Vector2.ZERO and is_equal_approx(pinch, 1.0):
 		if hud.camera_moved:
 			hud.camera_moved = false

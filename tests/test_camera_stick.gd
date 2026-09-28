@@ -63,6 +63,10 @@ func run() -> void:
 	for i in range(8):
 		swipe(game, hud, middle, Vector2(900, 0))
 	check(absf(game.game_settings.view_yaw) <= arena.VIEW_YAW_MAX + 0.001, "A rotação para nos 61 graus")
+	for i in range(120):
+		game.steer_camera(1.0 / 60.0)
+		arena.update_state(game.rules, game.local_team, 1.0 / 60.0)
+	check(game.game_settings.view_yaw == 0.0, "Ao largar o dedo a vista volta ao normal")
 
 	swipe(game, hud, middle, Vector2(0, -120))
 	check(game.game_settings.view_zoom > 1.2, "Arrastar para cima aproxima")
@@ -97,6 +101,7 @@ func run() -> void:
 	swipe(game, hud, middle, Vector2(120, 0))
 	swipe(game, hud, middle, Vector2(120, 0))
 	check(not hud.camera_reset and absf(game.game_settings.view_yaw) > 0.3, "Deslizes seguidos rodam e não repõem a câmara")
+	check(not arena.chase, "E não mexem na 3.ª pessoa")
 	var yaw_before = game.game_settings.view_yaw
 	var zoom_before = game.game_settings.view_zoom
 	swipe(game, hud, middle, Vector2(-150, 30))
