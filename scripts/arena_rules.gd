@@ -89,7 +89,8 @@ const LASER_DAMAGE = 2
 const LASER_WIDTH = 0.22
 # The lance folds off the walls like a shot does, so a corner of the arena can be reached
 # from the other side of it.
-const LASER_BOUNCES = 1
+# The laser runs straight: no fold off the walls.
+const LASER_BOUNCES = 0
 const REBUILD_BRICKS = 7
 const MIRROR_SECONDS = 4.5
 # Walls rise in front of the bricks they defend: one per bank of the current layout,

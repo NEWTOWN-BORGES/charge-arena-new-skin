@@ -1463,6 +1463,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 	var offset = shake_offset(dt)
 	if chase and match_seat and not lobby_view and not tour_view:
 		place_chase_camera(rules, local_team, dt)
+		# The same shakes as the view from above, halved: this camera is four times closer.
+		camera.global_position += offset * 0.5
 	elif match_seat and not lobby_view and not tour_view and seat_size > 0.0:
 		place_match_seat(offset)
 	elif offset != Vector3.ZERO:
@@ -3219,6 +3221,7 @@ func update_power_effects(rules, dt: float) -> void:
 			var beat = 1.0 + sin(clock * 26.0) * 0.06
 			var fade = clampf(state.ultimate_time / 0.25, 0.35, 1.0)
 			ray.scale = Vector3(reach, beat * fade, beat * fade)
+			ray.get_node("Spiral").rotation.x = clock * 6.0
 			for i in range(4):
 				var halo: Node3D = ray.get_node("Ring%d" % i)
 				# The rings travel away from the gun, over and over.
@@ -3290,6 +3293,12 @@ func update_power_effects(rules, dt: float) -> void:
 				limb.position = Vector3(from.x, start_y, from.y)
 				limb.rotation = Vector3(0.0, -travel.angle(), atan2(drop, travel.length()))
 				limb.scale = Vector3(sqrt(travel.length_squared() + drop * drop), flicker, flicker)
+				if leg == path.size() - 2 and fx != null and fmod(clock, 0.05) < dt:
+					# Where it lands: small yellow and orange sparks, thrown back off the hit.
+					var hit: Vector2 = path[leg + 1]
+					var back = Vector3(-travel.x, 0.6, -travel.y).normalized()
+					fx.sparks(Vector3(hit.x, SHOT_HEIGHT, hit.y), Color("ffd23f"), 3, 4.5, 0.06, 0.22, back, 70.0, -5.0)
+					fx.sparks(Vector3(hit.x, SHOT_HEIGHT, hit.y), Color("ff8a3c"), 2, 3.5, 0.05, 0.2, back, 80.0, -5.0)
 
 
 func build_power_effects() -> void:
@@ -3337,11 +3346,21 @@ func build_power_effects() -> void:
 		root.add_child(ray)
 		# Modelled from 0 to 1 along +X: an opaque white core, a solid sun-coloured body
 		# and a soft corona around them, plus rings that ride down the beam.
-		for layer in [[0.17, Color("fff6e0")], [0.36, Rules.power_color("sun_ray")], [0.62, Color(Rules.power_color("sun_ray"), 0.35)], [0.95, Color(Color("ff9a3c"), 0.16)]]:
+		# Solid now: a white core, an opaque sun body, an opaque orange sheath and only the
+		# outermost corona see-through; a spiral of flame bands turns round it.
+		for layer in [[0.22, Color("fff8e8")], [0.42, Rules.power_color("sun_ray")], [0.56, Color("ff7a1a")], [0.66, Color(Color("ff9a3c"), 0.2)]]:
 			var tube = cylinder(ray, Vector3(0.5, 0, 0), float(layer[0]), 1.0, layer[1], true, 20)
 			tube.rotation.z = PI * 0.5
+		var spiral = Node3D.new()
+		spiral.name = "Spiral"
+		ray.add_child(spiral)
+		for k in range(36):
+			var along = (k + 0.5) / 36.0
+			var turn = k * 0.9
+			var band = box(spiral, Vector3(along, cos(turn) * 0.6, sin(turn) * 0.6), Vector3(0.022, 0.1, 0.1), Color("fff1c2"), true, 0.01)
+			band.rotation.x = turn
 		for i in range(4):
-			var halo = torus(ray, Vector3(0.1 + i * 0.25, 0, 0), 0.85, 0.07, Color("ffe9a8"))
+			var halo = torus(ray, Vector3(0.1 + i * 0.25, 0, 0), 0.62, 0.06, Color("ff9a3c"))
 			halo.name = "Ring%d" % i
 			halo.rotation.z = PI * 0.5
 		ray.hide()
@@ -3396,8 +3415,14 @@ func build_power_effects() -> void:
 			var limb = Node3D.new()
 			limb.name = "Leg%d" % leg
 			beam.add_child(limb)
-			box(limb, Vector3(0.5, 0, 0), Vector3(1.0, 0.16, 0.16), Color(Rules.power_color("laser"), 0.85), true, 0.02)
-			box(limb, Vector3(0.5, 0, 0), Vector3(1.0, 0.34, 0.34), Color(Rules.power_color("laser"), 0.22), true, 0.02)
+			# A solid beam: a white-hot core inside an opaque body of the laser's colour,
+			# and only a thin glow round it.
+			var core_tube = cylinder(limb, Vector3(0.5, 0, 0), 0.06, 1.0, Color("fff6ea"), true, 12)
+			core_tube.rotation.z = PI * 0.5
+			var body_tube = cylinder(limb, Vector3(0.5, 0, 0), 0.12, 1.0, Rules.power_color("laser"), true, 14)
+			body_tube.rotation.z = PI * 0.5
+			var glow_tube = cylinder(limb, Vector3(0.5, 0, 0), 0.19, 1.0, Color(Rules.power_color("laser").lightened(0.2), 0.3), true, 14)
+			glow_tube.rotation.z = PI * 0.5
 		beam.hide()
 		# The new shields. Dome: a shell of light over the wall. Slow field: a veil over the
 		# defended half. Sponge: a golden skin over the bricks. Immunity: a halo on the pilot.
