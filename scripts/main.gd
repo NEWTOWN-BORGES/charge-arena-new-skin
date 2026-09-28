@@ -614,8 +614,9 @@ func resume_pve() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED:
-		pause_pve()
-		save_skins()
+		go_background(true)
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		go_background(false)
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		save_skins()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -716,6 +717,7 @@ func replay() -> void:
 		mouse_firing = false
 
 func _input(event: InputEvent) -> void:
+	last_input_ms = Time.get_ticks_msec()
 	# Release even if the pointer ends over a UI button.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
@@ -1466,15 +1468,47 @@ func receive_state(data: Dictionary) -> void:
 	packets_received += 1
 
 const IDLE_FPS = 30
+# Nobody has touched the screen for this long on a resting screen: paint it at a crawl.
+const DOZE_SECONDS = 25.0
+const DOZE_FPS = 10
+# In the background: one frame a second, just enough to hear the system bring it back.
+const BACKGROUND_FPS = 1
+var last_input_ms = 0
+var backgrounded = false
+var screen_kept_on = true
 
 func idle_frame_rate() -> void:
-	# Outside a live match — menu, shop, skins, pause — the screen is nearly still, and
-	# there is no reason to paint it 120 times a second. An hour of testing spends most of
-	# its time on these screens, and on a 120 Hz phone that is most of the battery.
-	var resting: bool = mode == "menu" or pve_paused or hud.video_overlay.visible or network_status != ""
-	var wanted: int = IDLE_FPS if resting else video.runtime_fps
+	# Outside a live match — menu, shop, skins, pause, a finished round — the screen is
+	# nearly still, and there is no reason to paint it 120 times a second. Left alone it
+	# dozes at 10, and it lets the phone switch the screen off like any other app; only a
+	# live match keeps the screen awake.
+	if backgrounded:
+		if Engine.max_fps != BACKGROUND_FPS:
+			Engine.max_fps = BACKGROUND_FPS
+		return
+	var resting: bool = mode == "menu" or pve_paused or hud.video_overlay.visible or network_status != "" \
+		or (rules != null and rules.phase == "finished")
+	var dozing: bool = resting and Time.get_ticks_msec() - last_input_ms > DOZE_SECONDS * 1000.0
+	var wanted: int = (DOZE_FPS if dozing else IDLE_FPS) if resting else video.runtime_fps
 	if Engine.max_fps != wanted:
 		Engine.max_fps = wanted
+	if screen_kept_on == resting:
+		screen_kept_on = not resting
+		DisplayServer.screen_set_keep_on(screen_kept_on)
+
+func go_background(away: bool) -> void:
+	# Like any other app: out of sight, the game stops - the match paused, every sound
+	# silenced, the frame rate at one - and it comes back where it was.
+	backgrounded = away
+	AudioServer.set_bus_mute(0, away)
+	if away:
+		pause_pve()
+		save_skins()
+		DisplayServer.screen_set_keep_on(false)
+		screen_kept_on = false
+		Engine.max_fps = BACKGROUND_FPS
+	else:
+		last_input_ms = Time.get_ticks_msec()
 
 func _process(dt: float) -> void:
 	update_sustained_haptics()
