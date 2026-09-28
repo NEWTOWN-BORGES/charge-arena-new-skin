@@ -4,14 +4,16 @@ extends RefCounted
 ## the field and names the dressing that builds the world around it (scripts/arena_sky.gd,
 ## arena_ground.gd, arena_sea.gd, arena_space.gd, arena_city.gd). Rules never read this.
 # A light field with crisp seams under saturated scenery, so every environment reads at a
-# glance and the robots always stand out from the floor.
+# glance and the robots always stand out from the floor. The court floors are neutral greys
+# with only a hint of their world, so every shot, power and ultimate reads against them;
+# only the season-two neon worlds keep their dark coloured floors.
 const THEMES = {
 	"aurora": {
 		"name": "Arena Aurora",
 		# The floating sky arena: a steel deck in the clouds.
 		"dressing": "sky", "deck": Color("ff9f7a"), "deck_panel": Color("2f6fc0"), "hull": Color("3f7fd6"),
 		"armour": Color("ffc94d"), "armour_trim": Color("ff6f5c"), "cushion": Color("fff0b8"),
-		"floor": Color("5aaee6"), "floor_alt": Color("4b9dd9"), "seam": Color("24508a"), "line": Color("ffffff"),
+		"floor": Color("d3d9e0"), "floor_alt": Color("c7ced7"), "seam": Color("8792a2"), "line": Color("5f6b7c"),
 		"sky_top": Color("2f7fd0"), "sky_mid": Color("5fa8e6"), "sky_low": Color("d6eef6"),
 		"block": Color("f6f2e8"), "block_alt": Color("2fc4a5"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("4f6f8a"), "crowd": [Color("2fc4a5"), Color("ff7a5c"), Color("ffc53d"), Color("f6f2e8")],
@@ -23,7 +25,7 @@ const THEMES = {
 		"dressing": "ground", "grass": Color("86d65a"), "grass_high": Color("78cb4e"), "cliff": Color("eaa566"),
 		"dirt": Color("f1d08e"), "pad": Color("f0a86a"), "pad_panel": Color("c9542a"),
 		"armour": Color("3fc6a6"), "armour_trim": Color("ff7a3c"), "cushion": Color("c8f3e4"),
-		"floor": Color("f2c35c"), "floor_alt": Color("e8b04a"), "seam": Color("9c5a24"), "line": Color("ffffff"),
+		"floor": Color("d8d3c9"), "floor_alt": Color("ccc6ba"), "seam": Color("8e8577"), "line": Color("635c52"),
 		"sky_top": Color("3f95e0"), "sky_mid": Color("7cc0ee"), "sky_low": Color("dff2f7"),
 		"block": Color("f6f2e8"), "block_alt": Color("ff8a3d"), "frame": Color("2a3140"), "accent": Color("ffc53d"),
 		"stand": Color("5d7f4f"), "crowd": [Color("ff8a3d"), Color("2fc4a5"), Color("ffc53d"), Color("f6f2e8")],
@@ -35,7 +37,7 @@ const THEMES = {
 		"dressing": "sea", "sand": Color("f3c979"), "sand_high": Color("edbd68"), "shelf": Color("2ea6c4"),
 		"deck": Color("ffd36b"), "deck_panel": Color("ff8a3d"), "sun": Color("d2f5ff"),
 		"armour": Color("ff8f70"), "armour_trim": Color("ffd23f"), "cushion": Color("ffd9cc"),
-		"floor": Color("3cc3cc"), "floor_alt": Color("2fb1bd"), "seam": Color("16627a"), "line": Color("ffffff"),
+		"floor": Color("cfd8da"), "floor_alt": Color("c3cdd0"), "seam": Color("7e8e94"), "line": Color("56666d"),
 		"sky_top": Color("0f5f8c"), "sky_mid": Color("1f8fb3"), "sky_low": Color("5cc9d6"),
 		"block": Color("f4f8fa"), "block_alt": Color("ffb03d"), "frame": Color("233845"), "accent": Color("ff6f91"),
 		"stand": Color("2f7f95"), "crowd": [Color("ffb03d"), Color("ff6f91"), Color("5cc9d6"), Color("f4f8fa")],
@@ -47,7 +49,7 @@ const THEMES = {
 		# ringed planet below, against a violet starfield.
 		"dressing": "space", "deck": Color("4fc3e8"), "deck_panel": Color("ff8a3d"), "hull": Color("3a3f72"),
 		"armour": Color("ffb04d"), "armour_trim": Color("ff5c7a"), "cushion": Color("ffe6bf"),
-		"floor": Color("7f70f0"), "floor_alt": Color("6f5fe2"), "seam": Color("2e2478"), "line": Color("ffffff"),
+		"floor": Color("d2d2da"), "floor_alt": Color("c6c6d0"), "seam": Color("7f7f92"), "line": Color("5c5c70"),
 		"sky_top": Color("171a4a"), "sky_mid": Color("3b2a86"), "sky_low": Color("a35bbd"), "stars": 1.0, "glass_floor": true,
 		"block": Color("f4f5fa"), "block_alt": Color("ff8a3d"), "frame": Color("262b45"), "accent": Color("7fe6ff"),
 		"stand": Color("4a4f7a"), "crowd": [Color("ff8a3d"), Color("7fe6ff"), Color("ffd84a"), Color("f4f5fa")],
@@ -57,7 +59,7 @@ const THEMES = {
 		# The grass island from the Blender diorama, its render lighting baked in
 		# (arena_diorama.gd): teal checker floor, rubbery cream and orange walls, round trees.
 		"dressing": "diorama",
-		"floor": Color("3fbfa0"), "floor_alt": Color("37ad91"), "seam": Color("ff9a3c"), "line": Color("fff1d8"),
+		"floor": Color("d6dad1"), "floor_alt": Color("cacfc4"), "seam": Color("8a927f"), "line": Color("5d6655"),
 		"sky_top": Color("6f9fbf"), "sky_mid": Color("86aecb"), "sky_low": Color("a9c6d8"),
 		"block": Color("fff4e2"), "block_alt": Color("ff7a3c"), "frame": Color("2a3140"), "accent": Color("ffd23f"),
 		"stand": Color("5d7f4f"), "crowd": [Color("ff7a3c"), Color("3fbfa0"), Color("ffd23f"), Color("fff4e2")],
@@ -68,7 +70,7 @@ const THEMES = {
 		# the city around it and the streets far below.
 		"dressing": "city", "roof": Color("5fd0e0"), "roof_panel": Color("7d5cf0"), "street": Color("4a4d6b"),
 		"armour": Color("9a86f7"), "armour_trim": Color("ffd23f"), "cushion": Color("e6defe"),
-		"floor": Color("ef7fae"), "floor_alt": Color("e26b9e"), "seam": Color("7a2f66"), "line": Color("ffffff"),
+		"floor": Color("dad4d6"), "floor_alt": Color("cec7ca"), "seam": Color("8f8388"), "line": Color("675c61"),
 		"sky_top": Color("5e4fc0"), "sky_mid": Color("9d8fe0"), "sky_low": Color("f2c9e0"),
 		"block": Color("f6f4fc"), "block_alt": Color("7d6cf0"), "frame": Color("2b2742"), "accent": Color("3fd9e6"),
 		"stand": Color("5d549a"), "crowd": [Color("ff7fd4"), Color("3fd9e6"), Color("ffe066"), Color("f6f4fc")],

@@ -60,6 +60,11 @@ var materials: Dictionary = {}
 var shapes: Dictionary = {}
 var phase_before = ""
 var stuns_before: Array = [0.0, 0.0]
+# The run along the rail: a step cycle per pilot, how fast it is going (smoothed) and to
+# which side of its own body it is heading.
+var gait_phase: Array = [0.0, 0.0]
+var gait_speed: Array = [0.0, 0.0]
+var gait_side: Array = [0.0, 0.0]
 var clock = 0.0
 var ball_previous: Dictionary = {}
 var trail_timer = 0.0
@@ -499,7 +504,7 @@ func build(new_map: Dictionary = {}) -> void:
 		var glass = Shader.new()
 		# Only the faces towards the camera: seen through the top, the slab's own underside
 		# and inner sides made a pale band across the field.
-		glass.code = court_mat.shader.code.replace("	SPECULAR = 0.45;", "	SPECULAR = 0.45;\n	ALPHA = mix(0.28, 1.0, max(seam, paint));").replace("cull_disabled", "cull_back")
+		glass.code = court_mat.shader.code.replace("	SPECULAR = 0.45;", "	SPECULAR = 0.45;\n	ALPHA = mix(0.82, 1.0, max(seam, paint));").replace("cull_disabled", "cull_back")
 		court_mat.shader = glass
 		# Glass is drawn with the other see-through things, sorted by distance: a shot, a beam
 		# or an ultimate over the field could fall behind it and vanish under the floor. The
@@ -538,8 +543,9 @@ func build(new_map: Dictionary = {}) -> void:
 		"city":
 			ArenaCity.build(self, theme)
 		"diorama":
-			# The baked island brings its own tiled floor: the court would show in its seams.
-			court.hide()
+			# The baked island brings its own teal tiled floor; the neutral court is laid a hair
+			# above it, so shots and powers read on grey here too.
+			court.position.y = 0.014
 			ArenaDiorama.build(self, theme)
 		_:
 			soft_disc(self, Vector3(0, -1.32, 0.3), Vector2(19, 23), Color(0.005, 0.015, 0.025, 0.7))
@@ -1626,23 +1632,55 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			var position_on_arc = Rules.track_position(team, angle)
 			desired = Vector3(position_on_arc.x, 0, position_on_arc.y)
 			facing = Rules.forward_direction(team, angle)
-		var speed = minf(node.position.distance_to(desired) / maxf(dt, 0.001), 5.0)
+		var step_vector: Vector3 = desired - node.position
+		var speed = minf(step_vector.length() / maxf(dt, 0.001), 5.0)
 		node.position = desired
 		var body: Node3D = node.get_node("Body")
 		body.rotation.y = atan2(-facing.x, -facing.y)
-		body.position.y = sin(clock * (12.0 if speed > 0.5 else 2.2)) * (0.035 if speed > 0.5 else 0.016)
-		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else -data.aim.x * speed * 0.018, minf(dt * 10, 1))
 		spin_parts(body, clock)
-		body.get_node("LegL").rotation.x = sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
-		body.get_node("LegR").rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.48
-		# The head glances about and wobbles when stunned; the free arm swings against the legs.
+		# The pilots run sideways along their rail, facing the field: a side-step gait. Which
+		# side of its own body it is heading to, and how hard, both eased so a tap on the stick
+		# does not flick the whole robot.
+		var right_of_body = Vector3(cos(body.rotation.y), 0, -sin(body.rotation.y))
+		var heading: float = signf(step_vector.dot(right_of_body)) if speed > 0.3 else 0.0
+		gait_side[team] = lerpf(gait_side[team], heading, minf(dt * 8.0, 1.0))
+		gait_speed[team] = lerpf(gait_speed[team], clampf(speed / 3.2, 0.0, 1.0), minf(dt * 9.0, 1.0))
+		var run: float = gait_speed[team]
+		var side: float = gait_side[team]
+		# Steps come quicker the faster it goes; standing, the cycle slows to a breath.
+		gait_phase[team] += dt * lerpf(2.2, 13.0, run)
+		var phase: float = gait_phase[team]
+		var breath = 0.5 + 0.5 * sin(clock * 1.8 + team * 1.3)
+		# The body: a bounce on every step, a lean into the run, the hips twisting with the
+		# stride, and the stun wobble on top of it all.
+		body.position.y = absf(sin(phase)) * 0.055 * run + breath * 0.012 * (1.0 - run)
+		var lean = -side * 0.13 * run + sin(phase) * 0.03 * run
+		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else lean, minf(dt * 10, 1))
+		body.rotation.x = lerpf(body.rotation.x, -0.05 * run, minf(dt * 8, 1))
+		body.rotation.y += sin(phase) * 0.07 * run
+		# The legs: each one swings out to the side and lifts its foot in turn, the lead leg
+		# reaching the way it runs; standing, the weight shifts from foot to foot.
+		var legs = [body.get_node("LegL"), body.get_node("LegR")]
+		for i in range(2):
+			var leg: Node3D = legs[i]
+			if not leg.has_meta("rest"):
+				leg.set_meta("rest", leg.position)
+			var rest: Vector3 = leg.get_meta("rest")
+			var own = phase + (PI if i == 1 else 0.0)
+			var lift = maxf(0.0, sin(own))
+			leg.position = rest + Vector3(0, lift * 0.09 * run, 0)
+			leg.rotation.z = (side * 0.22 + sin(own) * 0.3) * run + (sin(clock * 0.9 + i * PI) * 0.03) * (1.0 - run)
+			leg.rotation.x = -lift * 0.35 * run
+		# The head looks where it runs and wobbles when stunned; the free arm swings with the stride.
 		var head: Node3D = body.get_node_or_null("Head")
 		if head != null:
-			head.rotation.y = sin(clock * 0.9 + team * 2.0) * 0.14 + (sin(clock * 14.0) * 0.2 if data.stun > 0 else 0.0)
-			head.rotation.x = sin(clock * 2.2 + team) * 0.03
+			head.rotation.y = sin(clock * 0.9 + team * 2.0) * 0.14 * (1.0 - run) + side * 0.3 * run + (sin(clock * 14.0) * 0.2 if data.stun > 0 else 0.0)
+			head.rotation.x = sin(clock * 2.2 + team) * 0.03 + absf(sin(phase)) * 0.05 * run
+			head.rotation.z = -lean * 0.6
 		var arm: Node3D = body.get_node_or_null("Arm")
 		if arm != null:
-			arm.rotation.x = -sin(clock * 13) * minf(speed / 5.0, 1) * 0.4 + sin(clock * 2.2) * 0.04
+			arm.rotation.x = -sin(phase) * 0.55 * run + sin(clock * 2.2) * 0.04
+			arm.rotation.z = side * 0.25 * run
 		var overload: Node3D = node.get_node_or_null("Surge")
 		if overload != null:
 			overload.visible = rules.powers[team].surge_time > 0
