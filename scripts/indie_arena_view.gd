@@ -2124,7 +2124,7 @@ func apply_mood(rules, dt: float) -> void:
 		var state: Dictionary = rules.powers[team]
 		if float(state.get("ultimate_windup", 0.0)) > 0.0 or float(state.get("ultimate_time", 0.0)) > 0.0:
 			target = 1.0
-		if float(state.get("ultimate_time", 0.0)) > 0.0 and String(state.get("ultimate_id", "")) == "sun_ray":
+		if float(state.get("ultimate_time", 0.0)) > 0.0 and String(state.get("ultimate_id", "")) in ["sun_ray", "sun_beam"]:
 			sun = 1.0
 		if float(state.get("laser_time", 0.0)) > 0.0:
 			laser = 1.0
@@ -3580,7 +3580,7 @@ func update_power_effects(rules, dt: float) -> void:
 		if warm_frames <= 0:
 			dim_beam_lamps(team)
 		var ray: Node3D = power_nodes[team].get_node("SunRay")
-		var firing_sun: bool = state.ultimate_time > 0 and String(state.ultimate_id) == "sun_ray"
+		var firing_sun: bool = state.ultimate_time > 0 and String(state.ultimate_id) in ["sun_ray", "sun_beam"]
 		ray.visible = firing_sun
 		if firing_sun:
 			# Out of the barrel, past the wall, and thick enough to swallow four bricks.
@@ -3591,7 +3591,9 @@ func update_power_effects(rules, dt: float) -> void:
 			ray.rotation.y = -aim.angle()
 			var beat = 1.0 + sin(clock * 26.0) * 0.06
 			var fade = clampf(state.ultimate_time / 0.25, 0.35, 1.0)
-			ray.scale = Vector3(reach, beat * fade, beat * fade)
+			# BIT DE ELITE's beam is the same sun drawn thin: about one brick across.
+			var girth = beat * fade * (Rules.SUN_BEAM_HALF_WIDTH / Rules.SUN_RAY_HALF_WIDTH if String(state.ultimate_id) == "sun_beam" else 1.0)
+			ray.scale = Vector3(reach, girth, girth)
 			ray.get_node("Spiral").rotation.x = clock * 6.0
 			for i in range(4):
 				var halo: Node3D = ray.get_node("Ring%d" % i)
@@ -3985,7 +3987,7 @@ func ultimate_accent(at: Vector2, id: String) -> void:
 	light_field(tint.lightened(0.2), 0.8, 0.5)
 	var origin = Vector3(at.x, 0.7, at.y)
 	var count = 5 if quality_level == 0 else 9
-	var rising = id in ["bloom", "meteors", "sun_ray"]
+	var rising = id in ["bloom", "meteors", "sun_ray", "sun_beam"]
 	var inward = id in ["singularity", "plunder"]
 	for i in range(count):
 		var a = float(i) / count * TAU

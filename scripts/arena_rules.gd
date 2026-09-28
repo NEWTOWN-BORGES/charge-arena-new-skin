@@ -114,6 +114,10 @@ const SUN_RAY_SECONDS = 1.5
 const SUN_RAY_TICK = 0.5
 const SUN_RAY_DAMAGE = 2
 const SUN_RAY_HALF_WIDTH = 1.35
+# BIT DE ELITE's ray, taught by HÉLIO: the same sun, thinner and shorter - one or two bricks
+# of a row instead of five, and two bites instead of three.
+const SUN_BEAM_SECONDS = 1.0
+const SUN_BEAM_HALF_WIDTH = 0.42
 # Meteors and lightning fall on the far half, never on the caster's own bricks.
 const METEOR_SECONDS = 1.0
 const METEOR_COUNT = 14
@@ -1136,6 +1140,9 @@ func step_ultimate(team: int, dt: float) -> void:
 		"sun_ray":
 			state.ultimate_tick = SUN_RAY_TICK
 			sun_ray_bite(team)
+		"sun_beam":
+			state.ultimate_tick = SUN_RAY_TICK
+			sun_ray_bite(team, SUN_BEAM_HALF_WIDTH)
 		"meteors":
 			state.ultimate_tick = METEOR_SECONDS / METEOR_COUNT
 			sky_strike(team, "meteor", METEOR_DAMAGE, METEOR_RADIUS)
@@ -1166,6 +1173,11 @@ func fire_ultimate(team: int) -> void:
 			state.ultimate_tick = SUN_RAY_TICK
 			state.ultimate_shots = roundi(SUN_RAY_SECONDS / SUN_RAY_TICK) - 1
 			sun_ray_bite(team)
+		"sun_beam":
+			state.ultimate_time = SUN_BEAM_SECONDS
+			state.ultimate_tick = SUN_RAY_TICK
+			state.ultimate_shots = roundi(SUN_BEAM_SECONDS / SUN_RAY_TICK) - 1
+			sun_ray_bite(team, SUN_BEAM_HALF_WIDTH)
 		"meteors":
 			state.ultimate_time = METEOR_SECONDS
 			state.ultimate_tick = METEOR_SECONDS / METEOR_COUNT
@@ -1248,7 +1260,7 @@ func fire_ultimate(team: int) -> void:
 			state.plating_time = PLATING_SECONDS
 			events.append({"kind": "plating", "team": team, "p": players[team].p, "seconds": PLATING_SECONDS, "gain": PLATING_SOAK})
 
-func sun_ray_bite(team: int) -> void:
+func sun_ray_bite(team: int, half_width: float = SUN_RAY_HALF_WIDTH) -> void:
 	ultimate_blow = true
 	# A band as wide as four bricks, straight out of the pilot and past the wall.
 	var origin: Vector2 = players[team].p
@@ -1263,15 +1275,15 @@ func sun_ray_bite(team: int) -> void:
 		var along = offset.dot(heading)
 		if along < 0 or along > reach:
 			continue
-		if absf(offset.dot(side)) > SUN_RAY_HALF_WIDTH + brick_extent.x:
+		if absf(offset.dot(side)) > half_width + brick_extent.x:
 			continue
 		damage_brick(index, SUN_RAY_DAMAGE, team, brick.p, true)
 	ultimate_blow = false
 	var enemy = 1 - team
 	var to_enemy: Vector2 = players[enemy].p - origin
-	if to_enemy.dot(heading) > 0 and absf(to_enemy.dot(side)) <= SUN_RAY_HALF_WIDTH:
+	if to_enemy.dot(heading) > 0 and absf(to_enemy.dot(side)) <= half_width:
 		ultimate_hit_player(enemy, SUN_RAY_DAMAGE, players[enemy].p)
-	events.append({"kind": "sun_ray", "team": team, "p": origin, "heading": heading, "width": SUN_RAY_HALF_WIDTH})
+	events.append({"kind": "sun_ray", "team": team, "p": origin, "heading": heading, "width": half_width})
 
 func sky_strike(team: int, kind: String, damage: int, radius: float) -> void:
 	# One strike somewhere over the rival's half, inside the arena outline.
@@ -2413,7 +2425,7 @@ func ai_ultimate(level: Dictionary, aimed: bool) -> int:
 		return -1
 	var ready = false
 	match id:
-		"sun_ray":
+		"sun_ray", "sun_beam":
 			ready = ai_beam_target()
 		"meteors", "thunder", "b_hail", "b_spark":
 			# They rain on the far half; anything still standing over there will do.

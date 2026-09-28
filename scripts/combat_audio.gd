@@ -88,6 +88,7 @@ const TRACKS = {
 	"singularity": preload("res://audio/sfx/premium/singularity.wav"),
 	"stun": preload("res://audio/sfx/premium/stun.wav"),
 	"sun_ray": preload("res://audio/sfx/premium/sun_ray.wav"),
+	"sun_beam": preload("res://audio/sfx/premium/sun_ray.wav"),
 	"surge": preload("res://audio/sfx/premium/surge.wav"),
 	"thunder": preload("res://audio/sfx/premium/thunder.wav"),
 	"unleash": preload("res://audio/sfx/premium/unleash.wav"),

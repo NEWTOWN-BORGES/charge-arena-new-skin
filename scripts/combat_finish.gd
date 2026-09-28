@@ -98,7 +98,7 @@ static func motif_for(id: String) -> int:
 	if id in ["thunder", "shock", "shock_wave", "surge", "magnet", "laser"]: return 2
 	if id in ["bloom", "weld", "rebuild", "thorns"]: return 3
 	if id in ["singularity", "swallow"]: return 4
-	if id in ["meteors", "blast", "sun_ray"]: return 1
+	if id in ["meteors", "blast", "sun_ray", "sun_beam"]: return 1
 	return 0
 
 static func event(view, data: Dictionary, rules = null) -> void:

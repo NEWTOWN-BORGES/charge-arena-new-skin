@@ -71,15 +71,16 @@ func _initialize() -> void:
 
 func run() -> void:
 	# ---------------------------------------------------------------- the catalogue
-	check(Powers.ULTIMATES.size() == 10 and Powers.ULTIMATES.all(func(u): return u.charge == Powers.ULTIMATE_CHARGE and u.price == 0), "Ten ultimates, none of them for sale and all charging the same")
+	check(Powers.ULTIMATES.size() == 11 and Powers.ULTIMATES.all(func(u): return u.charge == Powers.ULTIMATE_CHARGE and u.price == 0), "Eleven ultimates, none of them for sale and all charging the same")
 	check(Powers.ULTIMATES.all(func(u): return Powers.is_ultimate(u.id) and not Powers.entry(u.id).is_empty()), "Each one is found by id, like any other power")
 	var carriers = Skins.CATALOG.filter(func(s): return s.ultimate != "")
-	check(carriers.size() == Skins.CATALOG.size() - 2 and carriers.all(func(s): return Powers.is_ultimate(s.ultimate)), "Every skin but BIT and its hard skin carries an ultimate of its own")
+	check(carriers.size() == Skins.CATALOG.size() - 1 and carriers.all(func(s): return Powers.is_ultimate(s.ultimate)), "Every skin but BIT carries an ultimate of its own")
+	check(String(Skins.CATALOG[Skins.hard_of_boss(0)].ultimate) == "sun_beam", "BIT DE ELITE carries the RAIO DE ELITE that HÉLIO teaches him")
 	check(String(Skins.CATALOG[0].ultimate) == "", "The standard pilot is the one without: it is the training opponent, not a boss")
 	# Hard-mode skins share their boss's ultimate; the uniqueness is counted over the bosses.
 	var ids: Array = carriers.filter(func(s): return not s.has("hard_of")).map(func(s): return String(s.ultimate))
 	ids.sort()
-	check(Powers.ULTIMATES.all(func(u): return ids.count(u.id) == 1) and ids.count("b_forge") == 1 and range(1, ids.size()).all(func(i): return ids[i] != ids[i - 1]), "Each boss has its ultimate and Magnus carries Forge")
+	check(Powers.ULTIMATES.all(func(u): return ids.count(u.id) == (0 if u.id == "sun_beam" else 1)) and ids.count("b_forge") == 1 and range(1, ids.size()).all(func(i): return ids[i] != ids[i - 1]), "Each boss has its ultimate and Magnus carries Forge")
 	check(Skins.CATALOG[10].ultimate == "sun_ray" and Skins.CATALOG[2].ultimate == "meteors" and Skins.CATALOG[7].ultimate == "thunder" and Skins.CATALOG[3].ultimate == "bloom" and Skins.CATALOG[9].ultimate == "plunder", "Hélio, Órbita, Faísca, Broto and Gancho, each with its own")
 
 	# ---------------------------------------------------------------- every ultimate glows first
@@ -115,6 +116,23 @@ func run() -> void:
 		var covered: int = row.filter(func(b): return absf(b.p.x - anchor.p.x) <= Rules.SUN_RAY_HALF_WIDTH + Rules.BRICK_EXTENT.x).size()
 		widest = maxi(widest, covered)
 	check(widest >= 4, "The band covers at least four bricks side by side (%d)" % widest)
+
+	# ---------------------------------------------------------------- RAIO DE ELITE
+	# HÉLIO's sun, taught to BIT: the same beam, thinner and shorter.
+	var beam = playing("sun_beam")
+	aim_at_bricks(beam)
+	var beam_before = team_health(beam, 1)
+	launch(beam)
+	var beam_events: Array = wait(beam, Rules.ULTIMATE_WINDUP + Rules.SUN_BEAM_SECONDS + 0.15)
+	var beam_bites: Array = beam_events.filter(func(e): return e.kind == "sun_ray")
+	check(beam_bites.size() == roundi(Rules.SUN_BEAM_SECONDS / Rules.SUN_RAY_TICK) and beam_bites.size() < bites, "The RAIO DE ELITE bites fewer times than the sun ray (%d)" % beam_bites.size())
+	check(beam_bites.all(func(e): return is_equal_approx(float(e.width), Rules.SUN_BEAM_HALF_WIDTH)) and Rules.SUN_BEAM_HALF_WIDTH < Rules.SUN_RAY_HALF_WIDTH * 0.5, "And its band is less than half as wide")
+	var beam_taken = beam_before - team_health(beam, 1)
+	check(beam_taken > 0 and beam_taken < before_enemy - team_health(r, 1), "It still breaks bricks, but less than the sun ray (%d)" % beam_taken)
+	var narrowest = 0
+	for anchor in row:
+		narrowest = maxi(narrowest, row.filter(func(b): return absf(b.p.x - anchor.p.x) <= Rules.SUN_BEAM_HALF_WIDTH + Rules.BRICK_EXTENT.x).size())
+	check(narrowest <= 2, "About one brick wide on a row (%d)" % narrowest)
 
 	# ---------------------------------------------------------------- meteors and thunder
 	for kind in [["meteors", "meteor", Rules.METEOR_COUNT, Rules.METEOR_SECONDS], ["thunder", "thunder", Rules.THUNDER_COUNT, Rules.THUNDER_SECONDS]]:
