@@ -97,6 +97,8 @@ func run() -> void:
 
 	# A real slider keeps its own gesture: the list must not steal the drag.
 	hud.open_video()
+	# The music volume lives on the IMAGEM E SOM tab.
+	hud.show_options_tab(2)
 	await settle()
 	var slider: Control = hud.music_volume
 	var options: ScrollContainer = hud.options_scroll

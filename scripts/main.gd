@@ -732,6 +732,8 @@ func frame_arena() -> void:
 	arena.match_seat = hud.mode != "menu"
 	arena.remember_seat()
 	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
+	if game_settings.view_chase and arena.match_seat and not arena.chase:
+		arena.set_chase(true)
 
 # How far the player keeps pulling in past the closest zoom before the camera drops behind
 # the pilot (third person), and how far it has to be pushed back out to leave it.
@@ -750,6 +752,7 @@ func steer_camera(dt: float) -> void:
 		hud.camera_reset = false
 		game_settings.view_yaw = 0.0
 		game_settings.view_zoom = 1.0
+		game_settings.view_chase = false
 		leave_chase()
 		arena.steer_view(0.0, 1.0)
 		save_game_settings()
@@ -790,6 +793,7 @@ func steer_camera(dt: float) -> void:
 		chase_push *= step
 		if chase_push > CHASE_PAST:
 			chase_push = 1.0
+			game_settings.view_chase = true
 			arena.set_chase(true)
 	else:
 		chase_push = 1.0
@@ -798,6 +802,7 @@ func steer_camera(dt: float) -> void:
 
 func leave_chase() -> void:
 	chase_push = 1.0
+	game_settings.view_chase = false
 	if arena.chase:
 		arena.set_chase(false)
 		frame_arena()

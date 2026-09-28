@@ -23,6 +23,8 @@ var sfx_volume = 0.85
 # The match camera the player steered with the camera stick: turn (radians) and zoom.
 var view_yaw = 0.0
 var view_zoom = 1.0
+# The player ended in third person last time: the next match starts there too.
+var view_chase = false
 
 func configure(level: int, guide: bool, sensitivity: int = -1) -> void:
 	difficulty = clampi(level, 0, DIFFICULTIES.size() - 1)
@@ -46,8 +48,11 @@ func load_preferences() -> void:
 	fire_x = clampf(float(config.get_value("game", "fire_x", 0.95)), 0.0, 1.0)
 	fire_y = clampf(float(config.get_value("game", "fire_y", 0.99)), 0.0, 1.0)
 	sfx_volume = clampf(float(config.get_value("game", "sfx_volume", 0.85)), 0.0, 1.0)
-	view_yaw = clampf(float(config.get_value("game", "view_yaw", 0.0)), -1.07, 1.07)
-	view_zoom = clampf(float(config.get_value("game", "view_zoom", 1.0)), 0.8, 2.4)
+	# The turn always swings back, so a match starts square on; the zoom and third person
+	# are kept. "view_zoom_v2": everyone starts once more from the standard top view.
+	view_yaw = 0.0
+	view_zoom = clampf(float(config.get_value("game", "view_zoom_v2", 1.0)), 0.8, 2.4)
+	view_chase = bool(config.get_value("game", "view_chase", false))
 
 func save_preferences() -> Error:
 	var config = ConfigFile.new()
@@ -61,8 +66,8 @@ func save_preferences() -> Error:
 	config.set_value("game", "auto_fire", auto_fire)
 	config.set_value("game", "fire_default", 2)
 	config.set_value("game", "sfx_volume", sfx_volume)
-	config.set_value("game", "view_yaw", view_yaw)
-	config.set_value("game", "view_zoom", view_zoom)
+	config.set_value("game", "view_zoom_v2", view_zoom)
+	config.set_value("game", "view_chase", view_chase)
 	config.set_value("game", "fire_control", fire_control)
 	config.set_value("game", "fire_size", fire_size)
 	config.set_value("game", "fire_x", fire_x)

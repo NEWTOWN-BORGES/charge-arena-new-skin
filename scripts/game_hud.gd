@@ -2358,6 +2358,12 @@ func sync_campaign(campaign) -> void:
 	for card in level_cards:
 		card.get_child(0).queue_redraw()
 
+# Options, sized for a thumb: three big tabs, every choice a row of large buttons instead
+# of a drop-down, switches you can hit anywhere on their row and sliders with a fat knob.
+var option_pages: Array = []
+var option_tabs: Array = []
+var option_chips: Array = []
+
 func build_video_menu() -> void:
 	video_button = make_button("OPÇÕES", false)
 	add_child(video_button)
@@ -2372,104 +2378,104 @@ func build_video_menu() -> void:
 	video_panel = PanelContainer.new()
 	video_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
 	video_overlay.add_child(video_panel)
-	var list = VBoxContainer.new()
-	list.add_theme_constant_override("separation", 12)
+	var option_stack = VBoxContainer.new()
+	option_stack.add_theme_constant_override("separation", 14)
+	video_panel.add_child(option_stack)
+	option_stack.add_child(label("OPÇÕES", 30, WHITE, true))
+	var tabs = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	option_stack.add_child(tabs)
+	option_tabs.clear()
+	for index in range(3):
+		var tab = Button.new()
+		tab.text = ["CONTROLOS", "JOGO", "IMAGEM E SOM"][index]
+		tab.toggle_mode = true
+		tab.custom_minimum_size = Vector2(0, 64)
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.add_theme_font_override("font", font_title)
+		tab.add_theme_font_size_override("font_size", 18)
+		tab.pressed.connect(func(): show_options_tab(index))
+		tabs.add_child(tab)
+		option_tabs.append(tab)
 	options_scroll = ScrollContainer.new()
 	options_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	options_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var option_stack = VBoxContainer.new()
-	option_stack.add_theme_constant_override("separation", 12)
-	video_panel.add_child(option_stack)
 	option_stack.add_child(options_scroll)
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# A margin on the right keeps every control clear of the scroll bar.
 	var clear = MarginContainer.new()
 	clear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	clear.add_theme_constant_override("margin_right", 18)
+	clear.add_theme_constant_override("margin_right", 14)
 	options_scroll.add_child(clear)
-	clear.add_child(list)
-	list.add_child(label("OPÇÕES", 25, WHITE, true))
-	list.add_child(label("Imagem, som e ajudas de jogo.", 15, MUTED))
-	cup_difficulty = video_option(list, "Dificuldade da IA", ["Fácil", "Normal", "Difícil"])
-	cup_difficulty.item_selected.connect(func(index): difficulty_changed.emit(index))
-	quality_choice = video_option(list, "Qualidade", ["Leve · desempenho móvel", "Equilibrado · mais definição", "Refinado · máxima suavização"])
-	fps_choice = video_option(list, "Limite de FPS", ["30 FPS", "45 FPS", "60 FPS", "90 FPS"])
-	sync_choice = CheckButton.new()
-	sync_choice.text = "Sincronizar com o ecrã (VSync)"
-	sync_choice.custom_minimum_size.y = 44
-	list.add_child(sync_choice)
-	counter_choice = CheckButton.new()
-	counter_choice.text = "Mostrar FPS reais"
-	counter_choice.custom_minimum_size.y = 44
-	list.add_child(counter_choice)
-	guide_choice = CheckButton.new()
-	guide_choice.text = "Guia de mira (percurso do disparo)"
-	guide_choice.custom_minimum_size.y = 44
-	list.add_child(guide_choice)
-	guide_choice.toggled.connect(func(value): guide_changed.emit(value))
-	sensitivity_choice = video_option(list, "Sensibilidade", ["Muito lenta", "Lenta", "Normal", "Rápida", "Muito rápida"])
-	sensitivity_choice.item_selected.connect(func(index): sensitivity_changed.emit(index))
-	camera_choice = video_option(list, "Impacto da câmara", ["Desligado", "Suave", "Completo"])
-	effects_choice = video_option(list, "Intensidade dos efeitos", ["Reduzida", "Completa"])
-	effects_choice.item_selected.connect(func(index): effects_changed.emit(index == 1))
-	haptic_choice = CheckButton.new()
-	haptic_choice.text = "Vibração nos disparos e impactos"
-	haptic_choice.custom_minimum_size.y = 48
-	list.add_child(haptic_choice)
-	automatic_choice = CheckButton.new()
-	automatic_choice.text = "Disparo automático (desligar para tiro manual)"
-	automatic_choice.custom_minimum_size.y = 48
-	list.add_child(automatic_choice)
-	fire_control_choice = video_option(list, "Modo de disparo", ["Automático", "Botão separado", "No próprio joystick"])
-	fire_size_slider = volume_slider(list, "Tamanho do botão (%)")
-	fire_size_slider.min_value = 70
-	fire_size_slider.max_value = 150
-	fire_x_slider = volume_slider(list, "Posição horizontal (%)")
-	fire_y_slider = volume_slider(list, "Posição vertical (%)")
-	fire_control_choice.item_selected.connect(select_fire_mode)
-	fire_size_slider.value_changed.connect(fire_slider_changed)
-	fire_x_slider.value_changed.connect(fire_slider_changed)
-	fire_y_slider.value_changed.connect(fire_slider_changed)
-	sfx_slider = volume_slider(list, "Efeitos sonoros")
-	camera_choice.item_selected.connect(func(_v): emit_feedback())
-	haptic_choice.toggled.connect(func(_v): emit_feedback())
-	automatic_choice.toggled.connect(func(_v): emit_feedback())
-	sfx_slider.value_changed.connect(func(_v): emit_feedback())
-	music_choice = CheckButton.new()
-	music_choice.text = "Música de fundo"
-	music_choice.custom_minimum_size.y = 44
-	list.add_child(music_choice)
-	music_volume = volume_slider(list, "Volume")
-	if OS.has_feature("open_test") or OS.has_feature("editor"):
-		# The LAB build carries the game-feel tuning panel.
-		var tuning = make_button("AFINAR SENSAÇÃO (LAB)", false)
-		tuning.custom_minimum_size.y = 52
-		tuning.add_theme_font_size_override("font_size", 16)
-		tuning.pressed.connect(func(): feel_tuning_requested.emit())
-		list.add_child(tuning)
-	video_note = label("", 14, MUTED)
-	video_note.custom_minimum_size = Vector2(470, 63)
-	video_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	list.add_child(video_note)
-	# Keep touch customisation immediately visible, rather than buried below graphics.
-	var controls_title = label("CONTROLOS · EDITAR BOTÃO DE TIRO", 18, CYAN, true)
-	list.add_child(controls_title)
-	var controls_help = label("Escolhe o modo de tiro e ajusta o botão. As alterações ficam guardadas.", 14, MUTED)
-	controls_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	list.add_child(controls_help)
-	automatic_choice.hide()
+	var pages = VBoxContainer.new()
+	pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clear.add_child(pages)
+	option_pages.clear()
+	option_chips.clear()
+	for index in range(3):
+		var page = VBoxContainer.new()
+		page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		page.add_theme_constant_override("separation", 18)
+		pages.add_child(page)
+		option_pages.append(page)
+	var controls: VBoxContainer = option_pages[0]
+	var game: VBoxContainer = option_pages[1]
+	var image: VBoxContainer = option_pages[2]
+	# CONTROLOS: how you shoot, where the button sits, how fast you turn.
+	fire_control_choice = video_option(controls, "Modo de disparo", ["Automático", "Botão", "No joystick"])
 	fire_preview = Control.new()
 	fire_preview.custom_minimum_size = Vector2(0, 190)
 	fire_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fire_preview.draw.connect(draw_fire_preview)
-	list.add_child(fire_preview)
-	var control_rows = [controls_title, controls_help, fire_control_choice.get_parent(), fire_preview, fire_size_slider.get_parent(), fire_x_slider.get_parent(), fire_y_slider.get_parent(), sensitivity_choice.get_parent()]
-	for index in range(control_rows.size()):
-		list.move_child(control_rows[index], index + 2)
-	var image_title = label("IMAGEM E SOM", 18, CYAN, true)
-	list.add_child(image_title)
-	list.move_child(image_title, control_rows.size() + 2)
-	var done = make_button("FECHAR OPÇÕES", true)
+	controls.add_child(fire_preview)
+	fire_size_slider = volume_slider(controls, "Tamanho do botão (%)")
+	fire_size_slider.min_value = 70
+	fire_size_slider.max_value = 150
+	fire_x_slider = volume_slider(controls, "Posição horizontal (%)")
+	fire_y_slider = volume_slider(controls, "Posição vertical (%)")
+	fire_control_choice.item_selected.connect(select_fire_mode)
+	fire_size_slider.value_changed.connect(fire_slider_changed)
+	fire_x_slider.value_changed.connect(fire_slider_changed)
+	fire_y_slider.value_changed.connect(fire_slider_changed)
+	sensitivity_choice = video_option(controls, "Sensibilidade", ["Muito lenta", "Lenta", "Normal", "Rápida", "Muito rápida"])
+	sensitivity_choice.item_selected.connect(func(index): sensitivity_changed.emit(index))
+	guide_choice = big_toggle(controls, "Guia de mira")
+	guide_choice.toggled.connect(func(value): guide_changed.emit(value))
+	automatic_choice = CheckButton.new()
+	automatic_choice.hide()
+	controls.add_child(automatic_choice)
+	# JOGO: the opponent and how hard the game hits back.
+	cup_difficulty = video_option(game, "Dificuldade da IA", ["Fácil", "Normal", "Difícil"])
+	cup_difficulty.item_selected.connect(func(index): difficulty_changed.emit(index))
+	camera_choice = video_option(game, "Tremor da câmara", ["Desligado", "Suave", "Completo"])
+	effects_choice = video_option(game, "Efeitos", ["Reduzidos", "Completos"])
+	effects_choice.item_selected.connect(func(index): effects_changed.emit(index == 1))
+	haptic_choice = big_toggle(game, "Vibração")
+	var camera_help = label("Câmara: arrasta no mapa para rodar e aproximar; a tua vista fica guardada. Toca duas vezes no mapa para voltar à vista normal.", 16, MUTED)
+	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	game.add_child(camera_help)
+	if OS.has_feature("open_test") or OS.has_feature("editor"):
+		# The LAB build carries the game-feel tuning panel.
+		var tuning = make_button("AFINAR SENSAÇÃO (LAB)", false)
+		tuning.custom_minimum_size.y = 64
+		tuning.add_theme_font_size_override("font_size", 18)
+		tuning.pressed.connect(func(): feel_tuning_requested.emit())
+		game.add_child(tuning)
+	# IMAGEM E SOM.
+	quality_choice = video_option(image, "Qualidade", ["Leve", "Médio", "Alto"])
+	fps_choice = video_option(image, "Limite de FPS", ["30", "45", "60", "90"])
+	sync_choice = big_toggle(image, "VSync")
+	counter_choice = big_toggle(image, "Mostrar FPS")
+	sfx_slider = volume_slider(image, "Efeitos sonoros")
+	music_choice = big_toggle(image, "Música")
+	music_volume = volume_slider(image, "Volume da música")
+	video_note = label("", 15, MUTED)
+	video_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	image.add_child(video_note)
+	camera_choice.item_selected.connect(func(_v): emit_feedback())
+	haptic_choice.toggled.connect(func(_v): emit_feedback())
+	automatic_choice.toggled.connect(func(_v): emit_feedback())
+	sfx_slider.value_changed.connect(func(_v): emit_feedback())
+	var done = make_button("FECHAR", true)
 	option_stack.add_child(done)
 	done.pressed.connect(close_video)
 	quality_choice.item_selected.connect(func(_index): emit_video())
@@ -2478,53 +2484,150 @@ func build_video_menu() -> void:
 	counter_choice.toggled.connect(func(_value): emit_video())
 	music_choice.toggled.connect(func(_value): emit_audio())
 	music_volume.value_changed.connect(func(_value): emit_audio())
+	show_options_tab(0)
 	video_overlay.hide()
 
-func video_option(parent: VBoxContainer, title: String, options: Array) -> OptionButton:
+func show_options_tab(index: int) -> void:
+	for i in range(option_pages.size()):
+		option_pages[i].visible = i == index
+		option_tabs[i].set_pressed_no_signal(i == index)
+		UiKit.paint_key(option_tabs[i], "primary" if i == index else "secondary")
+	if is_instance_valid(options_scroll):
+		options_scroll.scroll_vertical = 0
+	refresh_option_chips()
+
+func option_title(parent: VBoxContainer, title: String) -> HBoxContainer:
 	var row = HBoxContainer.new()
 	parent.add_child(row)
-	var caption = label(title, 15, WHITE)
-	caption.custom_minimum_size.x = 176
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var caption = label(title, 19, WHITE, true)
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(caption)
+	return row
+
+func video_option(parent: VBoxContainer, title: String, options: Array) -> OptionButton:
+	# The OptionButton stays as the value the rest of the HUD reads and sets; what you touch
+	# is a row of big buttons, one per choice.
+	var block = VBoxContainer.new()
+	block.add_theme_constant_override("separation", 8)
+	parent.add_child(block)
+	option_title(block, title)
 	var option = OptionButton.new()
-	option.custom_minimum_size = Vector2(260, 48)
-	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	option.add_theme_font_size_override("font_size", 14)
-	option.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.PANEL_EDGE))
-	option.add_theme_color_override("font_color", WHITE)
 	for text in options:
 		option.add_item(text)
-	row.add_child(option)
+	option.hide()
+	block.add_child(option)
+	var chips = HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 8)
+	chips.add_theme_constant_override("v_separation", 8)
+	block.add_child(chips)
+	for index in range(options.size()):
+		var chip = Button.new()
+		chip.text = options[index]
+		chip.custom_minimum_size = Vector2(maxf(96.0, 440.0 / minf(options.size(), 3.0) - 8.0), 62)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chip.add_theme_font_override("font", font_title)
+		chip.add_theme_font_size_override("font_size", 18)
+		chip.pressed.connect(func():
+			if option.selected != index:
+				option.select(index)
+				option.item_selected.emit(index)
+			refresh_option_chips())
+		chips.add_child(chip)
+	option_chips.append([option, chips])
 	return option
 
+func refresh_option_chips() -> void:
+	for pair in option_chips:
+		var option: OptionButton = pair[0]
+		var chips: Node = pair[1]
+		for index in range(chips.get_child_count()):
+			var chip: Button = chips.get_child(index)
+			UiKit.paint_key(chip, "primary" if index == option.selected else "secondary")
+			chip.add_theme_font_size_override("font_size", 18)
+
+func big_toggle(parent: VBoxContainer, title: String) -> CheckButton:
+	# The whole row is the switch: 68 px tall, with a large on/off pill on the right.
+	var toggle = CheckButton.new()
+	toggle.text = title
+	toggle.custom_minimum_size.y = 68
+	toggle.add_theme_font_override("font", font_title)
+	toggle.add_theme_font_size_override("font_size", 19)
+	toggle.add_theme_color_override("font_color", WHITE)
+	toggle.add_theme_color_override("font_pressed_color", WHITE)
+	toggle.add_theme_color_override("font_hover_color", WHITE)
+	toggle.add_theme_color_override("font_hover_pressed_color", WHITE)
+	toggle.add_theme_icon_override("checked", switch_icon(true))
+	toggle.add_theme_icon_override("unchecked", switch_icon(false))
+	toggle.add_theme_icon_override("checked_disabled", switch_icon(true))
+	toggle.add_theme_icon_override("unchecked_disabled", switch_icon(false))
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var box = style(UiKit.CARD, UiKit.CARD_EDGE, 16)
+		box.content_margin_left = 18
+		box.content_margin_right = 14
+		toggle.add_theme_stylebox_override(state, box)
+	parent.add_child(toggle)
+	return toggle
+
+var switch_icons: Dictionary = {}
+
+func switch_icon(on: bool) -> Texture2D:
+	if switch_icons.has(on):
+		return switch_icons[on]
+	var w = 84
+	var h = 44
+	var image = Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var track: Color = UiKit.MINT if on else UiKit.EMPTY
+	var knob_x = w - h * 0.5 if on else h * 0.5
+	for y in range(h):
+		for x in range(w):
+			var p = Vector2(x + 0.5, y + 0.5)
+			var cx = clampf(p.x, h * 0.5, w - h * 0.5)
+			var d = p.distance_to(Vector2(cx, h * 0.5))
+			var color = Color(track, clampf(h * 0.5 - d, 0.0, 1.0))
+			var k = p.distance_to(Vector2(knob_x, h * 0.5))
+			var knob = clampf(h * 0.5 - 4.0 - k, 0.0, 1.0)
+			color = color.blend(Color(Color.WHITE, knob))
+			image.set_pixel(x, y, color)
+	var texture = ImageTexture.create_from_image(image)
+	switch_icons[on] = texture
+	return texture
+
+var grabber_icon: Texture2D
+
 func volume_slider(parent: VBoxContainer, title: String) -> HSlider:
-	var row = HBoxContainer.new()
-	parent.add_child(row)
-	var caption = label(title.replace(" (%)", ""), 15, WHITE)
-	caption.custom_minimum_size.x = 176
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(caption)
+	var block = VBoxContainer.new()
+	block.add_theme_constant_override("separation", 4)
+	parent.add_child(block)
+	var row = option_title(block, title.replace(" (%)", ""))
+	# The value, so a slider is never a guess.
+	var readout = label("", 18, MUTED, true)
+	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(readout)
 	var slider = HSlider.new()
 	slider.min_value = 0
 	slider.max_value = 100
 	slider.step = 5
-	slider.custom_minimum_size = Vector2(328, 48)
+	slider.custom_minimum_size = Vector2(0, 60)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for part in [["slider", UiKit.FIELD], ["grabber_area", SUN], ["grabber_area_highlight", SUN.lightened(0.1)]]:
 		var bar = StyleBoxFlat.new()
 		bar.bg_color = part[1]
-		bar.set_corner_radius_all(4)
-		bar.content_margin_top = 4
-		bar.content_margin_bottom = 4
+		bar.set_corner_radius_all(8)
+		bar.content_margin_top = 8
+		bar.content_margin_bottom = 8
 		slider.add_theme_stylebox_override(part[0], bar)
-	slider.custom_minimum_size.x = 220
-	row.add_child(slider)
-	# The value, so a slider is never a guess.
-	var readout = label("", 14, MUTED, true)
-	readout.custom_minimum_size.x = 52
-	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(readout)
+	if grabber_icon == null:
+		var size_px = 44
+		var image = Image.create(size_px, size_px, false, Image.FORMAT_RGBA8)
+		for y in range(size_px):
+			for x in range(size_px):
+				var d = Vector2(x + 0.5, y + 0.5).distance_to(Vector2(size_px, size_px) * 0.5)
+				var rim = Color(UiKit.SUN_LIP, clampf(size_px * 0.5 - d, 0.0, 1.0))
+				image.set_pixel(x, y, rim.blend(Color(Color.WHITE, clampf(size_px * 0.5 - 4.0 - d, 0.0, 1.0))))
+		grabber_icon = ImageTexture.create_from_image(image)
+	for icon in ["grabber", "grabber_highlight", "grabber_disabled"]:
+		slider.add_theme_icon_override(icon, grabber_icon)
+	block.add_child(slider)
 	slider.set_meta("readout", readout)
 	slider.value_changed.connect(func(value: float): readout.text = "%d%%" % roundi(value))
 	readout.text = "%d%%" % roundi(slider.value)
@@ -2606,6 +2709,7 @@ func sync_game(settings) -> void:
 	guide_choice.set_pressed_no_signal(settings.aim_guide)
 	if is_instance_valid(sensitivity_choice):
 		sensitivity_choice.select(settings.joystick_sensitivity)
+	refresh_option_chips()
 
 func sync_audio(settings) -> void:
 	music_choice.set_pressed_no_signal(settings.enabled)
@@ -2622,14 +2726,15 @@ func sync_video(settings) -> void:
 	sync_choice.set_pressed_no_signal(settings.vsync)
 	counter_choice.set_pressed_no_signal(settings.show_fps)
 	fps_label.visible = settings.show_fps
-	video_note.text = "Refinado e Equilibrado preservam os gráficos e reduzem apenas 90→60→30 FPS. Só o perfil Leve pode baixar a resolução 3D."
+	video_note.text = "Se o jogo travar, escolhe Leve ou baixa o limite de FPS."
+	refresh_option_chips()
 
 func emit_video() -> void:
 	video_changed.emit([30, 45, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed)
 
 func open_video() -> void:
 	reset_touch()
-	options_scroll.scroll_vertical = 0
+	show_options_tab(0)
 	video_overlay.show()
 	video_opened.emit()
 
@@ -2671,10 +2776,12 @@ func layout() -> void:
 	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
 	skins_panel.size = skins_size
 	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
-	options_scroll.custom_minimum_size = Vector2(510, minf(700, size.y - safe_top - safe_bottom - 184))
-	var panel_size = video_panel.get_combined_minimum_size().max(Vector2(510, 0))
+	# Nearly the whole screen: the options are for thumbs, not for a small floating card.
+	var options_width = minf(size.x - 28.0, 640.0)
+	options_scroll.custom_minimum_size = Vector2(options_width - 48.0, maxf(260.0, size.y - safe_top - safe_bottom - 290.0))
+	var panel_size = Vector2(options_width, video_panel.get_combined_minimum_size().y)
 	video_panel.size = panel_size
-	video_panel.position = (size - panel_size) * 0.5
+	video_panel.position = Vector2((size.x - panel_size.x) * 0.5, maxf(safe_top + 12.0, (size.y - panel_size.y) * 0.5))
 	if is_instance_valid(pause_panel):
 		pause_panel.size = pause_panel.get_combined_minimum_size().max(Vector2(420, 0))
 		pause_panel.position = (size - pause_panel.size) * 0.5
