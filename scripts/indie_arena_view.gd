@@ -491,6 +491,10 @@ func build(new_map: Dictionary = {}) -> void:
 		# and inner sides made a pale band across the field.
 		glass.code = court_mat.shader.code.replace("	SPECULAR = 0.45;", "	SPECULAR = 0.45;\n	ALPHA = mix(0.28, 1.0, max(seam, paint));").replace("cull_disabled", "cull_back")
 		court_mat.shader = glass
+		# Glass is drawn with the other see-through things, sorted by distance: a shot, a beam
+		# or an ultimate over the field could fall behind it and vanish under the floor. The
+		# floor is always the first of them, so everything on it draws on top.
+		court_mat.render_priority = Material.RENDER_PRIORITY_MIN
 	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
 	court_material = court_mat
 	court_mat.set_shader_parameter("floor_color", theme.floor)
