@@ -463,7 +463,7 @@ def main():
     quick = "--quick" in args
     names = [a for a in args if a in SCENES] or list(SCENES)
     for name in names:
-        SCENES[name](16 if quick else 96)
+        SCENES[name](16 if quick else (64 if name == "estadio" else 96))
 
 
 if __name__ == "__main__":
