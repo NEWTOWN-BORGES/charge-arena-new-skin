@@ -1716,8 +1716,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var swell: float = POWER_BALL_SCALE[clampi(kind, 0, POWER_BALL_SCALE.size() - 1)]
 		var charged = ball.get("boosted", false) or ball.get("amplified", false)
 		var orb: MeshInstance3D = node.get_node("Orb")
-		# Small rubber balls: three quarters of the old energy orb.
-		orb.scale = Vector3.ONE * (0.6 if charged else 0.44) * swell
+		# Lit energy orbs, as in the first versions: the halo needs a little more card.
+		orb.scale = Vector3.ONE * (0.95 if charged else 0.78) * swell
 		orb.material_override.set_shader_parameter("tint", color)
 		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
 		# The comet tail: short-lived glows left behind every frame by the GPU batch.
@@ -1927,7 +1927,8 @@ func take_orb(owner: int) -> Node3D:
 		root.add_child(orb)
 		var glow = soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN, 0.42))
 		glow.name = "FloorGlow"
-	root.get_node("FloorGlow").material_override = soft_disc_material(Color(CYAN if owner == 0 else CORAL, 0.42))
+	# The light the orb throws on the floor under it.
+	root.get_node("FloorGlow").material_override = soft_disc_material(Color(CYAN if owner == 0 else CORAL, 0.6))
 	root.show()
 	return root
 

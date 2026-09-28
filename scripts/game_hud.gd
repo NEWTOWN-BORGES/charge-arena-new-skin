@@ -897,7 +897,8 @@ func open_skins() -> void:
 		skins_progress.save_preferences()
 		refresh_news()
 	if is_instance_valid(viewer_viewport) and arena_view != null:
-		viewer_viewport.msaa_3d = Viewport.MSAA_2X if arena_view.quality_level == 0 else Viewport.MSAA_4X
+		# The hangar is a still showcase: 4x even on Leve, 8x on the top profile.
+		viewer_viewport.msaa_3d = Viewport.MSAA_8X if arena_view.quality_level == 2 else Viewport.MSAA_4X
 	skins_overlay.show()
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
 

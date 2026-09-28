@@ -1530,6 +1530,11 @@ func idle_frame_rate() -> void:
 	if screen_kept_on == resting:
 		screen_kept_on = not resting
 		DisplayServer.screen_set_keep_on(screen_kept_on)
+	# The lobby's robots are the showcase: at the resting rate they can afford smooth
+	# edges on every profile. A match keeps the antialiasing the chosen profile pays for.
+	var wanted_aa = Viewport.MSAA_4X if mode == "menu" else video.AA_LEVELS[video.quality]
+	if get_viewport().msaa_3d != wanted_aa:
+		get_viewport().msaa_3d = wanted_aa
 
 # Automated runs without a screen (the tests) never see a tutorial; a test can force it.
 var force_tutorials = false
