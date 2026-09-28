@@ -526,7 +526,8 @@ func story_entries(hard: bool) -> Array:
 		var wear = story_prize(boss, hard) if story_beaten(boss, hard) else story_rival(boss, hard)
 		list.append({"name": String(Skins.CATALOG[wear].name), "skin": wear, "beaten": story_beaten(boss, hard),
 			"passed": story_passed(boss, hard),
-			"open": reachable and (step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
+			# The LAB build opens every fight, so any of them can be jumped to for testing.
+			"open": reachable and (skins.unlock_all or step == 0 or story_passed(order[step - 1], hard) or story_passed(boss, hard))})
 	return list
 
 func story_arena_name(boss: int) -> String:
