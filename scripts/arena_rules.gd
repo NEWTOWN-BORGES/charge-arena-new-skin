@@ -333,6 +333,22 @@ var powers: Array = []
 var loadouts: Array = [Powers.STARTER_KIT.duplicate(), Powers.STARTER_KIT.duplicate()]
 var power_rng = RandomNumberGenerator.new()
 var cached_firing_angles: Dictionary = {}
+# How many ricochets a shot survives on this map (the 3 v 3 arena lives on them).
+var max_bounces: int = MAX_BOUNCES
+# 3 contra 3 ("squad" maps): each side fields three pilots. Pilots 0 and 1 are the two
+# leaders on the arc round the goal (the index is the team, as everywhere else in here);
+# 2..5 are the wingmen on the flank rails, team = index % 2, rail = (index - 2) / 2.
+var squad: bool = false
+# The bricks by 1 m cell, on the squad map: with 600 of them a shot only looks at its own
+# neighbourhood instead of the whole wall, live and in the AI's forecasts alike.
+var brick_grid: Dictionary = {}
+var grid_low := Vector2.ZERO
+var grid_high := Vector2.ZERO
+# Where each obstacle's path is centred and how far from there it can reach a shot (path,
+# radius and the shot's own radius): a shot nowhere near that circle skips the bumper
+# without working out where it is.
+var obstacle_home := PackedVector2Array()
+var obstacle_reach := PackedFloat32Array()
 
 func _init() -> void:
 	set_map(default_map())
@@ -389,6 +405,106 @@ static func pvp_map() -> Dictionary:
 		],
 	}
 
+# The squad arena's half width: twice the PvP arena's (the colosseum at 0.84 of HALF_WIDTH).
+const SQUAD_HALF_WIDTH = 12.5
+
+static func squad_map() -> Dictionary:
+	# 3 contra 3: twice the length and twice the width of the PvP arena, just the floor. Each
+	# base has three rails - the arc round the goal and a flank rail either side of it - behind
+	# a wall of 300 bricks, and the field between the two walls is a pinball table: pillars set
+	# so a shot glancing off one carries on to the next, deflector walls on the flanks, bumpers
+	# that slide and bumpers that circle, gold bumpers that turbocharge whatever strikes them.
+	# A shot lives through seven ricochets here instead of three.
+	var pin = 0.55
+	return {
+		"id": "esquadrao", "name": "Esquadrão 3v3", "outline": "squad", "stretch": 2.7, "narrow": 1.0, "lean": true,
+		"squad": true, "bare": true, "powers": false, "bricks": "squad", "lives": 2, "bounces": 7,
+		"boosters": true, "boost_depths": [-7.5, 0.0, 7.5],
+		# The flank rails, team 0's, as (across, depth from its own goal line), walked from the
+		# back corner forwards. "aim": where on the far end the pilot looks from each end of it.
+		"lanes": [
+			{"points": [Vector2(-10.4, 1.6), Vector2(-8.6, 3.5), Vector2(-6.3, 4.8)], "aim": [9.5, -2.5]},
+			{"points": [Vector2(10.4, 1.6), Vector2(8.6, 3.5), Vector2(6.3, 4.8)], "aim": [-9.5, 2.5]},
+		],
+		"barriers": [
+			{"a": Vector2(-10.6, -2.4), "b": Vector2(-8.0, -4.6)}, {"a": Vector2(10.6, -2.4), "b": Vector2(8.0, -4.6)},
+			{"a": Vector2(-10.6, 2.4), "b": Vector2(-8.0, 4.6)}, {"a": Vector2(10.6, 2.4), "b": Vector2(8.0, 4.6)},
+		],
+		"obstacles": [
+			{"kind": "fixed", "center": Vector2.ZERO, "radius": 0.6, "boost": true},
+			{"kind": "orbit", "center": Vector2.ZERO, "travel": 2.6, "frequency": 0.45, "phase": 0.0, "radius": 0.5},
+			{"kind": "fixed", "center": Vector2(-5.8, 0), "radius": pin},
+			{"kind": "fixed", "center": Vector2(5.8, 0), "radius": pin},
+			{"kind": "orbit", "center": Vector2(-5.8, 0), "travel": 1.8, "frequency": 0.7, "phase": 0.0, "radius": 0.42},
+			{"kind": "orbit", "center": Vector2(5.8, 0), "travel": 1.8, "frequency": -0.7, "phase": PI, "radius": 0.42},
+			{"kind": "fixed", "center": Vector2(0, -6.2), "radius": pin},
+			{"kind": "fixed", "center": Vector2(0, 6.2), "radius": pin},
+			{"kind": "slide", "center": Vector2(0, -10.2), "axis": Vector2.RIGHT, "travel": 6.0, "frequency": 0.3, "phase": 0.0, "radius": pin},
+			{"kind": "slide", "center": Vector2(0, 10.2), "axis": Vector2.RIGHT, "travel": 6.0, "frequency": 0.3, "phase": PI, "radius": pin},
+			{"kind": "fixed", "center": Vector2(-9.0, -10.5), "radius": 0.45, "boost": true},
+			{"kind": "fixed", "center": Vector2(9.0, -10.5), "radius": 0.45, "boost": true},
+			{"kind": "fixed", "center": Vector2(-9.0, 10.5), "radius": 0.45, "boost": true},
+			{"kind": "fixed", "center": Vector2(9.0, 10.5), "radius": 0.45, "boost": true},
+		],
+	}
+
+static func lane_length(layout: Dictionary, lane: int) -> float:
+	var points: Array = layout.get("lanes", [])[lane].points
+	var total := 0.0
+	for i in range(points.size() - 1):
+		total += Vector2(points[i]).distance_to(points[i + 1])
+	return total
+
+static func lane_point(layout: Dictionary, team: int, lane: int, u: float) -> Vector2:
+	# A flank rail of the squad map, walked from its first point (u = -1) to its last (u = 1).
+	# The points are team 0's, as (across, depth from its own goal line); team 1's rail is the
+	# same one seen from the other end, the way the arcs mirror.
+	var points: Array = layout.get("lanes", [])[lane].points
+	var left: float = (clampf(u, -1.0, 1.0) + 1.0) * 0.5 * lane_length(layout, lane)
+	var at: Vector2 = points[points.size() - 1]
+	for i in range(points.size() - 1):
+		var piece: float = Vector2(points[i]).distance_to(points[i + 1])
+		if left <= piece or i == points.size() - 2:
+			at = Vector2(points[i]).lerp(points[i + 1], clampf(left / maxf(piece, 0.0001), 0.0, 1.0))
+			break
+		left -= piece
+	return Vector2(at.x, (HALF_LENGTH - at.y) * (1.0 if team == 0 else -1.0))
+
+static func lane_aim(layout: Dictionary, team: int, lane: int, u: float) -> Vector2:
+	# Like the arc: the pilot looks at a mark that slides along the far end of the arena as it
+	# walks, so each spot on the rail is one line of fire.
+	var reach: Array = layout.get("lanes", [])[lane].get("aim", [0.0, 0.0])
+	var mark = Vector2(lerpf(reach[0], reach[1], (clampf(u, -1.0, 1.0) + 1.0) * 0.5), goal_center(1 - team).y)
+	return (mark - lane_point(layout, team, lane, u)).normalized()
+
+static func pilot_spot(layout: Dictionary, index: int, angle: float) -> Vector2:
+	# Where pilot `index` stands at this point of its rail: a leader on the arc, a wingman on
+	# its flank rail.
+	if index < 2:
+		return track_position(index, angle)
+	return lane_point(layout, index % 2, (index - 2) / 2, angle)
+
+static func pilot_facing(layout: Dictionary, index: int, angle: float) -> Vector2:
+	if index < 2:
+		return forward_direction(index, angle)
+	return lane_aim(layout, index % 2, (index - 2) / 2, angle)
+
+func pilot_position(index: int, angle: float) -> Vector2:
+	return pilot_spot(map, index, angle)
+
+func pilot_aim(index: int, angle: float) -> Vector2:
+	return pilot_facing(map, index, angle)
+
+func pilot_limit(index: int) -> float:
+	return track_limit if index < 2 else 1.0
+
+func pilot_rate(index: int) -> float:
+	# How fast the rail's parameter runs at full stick - the arc's angle or the flank rail's
+	# -1..1 - so every pilot walks at the same speed whatever its rail.
+	if index < 2:
+		return SPEED / TRACK_WIDTH
+	return SPEED / maxf(lane_length(map, (index - 2) / 2) * 0.5, 0.1)
+
 func set_map(new_map: Dictionary) -> void:
 	map = new_map
 	apply_stretch(map)
@@ -396,10 +512,18 @@ func set_map(new_map: Dictionary) -> void:
 	boost_centers = booster_centers(map)
 	barriers = map_barriers(map)
 	obstacle_specs = map_obstacles(map)
+	obstacle_home = PackedVector2Array()
+	obstacle_reach = PackedFloat32Array()
+	for spec in obstacle_specs:
+		var path: float = float(spec.get("travel", 0.0)) if spec.get("kind", "fixed") in ["slide", "orbit"] else 0.0
+		obstacle_home.append(spec.get("center", Vector2.ZERO))
+		obstacle_reach.append(path + float(spec.get("radius", OBSTACLE_RADIUS)) + BALL_RADIUS)
 	brick_extent = Vector2(BRICK_EXTENT.x * narrow_of(map), BRICK_EXTENT.y)
 	wall_slabs = [team_walls(0, map), team_walls(1, map)]
 	track_limit = track_limit_for(map)
 	brick_lives = clampi(int(map.get("lives", BRICK_LIVES)), 1, BRICK_MAX_LIVES)
+	max_bounces = int(map.get("bounces", MAX_BOUNCES))
+	squad = bool(map.get("squad", false))
 	cached_firing_angles.clear()
 	reset_match()
 
@@ -446,6 +570,11 @@ static func outline_points(kind: String, narrow: float = 1.0) -> Array:
 			for i in range(SNAKE_SEGMENTS + 1):
 				pts.append(Vector2(-w, lerpf(l - sy, -l + sy, float(i) / SNAKE_SEGMENTS)))
 			return pts
+		"squad":
+			# The 3 v 3 arena: twice the PvP arena's width, the corners behind the goals only
+			# just cut, so the flank rails fit in them.
+			var sw = SQUAD_HALF_WIDTH
+			return [Vector2(-sw + 2.1, -l), Vector2(sw - 2.1, -l), Vector2(sw, -l + 2.1), Vector2(sw, l - 2.1), Vector2(sw - 2.1, l), Vector2(-sw + 2.1, l), Vector2(-sw, l - 2.1), Vector2(-sw, -l + 2.1)]
 		"colosseum":
 			# Wide rectangular stadium with 45-degree chamfered corners, matching the drawn sketch.
 			var cx = 4.4
@@ -459,7 +588,7 @@ static func outline_points(kind: String, narrow: float = 1.0) -> Array:
 	return WALLS.duplicate()
 
 static func side_x(kind: String, narrow: float = 1.0) -> float:
-	return {"pinch": HALF_WIDTH - 1.9, "wide": HALF_WIDTH + 1.3, "gorge": HALF_WIDTH - 1.7, "lens": HALF_WIDTH + 1.0, "torre": TOWER_HALF_WIDTH}.get(kind, HALF_WIDTH) * narrow
+	return {"pinch": HALF_WIDTH - 1.9, "wide": HALF_WIDTH + 1.3, "gorge": HALF_WIDTH - 1.7, "lens": HALF_WIDTH + 1.0, "torre": TOWER_HALF_WIDTH, "squad": SQUAD_HALF_WIDTH}.get(kind, HALF_WIDTH) * narrow
 
 static func narrow_of(layout: Dictionary) -> float:
 	return float(layout.get("narrow", TALL_NARROW if layout.get("tall", false) else 1.0))
@@ -727,9 +856,13 @@ func reset_round() -> void:
 		{"p": track_position(0, 0), "angle": 0.0, "aim": Vector2.UP, "hp": PLAYER_LIVES, "stun": 0.0, "cooldown": 0.0},
 		{"p": track_position(1, 0), "angle": 0.0, "aim": Vector2.DOWN, "hp": PLAYER_LIVES, "stun": 0.0, "cooldown": 0.0}
 	]
+	if squad:
+		for index in range(2, 6):
+			players.append({"p": pilot_position(index, 0.0), "angle": 0.0, "aim": pilot_aim(index, 0.0), "hp": PLAYER_LIVES, "stun": 0.0, "cooldown": 0.0})
 	balls.clear()
 	turrets.clear()
 	bricks = map_bricks(map, brick_lives)
+	build_brick_grid()
 	obstacle_time = 0.0
 	obstacles.clear()
 	var specs: Array = obstacle_specs
@@ -739,6 +872,18 @@ func reset_round() -> void:
 	phase = "countdown"
 	timer = 2.5
 	events.clear()
+
+func build_brick_grid() -> void:
+	brick_grid.clear()
+	if not squad:
+		return
+	for i in range(bricks.size()):
+		var cell = Vector2i(floori(bricks[i].p.x), floori(bricks[i].p.y))
+		if not brick_grid.has(cell):
+			brick_grid[cell] = []
+		brick_grid[cell].append(i)
+		grid_low = bricks[i].p if i == 0 else grid_low.min(bricks[i].p)
+		grid_high = bricks[i].p if i == 0 else grid_high.max(bricks[i].p)
 
 static func goal_center(team: int) -> Vector2:
 	return Vector2(0, HALF_LENGTH * (1 if team == 0 else -1))
@@ -838,6 +983,13 @@ static func make_bricks(layout: String = "banks", lives: int = BRICK_LIVES) -> A
 					for column in range(count):
 						var x = lerpf(-span, span, float(column) / float(count - 1))
 						add_brick(result, team, -1 if x < 0 else 1, Vector2(x, goal.y - sign_y * (3.6 + row * 0.38)), 0.0, lives)
+			"squad":
+				# Three hundred a side: eight rows from wall to wall in front of the three rails.
+				for row in range(8):
+					var count = 38 if row < 6 else 36
+					for column in range(count):
+						var x = (column - (count - 1) * 0.5) * 0.62
+						add_brick(result, team, -1 if x < 0 else 1, Vector2(x, goal.y - sign_y * (6.0 + row * 0.38)), 0.0, lives)
 			"colosseum":
 				# Four dense rows, the widest in front: the PvP wall, built to be broken.
 				for row in range(5):
@@ -938,6 +1090,8 @@ func step(dt: float, commands: Array) -> void:
 			shoot(team)
 			if cmd.get("manual", false):
 				p.cooldown = minf(p.cooldown, TAP_INTERVAL * (FREEZE_FIRE if powers[team].freeze_time > 0 else 1.0))
+	for index in range(2, players.size()):
+		step_wingman(index, dt, commands[index] if index < commands.size() else {})
 	var pace: Dictionary = ai_profile if not ai_profile.is_empty() else AI_LEVELS[clampi(ai_level, 0, AI_LEVELS.size() - 1)]
 	if not ai_profile.is_empty() or bool(commands[1].get("_ai", false)):
 		# A pilot winds its kit up with the clock as well as with the bricks it
@@ -979,6 +1133,29 @@ func step(dt: float, commands: Array) -> void:
 				var slowed: bool = powers[defender].slow_time > 0 and signf(ball.p.y) == signf(players[defender].p.y)
 				advance_ball(ball, dt * (SLOW_FACTOR if slowed else 1.0), true)
 
+func step_wingman(index: int, dt: float, cmd: Dictionary) -> void:
+	# A wingman of the squad map: the leader's walk and gun on its own rail, without a kit.
+	var p: Dictionary = players[index]
+	p.cooldown = maxf(0, p.cooldown - dt)
+	var was_stunned: bool = p.stun > 0
+	p.stun = maxf(0, p.stun - dt)
+	if was_stunned and p.stun <= 0 and p.hp <= 0:
+		p.hp = PLAYER_LIVES
+	if p.stun > 0:
+		return
+	var move: Vector2 = cmd.get("move", Vector2.ZERO)
+	p.angle = clampf(p.angle + clampf(move.x, -1, 1) * pilot_rate(index) * dt, -1.0, 1.0)
+	p.p = pilot_position(index, p.angle)
+	p.aim = pilot_aim(index, p.angle)
+	if cmd.get("fire", false) and p.cooldown <= 0:
+		p.cooldown = FIRE_INTERVAL
+		var team: int = index % 2
+		while balls.size() >= MAX_BALLS:
+			balls.remove_at(0)
+		balls.append({"id": next_id, "owner": team, "pilot": index, "p": p.p + p.aim * 0.64, "v": p.aim * BALL_SPEED, "bounces": 0, "boosted": false, "damage": 1, "ttl": BALL_LIFE, "power": 0, "ghost": false})
+		next_id += 1
+		events.append({"kind": "shot", "p": p.p, "team": team, "power": 0, "pilot": index})
+
 func can_fire(team: int, dt: float = 0.0) -> bool:
 	# Whether a shot asked for on the tick about to run would leave the barrel. A tap is
 	# kept until this says yes, so one made during the reload is not thrown away.
@@ -990,7 +1167,7 @@ func can_fire(team: int, dt: float = 0.0) -> bool:
 func can_activate_power(team: int, index: int) -> bool:
 	if team < 0 or team >= powers.size() or index < 0 or index >= POWER_SLOTS:
 		return false
-	if power_id(team, index) == "":
+	if power_id(team, index) == "" or not map.get("powers", true):
 		return false
 	if phase != "play" or players[team].stun > 0 or running_power(team):
 		return false
@@ -1063,7 +1240,7 @@ func activate_power(team: int, index: int) -> bool:
 			# One round, twice as fast, three lives and no ricochet; a pilot it hits goes down.
 			spawn_ball(team, assist_heading(team), 4, SNIPER_DAMAGE)
 			balls.back().v *= SNIPER_SPEED
-			balls.back().bounces = MAX_BOUNCES
+			balls.back().bounces = max_bounces
 			p.cooldown = FIRE_INTERVAL
 			events.append({"kind": "shot", "p": p.p, "team": team, "power": 4})
 		"cluster":
@@ -1630,7 +1807,7 @@ func step_turrets(dt: float) -> void:
 			balls.remove_at(0)
 		# The sentry's round: two of damage, standard rate, and no ricochet at all.
 		balls.append({"id": next_id, "owner": int(turret.team), "p": turret.p + turret.aim * (TURRET_RADIUS + 0.22), "v": turret.aim * BALL_SPEED,
-			"bounces": MAX_BOUNCES, "boosted": false, "damage": TURRET_DAMAGE, "ttl": BALL_LIFE, "power": 0, "ghost": false, "held": false})
+			"bounces": max_bounces, "boosted": false, "damage": TURRET_DAMAGE, "ttl": BALL_LIFE, "power": 0, "ghost": false, "held": false})
 		next_id += 1
 		events.append({"kind": "turret_shot", "team": int(turret.team), "p": turret.p, "heading": turret.aim})
 
@@ -1818,7 +1995,7 @@ func cluster_burst(ball: Dictionary) -> void:
 		var heading: Vector2 = back.rotated(lerpf(-1.3, 1.3, k / float(CLUSTER_SHARDS - 1)))
 		while balls.size() >= MAX_BALLS:
 			balls.remove_at(0)
-		balls.append({"id": next_id, "owner": ball.owner, "p": ball.p + heading * 0.2, "v": heading * BALL_SPEED * 0.85, "bounces": MAX_BOUNCES - 1, "boosted": false, "damage": 1, "ttl": 0.9, "power": 7, "ghost": false})
+		balls.append({"id": next_id, "owner": ball.owner, "p": ball.p + heading * 0.2, "v": heading * BALL_SPEED * 0.85, "bounces": max_bounces - 1, "boosted": false, "damage": 1, "ttl": 0.9, "power": 7, "ghost": false})
 		next_id += 1
 	events.append({"kind": "cluster", "team": ball.owner, "p": ball.p})
 
@@ -1983,14 +2160,17 @@ func ultimate_hit_player(team: int, damage: int, at: Vector2) -> void:
 		players[team].stun = ULTIMATE_STUN
 		events.append({"kind": "stun", "p": at, "team": team})
 
-func damage_player(team: int, damage: int, at: Vector2) -> void:
-	if players[team].stun > 0:
+func damage_player(index: int, damage: int, at: Vector2) -> void:
+	# `index` is the pilot: the team's leader for 0 and 1 (so a team works here too), a wingman
+	# of the squad map past that.
+	var team: int = index % 2
+	if players[index].stun > 0:
 		return
-	players[team].hp = maxi(0, players[team].hp - damage)
-	events.append({"kind": "player_hit", "p": at, "team": team})
-	if players[team].hp <= 0 and powers[team].immune_time <= 0:
-		players[team].stun = STUN_SECONDS
-		events.append({"kind": "stun", "p": at, "team": team})
+	players[index].hp = maxi(0, players[index].hp - damage)
+	events.append({"kind": "player_hit", "p": at, "team": team, "pilot": index})
+	if players[index].hp <= 0 and powers[team].immune_time <= 0:
+		players[index].stun = STUN_SECONDS
+		events.append({"kind": "stun", "p": at, "team": team, "pilot": index})
 
 func explode(ball: Dictionary) -> void:
 	for index in range(bricks.size()):
@@ -2122,7 +2302,7 @@ func target_bricks(owner: int) -> Dictionary:
 		reach.append(brick_extent * brick_scale(brick.hp) + Vector2.ONE * BALL_RADIUS)
 	return {"index": index, "p": at, "rotation": turn, "extent": reach}
 
-func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, preview: bool = false, future_time: float = 0.0, shooter_position: Vector2 = Vector2.ZERO, targets: Dictionary = {}) -> Dictionary:
+func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, preview: bool = false, future_time: float = 0.0, _shooter_position: Vector2 = Vector2.ZERO, targets: Dictionary = {}) -> Dictionary:
 	# Prediction uses the same collisions, but only mutates its private projectile.
 	var remaining = dt
 	for _iteration in range(8):
@@ -2138,7 +2318,31 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 		var surface_velocity = Vector2.ZERO
 		var bounds_min = start.min(start + travel) - Vector2.ONE * 0.50
 		var bounds_max = start.max(start + travel) + Vector2.ONE * 0.50
-		if not targets.is_empty():
+		# The swept segment's own box: whatever is further from it than its reach cannot be
+		# struck on this step, and is skipped before any real test.
+		var low: Vector2 = start.min(start + travel)
+		var high: Vector2 = start.max(start + travel)
+		if not brick_grid.is_empty():
+			if bounds_max.x < grid_low.x or bounds_min.x > grid_high.x or bounds_max.y < grid_low.y or bounds_min.y > grid_high.y:
+				pass
+			else:
+				# Only the cells the swept shot can touch: a brick's box never reaches half a
+				# metre past its centre, the same margin the bounds above carry.
+				for cy in range(floori(bounds_min.y), floori(bounds_max.y) + 1):
+					for cx in range(floori(bounds_min.x), floori(bounds_max.x) + 1):
+						var bucket = brick_grid.get(Vector2i(cx, cy))
+						if bucket == null:
+							continue
+						for i in bucket:
+							var brick: Dictionary = bricks[i]
+							if not brick.alive or brick.team == ball.owner:
+								continue
+							var t = segment_box((start - brick.p).rotated(-brick.rotation), travel.rotated(-brick.rotation), Vector2.ZERO, brick_extent * brick_scale(brick.hp) + Vector2.ONE * BALL_RADIUS)
+							if t >= 0 and t < best:
+								best = t
+								kind = "brick"
+								target = i
+		elif not targets.is_empty():
 			var spots: PackedVector2Array = targets.p
 			var turns: PackedFloat32Array = targets.rotation
 			var reaches: PackedVector2Array = targets.extent
@@ -2163,15 +2367,18 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					best = t
 					kind = "brick"
 					target = i
-		for team in range(2):
-			if team == ball.owner:
+		for index in range(players.size()):
+			# `target` is the pilot struck: the team's leader for 0 and 1, a wingman past that.
+			if index % 2 == ball.owner:
 				continue
-			var player_position: Vector2 = shooter_position if preview and team == ball.owner else players[team].p
-			var t = segment_circle(start, travel, player_position, 0.43 + BALL_RADIUS)
+			var body: Vector2 = players[index].p
+			if body.x < low.x - 0.6 or body.x > high.x + 0.6 or body.y < low.y - 0.6 or body.y > high.y + 0.6:
+				continue
+			var t = segment_circle(start, travel, body, 0.43 + BALL_RADIUS)
 			if t >= 0 and t < best:
 				best = t
 				kind = "player"
-				target = team
+				target = index
 		for index in range(turrets.size()):
 			var turret: Dictionary = turrets[index]
 			if not turret.alive or int(turret.team) == ball.owner:
@@ -2183,6 +2390,12 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 				target = index
 		# Sweep against moving bumpers in their relative frame, including post-bounce time.
 		for obstacle in (obstacles if not ball.get("ghost", false) else []):
+			var id: int = obstacle.id
+			if id < obstacle_home.size():
+				var home: Vector2 = obstacle_home[id]
+				var reach: float = obstacle_reach[id]
+				if home.x < low.x - reach or home.x > high.x + reach or home.y < low.y - reach or home.y > high.y + reach:
+					continue
 			var obstacle_start: Vector2 = obstacle.previous + obstacle.v * (dt - remaining) if sweep_obstacles else obstacle.p
 			var movement: Vector2 = obstacle.v * remaining if sweep_obstacles else Vector2.ZERO
 			if preview:
@@ -2197,6 +2410,8 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 				surface_velocity = movement / remaining if preview else (obstacle.v if sweep_obstacles else Vector2.ZERO)
 		# Curved lateral accelerators reflect on their surface normal, not on a flat wall.
 		for center in boost_centers:
+			if center.x < low.x - 1.3 or center.x > high.x + 1.3 or center.y < low.y - 1.3 or center.y > high.y + 1.3:
+				continue
 			var t = segment_circle(start, travel, center, BOOST_RADIUS + BALL_RADIUS)
 			if t >= 0 and t < best:
 				best = t
@@ -2217,6 +2432,10 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 				if defender != ball.owner and powers[defender].walls_time > 0:
 					solid_barriers = solid_barriers + wall_slabs[defender]
 		for barrier in solid_barriers:
+			var fence_low: Vector2 = Vector2(barrier.a).min(barrier.b) - Vector2.ONE * (BARRIER_RADIUS + BALL_RADIUS)
+			var fence_high: Vector2 = Vector2(barrier.a).max(barrier.b) + Vector2.ONE * (BARRIER_RADIUS + BALL_RADIUS)
+			if fence_high.x < low.x or fence_low.x > high.x or fence_high.y < low.y or fence_low.y > high.y:
+				continue
 			var contact = sweep_capsule(start, travel, barrier.a, barrier.b, BARRIER_RADIUS + BALL_RADIUS)
 			if contact.t < best:
 				best = contact.t
@@ -2226,6 +2445,8 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 			var a: Vector2 = walls[i]
 			var b: Vector2 = walls[(i + 1) % walls.size()]
 			var radius = PERIMETER_RADIUS + BALL_RADIUS
+			if maxf(a.x, b.x) + radius < low.x or minf(a.x, b.x) - radius > high.x or maxf(a.y, b.y) + radius < low.y or minf(a.y, b.y) - radius > high.y:
+				continue
 			var contact = sweep_capsule(start, travel, a, b, radius)
 			var inward = Vector2(-(b-a).y, (b-a).x).normalized()
 			var closest = Geometry2D.get_closest_point_to_segment(start, a, b)
@@ -2255,7 +2476,7 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					ball.boosted = true
 					ball.damage = BOOST_DAMAGE
 					ball.p += ball.v.normalized() * 0.02
-					ball.bounces = MAX_BOUNCES
+					ball.bounces = max_bounces
 					if not preview:
 						events.append({"kind": "mirror", "p": ball.p, "team": bricks[target].team})
 					remaining *= 1.0 - best
@@ -2292,16 +2513,17 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 			"player":
 				# Enemy hits remove one life. At zero, the pilot is disabled briefly;
 				# own shots are excluded from collision detection above.
+				var hit_team: int = target % 2
 				if ball.get("power", 0) == 1:
 					explode(ball)
 				elif ball.get("power", 0) == 4:
 					# The marksman's round puts the pilot down.
 					damage_player(target, 2, ball.p)
-					if not preview and powers[target].immune_time <= 0 and players[target].stun < SNIPER_STUN:
+					if not preview and powers[hit_team].immune_time <= 0 and players[target].stun < SNIPER_STUN:
 						players[target].stun = SNIPER_STUN
-						events.append({"kind": "stun", "p": ball.p, "team": target})
-					elif not preview and powers[target].immune_time > 0:
-						events.append({"kind": "immune_block", "team": target, "p": players[target].p})
+						events.append({"kind": "stun", "p": ball.p, "team": hit_team, "pilot": target})
+					elif not preview and powers[hit_team].immune_time > 0:
+						events.append({"kind": "immune_block", "team": hit_team, "p": players[target].p})
 					if not preview:
 						events.append({"kind": "sniper_hit", "team": ball.owner, "p": ball.p, "heading": ball.v.normalized()})
 				else:
@@ -2324,12 +2546,12 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 					cluster_burst(ball)
 					balls.erase(ball)
 					return {"kind": "spent"}
-				# Every surface reflects, up to MAX_BOUNCES: after that the shot fades.
+				# Every surface reflects, up to the map's limit: after that the shot fades.
 				ball.bounces += 1
 				if ball.get("power", 0) == 6:
 					# The ricochet round hits harder with every surface behind it.
 					ball.damage = 2
-				if ball.bounces > MAX_BOUNCES:
+				if ball.bounces > max_bounces:
 					# Out of ricochets: the shot fades against this surface.
 					if preview:
 						return {"kind": "spent"}
@@ -2601,6 +2823,96 @@ func predict_path(team: int, angle: float) -> Dictionary:
 		if not outcome.is_empty():
 			return {"points": points, "outcome": outcome}
 	return {"points": points, "outcome": {"kind": "expired"}}
+
+# The squad map's pilots look at one place on their rail every SQUAD_SCAN seconds, and
+# forecast a shot in steps of SQUAD_TICK: the sweeps are exact, so a coarse step only
+# costs the moving bumpers a little accuracy, and six pilots can afford it on a phone.
+const SQUAD_SCAN = 0.07
+const SQUAD_TICK = 0.2
+const SQUAD_TICKS = 18
+
+func squad_command(index: int) -> Dictionary:
+	# A squad-map pilot nobody holds the stick of (all six, when the robots play each other):
+	# it walks its own rail looking for the spot whose shot breaks an enemy brick - a ricochet
+	# on the way counts extra, so they learn to play the pinball - holds still to fire, and
+	# steps out of the way of a shot about to land on it.
+	var pilot: Dictionary = players[index]
+	if phase != "play" or pilot.stun > 0:
+		return {"move": Vector2.ZERO, "fire": false}
+	var team: int = index % 2
+	if not pilot.has("plan"):
+		# Out of step with each other, so the six forecasts never all land on one frame.
+		pilot["plan"] = {"target": 0.0, "best": -INF, "scan": 0, "next_scan": elapsed + index * SQUAD_SCAN / 6.0, "next_fire": 0.0}
+	var plan: Dictionary = pilot.plan
+	var limit: float = pilot_limit(index)
+	var rate: float = pilot_rate(index)
+	if elapsed >= plan.next_scan:
+		# Seventeen looks sweep the rail end to end, from the middle outwards.
+		plan.next_scan = elapsed + SQUAD_SCAN
+		if plan.scan == 0:
+			plan.best = squad_score(index, plan.target, rate)
+		var k: int = int(ceil(plan.scan / 2.0)) * (1 if plan.scan % 2 else -1)
+		var u: float = limit * k / 8.0
+		var score: float = squad_score(index, u, rate)
+		if score > plan.best + 0.05:
+			plan.best = score
+			plan.target = u
+		plan.scan = (plan.scan + 1) % 17
+	var move = Vector2(clampf((plan.target - pilot.angle) * 8.0, -1, 1), 0)
+	var tangent: Vector2 = pilot_position(index, clampf(pilot.angle + 0.02, -limit, limit)) - pilot_position(index, clampf(pilot.angle - 0.02, -limit, limit))
+	var dodge := 0.0
+	for ball in balls:
+		if int(ball.owner) == team:
+			continue
+		var heading: Vector2 = ball.v.normalized()
+		var to_me: Vector2 = pilot.p - ball.p
+		var closing: float = to_me.dot(heading)
+		if closing <= 0.0 or closing > ball.v.length() * 0.45:
+			continue
+		var aside: Vector2 = to_me - heading * closing
+		if aside.length() < 0.8:
+			# Step the way that widens the miss, along the rail.
+			dodge += 1.0 if aside.dot(tangent) >= 0.0 else -1.0
+	if dodge != 0.0:
+		if absf(pilot.angle + signf(dodge) * 0.1) > limit:
+			dodge = -signf(pilot.angle)
+		return {"move": Vector2(clampf(dodge, -1, 1), 0), "fire": false}
+	var fire := false
+	if pilot.cooldown <= 0 and elapsed >= plan.next_fire:
+		plan.next_fire = elapsed + 0.12
+		fire = squad_value(team, squad_forecast(index, pilot.angle, 0.0)) > 0.0
+		if fire:
+			move = Vector2.ZERO
+	return {"move": move, "fire": fire}
+
+func squad_score(index: int, u: float, rate: float) -> float:
+	# What the shot from that spot is worth, less the walk to get there.
+	var distance: float = absf(u - players[index].angle)
+	return squad_value(index % 2, squad_forecast(index, u, distance / maxf(rate, 0.1))) - distance * 2.0
+
+func squad_forecast(index: int, u: float, delay: float) -> Dictionary:
+	var origin: Vector2 = pilot_position(index, u)
+	var heading: Vector2 = pilot_aim(index, u)
+	var probe = {"owner": index % 2, "p": origin + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "damage": 1, "boosted": false}
+	for tick in range(SQUAD_TICKS):
+		var outcome = advance_ball(probe, SQUAD_TICK, false, true, obstacle_time + delay + tick * SQUAD_TICK, origin)
+		if not outcome.is_empty():
+			outcome["bounces"] = int(probe.bounces)
+			return outcome
+	return {"kind": "expired"}
+
+func squad_value(team: int, outcome: Dictionary) -> float:
+	match outcome.get("kind", ""):
+		"goal":
+			return 100.0 if int(outcome.target) == team else -100.0
+		"brick":
+			var brick: Dictionary = bricks[outcome.target]
+			if brick.team != team:
+				return 10.0 + (4.0 if brick.hp <= int(outcome.damage) else 0.0) + float(outcome.get("bounces", 0)) * 0.8
+		"player":
+			if int(outcome.target) % 2 != team:
+				return 6.0
+	return 0.0
 
 func snapshot() -> Dictionary:
 	# Positions/rotations are deterministic; send only each brick's changing health.
