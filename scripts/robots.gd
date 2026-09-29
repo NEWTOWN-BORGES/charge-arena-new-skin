@@ -356,9 +356,12 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 	_mount(view, node, "brick:soft", [["brick_soft", Transform3D.IDENTITY]], paint, false)
 	return false
 
+# Tests set this to see the phone's half-detail scenery on a computer.
+static var light_parts := false
+
 static func detail_name(view, name: String) -> String:
 	# The half-detail copy of a scenery part (kit "lo_" parts) on a phone below the top profile.
-	if OS.has_feature("mobile") and int(view.quality_level) < 2 and not part("lo_" + name).is_empty():
+	if (OS.has_feature("mobile") or light_parts) and int(view.quality_level) < 2 and not part("lo_" + name).is_empty():
 		return "lo_" + name
 	return name
 

@@ -353,7 +353,8 @@ def grass_tuft(p, seed, size=1.0):
     p.add("grass", bm, T(0, 0, 0))
 
 
-LIGHT_NAMES = ["env_oak_%d" % i for i in range(3)] + ["env_pine_%d" % i for i in range(3)] + ["env_cloud_%d" % i for i in range(3)] + ["env_bush_0", "env_bush_1", "env_island_0", "env_island_1", "prop_cloud"]
+# Clouds stay round even on phones (few of them, and faceted clouds read as grey rocks).
+LIGHT_NAMES = ["env_oak_%d" % i for i in range(3)] + ["env_pine_%d" % i for i in range(3)] + ["env_bush_0", "env_bush_1", "env_island_0", "env_island_1"] + ["env_block_%d" % i for i in range(3)] + ["env_tower_%d" % i for i in range(3)]
 
 
 def define(part):
@@ -397,12 +398,10 @@ def _facade(p, rng, width, face, floors, y0, floor_h, axis, lit_share=0.5, bay=1
             if axis == "z":
                 mbox(p, "trim", T(u, y, face + 0.02), (ww + 0.12, hh + 0.12, 0.05), 0.0, 1)
                 mbox(p, glass, T(u, y, face + 0.05), (ww, hh, 0.02), 0.0, 1)
-                mbox(p, "label", T(u, y - hh / 2 - 0.07, face + 0.08), (ww + 0.2, 0.06, 0.14), 0.0, 1)
             else:
                 sx = 1 if axis == "x+" else -1
                 mbox(p, "trim", T(sx * (face + 0.02), y, u), (0.05, hh + 0.12, ww + 0.12), 0.0, 1)
                 mbox(p, glass, T(sx * (face + 0.05), y, u), (0.02, hh, ww), 0.0, 1)
-                mbox(p, "label", T(sx * (face + 0.08), y - hh / 2 - 0.07, u), (0.14, 0.06, ww + 0.2), 0.0, 1)
 
 
 def town_tower(p, height, seed):
@@ -413,6 +412,7 @@ def town_tower(p, height, seed):
     ground = 1.0
     floor_h = 0.72
     floors = max(1, int((height - ground - 0.3) / floor_h))
+    bay = 1.25 if _low() else 1.0
     top = ground + floors * floor_h
     # Ground floor: a darker plinth with shop windows and an awning on the front.
     mbox(p, "dark", T(0, ground / 2, 0), (w + 0.1, ground, w + 0.1), 0.03, 1)
@@ -426,9 +426,9 @@ def town_tower(p, height, seed):
     for f in range(floors + 1):
         y = ground + f * floor_h
         mbox(p, "trim", T(0, y, 0), (w + 0.12, 0.07, w + 0.12), 0.01, 1)
-    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "z")
-    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "x+")
-    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "x-")
+    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "z", bay=bay)
+    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "x+", bay=bay)
+    _facade(p, rng, w - 0.5, w / 2, floors, ground, floor_h, "x-", bay=bay)
     # A balcony here and there.
     for f in range(1, floors, 3):
         y = ground + f * floor_h
@@ -461,13 +461,22 @@ def city_block(p, w, d, h, seed):
         for sz in (-1, 1):
             mbox(p, "trim", T(sx * (w / 2 - 0.12), -h / 2, sz * (d / 2 - 0.12)), (0.3, h, 0.3), 0.02, 1)
     floor_h = 1.1
-    floors = min(12, int((h - 0.6) / floor_h))
+    # Only the upper floors: from above and from the arena the rest is hidden by the other
+    # roofs and the street haze. Phones below Alto get fewer still.
+    floors = min(3 if _low() else 6, int((h - 0.6) / floor_h))
     y0 = -0.6 - floors * floor_h
     for f in range(floors + 1):
         mbox(p, "trim", T(0, y0 + f * floor_h, 0), (w + 0.1, 0.08, d + 0.1), 0.01, 1)
-    _facade(p, rng, w - 0.8, d / 2, floors, y0, floor_h, "z", bay=1.3)
-    _facade(p, rng, d - 0.8, w / 2, floors, y0, floor_h, "x+", bay=1.3)
-    _facade(p, rng, d - 0.8, w / 2, floors, y0, floor_h, "x-", bay=1.3)
+    _facade(p, rng, w - 0.8, d / 2, floors, y0, floor_h, "z", bay=1.6)
+    _facade(p, rng, d - 0.8, w / 2, floors, y0, floor_h, "x+", bay=1.6)
+    _facade(p, rng, d - 0.8, w / 2, floors, y0, floor_h, "x-", bay=1.6)
+    # Below the windows, plain bands of glass down to the street.
+    below = -0.6 - floors * floor_h
+    for k in range(4):
+        y = below - 1.2 - k * 2.2
+        mbox(p, "label", T(0, y, d / 2 + 0.03), (w - 0.8, 0.5, 0.04), 0.0, 1)
+        mbox(p, "label", T(w / 2 + 0.03, y, 0), (0.04, 0.5, d - 0.8), 0.0, 1)
+        mbox(p, "label", T(-w / 2 - 0.03, y, 0), (0.04, 0.5, d - 0.8), 0.0, 1)
     mbox(p, "rubber", T(0, 0.02, 0), (w - 0.5, 0.04, d - 0.5), 0.0, 1)
     for sx in (-1, 1):
         mbox(p, "trim", T(sx * (w / 2 - 0.08), 0.22, 0), (0.16, 0.44, d), 0.02, 1)

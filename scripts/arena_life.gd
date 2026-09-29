@@ -80,11 +80,10 @@ static func clouds(view, theme: Dictionary, rng: RandomNumberGenerator, count: i
 	var belly = Color("2a2640") if night else Color("dde6f0")
 	var pivot = drifter(view, speed)
 	var sets: Array = [[], [], []]
-	# Painted skies carry fewer, far bigger towering clouds.
-	for k in range(ArenaSky.rich(view, int(count * 0.6) if ArtStyle.painted_nature() else count)):
+	for k in range(ArenaSky.rich(view, count)):
 		var a = rng.randf_range(0, TAU)
-		var r = rng.randf_range(radius.x, radius.y) * (1.3 if ArtStyle.painted_nature() else 1.0)
-		sets[k % 3].append(pose(Vector3(sin(a) * r, rng.randf_range(height.x, height.y), cos(a) * r), -a + PI * 0.5, rng.randf_range(1.2, 2.6) * (2.2 if ArtStyle.painted_nature() else 1.0)))
+		var r = rng.randf_range(radius.x, radius.y)
+		sets[k % 3].append(pose(Vector3(sin(a) * r, rng.randf_range(height.x, height.y), cos(a) * r), -a + PI * 0.5, rng.randf_range(1.2, 2.6)))
 	for i in range(3):
 		scatter(view, "env_cloud_%d" % i, sets[i], {"shell": white, "glow": white.darkened(0.04), "trim": belly}, pivot)
 
@@ -162,7 +161,8 @@ static func build(view, theme: Dictionary, dressing: String) -> void:
 			clouds(view, theme, rng, 10, Vector2(35, 80), Vector2(10, 22), -0.01)
 			mountains(view, theme, rng, far + 90.0, -14.0)
 		"city":
-			clouds(view, theme, rng, 12, Vector2(30, 80), Vector2(26, 40), 0.012)
+			# High above the rooftops: never between a pulled-back camera and the field.
+			clouds(view, theme, rng, 12, Vector2(45, 90), Vector2(48, 62), 0.012)
 		"diorama":
 			mountains(view, theme, rng, far + 60.0, -2.0)
 			clouds(view, theme, rng, 12, Vector2(28, 70), Vector2(12, 22), 0.014)

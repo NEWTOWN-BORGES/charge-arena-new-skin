@@ -44,13 +44,19 @@ void fragment() {
 	float gloss = finish > 0.9 ? 0.0 : (finish > 0.4 && finish < 0.48 ? 0.05 : 0.3);
 	vec3 lit = studio(COLOR.rgb, finish) * (fill * 0.55 + vec3(1.0, 0.97, 0.93) * wrap * wrap * 0.75) + vec3(shine * gloss);
 	ALBEDO = finish > 0.9 ? COLOR.rgb * 1.7 : lit;
+	float sun = dot(n, key_dir);
 	if (finish < 0.1) {
 		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.65);
 	} else if (finish < 0.2) {
-		ALBEDO = COLOR.rgb * mix(vec3(0.74, 0.78, 0.86), vec3(1.0), n.y * 0.5 + 0.5);
-	}
-	if (finish > 0.3 && finish < 0.4) {
-		// Foliage: matte, darker underneath.
-		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.7) * mix(0.55, 1.05, n.y * 0.5 + 0.5);
+		// Cloud, painted: warm white in the sun, a cool blue shade underneath.
+		float lit = sun * 0.55 + n.y * 0.45;
+		vec3 cloud = mix(vec3(0.56, 0.64, 0.8), vec3(0.83, 0.87, 0.94), smoothstep(-0.12, -0.02, lit));
+		ALBEDO = COLOR.rgb * mix(cloud, vec3(1.0, 0.97, 0.9), smoothstep(0.3, 0.4, lit)) * 1.2;
+	} else if (finish > 0.3 && finish < 0.4) {
+		// Foliage, painted: a teal shade, the leaf green and a warm sunlit green.
+		float lit = sun * 0.8 + 0.1;
+		vec3 leaves = mix(COLOR.rgb * vec3(0.5, 0.64, 0.7), COLOR.rgb * 0.95, smoothstep(-0.14, -0.06, lit));
+		leaves = mix(leaves, COLOR.rgb * vec3(1.3, 1.26, 0.82), smoothstep(0.42, 0.5, lit));
+		ALBEDO = leaves * mix(0.72, 1.0, smoothstep(-0.8, 0.1, n.y)) * 1.25;
 	}
 }

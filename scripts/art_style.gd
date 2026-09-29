@@ -121,8 +121,8 @@ static func environment(env: Environment) -> void:
 static func key_light(light: DirectionalLight3D, quality: int = 2) -> void:
 	if not look().has("key"):
 		return
-	# Real shadows cost a depth pass: a phone on Leve keeps the soft contact discs instead.
-	var cast = shadows() and not (OS.has_feature("mobile") and quality == 0)
+	# Real shadows cost a depth pass: a phone below Alto keeps the soft contact discs instead.
+	var cast = shadows() and not (OS.has_feature("mobile") and quality < 2)
 	var key: Dictionary = look().key
 	if key.has("rotation"):
 		light.rotation_degrees = key.rotation
