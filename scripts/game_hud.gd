@@ -1042,7 +1042,7 @@ func open_credits() -> void:
 	# The licences the engine and the fonts ask to be shown to players.
 	if credits_overlay == null:
 		credits_overlay = ColorRect.new()
-		credits_overlay.color = Color(UiKit.NIGHT, 0.96)
+		credits_overlay.color = Color(UiKit.NIGHT, 1.0)
 		credits_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(credits_overlay)
 		var column = VBoxContainer.new()

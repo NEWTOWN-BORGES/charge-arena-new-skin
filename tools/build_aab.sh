@@ -26,6 +26,19 @@ trap 'rm -r "$work"' EXIT
 
 "$root/tools/export_apk.sh" "$work/app.apk" "$package" "$label" "$version" "" bit all
 
+# Without Gradle the Godot template keeps a table entry for the themed icon of Android 13+ but
+# leaves its file out, and aapt2 refuses a dangling file. The adaptive icon it points to has
+# the same compiled form, so it stands in for it.
+python3 - "$work/app.apk" <<'PY'
+import sys, zipfile
+path = sys.argv[1]
+with zipfile.ZipFile(path) as z:
+    names = z.namelist()
+    icon = z.read("res/mipmap-anydpi-v26/icon.xml") if "res/mipmap-anydpi-v26/icon.xml" in names else None
+if icon is not None and "res/mipmap-anydpi-v26/themed_icon.xml" not in names:
+    with zipfile.ZipFile(path, "a") as z:
+        z.writestr("res/mipmap-anydpi-v26/themed_icon.xml", icon)
+PY
 aapt2 convert --output-format proto -o "$work/proto.apk" "$work/app.apk"
 mkdir -p "$work/unpacked" "$work/base/manifest" "$work/base/dex" "$work/base/root"
 (cd "$work/unpacked" && unzip -q ../proto.apk)
