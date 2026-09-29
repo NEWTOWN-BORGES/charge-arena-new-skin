@@ -29,6 +29,7 @@ const Fx = preload("res://scripts/fx.gd")
 const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
 const ArenaFinish = preload("res://scripts/arena_finish.gd")
+const ArtStyle = preload("res://scripts/art_style.gd")
 const GLASS = preload("res://shaders/glass.gdshader")
 const GUIDE_DOTS = 30
 # Projectile size per power: normal, explosive, machine-gun round, air pellet.
@@ -466,6 +467,14 @@ func build(new_map: Dictionary = {}) -> void:
 	light.light_color = theme.get("key", theme.get("sun", Color("fff3e6")))
 	light.light_energy = float(theme.get("key_energy", 1.1))
 	light.shadow_enabled = false
+	if ArtStyle.militar():
+		# A low, hard afternoon sun that throws real shadows.
+		light.rotation_degrees = Vector3(-38, -40, 0)
+		light.light_color = Color("ffe0b0")
+		light.light_energy = 1.35
+		light.shadow_enabled = true
+		light.shadow_blur = 0.6
+		light.directional_shadow_max_distance = 60.0
 	add_child(light)
 	key_light = light
 	secondary_light = DirectionalLight3D.new()

@@ -7,6 +7,8 @@ extends RefCounted
 # glance and the robots always stand out from the floor. The court floors are neutral greys
 # with only a hint of their world, so every shot, power and ultimate reads against them;
 # only the season-two neon worlds keep their dark coloured floors.
+const ArtStyle = preload("res://scripts/art_style.gd")
+
 const THEMES = {
 	"aurora": {
 		"name": "Arena Aurora",
@@ -158,6 +160,11 @@ static func for_map(map: Dictionary) -> Dictionary:
 	return theme(id_for(map))
 
 static func theme(key: String) -> Dictionary:
+	if ArtStyle.militar():
+		return ArtStyle.world(_theme(key))
+	return _theme(key)
+
+static func _theme(key: String) -> Dictionary:
 	# A season-two world is its base world with the dark colours laid over it.
 	if DARK_THEMES.has(key):
 		var dark: Dictionary = THEMES[String(DARK_THEMES[key].base)].duplicate()

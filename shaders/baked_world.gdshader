@@ -7,6 +7,7 @@ render_mode unshaded, cull_disabled;
 const float BAKE_RANGE = 2.0;
 uniform float lift = 1.6;
 uniform float soften = 0.8;
+uniform vec3 tint = vec3(1.0);
 
 vec3 decode(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
@@ -15,5 +16,5 @@ vec3 decode(vec3 c) {
 void fragment() {
 	vec3 light = decode(COLOR.rgb) * BAKE_RANGE * lift;
 	float grey = dot(light, vec3(0.2126, 0.7152, 0.0722));
-	ALBEDO = mix(vec3(grey), light, soften);
+	ALBEDO = mix(vec3(grey), light, soften) * tint;
 }

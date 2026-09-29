@@ -10,6 +10,8 @@ const ROSTER = preload("res://art/robots/roster.json")
 const KNEES = preload("res://art/robots/knees.json")
 const PAINT = preload("res://shaders/robot_paint.gdshader")
 const PAINT_LOW = preload("res://shaders/robot_paint_low.gdshader")
+const PAINT_MILITAR = preload("res://shaders/robot_paint_militar.gdshader")
+const ArtStyle = preload("res://scripts/art_style.gd")
 const FACE = preload("res://shaders/robot_face.gdshader")
 const OUTLINE = preload("res://shaders/robot_outline.gdshader")
 const LEG_PIVOT = Vector3(0.19, 0.40, 0.0)
@@ -118,6 +120,8 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 		out.glow = neon
 		out.eyes = neon
 		return out
+	if ArtStyle.militar():
+		ArtStyle.robot(out, team)
 	if tint:
 		# A boss not yet beaten fights in gunmetal and its team's colour.
 		out.shell = Color("3d404a")
@@ -305,10 +309,10 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 			node.transform = inverse
 	var face: ShaderMaterial = _face(body)
 	face.set_shader_parameter("eye_color", paint.eyes)
-	face.set_shader_parameter("style", maxi(EYES.find(String(plan.eye_style)), 0))
+	face.set_shader_parameter("style", EYES.find("visor") if ArtStyle.militar() else maxi(EYES.find(String(plan.eye_style)), 0))
 	face.set_shader_parameter("aspect", float(shape.aspect))
 	face.set_shader_parameter("seed", float(hash(plan.key) % 997) * 0.01 + randf() * 3.0)
-	face.set_shader_parameter("mouth", 1.0 if plan.mouth else 0.0)
+	face.set_shader_parameter("mouth", 1.0 if plan.mouth and not ArtStyle.militar() else 0.0)
 	# A robot may tint the glass of its screen (the roster's "glass"); the rest keep it dark.
 	var glass = String(plan.palette.get("glass", ""))
 	if glass != "":
@@ -370,7 +374,7 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 		var node = MeshInstance3D.new()
 		node.mesh = meshes[role]
 		node.name = "Robot_" + role
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.militar() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if role == "outline":
 			node.material_override = _outline(view)
 			node.add_to_group(OUTLINE_GROUP)
@@ -449,9 +453,14 @@ static func paint_material(view, wear: float = 0.4) -> ShaderMaterial:
 	var mat = ShaderMaterial.new()
 	mat.set_meta("robot_paint", true)
 	mat.set_shader_parameter("wear", wear)
-	mat.shader = PAINT_LOW if view.quality_level == 0 else PAINT
+	mat.shader = _paint_shader(view.quality_level)
 	view.materials[key] = mat
 	return mat
+
+static func _paint_shader(level: int) -> Shader:
+	if ArtStyle.militar():
+		return PAINT_MILITAR
+	return PAINT_LOW if level == 0 else PAINT
 
 static func _outline(view) -> ShaderMaterial:
 	if not view.materials.has("robot:outline"):
@@ -464,7 +473,7 @@ static func set_quality(view, level: int) -> void:
 	# Leve drops per-light shading and the ink hulls; the other profiles restore both.
 	for mat in view.materials.values():
 		if mat is ShaderMaterial and mat.get_meta("robot_paint", false):
-			mat.shader = PAINT_LOW if level == 0 else PAINT
+			mat.shader = _paint_shader(level)
 	if view.is_inside_tree():
 		for node in view.get_tree().get_nodes_in_group(OUTLINE_GROUP):
 			node.visible = level > 0
