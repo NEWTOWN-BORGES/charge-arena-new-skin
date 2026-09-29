@@ -40,8 +40,8 @@ void fragment() {
 	float strokes = noise(vec2(q.x * 1.5, q.y * 14.0));
 	color *= 0.9 + 0.18 * strokes;
 	// Wind: bright waves rolling across the meadow.
-	float wave = sin(dot(p, along) * 0.45 - TIME * wind_speed + fbm(p * 0.2) * 4.0);
-	float gust = smoothstep(0.55, 1.0, wave) * smoothstep(0.3, 0.7, fbm(p * 0.08 + TIME * 0.03));
+	float wave = sin(dot(p, along) * 0.45 - TIME * wind_speed + noise(p * 0.2) * 4.0);
+	float gust = smoothstep(0.55, 1.0, wave) * smoothstep(0.3, 0.7, noise(p * 0.08 + TIME * 0.03));
 	color = mix(color, base * vec3(1.35, 1.32, 0.95) + 0.03, gust * 0.45);
 	ALBEDO = color;
 	ROUGHNESS = 1.0;

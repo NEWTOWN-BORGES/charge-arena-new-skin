@@ -31,7 +31,7 @@ signal menu_requested
 signal resume_requested
 signal quit_requested
 signal replay_requested
-signal video_changed(fps: int, quality: int, sync: bool, counter: bool)
+signal video_changed(fps: int, quality: int, sync: bool, counter: bool, shadows: bool)
 signal video_opened
 signal audio_changed(enabled: bool, volume: float)
 signal layout_changed
@@ -177,6 +177,7 @@ var fps_choice: OptionButton
 var quality_choice: OptionButton
 var sync_choice: CheckButton
 var counter_choice: CheckButton
+var shadow_choice: CheckButton
 var video_note: Label
 var fps_label: Label
 var style_cache: Dictionary = {}
@@ -2576,6 +2577,7 @@ func build_video_menu() -> void:
 	quality_choice = video_option(image, "Qualidade", ["Leve", "Médio", "Alto"])
 	fps_choice = video_option(image, "Limite de FPS", ["30", "45", "60", "90"])
 	sync_choice = big_toggle(image, "VSync")
+	shadow_choice = big_toggle(image, "Sombras reais (mais pesado)")
 	counter_choice = big_toggle(image, "Mostrar FPS")
 	sfx_slider = volume_slider(image, "Efeitos sonoros")
 	music_choice = big_toggle(image, "Música")
@@ -2594,6 +2596,7 @@ func build_video_menu() -> void:
 	fps_choice.item_selected.connect(func(_index): emit_video())
 	sync_choice.toggled.connect(func(_value): emit_video())
 	counter_choice.toggled.connect(func(_value): emit_video())
+	shadow_choice.toggled.connect(func(_value): emit_video())
 	music_choice.toggled.connect(func(_value): emit_audio())
 	music_volume.value_changed.connect(func(_value): emit_audio())
 	show_options_tab(0)
@@ -2837,12 +2840,13 @@ func sync_video(settings) -> void:
 	quality_choice.select(settings.quality)
 	sync_choice.set_pressed_no_signal(settings.vsync)
 	counter_choice.set_pressed_no_signal(settings.show_fps)
+	shadow_choice.set_pressed_no_signal(settings.shadows)
 	fps_label.visible = settings.show_fps
 	video_note.text = "Se o jogo travar, escolhe Leve ou baixa o limite de FPS."
 	refresh_option_chips()
 
 func emit_video() -> void:
-	video_changed.emit([30, 45, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed)
+	video_changed.emit([30, 45, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed, shadow_choice.button_pressed)
 
 func open_video() -> void:
 	reset_touch()

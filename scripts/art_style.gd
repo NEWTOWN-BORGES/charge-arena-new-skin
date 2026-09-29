@@ -12,6 +12,11 @@ extends RefCounted
 ##   "adulto": stylized but grown-up, like the hero shooters: painted two-tone shading, bright
 ##   bevels and a lit rim, bone and slate armour with one strong accent, golden-hour light.
 static var current := "melhorado"
+# Parts of the look switched off, to measure what each costs (tests/benchmark_look.gd):
+# "sky", "nature", "shadows".
+static var off: Array = []
+# The player's choice in Options (VideoSettings.shadows): real sun shadows or the soft discs.
+static var real_shadows := not OS.has_feature("mobile")
 
 const SHADERS = {
 	"militar": preload("res://shaders/robot_paint_militar.gdshader"),
@@ -92,7 +97,7 @@ static func eyes() -> String:
 	return String(look().get("eyes", ""))
 
 static func shadows() -> bool:
-	return bool(look().get("shadows", false))
+	return bool(look().get("shadows", false)) and not "shadows" in off
 
 static func finish(role: String, value: float) -> float:
 	# Neon: the trims are lights, not paint.
@@ -121,8 +126,8 @@ static func environment(env: Environment) -> void:
 static func key_light(light: DirectionalLight3D, quality: int = 2) -> void:
 	if not look().has("key"):
 		return
-	# Real shadows cost a depth pass: a phone below Alto keeps the soft contact discs instead.
-	var cast = shadows() and not (OS.has_feature("mobile") and quality < 2)
+	# Real shadows draw the lit scene again: only when the player has them on in Options.
+	var cast = shadows() and real_shadows
 	var key: Dictionary = look().key
 	if key.has("rotation"):
 		light.rotation_degrees = key.rotation
@@ -131,12 +136,15 @@ static func key_light(light: DirectionalLight3D, quality: int = 2) -> void:
 		light.light_energy = key.energy
 	# A shadowed sun lights the Compatibility renderer several times stronger than a plain
 	# one: its energy is scaled back so the look keeps the same brightness.
+	light.shadow_enabled = cast
 	if cast:
 		light.light_energy *= float(key.get("energy_scale", 1.0))
 	if cast:
 		light.shadow_enabled = true
 		light.shadow_blur = 0.6
-		light.directional_shadow_max_distance = 60.0
+		light.directional_shadow_max_distance = 32.0
+		# One shadow map over the court, not four cascades: a quarter of the shadow drawing.
+		light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 
 static func floodlights(view) -> void:
 	# Premium: four stadium masts beyond the corners of the court light the field; the world
@@ -161,11 +169,11 @@ static func floodlights(view) -> void:
 
 static func painted_nature() -> bool:
 	# The Ghibli-painted meadow and grass tufts.
-	return bool(look().get("day_sky", false))
+	return bool(look().get("day_sky", false)) and not "nature" in off
 
 static func day_sky(theme: Dictionary) -> bool:
 	# Sun and cirrus in the sky: the improved look, on the open-air worlds by day.
-	return bool(look().get("day_sky", false)) and not theme.has("neon") and not theme.get("night", false) and theme.get("stars", 0.0) == 0.0 and not theme.has("fog")
+	return bool(look().get("day_sky", false)) and not "sky" in off and not theme.has("neon") and not theme.get("night", false) and theme.get("stars", 0.0) == 0.0 and not theme.has("fog")
 
 static func court(mat: ShaderMaterial) -> void:
 	if look().has("court_gloss"):

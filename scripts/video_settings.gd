@@ -24,6 +24,9 @@ var fps = 30 if low_end() else 60
 var quality = 0 if low_end() else ((1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2))
 var vsync = true
 var show_fps = false
+# Real shadows from the sun (robots and the court furniture). They draw the lit scene again,
+# so a phone starts without them and can switch them on in Options; a computer has them.
+var shadows = not OS.has_feature("mobile")
 var runtime_scale = 0.72
 var runtime_fps = 60
 var smooth_hud = true
@@ -69,9 +72,11 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 	if low_end() and int(config.get_value("video", "low_end_version", 0)) < 1:
 		saved_quality = 0
 		saved_fps = 30
-	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)))
+	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)), bool(config.get_value("video", "shadows", not OS.has_feature("mobile"))))
 
-func configure(new_fps: int, new_quality: int, sync: bool, counter: bool) -> void:
+func configure(new_fps: int, new_quality: int, sync: bool, counter: bool, real_shadows: int = -1) -> void:
+	if real_shadows >= 0:
+		shadows = real_shadows == 1
 	# A setting saved by an older build may still say 120; it lands on 60.
 	fps = new_fps if new_fps in FPS_OPTIONS else 60
 	quality = clampi(new_quality, 0, QUALITY_NAMES.size() - 1)
@@ -90,6 +95,7 @@ func save_preferences(path: String = CONFIG_PATH) -> Error:
 	config.set_value("video", "quality", quality)
 	config.set_value("video", "vsync", vsync)
 	config.set_value("video", "show_fps", show_fps)
+	config.set_value("video", "shadows", shadows)
 	config.set_value("video", "performance_version", 2)
 	config.set_value("video", "presentation_version", 3)
 	config.set_value("video", "low_end_version", 1)
@@ -113,6 +119,7 @@ func apply(viewport: Viewport, arena) -> void:
 	smooth_hud = quality > 0
 	arena.trail_interval = [0.11, 0.06, 0.035][quality]
 	arena.set_quality(quality)
+	arena.set_shadows(shadows)
 
 func step_up(current: int) -> int:
 	# The next rate up the panel's own ladder, never above the chosen limit.

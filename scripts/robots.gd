@@ -379,12 +379,14 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label", "leaf", "leaf2", "cloud", "rock", "rock2", "grass"]:
 		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
 	var meshes = merged(key + ":" + signature, placed, paint, outline and INK)
+	# Real shadows only from what stands by the court (robots, bricks, goal furniture).
+	var casts = ArtStyle.shadows() and (not parent.is_inside_tree() or Vector2(parent.global_position.x, parent.global_position.z).length() < 18.0)
 	var nodes: Array = []
 	for role in meshes:
 		var node = MeshInstance3D.new()
 		node.mesh = meshes[role]
 		node.name = "Robot_" + role
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if role == "outline":
 			node.material_override = _outline(view)
 			node.add_to_group(OUTLINE_GROUP)

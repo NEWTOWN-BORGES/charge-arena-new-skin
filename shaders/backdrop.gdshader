@@ -26,7 +26,8 @@ float vnoise(vec2 p) {
 float fbm(vec2 p) {
 	float v = 0.0;
 	float a = 0.5;
-	for (int k = 0; k < 5; k++) {
+	// Three octaves: on a phone every one is paid on every pixel of the sky.
+	for (int k = 0; k < 3; k++) {
 		v += a * vnoise(p);
 		p = p * 2.03 + vec2(1.7, 9.2);
 		a *= 0.5;
@@ -57,7 +58,7 @@ void fragment() {
 		vec3 sun = vec3(1.0, 0.96, 0.86) * (smoothstep(0.05, 0.0, d) * 0.9 + exp(-d * 5.0) * 0.35 + exp(-d * 1.6) * 0.12);
 		// Cirrus: streaks of thin cloud, stretched sideways, thinning towards the horizon.
 		vec2 q = vec2(p.x * 2.2 + TIME * 0.004, p.y * 7.0);
-		float wisps = smoothstep(0.52, 0.85, fbm(q + fbm(q * 0.7) * 0.8)) * smoothstep(0.75, 0.15, p.y);
+		float wisps = smoothstep(0.52, 0.85, fbm(q + vnoise(q * 0.7) * 0.8)) * smoothstep(0.75, 0.15, p.y);
 		color = mix(color, vec3(1.0), wisps * 0.55 * daylight);
 		// Towering cumulus along the horizon, painted: billowing tops of rounded puffs, a flat
 		// soft base, warm white where the sun catches them and a cool blue shade on the far side.
@@ -65,7 +66,7 @@ void fragment() {
 		float tower = fbm(vec2(x * 0.8, 3.1)) * 1.3 - 0.25;
 		float top = 0.26 - 0.24 * clamp(tower, 0.0, 1.0);
 		vec2 c = vec2(x * 3.0, p.y * 6.0);
-		float billows = fbm(c + fbm(c * 0.9 + 4.0) * 0.9);
+		float billows = fbm(c + vnoise(c * 0.9 + 4.0) * 0.9);
 		float edge = top + (billows - 0.5) * 0.12;
 		float base_line = 0.3 + (vnoise(vec2(x * 4.0, 1.0)) - 0.5) * 0.02;
 		float body = smoothstep(edge, edge + 0.018, p.y) * smoothstep(base_line + 0.01, base_line - 0.02, p.y);

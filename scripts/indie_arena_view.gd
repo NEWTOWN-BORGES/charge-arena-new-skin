@@ -398,6 +398,19 @@ func soft_disc_material(color: Color) -> ShaderMaterial:
 		materials[key] = mat
 	return materials[key]
 
+func set_shadows(on: bool) -> void:
+	# Options switched real shadows on or off: the sun is set up again from the world's light.
+	if ArtStyle.real_shadows == on:
+		return
+	ArtStyle.real_shadows = on
+	if not is_instance_valid(key_light):
+		return
+	key_light.light_color = theme.get("key", theme.get("sun", Color("fff3e6")))
+	key_light.light_energy = float(theme.get("key_energy", 1.1))
+	key_light.rotation_degrees = Vector3(-52, -35, 0)
+	ArtStyle.key_light(key_light, quality_level)
+	capture_mood_base()
+
 func set_quality(level: int) -> void:
 	quality_level = clampi(level, 0, 2)
 	if presentation_environment != null: ArenaFinish.environment(presentation_environment, quality_level)
@@ -622,6 +635,9 @@ func build(new_map: Dictionary = {}) -> void:
 	# A rebuilt arena brings its floor words back facing the first player.
 	orient_labels()
 
+# How far from the centre things cast real shadows (the court, its walls and the robots).
+const SHADOW_REACH = 18.0
+
 func batch_static_geometry() -> void:
 	# Merge opaque architecture by material, leaving animated models independent.
 	var groups: Dictionary = {}
@@ -635,7 +651,8 @@ func batch_static_geometry() -> void:
 		var merged = MeshInstance3D.new()
 		merged.mesh = st.commit()
 		merged.material_override = group[0].material_override
-		merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var near = Vector2(group[0].global_position.x, group[0].global_position.z).length() < SHADOW_REACH
+		merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() and near else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(merged)
 		static_batch_count += 1
 
@@ -651,7 +668,10 @@ func collect_static(parent: Node, groups: Dictionary) -> void:
 			# Separate attribute layouts so SurfaceTool never mixes UV and non-UV formats.
 			var arrays: Array = child.mesh.surface_get_arrays(0)
 			var has_uv = arrays[Mesh.ARRAY_TEX_UV] != null and arrays[Mesh.ARRAY_TEX_UV].size() > 0
-			var key = str(child.material_override.get_instance_id()) + str(has_uv)
+			# Only what stands by the court casts a shadow: the scenery round it would draw the
+			# whole world a second time into the shadow map.
+			var near = Vector2(child.global_position.x, child.global_position.z).length() < SHADOW_REACH
+			var key = str(child.material_override.get_instance_id()) + str(has_uv) + ("near" if near else "")
 			if not groups.has(key):
 				groups[key] = []
 			groups[key].append(child)
@@ -679,7 +699,9 @@ func batch_bricks() -> void:
 		batch.multimesh.mesh = group[0].part.mesh
 		batch.multimesh.instance_count = group.size()
 		batch.material_override = group[0].part.material_override
-		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# The walls keep their soft contact shade: hundreds of bricks in the shadow map cost
+		# more than their shadows show.
+		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(batch)
 		brick_batches.append(batch)
 		for binding in group:

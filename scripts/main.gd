@@ -1353,8 +1353,8 @@ func change_audio(on: bool, volume: float) -> void:
 	if error != OK:
 		hud.video_note.text = "Aplicado nesta sessão. Não foi possível guardar as opções."
 
-func change_video(fps: int, quality: int, sync: bool, counter: bool) -> void:
-	video.configure(fps, quality, sync, counter)
+func change_video(fps: int, quality: int, sync: bool, counter: bool, shadows: bool = false) -> void:
+	video.configure(fps, quality, sync, counter, 1 if shadows else 0)
 	video.apply(get_viewport(), arena)
 	hud.smooth = video.smooth_hud
 	hud.queue_redraw()
