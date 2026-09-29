@@ -14,6 +14,10 @@ from mech_kit import (at, axis_frame, bearing, bolts, boot, cable, capsule, char
                       serial, servo, sub, vents, warning, finger)
 
 
+# Altura do joelho da última perna construída (o kit parte as pernas em coxa e canela aí).
+LAST_KNEE = None
+
+
 def T(x, y, z):
     return Matrix.Translation(Vector((x, y, z)))
 
@@ -177,6 +181,8 @@ def leg(p, out, hip_y, knee_y=-0.24, ankle_up=0.17, knee_z=-0.01, thigh="shell",
     """Perna no espaço da perna (pivô da anca na origem, chão em y = -hip_y). Sem `guard`, a
     caneleira sobe à frente do joelho (`shin_top`) e faz de joelheira; as tampas das juntas
     ficam à vista dos lados."""
+    global LAST_KNEE
+    LAST_KNEE = knee_y
     ground = -hip_y
     knee = Vector((0, knee_y, knee_z))
     ankle = Vector((0, ground + ankle_up, 0.0))
@@ -247,6 +253,8 @@ def bird_leg(p, out, hip_y, knee=(-0.16, -0.1), heel=(-0.36, 0.1), ankle_up=0.11
     """Perna digitígrada (joelho à frente, calcanhar atrás, como uma ave): anca com garfo,
     coxa curta, joelho, canela para trás, calcanhar com segunda dobradiça, metatarso e pé.
     `knee` e `heel` são (y, z) no espaço da perna."""
+    global LAST_KNEE
+    LAST_KNEE = knee[0]
     ground = -hip_y
     ox = "x" if out > 0 else "-x"
     hub = axis_frame((0.03 * out, 0, 0), ox)

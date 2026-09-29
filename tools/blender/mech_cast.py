@@ -468,8 +468,9 @@ def tread_foot(p, m, out, ankle, length=0.56, width=0.24, height=0.16, armor="sh
 
 
 def bigorna_leg(p, out):
+    # Pés de verdade (as lagartas não andam, só deslizavam): botas largas de estaleiro.
     def treads(q, m, o, ankle):
-        tread_foot(q, m, o, ankle)
+        foot(q, m, length=0.54, width=0.36, out=o, toes=3, armor="shell", heel="trim")
     leg(p, out, BIGORNA["hip"].y, knee_y=-0.2, ankle_up=0.25, width=1.3, knee_w=0.14, knee_r=0.072, foot_fn=treads,
         thigh_fn=round_thigh(k=1.3), shin_fn=round_shin(k=1.3, r_bottom=0.1, r_top=0.125), thigh_top=0.03, guard=False,
         shin_top=-0.15)
@@ -844,8 +845,9 @@ def wheel_foot(p, m, out, ankle, length=0.44, width=0.26, armor="shell", heel="t
 
 
 def rosca_leg(p, out):
+    # Pés que andam, em vez das rodas.
     def wheels(q, m, o, ankle):
-        wheel_foot(q, m, o, ankle)
+        foot(q, m, length=0.44, width=0.28, out=o, toes=2, armor="shell", heel="trim")
     leg(p, out, ROSCA["hip"].y, knee_y=-0.24, ankle_up=0.26, width=1.0, knee_w=0.115, knee_r=0.062, foot_fn=wheels,
         thigh_fn=round_thigh(k=1.0), shin_fn=round_shin(k=1.0, r_bottom=0.09, r_top=0.115), thigh_top=0.03, guard=False,
         shin_top=-0.19)
@@ -1025,8 +1027,9 @@ def roller_foot(p, m, out, ankle, length=0.42, width=0.26, armor="shell"):
 
 
 def broto_leg(p, out):
+    # Pés que andam, em vez do triciclo.
     def rollers(q, m, o, ankle):
-        roller_foot(q, m, o, ankle)
+        foot(q, m, length=0.42, width=0.28, out=o, toes=2, armor="shell", heel="trim")
     leg(p, out, BROTO["hip"].y, knee_y=-0.23, ankle_up=0.26, width=1.0, knee_w=0.115, knee_r=0.062, foot_fn=rollers,
         thigh_fn=round_thigh(k=1.0), shin_fn=round_shin(k=1.0, r_bottom=0.09, r_top=0.115), thigh_top=0.03, guard=False,
         shin_top=-0.18)

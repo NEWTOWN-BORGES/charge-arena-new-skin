@@ -1655,19 +1655,21 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		gait_speed[team] = lerpf(gait_speed[team], clampf(speed / 3.2, 0.0, 1.0), minf(dt * 9.0, 1.0))
 		var run: float = gait_speed[team]
 		var side: float = gait_side[team]
-		# Steps come quicker the faster it goes; standing, the cycle slows to a breath.
-		gait_phase[team] += dt * lerpf(2.2, 13.0, run)
+		var still: float = 1.0 - run
+		# Steps come quicker the faster it goes; standing, the cycle slows to a sway of weight.
+		gait_phase[team] += dt * lerpf(1.6, 12.5, run)
 		var phase: float = gait_phase[team]
-		var breath = 0.5 + 0.5 * sin(clock * 1.8 + team * 1.3)
-		# The body: a bounce on every step, a lean into the run, the hips twisting with the
-		# stride, and the stun wobble on top of it all.
-		body.position.y = absf(sin(phase)) * 0.055 * run + breath * 0.012 * (1.0 - run)
-		var lean = -side * 0.13 * run + sin(phase) * 0.03 * run
+		# The body: sinks into a runner's crouch, bounces once per step, leans into the run,
+		# rocks side to side over the planted foot and twists its hips with the stride.
+		var bounce = absf(cos(phase))
+		body.position.y = bounce * 0.05 * run - 0.035 * run + (0.5 + 0.5 * sin(clock * 1.8 + team * 1.3)) * 0.01 * still
+		var lean = -side * 0.12 * run + sin(phase) * 0.045 * run + sin(phase) * 0.02 * still
 		body.rotation.z = lerpf(body.rotation.z, sin(clock * 16) * 0.09 if data.stun > 0 else lean, minf(dt * 10, 1))
-		body.rotation.x = lerpf(body.rotation.x, -0.05 * run, minf(dt * 8, 1))
-		body.rotation.y += sin(phase) * 0.07 * run
-		# The legs: each one swings out to the side and lifts its foot in turn, the lead leg
-		# reaching the way it runs; standing, the weight shifts from foot to foot.
+		body.rotation.x = -0.06 * run
+		body.rotation.y += sin(phase) * 0.09 * run
+		# The legs, joint by joint: the lifting leg's hip swings out towards the run and forward,
+		# its knee folds to carry the foot up and under; the planted leg pushes off with a softly
+		# bent knee. Standing, the weight rolls from one foot to the other.
 		var legs = [body.get_node("LegL"), body.get_node("LegR")]
 		for i in range(2):
 			var leg: Node3D = legs[i]
@@ -1676,19 +1678,27 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			var rest: Vector3 = leg.get_meta("rest")
 			var own = phase + (PI if i == 1 else 0.0)
 			var lift = maxf(0.0, sin(own))
-			leg.position = rest + Vector3(0, lift * 0.09 * run, 0)
-			leg.rotation.z = (side * 0.22 + sin(own) * 0.3) * run + (sin(clock * 0.9 + i * PI) * 0.03) * (1.0 - run)
-			leg.rotation.x = -lift * 0.35 * run
-		# The head looks where it runs and wobbles when stunned; the free arm swings with the stride.
+			var plant = maxf(0.0, -sin(own))
+			var out = -1.0 if i == 0 else 1.0
+			leg.position = rest + Vector3(0, lift * 0.035 * run, 0)
+			leg.rotation.z = (side * 0.16 + cos(own) * side * 0.2 + out * 0.05) * run + out * 0.03 * still
+			leg.rotation.x = (lift * 0.55 - plant * 0.12 + 0.1) * run + plant * 0.05 * still
+			leg.rotation.y = -body.rotation.y * 0.0 + sin(own) * 0.12 * run
+			var knee: Node3D = leg.get_node_or_null("Knee")
+			if knee != null:
+				knee.rotation.x = -(lift * 1.05 + 0.18 + plant * 0.1) * run - (0.12 * plant) * still
+		# The head keeps its eyes on the field (against the twist), looks the way it runs and
+		# wobbles when stunned.
 		var head: Node3D = body.get_node_or_null("Head")
 		if head != null:
-			head.rotation.y = sin(clock * 0.9 + team * 2.0) * 0.14 * (1.0 - run) + side * 0.3 * run + (sin(clock * 14.0) * 0.2 if data.stun > 0 else 0.0)
-			head.rotation.x = sin(clock * 2.2 + team) * 0.03 + absf(sin(phase)) * 0.05 * run
+			head.rotation.y = sin(clock * 0.9 + team * 2.0) * 0.14 * still + side * 0.28 * run - sin(phase) * 0.07 * run + (sin(clock * 14.0) * 0.2 if data.stun > 0 else 0.0)
+			head.rotation.x = sin(clock * 2.2 + team) * 0.03 + bounce * 0.05 * run
 			head.rotation.z = -lean * 0.6
+		# The free arm swings against the legs, pumping harder the faster it runs.
 		var arm: Node3D = body.get_node_or_null("Arm")
 		if arm != null:
-			arm.rotation.x = -sin(phase) * 0.55 * run + sin(clock * 2.2) * 0.04
-			arm.rotation.z = side * 0.25 * run
+			arm.rotation.x = -sin(phase) * 0.6 * run - 0.15 * run + sin(clock * 2.2) * 0.04 * still
+			arm.rotation.z = side * 0.2 * run + 0.05 * run
 		var overload: Node3D = node.get_node_or_null("Surge")
 		if overload != null:
 			overload.visible = rules.powers[team].surge_time > 0
@@ -1727,11 +1737,21 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		# holds a hair, returns with a small overshoot; the body takes a little of the kick.
 		var recoil = recoil_curve(age)
 		gun.position.z = recoil * feel.get_value("fire_recoil_strength")
-		gun.rotation.x = recoil * 0.06
+		# Aim, fire, recover, aim: the gun arm comes up level while it keeps firing, kicks up
+		# with each shot and settles back on the line; a second after the last shot it lowers
+		# to a ready carry.
+		var ready_pose = smoothstep(0.9, 1.6, age)
+		gun.rotation.x = recoil * 0.22 - ready_pose * 0.32 + sin(phase) * 0.05 * run * ready_pose
+		gun.rotation.z = -side * 0.06 * run * ready_pose
 		var kick = recoil * feel.get_value("fire_body_kick")
-		body.position.x = body.basis.z.x * kick
-		body.position.z = body.basis.z.z * kick
-		body.rotation.x = -recoil * 0.05
+		# The rules fire every round down the pilot's centre line; the robot stands a little to
+		# the side of it so its muzzle is on that line and the round flies straight out of the
+		# barrel instead of curving in to it.
+		var flash_local: Vector3 = gun.get_meta("rest", gun.position) + gun.get_node("Flash").position
+		var muzzle_shift = -right_of_body * flash_local.x
+		body.position.x = body.basis.z.x * kick + muzzle_shift.x
+		body.position.z = body.basis.z.z * kick + muzzle_shift.z
+		body.rotation.x += -recoil * 0.05
 		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
 		goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
 	for i in range(rules.bricks.size()):

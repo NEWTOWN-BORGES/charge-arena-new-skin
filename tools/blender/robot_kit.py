@@ -16,6 +16,7 @@ O desgaste da pintura (arestas claras e lascas) é calculado no shader a partir 
 Coordenadas escritas em unidades do Godot: Y para cima, frente em -Z, direita em +X.
 """
 import json
+import re
 import math
 import sys
 from pathlib import Path
@@ -1308,10 +1309,14 @@ def build_kit():
     reset()
     objects = {}
     jobs = [(name, fn, 1.0) for name, fn in PARTS.items()] + [("lo_" + name, PARTS[name], 0.5) for name in LOW_DETAIL]
+    import mech_parts
     for name, fn, detail in jobs:
         DETAIL = detail
         p = Part(name)
+        mech_parts.LAST_KNEE = None
         fn(p)
+        if mech_parts.LAST_KNEE is not None:
+            KNEES[name] = float(mech_parts.LAST_KNEE)
         root = bpy.data.objects.new(name, None)
         bpy.context.collection.objects.link(root)
         objects[name] = root
@@ -1323,7 +1328,55 @@ def build_kit():
             obj = bpy.data.objects.new(f"{name}__{role}", me)
             bpy.context.collection.objects.link(obj)
             obj.parent = root
+    split_legs(objects)
     return objects
+
+
+# Altura do joelho de cada perna (no espaço da perna, anca na origem); o kit parte-as aí.
+KNEES = {}
+KNEE_DEFAULT = -0.24
+LEG_NAME = re.compile(r"_leg(_[lr])?$")
+
+
+def split_legs(objects):
+    """Cada perna vira também coxa (`<perna>_thigh`, acima do joelho, pivô na anca) e canela
+    (`<perna>_shin`, abaixo, pivô no joelho), cortadas no plano do joelho: o jogo dobra o joelho
+    enquanto o robô anda. A perna inteira fica como estava."""
+    roster = json.loads(ROSTER.read_text())
+    used = {c["parts"]["legs"] for c in roster["cast"] if "parts" in c}
+    used |= {f["legs"] for f in roster["station"]["families"]}
+    for name in list(objects):
+        if not LEG_NAME.search(name):
+            continue
+        base = LEG_NAME.sub("_leg", name)
+        if base not in used:
+            continue
+        knee = KNEES.get(name, KNEES.get(base, KNEE_DEFAULT))
+        KNEES[name] = knee
+        for suffix, upper in (("_thigh", True), ("_shin", False)):
+            root = bpy.data.objects.new(name + suffix, None)
+            bpy.context.collection.objects.link(root)
+            objects[name + suffix] = root
+            for child in objects[name].children:
+                bm = bmesh.new()
+                bm.from_mesh(child.data)
+                geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+                # Godot y (cima) é z no Blender: o plano do joelho é z = knee.
+                bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(0, 0, knee), plane_no=(0, 0, 1),
+                                       clear_inner=upper, clear_outer=not upper)
+                if not upper:
+                    for v in bm.verts:
+                        v.co.z -= knee
+                if not bm.faces:
+                    bm.free()
+                    continue
+                me = bpy.data.meshes.new(child.data.name + suffix)
+                bm.to_mesh(me)
+                bm.free()
+                me.materials.append(child.data.materials[0])
+                obj = bpy.data.objects.new(child.name + suffix, me)
+                bpy.context.collection.objects.link(obj)
+                obj.parent = root
 
 
 def export():
@@ -1339,6 +1392,7 @@ def export():
     print("ROBOT_KIT", OUTPUT.relative_to(ROOT), len(PARTS), "peças", tris, "triângulos", OUTPUT.stat().st_size, "bytes")
     print("HEADS", json.dumps(HEADS))
     sync_heads()
+    (OUTPUT.parent / "knees.json").write_text(json.dumps(KNEES, indent=1, sort_keys=True) + "\n")
 
 
 def sync_heads():

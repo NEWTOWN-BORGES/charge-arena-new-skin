@@ -6,6 +6,8 @@ extends RefCounted
 ## an ink outline per group and a face screen of its own.
 const KIT = preload("res://art/robots/kit.glb")
 const ROSTER = preload("res://art/robots/roster.json")
+# Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
+const KNEES = preload("res://art/robots/knees.json")
 const PAINT = preload("res://shaders/robot_paint.gdshader")
 const PAINT_LOW = preload("res://shaders/robot_paint_low.gdshader")
 const FACE = preload("res://shaders/robot_face.gdshader")
@@ -253,13 +255,30 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 		var leg_part = String(parts.legs) + ("_l" if side == -1 else "_r")
 		if part(leg_part).is_empty():
 			leg_part = String(parts.legs)
-		_mount(view, leg, plan.key + ":" + leg_part, [[leg_part, Transform3D.IDENTITY]], paint)
+		if not part(leg_part + "_thigh").is_empty() and KNEES.data.has(leg_part):
+			# Two pieces on two joints: the thigh swings from the hip, the shin from the knee
+			# (LegL/Knee), so the leg can bend as the robot runs.
+			_mount(view, leg, plan.key + ":" + leg_part + "_thigh", [[leg_part + "_thigh", Transform3D.IDENTITY]], paint)
+			var knee = Node3D.new()
+			knee.name = "Knee"
+			knee.position = Vector3(0, float(KNEES.data[leg_part]), 0)
+			leg.add_child(knee)
+			_mount(view, knee, plan.key + ":" + leg_part + "_shin", [[leg_part + "_shin", Transform3D.IDENTITY]], paint)
+		else:
+			_mount(view, leg, plan.key + ":" + leg_part, [[leg_part, Transform3D.IDENTITY]], paint)
 	var gun = Node3D.new()
 	gun.name = "Gun"
 	body.add_child(gun)
-	_mount(view, gun, plan.key + ":gun", [[parts.gun, Transform3D.IDENTITY]], paint)
-	var flash = view.sphere(gun, plan.muzzle, Vector3.ONE * 0.01, Color("fff1c7"), true)
+	# The gun arm swings from the shoulder, not from the feet: the Gun joint sits at the
+	# shoulder and everything in it is drawn back by the same amount.
+	var shoulder = Vector3(float(plan.muzzle.x), 1.2, 0.0)
+	gun.position = shoulder
+	var placed_gun = _mount(view, gun, plan.key + ":gun", [[parts.gun, Transform3D.IDENTITY]], paint)
+	for node in placed_gun:
+		node.position -= shoulder
+	var flash = view.sphere(gun, plan.muzzle - shoulder, Vector3.ONE * 0.01, Color("fff1c7"), true)
 	flash.name = "Flash"
+	gun.set_meta("rest", shoulder)
 	var crest = String(parts.get("spin", ""))
 	if crest != "":
 		# The crest rides on the head: a mount that undoes the neck's offset, so the crest
