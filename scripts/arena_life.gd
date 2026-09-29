@@ -8,10 +8,11 @@ extends RefCounted
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaSky = preload("res://scripts/arena_sky.gd")
 const Robots = preload("res://scripts/robots.gd")
+const ArtStyle = preload("res://scripts/art_style.gd")
 
-const LEAVES = [[Color("3f9e4a"), Color("6cc35a")], [Color("2f8f55"), Color("58b86a")], [Color("4aa83e"), Color("8fd05a")], [Color("5a9e2f"), Color("a6cf4a")]]
+const LEAVES = [[Color("5f8f3e"), Color("8ab25e")], [Color("4f7f3a"), Color("7fa656")], [Color("6b8f35"), Color("9ab65a")], [Color("587a34"), Color("86a24e")]]
 const BLOSSOM = [Color("ff6fa8"), Color("ffd84a"), Color("ffffff"), Color("b58cff"), Color("ff8a3d")]
-const BARK = Color("7a4e32")
+const BARK = Color("7d6741")
 
 static func scatter(view, key: String, transforms: Array, paint: Dictionary, parent: Node3D = null) -> Node3D:
 	# Every copy of one kit part in one batch: build it once, then hand its meshes to a
@@ -49,13 +50,13 @@ static func pose(at: Vector3, turn: float, size: float) -> Transform3D:
 	return Transform3D(Basis(Vector3.UP, turn).scaled(Vector3.ONE * size), at)
 
 static func dark_world(theme: Dictionary) -> bool:
-	return theme.has("neon")
+	return theme.has("neon") or theme.get("night", false)
 
 static func mountains(view, theme: Dictionary, rng: RandomNumberGenerator, radius: float, floor_y: float, behind_only: bool = false) -> void:
 	# A ring of peaks on the horizon, round the back and both sides (the near end is where the
 	# camera sits); snow on the tops, in the world's haze colour.
 	var night = dark_world(theme)
-	var stone = Color("2c3148") if night else Color(theme.get("sky_low", Color("a9c6d8"))).lerp(Color("5f7690"), 0.55)
+	var stone = Color("2c3148") if night else Color(theme.get("sky_low", Color("a9c6d8"))).lerp(Color("8a929c"), 0.7)
 	var snow = Color("5a5f80") if night else Color("f4f7fb")
 	var sets: Array = [[], []]
 	var count = ArenaSky.rich(view, 9)
@@ -75,12 +76,13 @@ static func clouds(view, theme: Dictionary, rng: RandomNumberGenerator, count: i
 	var belly = Color("2a2640") if night else Color("dde6f0")
 	var pivot = drifter(view, speed)
 	var sets: Array = [[], [], []]
-	for k in range(ArenaSky.rich(view, count)):
+	# Painted skies carry fewer, far bigger towering clouds.
+	for k in range(ArenaSky.rich(view, int(count * 0.6) if ArtStyle.painted_nature() else count)):
 		var a = rng.randf_range(0, TAU)
-		var r = rng.randf_range(radius.x, radius.y)
-		sets[k % 3].append(pose(Vector3(sin(a) * r, rng.randf_range(height.x, height.y), cos(a) * r), -a + PI * 0.5, rng.randf_range(1.2, 2.6)))
+		var r = rng.randf_range(radius.x, radius.y) * (1.3 if ArtStyle.painted_nature() else 1.0)
+		sets[k % 3].append(pose(Vector3(sin(a) * r, rng.randf_range(height.x, height.y), cos(a) * r), -a + PI * 0.5, rng.randf_range(1.2, 2.6) * (2.2 if ArtStyle.painted_nature() else 1.0)))
 	for i in range(3):
-		scatter(view, "env_cloud_%d" % i, sets[i], {"glow": white.darkened(0.04), "trim": belly}, pivot)
+		scatter(view, "env_cloud_%d" % i, sets[i], {"shell": white, "glow": white.darkened(0.04), "trim": belly}, pivot)
 
 static func woods(view, rng: RandomNumberGenerator, spots: Array, heights: Callable) -> void:
 	# Broad-leaved trees, bushes and flower tufts on the given spots, each on the ground height
@@ -104,6 +106,22 @@ static func woods(view, rng: RandomNumberGenerator, spots: Array, heights: Calla
 		var leaves = LEAVES[(i + 2) % LEAVES.size()]
 		scatter(view, "env_bush_%d" % i, bushes[i], {"shell": leaves[0], "label": leaves[1], "hazard": BLOSSOM[i]})
 		scatter(view, "env_flowers_%d" % i, tufts[i], {"shell": LEAVES[i][1], "hazard": BLOSSOM[2 + i], "label": BLOSSOM[i]})
+
+static func meadow(view, rng: RandomNumberGenerator, sample: Callable, heights: Callable, count: int, green: Color) -> void:
+	# Tufts of grass everywhere the sample allows, no spacing needed: they are small and batched.
+	if not ArtStyle.painted_nature():
+		return
+	var sets: Array = [[], []]
+	var tries = 0
+	var wanted = ArenaSky.rich(view, count)
+	while sets[0].size() + sets[1].size() < wanted and tries < wanted * 6:
+		tries += 1
+		var q = sample.call(rng)
+		if q == null:
+			continue
+		sets[rng.randi() % 2].append(pose(Vector3(q.x, heights.call(q), q.y), rng.randf_range(0, TAU), rng.randf_range(0.8, 1.5)))
+	for i in range(2):
+		scatter(view, "env_grass_%d" % i, sets[i], {"grass": green.lerp(Color("9ac26a"), 0.2 * i)})
 
 static func ring_spots(rng: RandomNumberGenerator, count: int, inner: float, outer: float, keep_out: Array, gap: float = 1.1) -> Array:
 	# Points in a band round the arena, clear of `keep_out` (the pad and whatever stands there).
@@ -135,7 +153,7 @@ static func build(view, theme: Dictionary, dressing: String) -> void:
 				islands[k % 2].append(pose(Vector3(sin(a) * r, rng.randf_range(-6.0, 3.0), -cos(a) * r), rng.randf_range(0, TAU), rng.randf_range(1.2, 2.4)))
 			var green = LEAVES[0]
 			for i in range(2):
-				scatter(view, "env_island_%d" % i, islands[i], {"shell": green[1], "trim": Color("b98a5e"), "label": green[0], "dark": BARK})
+				scatter(view, "env_island_%d" % i, islands[i], {"shell": green[1], "trim": Color("b98a5e"), "label": green[0], "dark": BARK, "rock": Color("9a7a58")})
 			clouds(view, theme, rng, 12, Vector2(reach + 10.0, reach + 45.0), Vector2(-9.0, -3.0), 0.02)
 			clouds(view, theme, rng, 10, Vector2(35, 80), Vector2(10, 22), -0.01)
 			mountains(view, theme, rng, far + 90.0, -14.0)

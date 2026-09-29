@@ -72,16 +72,7 @@ static func environment(env: Environment, quality: int) -> void:
 	env.adjustment_saturation = VIVID_SATURATION
 	env.adjustment_brightness = 1.0
 	env.adjustment_color_correction = null
-	if ArtStyle.militar():
-		# A hard, dusty day: filmic roll-off, less colour, more contrast, a dimmer dome so the
-		# sun and its shadows do the modelling.
-		env.tonemap_mode = Environment.TONE_MAPPER_ACES
-		env.tonemap_exposure = 1.15
-		env.tonemap_white = 6.0
-		env.ambient_light_energy = 0.7
-		env.ambient_light_color = Color("a9a391")
-		env.adjustment_contrast = 1.18
-		env.adjustment_saturation = 0.78
+	ArtStyle.environment(env)
 
 static func fog(env: Environment, spec: Dictionary) -> void:
 	# Distance haze in the world's own colour: the far terraces, the seabed and the street

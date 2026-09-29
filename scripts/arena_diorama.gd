@@ -13,11 +13,7 @@ static func material() -> ShaderMaterial:
 	if baked_material == null:
 		baked_material = ShaderMaterial.new()
 		baked_material.shader = preload("res://shaders/baked_world.gdshader")
-		if ArtStyle.militar():
-			# The baked world in the dusty grade: most of its colour gone, a khaki cast.
-			baked_material.set_shader_parameter("lift", 0.8)
-			baked_material.set_shader_parameter("soften", 0.72)
-			baked_material.set_shader_parameter("tint", Color("a8a384"))
+		ArtStyle.baked(baked_material)
 	return baked_material
 
 static func baked_path(map_id: String) -> String:

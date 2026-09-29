@@ -10,7 +10,6 @@ const ROSTER = preload("res://art/robots/roster.json")
 const KNEES = preload("res://art/robots/knees.json")
 const PAINT = preload("res://shaders/robot_paint.gdshader")
 const PAINT_LOW = preload("res://shaders/robot_paint_low.gdshader")
-const PAINT_MILITAR = preload("res://shaders/robot_paint_militar.gdshader")
 const ArtStyle = preload("res://scripts/art_style.gd")
 const FACE = preload("res://shaders/robot_face.gdshader")
 const OUTLINE = preload("res://shaders/robot_outline.gdshader")
@@ -32,7 +31,9 @@ const HEAD_CENTER = 1.44
 const DISC_SPINS = {"spin_rays": Vector3(0, 1.44, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
 const CENTRED_SPINS = ["spin_rays", "spin_halo", "spin_orbit"]
 # Vertex alpha tells the paint shader what a surface is made of.
-const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5, "rubber": 0.45}
+const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5, "rubber": 0.45, "leaf": 0.35, "leaf2": 0.35, "cloud": 0.15, "rock": 0.05, "rock2": 0.05, "grass": 0.22}
+# Foliage takes its own colour when the paint names one, else the part's two main colours.
+const LEAF_FALLBACK = {"leaf": "shell", "leaf2": "label", "cloud": "shell", "rock": "shell", "rock2": "trim", "grass": "shell"}
 # The studio look has no ink line: soft light and the dark seams between panels carry the
 # shapes. Leave the hull code for a stylised mode, off by default.
 const INK = false
@@ -120,7 +121,7 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 		out.glow = neon
 		out.eyes = neon
 		return out
-	if ArtStyle.militar():
+	if ArtStyle.current != "":
 		ArtStyle.robot(out, team)
 	if tint:
 		# A boss not yet beaten fights in gunmetal and its team's colour.
@@ -167,8 +168,8 @@ static func merged(key: String, placed: Array, paint: Dictionary, outline: bool 
 			var arrays: Array = item[0].surface_get_arrays(0)
 			var points: PackedVector3Array = at * PackedVector3Array(arrays[Mesh.ARRAY_VERTEX])
 			var faces = PackedInt32Array(arrays[Mesh.ARRAY_INDEX]) if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(points.size()))
-			var tone: Color = Color(paint.get(role, Color.WHITE)).srgb_to_linear()
-			tone.a = FINISH.get(role, PAINTED)
+			var tone: Color = Color(paint.get(role, paint.get(LEAF_FALLBACK.get(role, role), Color.WHITE))).srgb_to_linear()
+			tone.a = ArtStyle.finish(role, FINISH.get(role, PAINTED))
 			var fill = PackedColorArray()
 			fill.resize(points.size())
 			fill.fill(tone)
@@ -309,10 +310,10 @@ static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false
 			node.transform = inverse
 	var face: ShaderMaterial = _face(body)
 	face.set_shader_parameter("eye_color", paint.eyes)
-	face.set_shader_parameter("style", EYES.find("visor") if ArtStyle.militar() else maxi(EYES.find(String(plan.eye_style)), 0))
+	face.set_shader_parameter("style", EYES.find(ArtStyle.eyes()) if ArtStyle.eyes() != "" else maxi(EYES.find(String(plan.eye_style)), 0))
 	face.set_shader_parameter("aspect", float(shape.aspect))
 	face.set_shader_parameter("seed", float(hash(plan.key) % 997) * 0.01 + randf() * 3.0)
-	face.set_shader_parameter("mouth", 1.0 if plan.mouth and not ArtStyle.militar() else 0.0)
+	face.set_shader_parameter("mouth", 1.0 if plan.mouth and ArtStyle.eyes() == "" else 0.0)
 	# A robot may tint the glass of its screen (the roster's "glass"); the rest keep it dark.
 	var glass = String(plan.palette.get("glass", ""))
 	if glass != "":
@@ -355,18 +356,24 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 	_mount(view, node, "brick:soft", [["brick_soft", Transform3D.IDENTITY]], paint, false)
 	return false
 
+static func detail_name(view, name: String) -> String:
+	# The half-detail copy of a scenery part (kit "lo_" parts) on a phone below the top profile.
+	if OS.has_feature("mobile") and int(view.quality_level) < 2 and not part("lo_" + name).is_empty():
+		return "lo_" + name
+	return name
+
 static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionary) -> Array:
 	# Arena furniture from the same kit (bumpers, goal posts), painted like the robots.
 	var placed: Array = []
 	for name in parts:
-		placed.append([name, Transform3D.IDENTITY])
+		placed.append([detail_name(view, name), Transform3D.IDENTITY])
 	if not paint.has("wear"):
 		paint["wear"] = 0.4
 	return _mount(view, node, key, placed, paint)
 
 static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Array:
 	var signature = ""
-	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label"]:
+	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label", "leaf", "leaf2", "cloud", "rock", "rock2", "grass"]:
 		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
 	var meshes = merged(key + ":" + signature, placed, paint, outline and INK)
 	var nodes: Array = []
@@ -374,7 +381,7 @@ static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dict
 		var node = MeshInstance3D.new()
 		node.mesh = meshes[role]
 		node.name = "Robot_" + role
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.militar() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if role == "outline":
 			node.material_override = _outline(view)
 			node.add_to_group(OUTLINE_GROUP)
@@ -454,12 +461,19 @@ static func paint_material(view, wear: float = 0.4) -> ShaderMaterial:
 	mat.set_meta("robot_paint", true)
 	mat.set_shader_parameter("wear", wear)
 	mat.shader = _paint_shader(view.quality_level)
+	if "theme" in view and view.theme.has("sky_low"):
+		# Far scenery fades into the world's own air.
+		var air: Color = Color(view.theme.sky_mid).lerp(view.theme.sky_low, 0.55).srgb_to_linear()
+		mat.set_shader_parameter("haze", Vector3(air.r, air.g, air.b))
+	if "key_light" in view and is_instance_valid(view.key_light):
+		# The painted scenery takes its light and shade from the world's sun.
+		mat.set_shader_parameter("sun_dir", view.key_light.transform.basis.z.normalized())
 	view.materials[key] = mat
 	return mat
 
 static func _paint_shader(level: int) -> Shader:
-	if ArtStyle.militar():
-		return PAINT_MILITAR
+	if ArtStyle.paint_shader() != null:
+		return ArtStyle.paint_shader()
 	return PAINT_LOW if level == 0 else PAINT
 
 static func _outline(view) -> ShaderMaterial:

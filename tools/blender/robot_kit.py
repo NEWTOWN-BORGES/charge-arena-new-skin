@@ -41,6 +41,12 @@ ROLES = {
     "rubber": (0.05, 0.05, 0.06),
     "hazard": (0.95, 0.75, 0.16),
     "label": (0.96, 0.95, 0.91),
+    "leaf": (0.25, 0.55, 0.22),
+    "leaf2": (0.45, 0.72, 0.3),
+    "cloud": (0.97, 0.98, 1.0),
+    "rock": (0.45, 0.47, 0.5),
+    "rock2": (0.9, 0.92, 0.95),
+    "grass": (0.45, 0.65, 0.3),
 }
 EMISSIVE = {"glow"}
 LEG_PIVOT = Vector((0.2, 0.42, 0.0))
@@ -1323,7 +1329,9 @@ def build_kit():
         for role, me in p.meshes.items():
             for poly in me.polygons:
                 poly.use_smooth = True
-            me.set_sharp_from_angle(angle=math.radians(40))
+            # Nature is organic: only the sharpest folds stay hard.
+            organic = name.startswith("env_") and name.split("_")[1] in ("rock", "pine", "oak", "cloud", "bush", "mountain", "island", "coral", "kelp", "grass") or name == "prop_cloud"
+            me.set_sharp_from_angle(angle=math.radians(80 if organic else 40))
             me.materials.append(bpy.data.materials[role])
             obj = bpy.data.objects.new(f"{name}__{role}", me)
             bpy.context.collection.objects.link(obj)

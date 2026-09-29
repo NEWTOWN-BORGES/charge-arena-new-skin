@@ -160,7 +160,7 @@ static func for_map(map: Dictionary) -> Dictionary:
 	return theme(id_for(map))
 
 static func theme(key: String) -> Dictionary:
-	if ArtStyle.militar():
+	if ArtStyle.current != "":
 		return ArtStyle.world(_theme(key))
 	return _theme(key)
 

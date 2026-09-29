@@ -891,6 +891,9 @@ def define_parts():
     arena_parts.define(part)
     import env_parts
     env_parts.define(part)
+    # The refined nature replaces env_parts' faceted trees, rocks, mountains and clouds.
+    import nature_parts
+    nature_parts.define(part)
     part("bit2_head")(bit_head)
     part("bit2_torso")(bit_torso)
     part("bit3_hull")(bit_hull)

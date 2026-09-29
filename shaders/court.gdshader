@@ -11,6 +11,8 @@ uniform vec4 line_color : source_color = vec4(0.97, 0.98, 0.99, 1.0);
 uniform vec4 team_near : source_color = vec4(0.45, 0.87, 0.78, 1.0);
 uniform vec4 team_far : source_color = vec4(0.94, 0.58, 0.49, 1.0);
 uniform float finish_quality = 2.0;
+// A polished or wet court (art_style.gd trials): 0 matte plates, 1 a mirror-like finish.
+uniform float gloss = 0.0;
 uniform sampler2D surface_grain : filter_linear_mipmap_anisotropic, repeat_enable;
 
 void vertex() {
@@ -63,6 +65,6 @@ void fragment() {
 	base = mix(base, line_color.rgb, paint * 0.85);
 	ALBEDO = base;
 	METALLIC = 0.0;
-	ROUGHNESS = mix(0.62, 0.8, seam) - paint * 0.15;
-	SPECULAR = 0.45;
+	ROUGHNESS = mix(mix(0.62, 0.8, seam) - paint * 0.15, 0.08 + seam * 0.3, gloss);
+	SPECULAR = mix(0.45, 0.65, gloss);
 }

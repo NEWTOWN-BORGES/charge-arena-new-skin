@@ -30,6 +30,7 @@ const ORB = preload("res://shaders/fx_orb.gdshader")
 const CombatFinish = preload("res://scripts/combat_finish.gd")
 const ArenaFinish = preload("res://scripts/arena_finish.gd")
 const ArtStyle = preload("res://scripts/art_style.gd")
+const GRASS = preload("res://shaders/grass_painted.gdshader")
 const GLASS = preload("res://shaders/glass.gdshader")
 const GUIDE_DOTS = 30
 # Projectile size per power: normal, explosive, machine-gun round, air pellet.
@@ -192,7 +193,7 @@ func prepare_fx_pool() -> void:
 			pair.append(lamp)
 		beam_lamps.append(pair)
 
-func material(color: Color, luminous: bool = false) -> StandardMaterial3D:
+func material(color: Color, luminous: bool = false) -> Material:
 	var key = str(color) + str(luminous)
 	if materials.has(key):
 		return materials[key]
@@ -216,6 +217,13 @@ func material(color: Color, luminous: bool = false) -> StandardMaterial3D:
 	if color.a < 1:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	ArenaFinish.surface(mat, quality_level)
+	if ArtStyle.painted_nature() and not luminous and String(mat.get_meta("surface_finish", "")) == "grass":
+		# The meadow, painted and combed by the wind.
+		var meadow = ShaderMaterial.new()
+		meadow.shader = GRASS
+		meadow.set_shader_parameter("grass", color)
+		materials[key] = meadow
+		return meadow
 	materials[key] = mat
 	return mat
 
@@ -365,6 +373,22 @@ func soft_disc(parent: Node3D, pos: Vector3, size_value: Vector2, color: Color) 
 	node.visible = quality_level > 0
 	return node
 
+func light_pool_material(color: Color) -> ShaderMaterial:
+	# The pool of light a lit round throws on the court: the soft disc, added to the floor
+	# instead of laid over it, so it brightens even the dark stone.
+	var key = "pool" + str(color)
+	if not materials.has(key):
+		if not materials.has("pool:shader"):
+			var shader = Shader.new()
+			shader.code = SOFT_DISC.code.replace("render_mode unshaded,", "render_mode blend_add, unshaded,")
+			materials["pool:shader"] = shader
+		var mat = ShaderMaterial.new()
+		mat.shader = materials["pool:shader"]
+		mat.set_shader_parameter("tint", color)
+		mat.set_shader_parameter("falloff", 2.4)
+		materials[key] = mat
+	return materials[key]
+
 func soft_disc_material(color: Color) -> ShaderMaterial:
 	var key = "disc" + str(color)
 	if not materials.has(key):
@@ -457,6 +481,8 @@ func build(new_map: Dictionary = {}) -> void:
 	for key in ["sky_top", "sky_mid", "sky_low"]:
 		bg_mat.set_shader_parameter(key, theme[key])
 	bg_mat.set_shader_parameter("stars", theme.get("stars", 0.0))
+	# A day sky gets its sun and high clouds; night, space and the sea keep their own.
+	bg_mat.set_shader_parameter("daylight", 1.0 if ArtStyle.day_sky(theme) else 0.0)
 	background.material = bg_mat
 	backdrop_mat = bg_mat
 	background_layer.add_child(background)
@@ -467,14 +493,7 @@ func build(new_map: Dictionary = {}) -> void:
 	light.light_color = theme.get("key", theme.get("sun", Color("fff3e6")))
 	light.light_energy = float(theme.get("key_energy", 1.1))
 	light.shadow_enabled = false
-	if ArtStyle.militar():
-		# A low, hard afternoon sun that throws real shadows.
-		light.rotation_degrees = Vector3(-38, -40, 0)
-		light.light_color = Color("ffe0b0")
-		light.light_energy = 1.35
-		light.shadow_enabled = true
-		light.shadow_blur = 0.6
-		light.directional_shadow_max_distance = 60.0
+	ArtStyle.key_light(light, quality_level)
 	add_child(light)
 	key_light = light
 	secondary_light = DirectionalLight3D.new()
@@ -482,6 +501,7 @@ func build(new_map: Dictionary = {}) -> void:
 	secondary_light.light_color = theme.get("fill", Color("e4ecf6"))
 	secondary_light.light_energy = float(theme.get("fill_energy", 0.35))
 	add_child(secondary_light)
+	ArtStyle.floodlights(self)
 	capture_mood_base()
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -530,6 +550,7 @@ func build(new_map: Dictionary = {}) -> void:
 	court_mat.set_shader_parameter("line_color", theme.line)
 	court_mat.set_shader_parameter("team_near", CYAN)
 	court_mat.set_shader_parameter("team_far", CORAL)
+	ArtStyle.court(court_mat)
 	court.material_override = court_mat
 	# A world whose light was baked in Blender for this map (tools/export_world.gd, then
 	# tools/blender/bake_scene.py) replaces the lit dressing; the pieces the dressing adds are
@@ -614,7 +635,7 @@ func batch_static_geometry() -> void:
 		var merged = MeshInstance3D.new()
 		merged.mesh = st.commit()
 		merged.material_override = group[0].material_override
-		merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(merged)
 		static_batch_count += 1
 
@@ -658,7 +679,7 @@ func batch_bricks() -> void:
 		batch.multimesh.mesh = group[0].part.mesh
 		batch.multimesh.instance_count = group.size()
 		batch.material_override = group[0].part.material_override
-		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ArtStyle.shadows() else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(batch)
 		brick_batches.append(batch)
 		for binding in group:
@@ -1828,6 +1849,17 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		# Lit energy orbs, as in the first versions: the halo needs a little more card.
 		orb.scale = Vector3.ONE * (0.95 if charged else 0.78) * swell
 		orb.material_override.set_shader_parameter("tint", color)
+		var lamp: OmniLight3D = node.get_node_or_null("Lamp")
+		if ArtStyle.lit_shots():
+			var pool: MeshInstance3D = node.get_node("FloorGlow")
+			pool.material_override = light_pool_material(Color(color, 0.9 if charged else 0.7))
+			pool.scale = Vector3.ONE * (2.4 if charged else 2.0) * swell
+		if lamp != null:
+			# At most six lit rounds at once: every lamp is paid again on every mesh it touches.
+			lamp.visible = projectiles.keys().find(ball.id) < 6
+			lamp.light_color = color
+			lamp.light_energy = (7.0 if charged else 5.0) * swell
+			lamp.omni_range = 4.2 * swell
 		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
 		# The comet tail: short-lived glows left behind every frame by the GPU batch.
 		if fx != null:
@@ -2036,6 +2068,16 @@ func take_orb(owner: int) -> Node3D:
 		root.add_child(orb)
 		var glow = soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN, 0.42))
 		glow.name = "FloorGlow"
+		if ArtStyle.lit_shots() and (quality_level > 0 or not OS.has_feature("mobile")):
+			# A real light in every round: it washes the court, the bricks and the robots
+			# it flies past.
+			var lamp = OmniLight3D.new()
+			lamp.name = "Lamp"
+			lamp.shadow_enabled = false
+			lamp.omni_range = 3.2
+			lamp.omni_attenuation = 1.4
+			lamp.light_energy = 1.6
+			root.add_child(lamp)
 	# The light the orb throws on the floor under it.
 	root.get_node("FloorGlow").material_override = soft_disc_material(Color(CYAN if owner == 0 else CORAL, 0.6))
 	root.show()
@@ -2146,6 +2188,9 @@ func light_cap() -> int:
 	# On a phone: none. The first lamp to touch a material makes the GL renderer compile its
 	# lit variant on the spot - the stall of the first blast - and the particles' own glow
 	# carries the impact anyway.
+	if ArtStyle.lit_shots():
+		# The lit look: blasts and powers light the stadium on phones too, from Médio up.
+		return ([0, 2, 3] if OS.has_feature("mobile") else [2, 4, 6])[quality_level]
 	return 0 if OS.has_feature("mobile") else [2, 4, 6][quality_level]
 
 func flash(at: Vector3, color: Color, energy: float, life: float, reach: float = 7.0) -> void:

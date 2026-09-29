@@ -139,13 +139,13 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 			return null
 		return q
 	var pines = ArenaSky.spots(rng, ArenaSky.rich(view, 90), sample, 1.2, taken)
-	var shades = [[Color("2fa35a"), Color("45c46e")], [Color("3aa84f"), Color("5fcf6a")], [Color("23915a"), Color("3db87a")]]
+	var shades = [[Color("3f6f45"), Color("5a8a52")], [Color("4a7a44"), Color("6a9a58")], [Color("36664a"), Color("54845e")]]
 	for q in pines:
 		var shade = shades[rng.randi() % shades.size()]
 		# Smaller on the near side, where they frame the bottom of the screen.
 		var size = rng.randf_range(0.85, 1.3) if q.y < far else rng.randf_range(0.6, 0.85)
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * size)
-		ArenaSky.place(view, "env_pine_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, height_at(q, tiers), q.y)), {"shell": shade[0], "label": shade[1], "trim": Color("8a5a3c")})
+		ArenaSky.place(view, "env_pine_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, height_at(q, tiers), q.y)), {"shell": shade[0], "label": shade[1], "trim": Color("6e5a3e")})
 	taken.append_array(pines)
 	# Rocks where the cliffs meet the ground, grey granite and a few sandstone boulders.
 	var rocks = ArenaSky.spots(rng, ArenaSky.rich(view, 26), sample, 1.6, taken)
@@ -158,3 +158,4 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 	# Broad-leaved copses, flowering bushes and tufts of flowers between the pines, batched.
 	var green = ArenaSky.spots(rng, ArenaSky.rich(view, 110), sample, 0.9, taken)
 	ArenaLife.woods(view, rng, green, func(q): return height_at(q, tiers))
+	ArenaLife.meadow(view, rng, sample, func(q): return height_at(q, tiers), 900, Color(view.theme.grass))

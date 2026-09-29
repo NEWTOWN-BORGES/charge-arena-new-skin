@@ -44,4 +44,13 @@ void fragment() {
 	float gloss = finish > 0.9 ? 0.0 : (finish > 0.4 && finish < 0.48 ? 0.05 : 0.3);
 	vec3 lit = studio(COLOR.rgb, finish) * (fill * 0.55 + vec3(1.0, 0.97, 0.93) * wrap * wrap * 0.75) + vec3(shine * gloss);
 	ALBEDO = finish > 0.9 ? COLOR.rgb * 1.7 : lit;
+	if (finish < 0.1) {
+		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.65);
+	} else if (finish < 0.2) {
+		ALBEDO = COLOR.rgb * mix(vec3(0.74, 0.78, 0.86), vec3(1.0), n.y * 0.5 + 0.5);
+	}
+	if (finish > 0.3 && finish < 0.4) {
+		// Foliage: matte, darker underneath.
+		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.7) * mix(0.55, 1.05, n.y * 0.5 + 0.5);
+	}
 }
