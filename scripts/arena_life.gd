@@ -10,6 +10,8 @@ const ArenaSky = preload("res://scripts/arena_sky.gd")
 const Robots = preload("res://scripts/robots.gd")
 const ArtStyle = preload("res://scripts/art_style.gd")
 const CLOUD_SEA = preload("res://shaders/cloud_sea.gdshader")
+const GROUND_BELOW = preload("res://shaders/ground_below.gdshader")
+const LAND_BELOW = preload("res://art/worlds/ground_below.png")
 
 const LEAVES = [[Color("5f8f3e"), Color("8ab25e")], [Color("4f7f3a"), Color("7fa656")], [Color("6b8f35"), Color("9ab65a")], [Color("587a34"), Color("86a24e")]]
 const BLOSSOM = [Color("ff6fa8"), Color("ffd84a"), Color("ffffff"), Color("b58cff"), Color("ff8a3d")]
@@ -113,8 +115,8 @@ static func woods(view, rng: RandomNumberGenerator, spots: Array, heights: Calla
 
 static func meadow(view, rng: RandomNumberGenerator, sample: Callable, heights: Callable, count: int, green: Color) -> void:
 	# Tufts of grass everywhere the sample allows, no spacing needed: they are small and batched.
-	if not ArtStyle.painted_nature():
-		return
+	# Tufts of grass are left out: the meadow is painted, and phones need the triangles.
+	return
 	var sets: Array = [[], []]
 	var tries = 0
 	var wanted = ArenaSky.rich(view, count)
@@ -163,11 +165,31 @@ static func cloud_sea(view, height: float) -> void:
 	var mat = ShaderMaterial.new()
 	mat.shader = CLOUD_SEA
 	var theme: Dictionary = view.theme
-	var air: Color = Color(theme.get("sky_mid", Color("78b6ee"))).lerp(theme.get("sky_low", Color("e4f1fb")), 0.7)
+	# It melts into the bottom of the sky behind it, so no seam shows on the horizon.
+	var air: Color = Color(theme.get("sky_low", Color("e4f1fb")))
 	mat.set_shader_parameter("haze_color", Vector3(air.r, air.g, air.b))
 	sea.material_override = mat
 	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	view.add_child(sea)
+
+static func ground_below(view, height: float) -> void:
+	# Far below the deck, the land the arena floats over (fields, forests, rivers, a town),
+	# painted flat and seen through the mist of the height.
+	var land = MeshInstance3D.new()
+	var plane = PlaneMesh.new()
+	plane.size = Vector2(1400, 1400)
+	land.mesh = plane
+	land.position = Vector3(0, height, 0)
+	var mat = ShaderMaterial.new()
+	mat.shader = GROUND_BELOW
+	mat.set_shader_parameter("land", LAND_BELOW)
+	var theme: Dictionary = view.theme
+	# It melts into the bottom of the sky behind it, so no seam shows on the horizon.
+	var air: Color = Color(theme.get("sky_low", Color("e4f1fb")))
+	mat.set_shader_parameter("haze_color", Vector3(air.r, air.g, air.b))
+	land.material_override = mat
+	land.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	view.add_child(land)
 
 static func ring_spots(rng: RandomNumberGenerator, count: int, inner: float, outer: float, keep_out: Array, gap: float = 1.1) -> Array:
 	# Points in a band round the arena, clear of `keep_out` (the pad and whatever stands there).
@@ -203,10 +225,10 @@ static func build(view, theme: Dictionary, dressing: String) -> void:
 			for i in range(2):
 				scatter(view, "env_island_%d" % i, islands[i], {"turf": Color("7fae52"), "leaf": green[0], "leaf2": green[1], "trim": BARK, "dark": Color("5a4430"), "rock": Color("c2ab8c"), "rock2": Color("9a7650"), "hazard": BLOSSOM[i]})
 			if ArtStyle.painted_nature():
-				cloud_sea(view, -12.0)
+				ground_below(view, -55.0)
 			clouds(view, theme, rng, 12, Vector2(reach + 10.0, reach + 45.0), Vector2(-9.0, -3.0), 0.02)
 			clouds(view, theme, rng, 10, Vector2(35, 80), Vector2(10, 22), -0.01)
-			mountains(view, theme, rng, far + 90.0, -14.0)
+			mountains(view, theme, rng, far + 90.0, -55.0 if ArtStyle.painted_nature() else -14.0)
 		"city":
 			# High above the rooftops: never between a pulled-back camera and the field.
 			clouds(view, theme, rng, 12, Vector2(45, 90), Vector2(48, 62), 0.012)

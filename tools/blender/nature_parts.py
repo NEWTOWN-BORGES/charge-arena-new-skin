@@ -412,6 +412,9 @@ def define(part):
     low = getattr(sys.modules["__main__"], "LOW_DETAIL", None)
     if low is not None:
         low.extend(n for n in LIGHT_NAMES if n not in low)
+        # The bricks too: a wall is sixty of them, the heaviest thing a phone draws.
+        parts = getattr(sys.modules["__main__"], "PARTS", {})
+        low.extend(n for n in parts if n.startswith("brick_") and n not in low)
     for i in range(2):
         part("env_grass_%d" % i)(lambda p, s=i: grass_tuft(p, 300 + s * 17, 1.0 + s * 0.3))
     for i in range(3):

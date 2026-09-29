@@ -26,7 +26,7 @@ var vsync = true
 var show_fps = false
 # Real shadows from the sun (robots and the court furniture). They draw the lit scene again,
 # so a phone starts without them and can switch them on in Options; a computer has them.
-var shadows = not OS.has_feature("mobile")
+var shadows = false
 var runtime_scale = 0.72
 var runtime_fps = 60
 var smooth_hud = true
@@ -72,7 +72,7 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 	if low_end() and int(config.get_value("video", "low_end_version", 0)) < 1:
 		saved_quality = 0
 		saved_fps = 30
-	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)), bool(config.get_value("video", "shadows", not OS.has_feature("mobile"))))
+	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)), false)
 
 func configure(new_fps: int, new_quality: int, sync: bool, counter: bool, real_shadows: int = -1) -> void:
 	if real_shadows >= 0:
@@ -105,7 +105,9 @@ func apply(viewport: Viewport, arena) -> void:
 	runtime_fps = fps
 	runtime_scale = RENDER_SCALES[quality]
 	Engine.max_fps = runtime_fps
-	viewport.msaa_3d = AA_LEVELS[quality]
+	# Phone screens are dense enough that 2x smooths the edges as well as 4x did, for half the
+	# fill cost.
+	viewport.msaa_3d = mini(AA_LEVELS[quality], Viewport.MSAA_2X) if OS.has_feature("mobile") else AA_LEVELS[quality]
 	viewport.screen_space_aa = SCREEN_AA[quality]
 	viewport.use_debanding = quality > 0
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR

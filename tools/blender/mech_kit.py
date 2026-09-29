@@ -80,8 +80,15 @@ def sub(m, u=0.0, v=0.0, w=0.0, rot=(0, 0, 0)):
 # ======================================================================================
 # Primitivas num referencial
 # ======================================================================================
+def lod(n, least):
+    """Segmentos de uma primitiva: metade nas cópias "lo_" (robot_kit.py corre com DETAIL 0.5)."""
+    import sys
+    return max(least, int(round(n * getattr(sys.modules["__main__"], "DETAIL", 1.0))))
+
+
 def mbox(p, role, m, size, radius=0.02, segments=2, taper=None):
     """Caixa arredondada centrada em `m`. `taper` = (kx, kz) encolhe o topo (+Y local)."""
+    segments = lod(segments, 1)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for vert in bm.verts:
@@ -96,6 +103,7 @@ def mbox(p, role, m, size, radius=0.02, segments=2, taper=None):
 
 def mtube(p, role, m, radius, length, detail=16, radius2=None, bevel=0.0, caps=True):
     """Cilindro ao longo do Y local de `m`, centrado."""
+    detail = lod(detail, 6)
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=caps, segments=detail, radius1=radius,
                           radius2=radius if radius2 is None else radius2, depth=length)
@@ -110,6 +118,7 @@ def mtube(p, role, m, radius, length, detail=16, radius2=None, bevel=0.0, caps=T
 
 def mring(p, role, m, major, minor, detail=24, sides=6):
     """Toro à volta do Y local de `m`."""
+    detail, sides = lod(detail, 8), lod(sides, 4)
     bm = bmesh.new()
     rows = []
     for i in range(detail):

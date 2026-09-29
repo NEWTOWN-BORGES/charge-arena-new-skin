@@ -16,7 +16,7 @@ static var current := "melhorado"
 # "sky", "nature", "shadows".
 static var off: Array = []
 # The player's choice in Options (VideoSettings.shadows): real sun shadows or the soft discs.
-static var real_shadows := not OS.has_feature("mobile")
+static var real_shadows := false
 
 const SHADERS = {
 	"militar": preload("res://shaders/robot_paint_militar.gdshader"),
@@ -55,10 +55,10 @@ const LOOKS = {
 		"court_gloss": 0.7,
 	},
 	"melhorado": {
-		# The shipped look, improved: real shadows and the premium court, a polished dark
-		# stone that mirrors the lights, everything else as it is.
-		"shadows": true, "day_sky": true, "key": {"energy_scale": 0.3}, "court_gloss": 0.7,
-		"env": {"tonemap": Environment.TONE_MAPPER_AGX, "exposure": 1.12, "ambient": 0.5, "ambient_color": Color("c3c9cf"), "contrast": 1.12, "saturation": 1.18},
+		# The shipped look, improved: the dark stone court and the painted nature. No real
+		# shadows (a cartoon world does not need them and phones pay dearly for them), and
+		# nothing on the scenery moves or changes with the view: every colour is fixed.
+		"shadows": false, "day_sky": true, "key": {},
 	},
 	"sombras": {
 		# The shipped look, only with real shadows: the sun casts the robots, the bricks and

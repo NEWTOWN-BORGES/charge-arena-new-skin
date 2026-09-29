@@ -2578,6 +2578,8 @@ func build_video_menu() -> void:
 	fps_choice = video_option(image, "Limite de FPS", ["30", "45", "60", "90"])
 	sync_choice = big_toggle(image, "VSync")
 	shadow_choice = big_toggle(image, "Sombras reais (mais pesado)")
+	# Real shadows are gone from the game: the toggle stays built but hidden.
+	shadow_choice.visible = false
 	counter_choice = big_toggle(image, "Mostrar FPS")
 	sfx_slider = volume_slider(image, "Efeitos sonoros")
 	music_choice = big_toggle(image, "Música")

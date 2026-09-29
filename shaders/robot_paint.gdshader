@@ -77,8 +77,8 @@ float grain(vec3 p) {
 void fragment() {
 	if (COLOR.a < 0.1) {
 		// Rock: matte stone in strata and blotches, darker in the cracks facing down.
-		float strata = grain(vec3(world_position.x * 0.6, world_position.y * 5.0, world_position.z * 0.6));
-		float blotch = grain(world_position * 1.7) * 0.6 + grain(world_position * 6.0) * 0.4;
+		float strata = 0.5 + 0.5 * sin(world_position.y * 3.1);
+		float blotch = 0.5;
 		float up = normalize(world_normal).y;
 		vec3 stone = COLOR.rgb * (0.78 + 0.22 * strata + 0.2 * (blotch - 0.5)) * mix(0.7, 1.05, smoothstep(-0.5, 0.6, up));
 		// Aerial perspective: far stone fades into the blue of the air.
@@ -92,22 +92,20 @@ void fragment() {
 		// Cloud, painted the anime way: warm white where the sun falls, a cool lavender-blue
 		// shade underneath, the edge between them broken like brush strokes.
 		vec3 n = normalize(mix(world_normal, volume_normal, 0.5));
-		float brush = grain(world_position * 1.1) * 0.6 + grain(world_position * 3.4) * 0.4;
+		float brush = 0.5;
 		float lit = dot(n, sun_dir) * 0.55 + n.y * 0.45 + (brush - 0.5) * 0.7;
 		vec3 shade = vec3(0.56, 0.64, 0.8);
 		vec3 mid = vec3(0.83, 0.87, 0.94);
 		vec3 bright = vec3(1.0, 0.97, 0.9);
 		vec3 cloud = mix(shade, mid, smoothstep(-0.12, -0.02, lit));
 		cloud = mix(cloud, bright, smoothstep(0.3, 0.4, lit));
-		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-		cloud = mix(cloud, bright, rim * 0.5);
 		ALBEDO = vec3(0.0);
 		SPECULAR = 0.0;
 		ROUGHNESS = 1.0;
 		EMISSION = cloud * COLOR.rgb * paint_gain;
 	} else if (COLOR.a > 0.26 && COLOR.a < 0.29) {
 		// Turf: a meadow painted on the top of an island, sunlit and shaded patches.
-		float patches = grain(world_position * 0.35) * 0.65 + grain(world_position * 1.4) * 0.35;
+		float patches = 0.5;
 		vec3 turf = COLOR.rgb * mix(vec3(0.74, 0.86, 0.9), vec3(1.2, 1.16, 0.84), smoothstep(0.35, 0.7, patches));
 		ALBEDO = turf;
 		ROUGHNESS = 1.0;
@@ -123,7 +121,7 @@ void fragment() {
 		// warm sunlit green), the borders between them broken into leaf-clump strokes, and the
 		// underside of the crown in deep shade.
 		vec3 n = normalize(volume_normal);
-		float brush = grain(world_position * 3.0) * 0.55 + grain(world_position * 8.5) * 0.45;
+		float brush = 0.5;
 		float lit = dot(n, sun_dir) * 0.8 + (brush - 0.5) * 1.0 + 0.1;
 		vec3 base = COLOR.rgb;
 		vec3 shade = base * vec3(0.5, 0.64, 0.7);
@@ -147,15 +145,14 @@ void fragment() {
 		// A breath of dust towards the feet grounds the figure without dirtying it.
 		float grime = smoothstep(0.5, 0.0, model_position.y) * 0.06 * (0.5 + wear);
 		// Fine grain: orange peel on the paint, brushed streaks on the metal.
-		float fine = grain(model_position * 90.0);
-		float streak = grain(model_position * vec3(6.0, 140.0, 6.0));
-		float texture_amount = metal ? streak : fine;
+		// The fine grain of the finish was two noise lookups on every robot pixel: a flat
+		// finish reads the same on a phone and costs nothing.
+		float texture_amount = 0.5;
 		ALBEDO = paint * (1.0 - grime) * (0.96 + 0.06 * texture_amount);
 		METALLIC = metal ? 0.9 : (dark ? 0.35 : 0.0);
 		ROUGHNESS = (metal ? 0.18 : (rubber ? 0.55 : (dark ? 0.34 : 0.2))) + (texture_amount - 0.5) * (metal ? 0.12 : 0.06);
 		SPECULAR = rubber ? 0.35 : 0.62;
 		// A clear-coat sheen on the silhouettes: the lacquer catching the sky.
-		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-		EMISSION = glow ? paint * 1.8 : vec3(0.9, 0.95, 1.0) * rim * (rubber ? 0.03 : 0.1);
+		EMISSION = glow ? paint * 1.8 : vec3(0.0);
 	}
 }

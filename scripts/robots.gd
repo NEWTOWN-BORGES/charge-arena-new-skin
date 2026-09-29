@@ -339,11 +339,11 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 		var themed = colors(skin, team, tint)
 		themed["wear"] = 0.15
 		themed["team"] = strong
-		var placed = [[part, Transform3D.IDENTITY]]
+		var placed = [[detail_name(view, part), Transform3D.IDENTITY]]
 		var hard = ROSTER.data.cast[skin].has("base")
 		if hard:
 			placed.append(["brick_neon", Transform3D.IDENTITY])
-		_mount(view, node, "brick:%s:%s" % [part, "neon" if hard else ""], placed, themed, false)
+		_mount(view, node, "brick:%s:%s" % [placed[0][0], "neon" if hard else ""], placed, themed, false)
 		return true
 	var paint = colors(0, team, tint)
 	paint["wear"] = 0.0
@@ -361,7 +361,7 @@ static var light_parts := false
 
 static func detail_name(view, name: String) -> String:
 	# The half-detail copy of a scenery part (kit "lo_" parts) on a phone below the top profile.
-	if (OS.has_feature("mobile") or light_parts) and int(view.quality_level) < 2 and not part("lo_" + name).is_empty():
+	if (OS.has_feature("mobile") or light_parts) and not part("lo_" + name).is_empty():
 		return "lo_" + name
 	return name
 

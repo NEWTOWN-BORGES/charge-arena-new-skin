@@ -1726,7 +1726,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		emote_age = 0.0
 	emote_age += dt
 	for drift in drifters:
-		drift[0].rotation.y += dt * float(drift[1])
+		pass  # The scenery stands still (clouds, fish, asteroids): a static world.
 	advance_fx_clock(dt)
 	if fx != null: fx.tick(fx_clock)
 	if lobby_view:
