@@ -56,6 +56,9 @@ if os.environ.get("VERSION_CODE"):
 put("launcher_icons/main_192x192", f'"res://art/icon/{icon}_icon.png"')
 put("launcher_icons/adaptive_foreground_432x432", f'"res://art/icon/{icon}_foreground.png"')
 put("launcher_icons/adaptive_background_432x432", f'"res://art/icon/{icon}_background.png"')
+# The themed (monochrome) icon of Android 13+: without it the template points at a file it
+# left out, and aapt2 refuses the APK when the App Bundle is built.
+put("launcher_icons/adaptive_monochrome_432x432", f'"res://art/icon/{icon}_monochrome.png"')
 open(path, "w").write(head + "[preset.1]" + rest)
 EOF
 mkdir -p "$(dirname "$out")"
