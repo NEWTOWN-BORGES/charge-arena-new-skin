@@ -305,10 +305,6 @@ func start_pve(layout: Dictionary = {}) -> void:
 	# Compile what the match can draw during the countdown, not at its first shot.
 	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
-	# The 3 v 3 arena is watched: all six robots are the AI's (see _physics_process).
-	hud.spectating = rules.squad
-	if rules.squad:
-		arena.guide_enabled = false
 	sync_assist()
 	music.play_skin(skins.selected)
 	# The first quick match on this device walks through the game, the match on hold.
@@ -319,9 +315,19 @@ func start_pve(layout: Dictionary = {}) -> void:
 func start_pvp_ai() -> void:
 	start_pve(Rules.pvp_map())
 
-func start_squad() -> void:
-	# 3 contra 3: the squad arena, six robots playing each other while the player watches.
+func start_squad(watch: bool = true) -> void:
+	# 3 contra 3: the squad arena. `watch`: the six robots play each other and the player
+	# watches; otherwise the player is the blue leader, with two AI wingmen against three.
 	start_pve(Rules.squad_map())
+	hud.spectating = watch
+	# The red leader is HÉLIO with his solar ray; watching, the blue one is FAÍSCA and her storm.
+	arena.set_skin(1, 10)
+	rules.loadouts[1] = ["blast", "mirror", "sun_ray"]
+	if watch:
+		arena.set_skin(0, 7)
+		rules.loadouts[0] = ["rapid", "walls", "thunder"]
+		arena.guide_enabled = false
+	hud.team_skins = arena.unit_skins
 
 func start_level(index: int) -> void:
 	story_run = {}
@@ -1386,7 +1392,7 @@ func play_events() -> void:
 			# Which robot fired: a leader (its team) or, on the 3 v 3 arena, a wingman. There
 			# the player only watches, so no shot is theirs.
 			var pilot = int(event.get("pilot", team))
-			var mine = team == local_team and pilot == local_team and not rules.squad
+			var mine = team == local_team and pilot == local_team and not hud.spectating
 			arena.shot_feedback(team, mine, pilot)
 			if int(event.get("power", 0)) == 4:
 				arena.sniper_fire(team)
@@ -1400,7 +1406,7 @@ func play_events() -> void:
 			skin = Skins.base_of(skin)
 			var variant = int(shot_variants[team]) % 3
 			shot_variants[team] += 1
-			play_tone("shot_%d_%d" % [skin, variant], (-9.0 if rules.squad else (0.0 if team == local_team else -5.0)), true)
+			play_tone("shot_%d_%d" % [skin, variant], (0.0 if mine else (-9.0 if rules.squad else (0.0 if team == local_team else -5.0))), true)
 		elif event.kind == "boost":
 			play_tone("boost")
 		elif event.kind in ["bounce", "spent"]:
@@ -1714,7 +1720,10 @@ func _physics_process(dt: float) -> void:
 		# 3 contra 3: every pilot is the AI's, the player's seat included - they watch.
 		var squad_commands: Array = []
 		for index in range(rules.players.size()):
-			squad_commands.append(rules.squad_command(index) if not pause_ai else {"move": Vector2.ZERO, "fire": false})
+			if index == local_team and not hud.spectating:
+				squad_commands.append(command)
+			else:
+				squad_commands.append(rules.squad_command(index) if not pause_ai else {"move": Vector2.ZERO, "fire": false})
 		arena.capture_motion(rules)
 		rules.step(dt, squad_commands)
 		play_events()

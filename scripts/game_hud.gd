@@ -24,7 +24,7 @@ const Powers = preload("res://scripts/powers.gd")
 signal test_arena_requested
 signal powers_opened
 signal pvp_ai_requested
-signal squad_requested
+signal squad_requested(watch: bool)
 signal play_requested
 signal host_requested
 signal join_requested(address: String)
@@ -1364,10 +1364,14 @@ func build_pvp_menu() -> void:
 	pvp_ai.custom_minimum_size.y = 56
 	list.add_child(pvp_ai)
 	pvp_ai.pressed.connect(func(): close_pvp(); pvp_ai_requested.emit())
+	var squad_play = make_button("3 CONTRA 3 · JOGAR COM AS IA", true)
+	squad_play.custom_minimum_size.y = 56
+	list.add_child(squad_play)
+	squad_play.pressed.connect(func(): close_pvp(); squad_requested.emit(false))
 	var squad = make_button("3 CONTRA 3 · VER AS IA A JOGAR", false)
 	squad.custom_minimum_size.y = 56
 	list.add_child(squad)
-	squad.pressed.connect(func(): close_pvp(); squad_requested.emit())
+	squad.pressed.connect(func(): close_pvp(); squad_requested.emit(true))
 	var leave = make_button("VOLTAR", false)
 	list.add_child(leave)
 	leave.pressed.connect(close_pvp)

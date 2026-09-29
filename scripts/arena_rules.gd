@@ -342,6 +342,8 @@ var squad: bool = false
 # The bricks by 1 m cell, on the squad map: with 600 of them a shot only looks at its own
 # neighbourhood instead of the whole wall, live and in the AI's forecasts alike.
 var brick_grid: Dictionary = {}
+# The wingmen's kits (pilots 2..5): two abilities and the ultimate of the robot each wears.
+var squad_kits: Array = [["blast", "walls", "meteors"], ["rapid", "mirror", "bloom"], ["air", "weld", "plating"], ["blast", "freeze", "singularity"]]
 var grid_low := Vector2.ZERO
 var grid_high := Vector2.ZERO
 # Where each obstacle's path is centred and how far from there it can reach a shot (path,
@@ -418,7 +420,7 @@ static func squad_map() -> Dictionary:
 	var pin = 0.55
 	return {
 		"id": "esquadrao", "name": "Esquadrão 3v3", "outline": "squad", "stretch": 2.7, "narrow": 1.0, "lean": true,
-		"squad": true, "bare": true, "powers": false, "bricks": "squad", "lives": 2, "bounces": 7,
+		"squad": true, "bare": true, "bricks": "squad", "lives": 2, "bounces": 7,
 		"boosters": true, "boost_depths": [-7.5, 0.0, 7.5],
 		# The flank rails, team 0's, as (across, depth from its own goal line), walked from the
 		# back corner forwards. "aim": where on the far end the pilot looks from each end of it.
@@ -858,7 +860,8 @@ func reset_round() -> void:
 	]
 	if squad:
 		for index in range(2, 6):
-			players.append({"p": pilot_position(index, 0.0), "angle": 0.0, "aim": pilot_aim(index, 0.0), "hp": PLAYER_LIVES, "stun": 0.0, "cooldown": 0.0})
+			players.append({"p": pilot_position(index, 0.0), "angle": 0.0, "aim": pilot_aim(index, 0.0), "hp": PLAYER_LIVES, "stun": 0.0, "cooldown": 0.0,
+				"kit": squad_kits[index - 2] if index - 2 < squad_kits.size() else [], "charge": [0, 0, 0], "cool": [0.0, 0.0, 0.0]})
 	balls.clear()
 	turrets.clear()
 	bricks = map_bricks(map, brick_lives)
@@ -1133,9 +1136,36 @@ func step(dt: float, commands: Array) -> void:
 				var slowed: bool = powers[defender].slow_time > 0 and signf(ball.p.y) == signf(players[defender].p.y)
 				advance_ball(ball, dt * (SLOW_FACTOR if slowed else 1.0), true)
 
-func step_wingman(index: int, dt: float, cmd: Dictionary) -> void:
-	# A wingman of the squad map: the leader's walk and gun on its own rail, without a kit.
+func with_pilot(index: int, action: Callable):
+	# A wingman uses its kit through the team's power machinery: for the length of the call
+	# it stands in the leader's place with its own kit, charges and cooldowns (the effects
+	# still running afterwards are the team's, like any power).
+	var team: int = index % 2
+	if index < 2:
+		return action.call()
 	var p: Dictionary = players[index]
+	var saved = [loadouts[team], powers[team].charge, powers[team].cool, players[team]]
+	loadouts[team] = p.kit
+	powers[team].charge = p.charge
+	powers[team].cool = p.cool
+	players[team] = p
+	var result = action.call()
+	p.charge = powers[team].charge
+	p.cool = powers[team].cool
+	loadouts[team] = saved[0]
+	powers[team].charge = saved[1]
+	powers[team].cool = saved[2]
+	players[team] = saved[3]
+	return result
+
+func step_wingman(index: int, dt: float, cmd: Dictionary) -> void:
+	# A wingman of the squad map: the leader's walk and gun on its own rail, and its own kit.
+	var p: Dictionary = players[index]
+	for slot in range(POWER_SLOTS):
+		p.cool[slot] = maxf(0.0, p.cool[slot] - dt)
+	var wanted: int = int(cmd.get("power", -1))
+	if wanted >= 0 and p.stun <= 0:
+		with_pilot(index, func(): return activate_power(index % 2, wanted))
 	p.cooldown = maxf(0, p.cooldown - dt)
 	var was_stunned: bool = p.stun > 0
 	p.stun = maxf(0, p.stun - dt)
@@ -2104,6 +2134,13 @@ func fire_laser(team: int) -> void:
 
 func credit_destroyed_brick(team: int) -> void:
 	powers[team].destroyed += 1
+	# The 3 v 3 wingmen charge their own kits off the same bricks.
+	for index in range(2 + team, players.size(), 2):
+		var kit: Array = players[index].get("kit", [])
+		for slot in range(mini(kit.size(), POWER_SLOTS)):
+			var entry: Dictionary = Powers.entry(String(kit[slot]))
+			if not entry.is_empty():
+				players[index].charge[slot] = mini(int(players[index].charge[slot]) + 1, int(entry.charge))
 	for index in range(POWER_SLOTS):
 		var cost = power_charge_cost(team, index)
 		if cost <= 0:
@@ -2322,7 +2359,8 @@ func advance_ball(ball: Dictionary, dt: float, sweep_obstacles: bool = false, pr
 		# struck on this step, and is skipped before any real test.
 		var low: Vector2 = start.min(start + travel)
 		var high: Vector2 = start.max(start + travel)
-		if not brick_grid.is_empty():
+		if not brick_grid.is_empty() and not carrying:
+			# (While a plunder carries the walls across, the bricks are not in their cells.)
 			if bounds_max.x < grid_low.x or bounds_min.x > grid_high.x or bounds_max.y < grid_low.y or bounds_min.y > grid_high.y:
 				pass
 			else:
@@ -2859,6 +2897,16 @@ func squad_command(index: int) -> Dictionary:
 			plan.target = u
 		plan.scan = (plan.scan + 1) % 17
 	var move = Vector2(clampf((plan.target - pilot.angle) * 8.0, -1, 1), 0)
+	# Every pilot carries a kit: every second or so, whatever is charged goes off, the
+	# ultimate first.
+	var power := -1
+	if elapsed >= float(plan.get("next_power", 0.0)):
+		plan["next_power"] = elapsed + 1.0 + index * 0.13
+		power = with_pilot(index, func():
+			for slot in [POWER_SLOTS - 1, 0, 1]:
+				if can_activate_power(team, slot):
+					return slot
+			return -1)
 	var tangent: Vector2 = pilot_position(index, clampf(pilot.angle + 0.02, -limit, limit)) - pilot_position(index, clampf(pilot.angle - 0.02, -limit, limit))
 	var dodge := 0.0
 	for ball in balls:
@@ -2876,14 +2924,14 @@ func squad_command(index: int) -> Dictionary:
 	if dodge != 0.0:
 		if absf(pilot.angle + signf(dodge) * 0.1) > limit:
 			dodge = -signf(pilot.angle)
-		return {"move": Vector2(clampf(dodge, -1, 1), 0), "fire": false}
+		return {"move": Vector2(clampf(dodge, -1, 1), 0), "fire": false, "power": power}
 	var fire := false
 	if pilot.cooldown <= 0 and elapsed >= plan.next_fire:
 		plan.next_fire = elapsed + 0.12
 		fire = squad_value(team, squad_forecast(index, pilot.angle, 0.0)) > 0.0
 		if fire:
 			move = Vector2.ZERO
-	return {"move": move, "fire": fire}
+	return {"move": move, "fire": fire, "power": power}
 
 func squad_score(index: int, u: float, rate: float) -> float:
 	# What the shot from that spot is worth, less the walk to get there.

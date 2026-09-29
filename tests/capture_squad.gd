@@ -1,7 +1,7 @@
 extends SceneTree
 # The 3 v 3 arena as a phone shows it (needs a GPU): the squad match started from the menu,
 # twenty seconds of the six robots playing each other, then one frame.
-# Usage: godot -s tests/capture_squad.gd -- <output.png> [seconds of play] [width] [height]
+# Usage: godot -s tests/capture_squad.gd -- <output.png> [seconds of play] [width] [height] [watch/play]
 const Rules = preload("res://scripts/arena_rules.gd")
 
 func _initialize() -> void:
@@ -17,7 +17,7 @@ func run() -> void:
 	game.game_settings.config_path = "res://tests/style-preview.tmp"
 	game.game_settings.tutorial_match = true
 	await create_timer(0.3).timeout
-	game.start_squad()
+	game.start_squad(not (args.size() > 4 and args[4] == "play"))
 	await create_timer(0.5).timeout
 	# Play it forward here, faster than the software renderer would.
 	var rules = game.rules
