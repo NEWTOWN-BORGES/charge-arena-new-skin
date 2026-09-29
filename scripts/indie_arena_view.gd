@@ -757,6 +757,147 @@ func arc_ribbon(parent: Node3D, points: Array, width: float, height: float, colo
 		triangle(st, ar, ar + down, br + down)
 	mesh(parent, st.commit(), Vector3.ZERO, color, luminous)
 
+const BEAM = preload("res://shaders/light_beam.gdshader")
+# The light show over each goal: four searchlights that wake when its wall falls, sweep the sky
+# while it stands open and go wild when a goal goes in. Unlit cards, added: no lamps.
+var goal_shows: Array = []
+var goal_open: Array = [false, false]
+var goal_open_age: Array = [9.0, 9.0]
+# A goal's fireworks: [seconds to wait, where, colour].
+var fireworks: Array = []
+var emote_phase = ""
+var emote_age = 0.0
+
+func build_goal_show(team: int, center: Vector2, color: Color) -> void:
+	var rig = Node3D.new()
+	add_child(rig)
+	rig.position = Vector3(center.x, 0.15, center.y)
+	var mat = ShaderMaterial.new()
+	mat.shader = BEAM
+	mat.set_shader_parameter("tint", color.lerp(GOLD, 0.6))
+	var beams: Array = []
+	for k in range(4):
+		var beam = Node3D.new()
+		rig.add_child(beam)
+		beam.position = Vector3((k - 1.5) * 0.85, 0, 0)
+		for turn in [0.0, PI * 0.5]:
+			var card = MeshInstance3D.new()
+			var quad = QuadMesh.new()
+			quad.size = Vector2(0.7, 12.0)
+			quad.center_offset = Vector3(0, 6.0, 0)
+			card.mesh = quad
+			card.material_override = mat
+			card.rotation.y = turn
+			card.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			beam.add_child(card)
+		beams.append(beam)
+	rig.visible = false
+	goal_shows.append({"rig": rig, "beams": beams, "mat": mat, "out": signf(center.y)})
+
+func emote(team: int, rules, body: Node3D, legs: Array, head: Node3D, arm: Node3D, gun: Node3D) -> void:
+	# The robots react, on top of their stance: the scorer jumps with its gun up (and spins
+	# and dances at the end of the match); the other hangs its head, shakes it, and at the end
+	# drops to one knee. Before the whistle they warm up: a look round and a flex of the gun.
+	var t: float = emote_age
+	if rules.phase == "goal" or rules.phase == "finished":
+		var final = rules.phase == "finished"
+		if rules.winner == team:
+			var hop = absf(sin(t * (6.5 if final else 7.5)))
+			body.position.y += hop * (0.3 if final else 0.24)
+			if final:
+				body.rotation.y += t * 4.5
+				body.rotation.z = sin(t * 6.0) * 0.12
+			else:
+				body.rotation.y += sin(t * 6.0) * 0.3
+			gun.rotation.x = 1.25 + sin(t * 13.0) * 0.18
+			if arm != null:
+				arm.rotation.x = -2.5 + sin(t * 13.0 + 1.0) * 0.2
+				arm.rotation.z = 0.2
+			if head != null:
+				head.rotation.x = -0.28
+			for i in range(legs.size()):
+				var knee: Node3D = legs[i].get_node_or_null("Knee")
+				if knee != null:
+					knee.rotation.x = -0.5 * (1.0 - hop)
+			Robots.set_mood(body, 1)
+		else:
+			var sag = minf(t * 2.5, 1.0)
+			body.rotation.x = 0.28 * sag
+			body.position.y -= 0.06 * sag
+			gun.rotation.x = -0.9 * sag
+			if arm != null:
+				arm.rotation.x = 0.1 * sag
+			if head != null:
+				head.rotation.x = 0.45 * sag
+				head.rotation.y = sin(t * 3.0) * 0.28 * sag
+			if final:
+				# Down on one knee.
+				var kneel = minf(t * 1.6, 1.0)
+				body.position.y -= 0.22 * kneel
+				for i in range(legs.size()):
+					var leg: Node3D = legs[i]
+					var knee: Node3D = leg.get_node_or_null("Knee")
+					leg.rotation.x = (0.9 if i == 0 else -0.25) * kneel
+					if knee != null:
+						knee.rotation.x = (-1.3 if i == 0 else -1.6) * kneel
+	elif rules.phase == "countdown":
+		var warm = maxf(0.0, 1.0 - t / 3.0)
+		if head != null:
+			head.rotation.y += sin(t * 2.4 + team) * 0.5 * warm
+		gun.rotation.x += maxf(0.0, sin(t * 3.2)) * 0.6 * warm
+		body.position.y += absf(sin(t * 5.0)) * 0.05 * warm
+
+func goal_opened(team: int) -> void:
+	# The last brick of a wall is down: the gate flares, a ring runs across the floor, sparks
+	# go up and the searchlights come on.
+	goal_open_age[team] = 0.0
+	var center = Rules.goal_center(team)
+	var at = Vector3(center.x, 0.2, center.y)
+	if fx != null:
+		fx.ring(at, GOLD, 3.2, 0.7)
+		fx.sparks(at + Vector3(0, 0.3, 0), GOLD.lightened(0.2), 34 if quality_level > 0 else 18, 7.0, 0.14, 0.9, Vector3.UP, 70.0)
+		fx.glow(at + Vector3(0, 0.8, 0), Color(1, 0.92, 0.6), 2.4, 0.45)
+	light_field(GOLD, 0.55, 0.7)
+	shake(0.08)
+
+func update_goal_shows(rules, dt: float) -> void:
+	var celebrating = rules.phase == "goal" or rules.phase == "finished"
+	for team in range(mini(2, goal_shows.size())):
+		var open = rules.brick_count(team) == 0
+		if open and not goal_open[team] and rules.phase == "play":
+			goal_opened(team)
+		goal_open[team] = open
+		goal_open_age[team] += dt
+		var show: Dictionary = goal_shows[team]
+		# The goal that was just scored in is the one that celebrates.
+		var scored = celebrating and rules.winner == 1 - team
+		show.rig.visible = open or scored
+		if not show.rig.visible:
+			goals[team].material_override.set_shader_parameter("burst", 0.0)
+			continue
+		var age: float = goal_open_age[team]
+		var wake = exp(-age * 2.2)
+		var intensity = 1.0 if scored else 0.45 + 0.55 * wake
+		var speed = 3.2 if scored else 0.9
+		show.mat.set_shader_parameter("intensity", intensity * (0.85 + 0.15 * sin(clock * 9.0)) if scored else intensity)
+		var beams: Array = show.beams
+		for k in range(beams.size()):
+			var beam: Node3D = beams[k]
+			beam.rotation.x = float(show.out) * (0.28 + 0.14 * sin(clock * 0.7 + k))
+			beam.rotation.z = sin(clock * speed + k * 1.4) * 0.5
+		var flare = wake if not scored else 0.6 + 0.4 * sin(clock * 14.0)
+		goals[team].material_override.set_shader_parameter("burst", flare)
+	for i in range(fireworks.size() - 1, -1, -1):
+		var shell: Array = fireworks[i]
+		shell[0] -= dt
+		if shell[0] > 0.0:
+			continue
+		fireworks.remove_at(i)
+		if fx != null:
+			fx.sparks(shell[1], shell[2], 60 if quality_level > 0 else 30, 8.0, 0.24, 1.3, Vector3.UP, 180.0, -2.5)
+			fx.embers(shell[1], shell[2].lightened(0.3), 24 if quality_level > 0 else 12, 3.0, 0.26, 1.8, Vector3.UP, 180.0, -1.0)
+			fx.glow(shell[1], shell[2].lightened(0.2), 3.4, 0.45)
+
 func build_goal(team: int) -> void:
 	var color = CYAN if team == 0 else CORAL
 	var center = Rules.goal_center(team)
@@ -790,6 +931,7 @@ func build_goal(team: int) -> void:
 	shader.set_shader_parameter("tint", color)
 	gate.material_override = shader
 	goals.append(gate)
+	build_goal_show(team, center, color)
 	for endpoint in [points.front(), points.back()]:
 		var post = Node3D.new()
 		add_child(post)
@@ -1579,6 +1721,10 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	if rules.phase != emote_phase:
+		emote_phase = rules.phase
+		emote_age = 0.0
+	emote_age += dt
 	for drift in drifters:
 		drift[0].rotation.y += dt * float(drift[1])
 	advance_fx_clock(dt)
@@ -1778,7 +1924,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var halo: Node3D = node.get_node("Stun")
 		halo.visible = data.stun > 0
 		halo.rotation.y = clock * 2.7
-		Robots.set_mood(body, 2 if data.stun > 0 else (3 if angry[team] else 0))
+		if not ((rules.phase == "goal" or rules.phase == "finished") and rules.winner == team):
+			Robots.set_mood(body, 2 if data.stun > 0 else (3 if angry[team] else 0))
 		if data.stun > stuns_before[team] + 0.2:
 			burst(data.p, GOLD, false)
 		stuns_before[team] = data.stun
@@ -1805,6 +1952,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		body.position.z = body.basis.z.z * kick + muzzle_shift.z
 		body.rotation.x += -recoil * 0.05
 		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
+		emote(team, rules, body, legs, head, arm, gun)
 		goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
 	for i in range(rules.bricks.size()):
 		var data: Dictionary = rules.bricks[i]
@@ -1934,6 +2082,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			projectile_launch.erase(id)
 			ball_previous.erase(id)
 	update_sentries(rules, dt)
+	update_goal_shows(rules, dt)
 	var player: Dictionary = rules.players[local_team]
 	aim_line.visible = rules.phase == "play" and player.stun <= 0 and not guide_enabled
 	update_aim_guide(rules, local_team, dt)
@@ -4153,6 +4302,15 @@ func goal_scored(team_scoring: int, spot: Vector3) -> void:
 		fx.sparks(spot + Vector3(0, 0.4, 0), color.lightened(0.3), 26, 9.0, 0.16, 0.6, Vector3.UP, 80.0)
 		fx.embers(spot, color, 16, 3.0, 0.2, 0.9, Vector3.UP, 60.0, -1.5)
 	flash(spot + Vector3(0, 1.0, 0), color, 3.0, 0.3, 7.0)
+	light_field(color.lerp(GOLD, 0.3), 1.0, 1.2)
+	# Fireworks over the goal, one after another, and confetti coming down on the field.
+	var palette = [color, GOLD, Color(1, 0.97, 0.92), color.lightened(0.3)]
+	for i in range(7 if quality_level > 0 else 4):
+		fireworks.append([0.12 + i * 0.26, spot + Vector3(randf_range(-3.5, 3.5), randf_range(3.5, 6.5), randf_range(-1.5, 1.5)), palette[i % palette.size()]])
+	if fx != null:
+		for i in range(6 if quality_level > 0 else 3):
+			var at = Vector3(randf_range(-4.0, 4.0), 5.5, spot.z * randf_range(0.2, 0.9))
+			fx.embers(at, palette[i % palette.size()], 14, 1.2, 0.12, 2.4, Vector3.DOWN, 120.0, -0.4)
 
 func ultimate_accent(at: Vector2, id: String) -> void:
 	# Small silhouette accents augment, rather than replace, each themed main effect.
