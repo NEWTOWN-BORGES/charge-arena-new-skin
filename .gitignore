@@ -6,3 +6,9 @@ builds/
 
 __pycache__/
 art/worlds/src/
+
+# Chaves de assinatura: nunca no repositório.
+*.jks
+*.keystore
+*.p12
+.pass

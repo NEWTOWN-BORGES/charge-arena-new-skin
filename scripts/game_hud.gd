@@ -1021,6 +1021,56 @@ func show_pause(value: bool) -> void:
 	pause_overlay.visible = value
 	queue_redraw()
 
+var credits_overlay: ColorRect
+
+const CREDITS_TEXT = """CHARGE ARENA
+Jogo, código, robôs, cenários, música e sons: equipa Charge Arena.
+
+Feito com o motor Godot Engine (godotengine.org), licença MIT:
+%s
+
+Tipos de letra, licença SIL Open Font License 1.1 (scripts.sil.org/OFL):
+- Rubik - Copyright 2015 The Rubik Project Authors
+- Lilita One - Copyright 2011 Juan Montoreano
+- Lora - Copyright 2011 The Lora Project Authors
+- Playfair Display - Copyright 2017 The Playfair Display Project Authors
+
+Componentes de terceiros incluídos no Godot Engine:
+%s"""
+
+func open_credits() -> void:
+	# The licences the engine and the fonts ask to be shown to players.
+	if credits_overlay == null:
+		credits_overlay = ColorRect.new()
+		credits_overlay.color = Color(UiKit.NIGHT, 0.96)
+		credits_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(credits_overlay)
+		var column = VBoxContainer.new()
+		column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		column.offset_left = 20
+		column.offset_right = -20
+		column.offset_top = 40 + safe_top
+		column.offset_bottom = -24 - safe_bottom
+		column.add_theme_constant_override("separation", 14)
+		credits_overlay.add_child(column)
+		column.add_child(label("CRÉDITOS E LICENÇAS", 26, WHITE, true))
+		var scroll = ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		column.add_child(scroll)
+		var parts: Array = []
+		for info in Engine.get_copyright_info():
+			parts.append("- " + String(info.get("name", "")))
+		var body = label(CREDITS_TEXT % [Engine.get_license_text(), "\n".join(parts)], 14, Color(WHITE, 0.85))
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(body)
+		var close = make_button("FECHAR", true)
+		close.custom_minimum_size.y = 60
+		close.pressed.connect(func(): credits_overlay.hide())
+		column.add_child(close)
+	move_child(credits_overlay, -1)
+	credits_overlay.show()
+
 func make_button(text: String, primary: bool) -> Button:
 	# 72 px: a big, easy thumb target on a phone, and it still reads well on a monitor.
 	var b = Button.new()
@@ -2507,6 +2557,11 @@ func build_video_menu() -> void:
 		close_video()
 		tutorials_reset.emit())
 	game.add_child(tutorials)
+	var credits = make_button("CRÉDITOS E LICENÇAS", false)
+	credits.custom_minimum_size.y = 64
+	credits.add_theme_font_size_override("font_size", 18)
+	credits.pressed.connect(open_credits)
+	game.add_child(credits)
 	var camera_help = label("Câmara: arrasta no mapa para rodar e aproximar; a tua vista fica guardada. Toca duas vezes no mapa para voltar à vista normal.", 16, MUTED)
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	game.add_child(camera_help)
