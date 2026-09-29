@@ -25,7 +25,7 @@ jobs:
             cat $(ls parts/"$base".part* | sort) > out/"$base"
           done
           ls -la out
-          cd out && sha256sum *.apk | tee SHA256SUMS.txt
+          cd out && sha256sum $(ls *.apk *.aab 2>/dev/null) | tee SHA256SUMS.txt
       - name: Publicar na Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,4 +35,4 @@ jobs:
             gh release create "$TAG" --title "APK de teste" --notes-file LEIA-ME.md --prerelease --target "$GITHUB_SHA"
           fi
           gh release edit "$TAG" --notes-file LEIA-ME.md
-          gh release upload "$TAG" out/*.apk out/SHA256SUMS.txt --clobber
+          gh release upload "$TAG" $(ls out/*.apk out/*.aab 2>/dev/null) out/SHA256SUMS.txt --clobber
