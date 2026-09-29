@@ -31,9 +31,9 @@ const HEAD_CENTER = 1.44
 const DISC_SPINS = {"spin_rays": Vector3(0, 1.44, 0.42), "spin_halo": Vector3(0, 1.5, 0.45)}
 const CENTRED_SPINS = ["spin_rays", "spin_halo", "spin_orbit"]
 # Vertex alpha tells the paint shader what a surface is made of.
-const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5, "rubber": 0.45, "leaf": 0.35, "leaf2": 0.35, "cloud": 0.15, "rock": 0.05, "rock2": 0.05, "grass": 0.22}
+const FINISH = {"glow": 1.0, "metal": 0.75, "dark": 0.5, "rubber": 0.45, "leaf": 0.35, "leaf2": 0.35, "cloud": 0.15, "rock": 0.05, "rock2": 0.05, "grass": 0.22, "turf": 0.27}
 # Foliage takes its own colour when the paint names one, else the part's two main colours.
-const LEAF_FALLBACK = {"leaf": "shell", "leaf2": "label", "cloud": "shell", "rock": "shell", "rock2": "trim", "grass": "shell"}
+const LEAF_FALLBACK = {"leaf": "shell", "leaf2": "label", "cloud": "shell", "rock": "shell", "rock2": "trim", "grass": "shell", "turf": "shell"}
 # The studio look has no ink line: soft light and the dark seams between panels carry the
 # shapes. Leave the hull code for a stylised mode, off by default.
 const INK = false
@@ -376,7 +376,7 @@ static func prop(view, node: Node3D, key: String, parts: Array, paint: Dictionar
 
 static func _mount(view, parent: Node3D, key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Array:
 	var signature = ""
-	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label", "leaf", "leaf2", "cloud", "rock", "rock2", "grass"]:
+	for role in ["shell", "trim", "dark", "metal", "glow", "team", "rubber", "hazard", "label", "leaf", "leaf2", "cloud", "rock", "rock2", "grass", "turf"]:
 		signature += Color(paint.get(role, Color.WHITE)).to_html(false)
 	var meshes = merged(key + ":" + signature, placed, paint, outline and INK)
 	# Real shadows only from what stands by the court (robots, bricks, goal furniture).

@@ -84,7 +84,8 @@ void fragment() {
 		// Aerial perspective: far stone fades into the blue of the air.
 		float far = smoothstep(25.0, 110.0, length(world_position - CAMERA_POSITION_WORLD));
 		ALBEDO = mix(stone, haze, far * 0.6);
-		EMISSION = haze * far * 0.25;
+		// Light bounced up from the ground and the clouds below: undersides are never black.
+		EMISSION = haze * far * 0.25 + stone * 0.22 * smoothstep(0.3, -0.8, up);
 		ROUGHNESS = 0.92;
 		SPECULAR = 0.2;
 	} else if (COLOR.a < 0.2) {
@@ -104,6 +105,13 @@ void fragment() {
 		SPECULAR = 0.0;
 		ROUGHNESS = 1.0;
 		EMISSION = cloud * COLOR.rgb * paint_gain;
+	} else if (COLOR.a > 0.26 && COLOR.a < 0.29) {
+		// Turf: a meadow painted on the top of an island, sunlit and shaded patches.
+		float patches = grain(world_position * 0.35) * 0.65 + grain(world_position * 1.4) * 0.35;
+		vec3 turf = COLOR.rgb * mix(vec3(0.74, 0.86, 0.9), vec3(1.2, 1.16, 0.84), smoothstep(0.35, 0.7, patches));
+		ALBEDO = turf;
+		ROUGHNESS = 1.0;
+		SPECULAR = 0.0;
 	} else if (COLOR.a > 0.2 && COLOR.a < 0.24) {
 		// Grass blades: deep at the root, sunlit and warm at the tips.
 		float t = clamp(model_position.y / 0.45, 0.0, 1.0);

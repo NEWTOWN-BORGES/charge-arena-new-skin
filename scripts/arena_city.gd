@@ -7,6 +7,7 @@ extends RefCounted
 ## opaque and merged by material after the build.
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaSky = preload("res://scripts/arena_sky.gd")
+const ArenaLife = preload("res://scripts/arena_life.gd")
 
 const STREET = -24.0
 const WHITE = Color("f6f4fc")
@@ -39,6 +40,7 @@ static func build(view, theme: Dictionary) -> void:
 	tower(view, edge, rng)
 	var neighbours = city(view, rng, reach, far)
 	roof_plant(view, rng, reach, far, neighbours)
+	ArenaLife.roof_gardens(view, rng, neighbours, reach, far)
 	view.platform(ArenaSky.circle(90.0, 24), STREET, 0.5, theme.street)
 
 static func tower(view, edge: Array, rng: RandomNumberGenerator) -> void:

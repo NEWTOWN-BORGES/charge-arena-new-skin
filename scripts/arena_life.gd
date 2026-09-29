@@ -9,6 +9,7 @@ const Rules = preload("res://scripts/arena_rules.gd")
 const ArenaSky = preload("res://scripts/arena_sky.gd")
 const Robots = preload("res://scripts/robots.gd")
 const ArtStyle = preload("res://scripts/art_style.gd")
+const CLOUD_SEA = preload("res://shaders/cloud_sea.gdshader")
 
 const LEAVES = [[Color("5f8f3e"), Color("8ab25e")], [Color("4f7f3a"), Color("7fa656")], [Color("6b8f35"), Color("9ab65a")], [Color("587a34"), Color("86a24e")]]
 const BLOSSOM = [Color("ff6fa8"), Color("ffd84a"), Color("ffffff"), Color("b58cff"), Color("ff8a3d")]
@@ -126,6 +127,48 @@ static func meadow(view, rng: RandomNumberGenerator, sample: Callable, heights: 
 	for i in range(2):
 		scatter(view, "env_grass_%d" % i, sets[i], {"grass": green.lerp(Color("9ac26a"), 0.2 * i)})
 
+static func roof_gardens(view, rng: RandomNumberGenerator, roofs: Array, reach: float, far: float) -> void:
+	# Green roofs across the city: a lawn with painted trees and bushes on some of the roofs in
+	# view, all the trees batched together.
+	if not ArtStyle.painted_nature():
+		return
+	var trees: Array = [[], []]
+	var shrubs: Array = []
+	var lawn = Color("7fae52")
+	for roof in roofs:
+		var c: Vector2 = roof.center
+		if absf(c.x) > reach + 24.0 or c.y < -(far + 30.0) or rng.randf() > 0.4:
+			continue
+		var size: Vector2 = roof.size
+		var top: float = roof.top
+		var half = size * 0.3
+		view.platform([Vector2(c.x - half.x, c.y - half.y), Vector2(c.x + half.x, c.y - half.y), Vector2(c.x + half.x, c.y + half.y), Vector2(c.x - half.x, c.y + half.y)], top + 0.06, 0.1, lawn)
+		for k in range(rng.randi_range(1, 3)):
+			var at = Vector3(c.x + rng.randf_range(-half.x, half.x) * 0.8, top + 0.08, c.y + rng.randf_range(-half.y, half.y) * 0.8)
+			if rng.randf() < 0.6:
+				trees[rng.randi() % 2].append(pose(at, rng.randf_range(0, TAU), rng.randf_range(0.6, 0.85)))
+			else:
+				shrubs.append(pose(at, rng.randf_range(0, TAU), rng.randf_range(0.9, 1.3)))
+	for i in range(2):
+		scatter(view, "env_oak_%d" % i, trees[i], {"leaf": LEAVES[i][0], "leaf2": LEAVES[i][1], "trim": BARK})
+	scatter(view, "env_bush_0", shrubs, {"leaf": LEAVES[2][0], "leaf2": LEAVES[2][1], "hazard": BLOSSOM[0]})
+
+static func cloud_sea(view, height: float) -> void:
+	# One wide sheet far below, painted as rolling cloud tops.
+	var sea = MeshInstance3D.new()
+	var plane = PlaneMesh.new()
+	plane.size = Vector2(460, 460)
+	sea.mesh = plane
+	sea.position = Vector3(0, height, 0)
+	var mat = ShaderMaterial.new()
+	mat.shader = CLOUD_SEA
+	var theme: Dictionary = view.theme
+	var air: Color = Color(theme.get("sky_mid", Color("78b6ee"))).lerp(theme.get("sky_low", Color("e4f1fb")), 0.7)
+	mat.set_shader_parameter("haze_color", Vector3(air.r, air.g, air.b))
+	sea.material_override = mat
+	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	view.add_child(sea)
+
 static func ring_spots(rng: RandomNumberGenerator, count: int, inner: float, outer: float, keep_out: Array, gap: float = 1.1) -> Array:
 	# Points in a band round the arena, clear of `keep_out` (the pad and whatever stands there).
 	var sample = func(r: RandomNumberGenerator):
@@ -148,15 +191,19 @@ static func build(view, theme: Dictionary, dressing: String) -> void:
 			mountains(view, theme, rng, far + 70.0, -0.4)
 			clouds(view, theme, rng, 14, Vector2(30, 70), Vector2(14, 24), 0.012)
 		"sky":
-			# Floating islands with trees round the deck, and more clouds above and below it.
+			# Floating islands round the deck (meadow, trees, strata of rock, hanging roots),
+			# clouds above and below, and far down a sea of clouds the serras rise out of.
 			var islands: Array = [[], []]
-			for k in range(ArenaSky.rich(view, 8)):
-				var a = lerpf(-PI * 0.9, PI * 0.9, (k + rng.randf_range(0.2, 0.8)) / ArenaSky.rich(view, 8))
-				var r = rng.randf_range(reach + 12.0, reach + 30.0)
-				islands[k % 2].append(pose(Vector3(sin(a) * r, rng.randf_range(-6.0, 3.0), -cos(a) * r), rng.randf_range(0, TAU), rng.randf_range(1.2, 2.4)))
+			var count = ArenaSky.rich(view, 7)
+			for k in range(count):
+				var a = lerpf(-PI * 0.92, PI * 0.92, (k + rng.randf_range(0.25, 0.75)) / count)
+				var r = rng.randf_range(reach + 16.0, reach + 38.0)
+				islands[k % 2].append(pose(Vector3(sin(a) * r, rng.randf_range(-5.0, 4.0), -cos(a) * r), rng.randf_range(0, TAU), rng.randf_range(0.9, 1.6)))
 			var green = LEAVES[0]
 			for i in range(2):
-				scatter(view, "env_island_%d" % i, islands[i], {"shell": green[1], "trim": Color("b98a5e"), "label": green[0], "dark": BARK, "rock": Color("9a7a58")})
+				scatter(view, "env_island_%d" % i, islands[i], {"turf": Color("7fae52"), "leaf": green[0], "leaf2": green[1], "trim": BARK, "dark": Color("5a4430"), "rock": Color("c2ab8c"), "rock2": Color("9a7650"), "hazard": BLOSSOM[i]})
+			if ArtStyle.painted_nature():
+				cloud_sea(view, -12.0)
 			clouds(view, theme, rng, 12, Vector2(reach + 10.0, reach + 45.0), Vector2(-9.0, -3.0), 0.02)
 			clouds(view, theme, rng, 10, Vector2(35, 80), Vector2(10, 22), -0.01)
 			mountains(view, theme, rng, far + 90.0, -14.0)

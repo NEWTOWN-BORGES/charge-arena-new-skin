@@ -279,33 +279,82 @@ def cumulus(p, seed, size=1.0):
 
 
 def sky_island(p, seed, size=1.0):
-    """Ilha flutuante: rocha pendurada em estalactite irregular, relva por cima e duas árvores."""
+    """Ilha flutuante: um planalto de relva de bordo irregular, uma faixa de terra à volta, a
+    rocha por baixo em estratos a afunilar até à ponta, raízes penduradas e, em cima, árvores
+    e arbustos ao estilo Ghibli e umas pedras."""
     rng = random.Random(seed)
     off = _offset(seed)
+    R = 3.0 * size
+    sectors = 32
+    rings = 6
+
+    def edge(t):
+        return R * (1.0 + 0.2 * noise.noise(Vector((math.cos(t) * 1.3, math.sin(t) * 1.3, 0.7)) + off))
+
     bm = bmesh.new()
-    rings = 9
-    sides = 18
-    prof = [(1.65, 0.0), (1.6, -0.25), (1.4, -0.6), (1.1, -1.0), (0.8, -1.4), (0.5, -1.8), (0.28, -2.2), (0.12, -2.5), (0.0, -2.7)]
-    verts = []
-    for rr, yy in prof:
-        ring = []
-        for k in range(sides):
-            a = math.tau * k / sides
-            n = Vector((math.cos(a), 0, math.sin(a)))
-            wob = 1.0 + 0.2 * noise.noise(n * 2.0 + Vector((0, yy, 0)) + off)
-            ring.append(bm.verts.new(Vector((n.x * rr * wob * size, yy * size * (1.0 + 0.1 * noise.noise(n * 3.0 + off)), n.z * rr * wob * size))))
-        verts.append(ring)
-    for i in range(len(verts) - 1):
-        for k in range(sides):
-            bm.faces.new((verts[i][k], verts[i][(k + 1) % sides], verts[i + 1][(k + 1) % sides], verts[i + 1][k]))
+    centre = bm.verts.new(Vector((0, 0.35 * size, 0)))
+    grid = []
+    for ring in range(1, rings + 1):
+        k = ring / rings
+        row = []
+        for i in range(sectors):
+            t = math.tau * i / sectors
+            rr = edge(t) * k
+            y = 0.35 * size * (1.0 - k * k) + 0.12 * size * noise.noise(Vector((math.cos(t) * rr, math.sin(t) * rr, 3.0)) * 0.6 + off)
+            row.append(bm.verts.new(Vector((math.cos(t) * rr, y, math.sin(t) * rr))))
+        grid.append(row)
+    for i in range(sectors):
+        bm.faces.new((centre, grid[0][(i + 1) % sectors], grid[0][i]))
+    for ring in range(rings - 1):
+        for i in range(sectors):
+            bm.faces.new((grid[ring][i], grid[ring][(i + 1) % sectors], grid[ring + 1][(i + 1) % sectors], grid[ring + 1][i]))
+    p.add("turf", bm, T(0, 0, 0))
+    # The earth band under the lip and the rock below, ring by ring down to the tip.
+    profile = [(1.0, 0.0), (1.02, -0.18), (0.96, -0.45), (0.86, -0.9), (0.72, -1.4), (0.56, -1.95), (0.4, -2.5), (0.25, -3.0), (0.12, -3.45), (0.0, -3.7)]
+    bm = bmesh.new()
+    earth = bmesh.new()
+    rows = []
+    for j, (scale, depth) in enumerate(profile):
+        row = []
+        for i in range(sectors):
+            t = math.tau * i / sectors
+            n = Vector((math.cos(t), 0, math.sin(t)))
+            wob = 1.0 + 0.16 * noise.noise(n * 2.2 + Vector((0, depth, 0)) + off)
+            rr = edge(t) * scale * wob
+            yy = depth * R * 0.55 * (1.0 + 0.12 * noise.noise(n * 3.0 + off))
+            row.append((n.x * rr, yy, n.z * rr))
+        rows.append(row)
+    for j in range(len(rows) - 1):
+        target = earth if j == 0 else bm
+        top = [target.verts.new(Vector(v)) for v in rows[j]]
+        bottom = [target.verts.new(Vector(v)) for v in rows[j + 1]]
+        for i in range(sectors):
+            target.faces.new((top[i], bottom[i], bottom[(i + 1) % sectors], top[(i + 1) % sectors]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.recalc_face_normals(earth, faces=earth.faces)
     p.add("rock", bm, T(0, 0, 0))
-    blob(p, "leaf2", (0, 0.02 * size, 0), 1.72 * size, seed + 3, squash=0.08, lobes=0.08, clumps=0.03)
+    p.add("rock2", earth, T(0, 0, 0))
+    # Roots hanging from under the lip.
+    for k in range(rng.randint(4, 7)):
+        t = rng.uniform(0, math.tau)
+        start = Vector((math.cos(t) * edge(t) * 0.9, -0.3 * size, math.sin(t) * edge(t) * 0.9))
+        pts = [start]
+        for step in range(4):
+            pts.append(pts[-1] + Vector((rng.uniform(-0.15, 0.15), -rng.uniform(0.4, 0.7), rng.uniform(-0.15, 0.15))) * size)
+        limb(p, "dark", pts, 0.06 * size, 0.015 * size, 5, seed + 200 + k, bark=0.2)
+    # On top: trees, bushes and a few stones.
+    for k in range(rng.randint(2, 3)):
+        t = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.1, 0.55) * R
+        broadleaf(_Shifted(p, Vector((math.cos(t) * rr, 0.25 * size, math.sin(t) * rr))), seed + 50 + k, rng.uniform(0.7, 1.0) * size)
+    for k in range(rng.randint(2, 3)):
+        t = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.3, 0.75) * R
+        shrub(_Shifted(p, Vector((math.cos(t) * rr, 0.2 * size, math.sin(t) * rr))), seed + 70 + k, rng.uniform(0.7, 1.0) * size)
     for k in range(2):
-        a = rng.uniform(0, math.tau)
-        rr = rng.uniform(0.2, 0.8) * size
-        sub = _Shifted(p, Vector((math.cos(a) * rr, 0.1 * size, math.sin(a) * rr)))
-        broadleaf(sub, seed + 50 + k, rng.uniform(0.55, 0.75) * size)
+        t = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.4, 0.8) * R
+        boulder(_Shifted(p, Vector((math.cos(t) * rr, 0.1 * size, math.sin(t) * rr))), seed + 90 + k, 0.35 * size)
 
 
 class _Shifted:

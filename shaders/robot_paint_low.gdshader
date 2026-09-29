@@ -52,6 +52,8 @@ void fragment() {
 		float lit = sun * 0.55 + n.y * 0.45;
 		vec3 cloud = mix(vec3(0.56, 0.64, 0.8), vec3(0.83, 0.87, 0.94), smoothstep(-0.12, -0.02, lit));
 		ALBEDO = COLOR.rgb * mix(cloud, vec3(1.0, 0.97, 0.9), smoothstep(0.3, 0.4, lit)) * 1.2;
+	} else if (finish > 0.26 && finish < 0.29) {
+		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.7);
 	} else if (finish > 0.3 && finish < 0.4) {
 		// Foliage, painted: a teal shade, the leaf green and a warm sunlit green.
 		float lit = sun * 0.8 + 0.1;
