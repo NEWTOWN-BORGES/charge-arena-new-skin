@@ -320,14 +320,30 @@ func start_squad(watch: bool = true) -> void:
 	# watches; otherwise the player is the blue leader, with two AI wingmen against three.
 	start_pve(Rules.squad_map())
 	hud.spectating = watch
-	# The red leader is HÉLIO with his solar ray; watching, the blue one is FAÍSCA and her storm.
-	arena.set_skin(1, 10)
-	rules.loadouts[1] = ["blast", "mirror", "sun_ray"]
+	# Every new match the AI plays other robots: the eleven with an ultimate, shuffled, each
+	# with its own ultimate and two abilities drawn at random.
+	var cast: Array = range(1, 12)
+	cast.shuffle()
+	var draw = func(skin: int) -> Array:
+		var pool: Array = SQUAD_ABILITIES.duplicate()
+		pool.shuffle()
+		return [pool[0], pool[1], String(Skins.CATALOG[skin].ultimate)]
+	arena.set_skin(1, cast[0])
+	rules.loadouts[1] = draw.call(cast[0])
 	if watch:
-		arena.set_skin(0, 7)
-		rules.loadouts[0] = ["rapid", "walls", "thunder"]
+		arena.set_skin(0, cast[1])
+		rules.loadouts[0] = draw.call(cast[1])
 		arena.guide_enabled = false
+	var kits: Array = []
+	for index in range(2, 6):
+		arena.set_pilot_skin(index, cast[index])
+		kits.append(draw.call(cast[index]))
+		rules.players[index].kit = kits.back()
+	rules.squad_kits = kits
 	hud.team_skins = arena.unit_skins
+
+# What the AI's robots may take into a 3 v 3 match besides their ultimate.
+const SQUAD_ABILITIES = ["blast", "rapid", "air", "laser", "pierce", "sniper", "cluster", "ricochet", "mortar", "drain", "emp", "walls", "mirror", "weld", "freeze", "stun", "thorns", "dome", "slow", "immune", "magnet", "rebuild", "sponge", "ghost"]
 
 func start_level(index: int) -> void:
 	story_run = {}
@@ -1395,7 +1411,7 @@ func play_events() -> void:
 			var mine = team == local_team and pilot == local_team and not hud.spectating
 			arena.shot_feedback(team, mine, pilot)
 			if int(event.get("power", 0)) == 4:
-				arena.sniper_fire(team)
+				arena.sniper_fire(pilot)
 			if mine:
 				hud.fire_age = 0.0
 				if not game_settings.auto_fire:

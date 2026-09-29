@@ -40,6 +40,8 @@ const POWER_BALL_SCALE = [1.0, 1.4, 0.95, 0.7, 0.85, 1.6, 1.0, 0.7]
 # read while the enlarged walls still remain fully visible.
 const LANDSCAPE_SIZE = 17.0 * Rules.MAP_SCALE
 var units: Array = []
+# Which robot cast each team's running power (see Rules.caster): its effects come from it.
+var casters: Array = [0, 1]
 var crafting_pilot = false
 var brick_nodes: Array = []
 var goals: Array = []
@@ -1271,6 +1273,19 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 	old.queue_free()
 	refresh_ultimate_colors()
 
+func set_pilot_skin(index: int, skin: int) -> void:
+	# Dress pilot `index` in another robot: a leader like set_skin, a 3 v 3 wingman here.
+	if index < 2:
+		set_skin(index, skin)
+		return
+	if index >= units.size():
+		return
+	var old: Node3D = units[index]
+	var fresh = build_player(CYAN if index % 2 == 0 else CORAL, index % 2, skin)
+	fresh.transform = old.transform
+	units[index] = fresh
+	old.queue_free()
+
 # Station pilots are addressed from here up, well clear of the eleven skins in the shop.
 const STATION_SKIN = 100
 # The wingmen of the 3 v 3 arena (pilots 2..5): two robots a side besides the leaders.
@@ -1751,6 +1766,9 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	if rules != null and rules.get("caster") != null:
+		for team in range(2):
+			casters[team] = clampi(int(rules.caster[team]), 0, units.size() - 1)
 	if rules.phase != emote_phase:
 		emote_phase = rules.phase
 		emote_age = 0.0
@@ -2675,6 +2693,7 @@ func lightning(a: Vector3, b: Vector3, color: Color, life: float, jag: float = 0
 	effects.append({"node": bolt, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": Vector3.ONE, "keep": true, "blink": true})
 
 func sniper_fire(team: int) -> void:
+	# (`team`: the pilot that fired - a 3 v 3 wingman passes its own index.)
 	# The marksman's shot: a star flare off the muzzle, a sonic ring punched in the air and a
 	# kick of smoke; the round itself leaves a long tracer (see the ball trails).
 	if not is_instance_valid(units[team]):
@@ -2962,7 +2981,7 @@ func power_flash(pos: Vector2, id: String) -> void:
 
 func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
 	# Each bite sparks at the muzzle; the beam itself is drawn every frame below.
-	var muzzle: Vector3 = muzzle_of(team)
+	var muzzle: Vector3 = muzzle_of(casters[team] if team < casters.size() else team)
 	burst(Vector2(muzzle.x, muzzle.z) + heading * 0.2, Rules.power_color("laser"), false)
 
 func muzzle_of(team: int) -> Vector3:
@@ -3090,7 +3109,7 @@ func rocket_paint(team: int) -> Dictionary:
 
 func missile_launch(team: int, at: Vector2, seconds: float) -> void:
 	# Out of Salvo's shoulder pod, up in an arc and down on the wall.
-	var body: Node3D = units[team].get_node("Body")
+	var body: Node3D = units[casters[team]].get_node("Body")
 	var from: Vector3 = body.global_transform * Vector3(0.5, 1.55, -0.3)
 	var to = Vector3(at.x, 0.3, at.y)
 	var apex = from.lerp(to, 0.45) + Vector3.UP * 4.5
@@ -3107,7 +3126,7 @@ func missile_launch(team: int, at: Vector2, seconds: float) -> void:
 
 func bazooka_fire(team: int, at: Vector2, seconds: float, windup: float) -> void:
 	# The arm becomes a rocket tube, kicks back as it fires, then folds away.
-	var gun: Node3D = units[team].get_node_or_null("Body/Gun")
+	var gun: Node3D = units[casters[team]].get_node_or_null("Body/Gun")
 	if gun == null:
 		return
 	var flash_node: Node3D = gun.get_node_or_null("Flash")
@@ -3864,6 +3883,8 @@ func update_power_effects(rules, dt: float) -> void:
 	# Capes over the bricks and a curtain in front of a shielded goal.
 	for team in range(2):
 		var state: Dictionary = rules.powers[team]
+		# The robot that cast what is running (a 3 v 3 wingman, or the leader).
+		var who: int = casters[team]
 		var dome_node: Node3D = power_nodes[team].get_node("Dome")
 		dome_node.visible = state.dome_time > 0
 		if dome_node.visible:
@@ -3880,7 +3901,7 @@ func update_power_effects(rules, dt: float) -> void:
 				wave.visible = roll < 0.9
 			if fx != null and fmod(clock, 0.06) < dt:
 				# Motes hanging in the thickened air, drifting up slowly.
-				var side_z = signf(rules.players[team].p.y)
+				var side_z = signf(rules.players[who].p.y)
 				fx.emit("glow", Vector3(randf_range(-Rules.HALF_WIDTH, Rules.HALF_WIDTH), randf_range(0.1, 0.8), side_z * randf_range(0.5, Rules.HALF_LENGTH - 0.5)), Vector3(0, 0.25, 0), Color(Rules.power_color("slow"), 0.8), 0.16, 0.05, 1.6)
 		var sponge_node: Node3D = power_nodes[team].get_node("Sponge")
 		sponge_node.visible = state.sponge_time > 0
@@ -3889,7 +3910,7 @@ func update_power_effects(rules, dt: float) -> void:
 		var immune_node: Node3D = power_nodes[team].get_node("Immune")
 		immune_node.visible = state.immune_time > 0
 		if immune_node.visible:
-			immune_node.position = Vector3(rules.players[team].p.x, 0, rules.players[team].p.y)
+			immune_node.position = Vector3(rules.players[who].p.x, 0, rules.players[who].p.y)
 			immune_node.rotation.y = clock * 2.2
 			immune_node.get_node("Orbit").rotation.z = clock * 3.0
 			immune_node.get_node("Bubble").material_override.set_shader_parameter("rise", clampf((Rules.IMMUNE_SECONDS - state.immune_time) / 0.35, 0.0, 1.0))
@@ -3913,7 +3934,7 @@ func update_power_effects(rules, dt: float) -> void:
 		charging.visible = state.ultimate_windup > 0
 		if charging.visible:
 			# Winding up: a ring of light closes on the pilot and sparks rise out of it.
-			var pilot: Vector2 = rules.players[team].p
+			var pilot: Vector2 = rules.players[who].p
 			charging.position = Vector3(pilot.x, 0, pilot.y)
 			var wind = 1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP
 			charging.scale = Vector3.ONE * lerpf(2.6, 0.9, wind)
@@ -3944,8 +3965,8 @@ func update_power_effects(rules, dt: float) -> void:
 		ray.visible = firing_sun
 		if firing_sun:
 			# Out of the barrel, past the wall, and thick enough to swallow four bricks.
-			var muzzle: Vector3 = muzzle_of(team)
-			var aim: Vector2 = Rules.forward_direction(team, rules.players[team].angle)
+			var muzzle: Vector3 = muzzle_of(who)
+			var aim: Vector2 = Rules.pilot_facing(map, who, rules.players[who].angle)
 			var reach = 3.0 * (Rules.HALF_LENGTH + Rules.HALF_WIDTH)
 			ray.position = muzzle
 			ray.rotation.y = -aim.angle()
@@ -3974,7 +3995,7 @@ func update_power_effects(rules, dt: float) -> void:
 		if collapsing:
 			# The core swells and the disc spins faster as the collapse tightens; rings of
 			# shock keep falling inwards, and the light bends the same way.
-			var pilot: Vector2 = rules.players[team].p
+			var pilot: Vector2 = rules.players[who].p
 			var draw_in = clampf(1.0 - state.ultimate_time / Rules.SINGULARITY_PULL, 0.0, 1.0)
 			var glow: Color = Rules.power_color("singularity")
 			vortex.position = Vector3(pilot.x, 1.05, pilot.y)
@@ -4005,8 +4026,8 @@ func update_power_effects(rules, dt: float) -> void:
 		var beam: Node3D = power_nodes[team].get_node("Beam")
 		beam.visible = state.laser_time > 0
 		if beam.visible:
-			var origin: Vector2 = rules.players[team].p
-			var heading: Vector2 = Rules.forward_direction(team, rules.players[team].angle)
+			var origin: Vector2 = rules.players[who].p
+			var heading: Vector2 = Rules.pilot_facing(map, who, rules.players[who].angle)
 			var path: Array = rules.laser_path(origin, heading)
 			var flicker = 1.0 + sin(clock * 30.0) * 0.14
 			beam.position = Vector3.ZERO
@@ -4022,7 +4043,7 @@ func update_power_effects(rules, dt: float) -> void:
 				# after it runs at that height, so the beam meets small bricks too.
 				var start_y: float = SHOT_HEIGHT
 				if leg == 0:
-					var muzzle: Vector3 = muzzle_of(team)
+					var muzzle: Vector3 = muzzle_of(who)
 					from = Vector2(muzzle.x, muzzle.z)
 					start_y = muzzle.y
 				var travel: Vector2 = path[leg + 1] - from

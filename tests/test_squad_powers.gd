@@ -36,5 +36,33 @@ func run() -> void:
 		if used.size() < 4:
 			failures += 1
 			push_error("Too few powers used with %s" % str(pair))
+	# Random kits, as the menu deals them: every ability in the game gets its turn.
+	var abilities = ["blast", "rapid", "air", "laser", "pierce", "sniper", "cluster", "ricochet", "mortar", "drain", "emp", "walls", "mirror", "weld", "freeze", "stun", "thorns", "dome", "slow", "immune", "magnet", "rebuild", "sponge", "ghost"]
+	for round_index in range(4):
+		var rules = Rules.new()
+		rules.set_map(Rules.squad_map())
+		var kits: Array = []
+		for k in range(6):
+			kits.append([abilities[(round_index * 12 + k * 2) % abilities.size()], abilities[(round_index * 12 + k * 2 + 1) % abilities.size()], ULTIMATES[k % 6][round_index % 2]])
+		rules.loadouts = [kits[0], kits[1]]
+		rules.squad_kits = kits.slice(2)
+		rules.reset_match()
+		var used = {}
+		for tick in range(int(25.0 * 60)):
+			if tick % 600 == 0:
+				for team in range(2):
+					rules.powers[team].charge = [99, 99, 99]
+				for index in range(2, 6):
+					rules.players[index].charge = [99, 99, 99]
+			var commands: Array = []
+			for index in range(6):
+				commands.append(rules.squad_command(index))
+			rules.step(1.0 / 60.0, commands)
+			for event in rules.events:
+				if event.kind == "power":
+					used[String(event.get("id", "?"))] = true
+			if rules.phase != "play":
+				rules.phase = "play"
+		print("random kits %d: used %s" % [round_index, str(used.keys())])
 	print("SQUAD_POWERS_RESULT failures=%d" % failures)
 	quit(failures)

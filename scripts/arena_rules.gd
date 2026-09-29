@@ -343,6 +343,10 @@ var squad: bool = false
 # neighbourhood instead of the whole wall, live and in the AI's forecasts alike.
 var brick_grid: Dictionary = {}
 # The wingmen's kits (pilots 2..5): two abilities and the ultimate of the robot each wears.
+# Which pilot cast each team's running power: its effects come from that robot (a leader
+# is its team's index, a 3 v 3 wingman past that). `acting`: the pilot firing right now.
+var caster: Array = [0, 1]
+var acting: int = -1
 var squad_kits: Array = [["blast", "walls", "meteors"], ["rapid", "mirror", "bloom"], ["air", "weld", "plating"], ["blast", "freeze", "singularity"]]
 var grid_low := Vector2.ZERO
 var grid_high := Vector2.ZERO
@@ -843,6 +847,7 @@ func reset_round() -> void:
 		state.ultimate_tick = 0.0
 		state.ultimate_shots = 0
 		state.ultimate_id = ""
+	caster = [0, 1]
 	ai_target_angle = 0.0
 	ai_next_scan = 0.0
 	ai_scan_index = 0
@@ -1057,7 +1062,7 @@ func step(dt: float, commands: Array) -> void:
 		if powers[team].mortar_time > 0:
 			powers[team].mortar_time = maxf(0.0, powers[team].mortar_time - dt)
 			if powers[team].mortar_time <= 0:
-				mortar_land(team)
+				as_caster(team, func(): mortar_land(team))
 		if powers[team].plunder_time > 0:
 			# The two walls land the moment the flight ends, and that is when the lives
 			# change hands: swapping them at take-off would give the theft away early.
@@ -1067,8 +1072,13 @@ func step(dt: float, commands: Array) -> void:
 				events.append({"kind": "plunder_land", "team": team, "p": players[team].p})
 		for slot in range(POWER_SLOTS):
 			powers[team].cool[slot] = maxf(0.0, powers[team].cool[slot] - dt)
-		step_laser(team, dt)
-		step_ultimate(team, dt)
+		as_caster(team, func(): step_laser(team, dt))
+		as_caster(team, func(): step_ultimate(team, dt))
+		if powers[team].rapid_time > 0 and int(caster[team]) != team:
+			# A wingman's burst: from its own gun, on its own cadence.
+			as_caster(team, func():
+				if players[team].cooldown <= 0 and players[team].stun <= 0:
+					shoot(team, 2))
 		p.cooldown = maxf(0, p.cooldown - dt)
 		var was_stunned: bool = p.stun > 0
 		p.stun = maxf(0, p.stun - dt)
@@ -1084,10 +1094,12 @@ func step(dt: float, commands: Array) -> void:
 		p.angle = clampf(p.angle + clampf(move.x, -1, 1) * SPEED * frost / TRACK_WIDTH * dt, -track_limit, track_limit)
 		p.p = track_position(team, p.angle)
 		p.aim = forward_direction(team, p.angle)
-		activate_power(team, int(cmd.get("power", -1)))
-		if powers[team].rapid_time > 0 and p.cooldown <= 0:
+		if activate_power(team, int(cmd.get("power", -1))):
+			caster[team] = team
+		var own_power: bool = int(caster[team]) == team
+		if powers[team].rapid_time > 0 and own_power and p.cooldown <= 0:
 			shoot(team, 2)
-		elif cmd.get("fire", false) and p.cooldown <= 0 and powers[team].laser_time <= 0:
+		elif cmd.get("fire", false) and p.cooldown <= 0 and (powers[team].laser_time <= 0 or not own_power) and not (powers[team].rapid_time > 0 and own_power):
 			# While the lance is lit, the lance is the gun. The pilot used to keep firing
 			# ordinary rounds underneath it, and those are what people saw ricocheting.
 			shoot(team)
@@ -1149,7 +1161,12 @@ func with_pilot(index: int, action: Callable):
 	powers[team].charge = p.charge
 	powers[team].cool = p.cool
 	players[team] = p
+	var was_acting: int = acting
+	acting = index
 	var result = action.call()
+	acting = was_acting
+	if result is bool and result:
+		caster[team] = index
 	p.charge = powers[team].charge
 	p.cool = powers[team].cool
 	loadouts[team] = saved[0]
@@ -1157,6 +1174,20 @@ func with_pilot(index: int, action: Callable):
 	powers[team].cool = saved[2]
 	players[team] = saved[3]
 	return result
+
+func as_caster(team: int, action: Callable) -> void:
+	# Runs a team's power on from whoever cast it: a wingman stands in the leader's place.
+	var index: int = int(caster[team])
+	if index < 2 or index >= players.size():
+		action.call()
+		return
+	var leader: Dictionary = players[team]
+	players[team] = players[index]
+	var was_acting: int = acting
+	acting = index
+	action.call()
+	acting = was_acting
+	players[team] = leader
 
 func step_wingman(index: int, dt: float, cmd: Dictionary) -> void:
 	# A wingman of the squad map: the leader's walk and gun on its own rail, and its own kit.
@@ -1219,7 +1250,7 @@ func activate_power(team: int, index: int) -> bool:
 	powers[team].cool[index] = power_wait(team, index)
 	var p: Dictionary = players[team]
 	var heading = forward_direction(team, p.angle)
-	events.append({"kind": "power", "power": index, "id": id, "team": team, "p": p.p})
+	events.append({"kind": "power", "power": index, "id": id, "team": team, "p": p.p, "pilot": acting if acting >= 0 else team})
 	match id:
 		"blast":
 			shoot(team, 1)
@@ -2306,20 +2337,20 @@ func shoot(team: int, power: int = 0) -> void:
 		var pilot: Dictionary = players[team]
 		pilot.cooldown = RAPID_INTERVAL
 		spawn_ball(team, assist_heading(team), power, bite, surged)
-		events.append({"kind": "shot", "p": pilot.p, "team": team, "power": power})
+		events.append({"kind": "shot", "p": pilot.p, "team": team, "power": power, "pilot": acting if acting >= 0 else team})
 		return
 	var p: Dictionary = players[team]
 	p.aim = forward_direction(team, p.angle)
 	p.cooldown = (SURGE_INTERVAL if surged else FIRE_INTERVAL) * (FREEZE_FIRE if powers[team].freeze_time > 0 else 1.0)
 	spawn_ball(team, assist_heading(team), power, bite, surged)
-	events.append({"kind": "shot", "p": p.p, "team": team, "power": power})
+	events.append({"kind": "shot", "p": p.p, "team": team, "power": power, "pilot": acting if acting >= 0 else team})
 
 func spawn_ball(team: int, heading: Vector2, power: int, damage: int = 1, boosted: bool = false) -> void:
 	# Shots no longer expire against a wall, so a full arena drops the oldest one instead
 	# of silently refusing to fire.
 	while balls.size() >= MAX_BALLS:
 		balls.remove_at(0)
-	balls.append({"id": next_id, "owner": team, "p": players[team].p + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "boosted": boosted, "damage": damage, "ttl": BALL_LIFE, "power": power, "ghost": powers[team].ghost_time > 0})
+	balls.append({"id": next_id, "owner": team, "pilot": acting if acting >= 0 else team, "p": players[team].p + heading * 0.64, "v": heading * BALL_SPEED, "bounces": 0, "boosted": boosted, "damage": damage, "ttl": BALL_LIFE, "power": power, "ghost": powers[team].ghost_time > 0})
 	next_id += 1
 
 func target_bricks(owner: int) -> Dictionary:
