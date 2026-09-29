@@ -293,7 +293,7 @@ var map_overlay: Control
 var map_panel: PanelContainer
 var map_title: Label
 var map_tiles: Dictionary = {}
-var chosen_world = "jardim"
+var chosen_world = "aurora"
 var map_touches: Dictionary = {}
 var map_pinch = 0.0
 

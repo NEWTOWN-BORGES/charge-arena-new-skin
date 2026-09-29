@@ -4,7 +4,7 @@ extends SceneTree
 # Usage: godot -s tests/capture_top.gd -- <output.png> <quality 0-2> [light parts: 1/0] [camera turn]
 const Rules = preload("res://scripts/arena_rules.gd")
 const Robots = preload("res://scripts/robots.gd")
-const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade", "jardim"]
+const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade", "cidade_negra"]
 
 func _initialize() -> void:
 	call_deferred("run")

@@ -137,7 +137,8 @@ const BY_MAP = {
 	"torre_terra": "terra", "torre_oceano": "oceano", "torre_orbita": "orbita", "torre_cidade": "cidade", "torre_jardim": "jardim",
 }
 # The worlds in the order the map picker shows them, with the thumbnail of each.
-const WORLDS = ["jardim", "aurora", "terra", "oceano", "orbita", "cidade", "cidade_negra", "aurora_sombria", "vale_corrompido", "abismo_neon", "eclipse_orbital"]
+# Ilha Jardim is no longer offered (its world stays for the maps that name it).
+const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade", "cidade_negra", "aurora_sombria", "vale_corrompido", "abismo_neon", "eclipse_orbital"]
 const WORLD_PICTURE = "res://art/ui/maps/%s.png"
 # The road stations between the bosses take the four ground-level worlds in turn; the sky
 # deck stays the home arena.

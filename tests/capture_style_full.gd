@@ -4,7 +4,7 @@ extends SceneTree
 # Usage: godot -s tests/capture_style_full.gd -- <output prefix> <style or "atual">
 const Rules = preload("res://scripts/arena_rules.gd")
 const ArtStyle = preload("res://scripts/art_style.gd")
-const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade", "jardim"]
+const WORLDS = ["aurora", "terra", "oceano", "orbita", "cidade", "cidade_negra"]
 
 func _initialize() -> void:
 	call_deferred("run")
