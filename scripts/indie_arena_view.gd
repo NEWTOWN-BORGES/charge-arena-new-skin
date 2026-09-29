@@ -598,7 +598,8 @@ func build(new_map: Dictionary = {}) -> void:
 			ArenaDressing.perimeter(self, theme)
 			ArenaDressing.stadium(self, theme, quality_level)
 	# Life on top of the world: trees, flowers, mountains on the horizon, drifting clouds.
-	if not bake_export:
+	# The 3 v 3 arena is the floor alone: six robots and six hundred bricks are its show.
+	if not bake_export and not map.get("squad", false):
 		ArenaLife.build(self, theme, String(theme.get("dressing", "")))
 	world_nodes = get_children().slice(first_world_node)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)

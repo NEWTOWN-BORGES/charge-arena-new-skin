@@ -137,6 +137,7 @@ func _ready() -> void:
 	hud.host_requested.connect(host_game)
 	hud.join_requested.connect(join_game)
 	hud.pvp_ai_requested.connect(start_pvp_ai)
+	hud.squad_requested.connect(start_squad)
 	hud.test_arena_requested.connect(func(): start_pve(Rules.test_map()))
 	hud.menu_requested.connect(request_menu)
 	hud.resume_requested.connect(resume_pve)
@@ -304,15 +305,23 @@ func start_pve(layout: Dictionary = {}) -> void:
 	# Compile what the match can draw during the countdown, not at its first shot.
 	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
+	# The 3 v 3 arena is watched: all six robots are the AI's (see _physics_process).
+	hud.spectating = rules.squad
+	if rules.squad:
+		arena.guide_enabled = false
 	sync_assist()
 	music.play_skin(skins.selected)
 	# The first quick match on this device walks through the game, the match on hold.
-	if not game_settings.tutorial_match and level_index < 0 and tutorials_allowed():
+	if not rules.squad and not game_settings.tutorial_match and level_index < 0 and tutorials_allowed():
 		pve_paused = true
 		hud.start_tutorial.call_deferred("match")
 
 func start_pvp_ai() -> void:
 	start_pve(Rules.pvp_map())
+
+func start_squad() -> void:
+	# 3 contra 3: the squad arena, six robots playing each other while the player watches.
+	start_pve(Rules.squad_map())
 
 func start_level(index: int) -> void:
 	story_run = {}
@@ -1374,8 +1383,11 @@ func play_events() -> void:
 			# muzzle, camera, button and (when the player pulls the trigger themselves) a
 			# micro pulse under the thumb. Auto-fire gets no buzz: it would never stop.
 			var team = int(event.team)
-			var mine = team == local_team
-			arena.shot_feedback(team, mine)
+			# Which robot fired: a leader (its team) or, on the 3 v 3 arena, a wingman. There
+			# the player only watches, so no shot is theirs.
+			var pilot = int(event.get("pilot", team))
+			var mine = team == local_team and pilot == local_team and not rules.squad
+			arena.shot_feedback(team, mine, pilot)
 			if int(event.get("power", 0)) == 4:
 				arena.sniper_fire(team)
 			if mine:
@@ -1388,7 +1400,7 @@ func play_events() -> void:
 			skin = Skins.base_of(skin)
 			var variant = int(shot_variants[team]) % 3
 			shot_variants[team] += 1
-			play_tone("shot_%d_%d" % [skin, variant], 0.0 if team == local_team else -5.0, true)
+			play_tone("shot_%d_%d" % [skin, variant], (-9.0 if rules.squad else (0.0 if team == local_team else -5.0)), true)
 		elif event.kind == "boost":
 			play_tone("boost")
 		elif event.kind in ["bounce", "spent"]:
@@ -1698,6 +1710,15 @@ func _physics_process(dt: float) -> void:
 			network_tick = 0
 			submit_input.rpc_id(1, command.move, command.fire)
 		return
+	if mode == "pve" and rules.squad:
+		# 3 contra 3: every pilot is the AI's, the player's seat included - they watch.
+		var squad_commands: Array = []
+		for index in range(rules.players.size()):
+			squad_commands.append(rules.squad_command(index) if not pause_ai else {"move": Vector2.ZERO, "fire": false})
+		arena.capture_motion(rules)
+		rules.step(dt, squad_commands)
+		play_events()
+		return
 	var other: Dictionary
 	if mode == "pve":
 		other = rules.ai_command() if not pause_ai else {"move": Vector2.ZERO, "fire": false}
@@ -1871,7 +1892,8 @@ func _process(dt: float) -> void:
 		menu_preview_timer -= dt
 		if menu_preview_timer < 0:
 			show_menu_preview()
-	if not is_instance_valid(arena) or rules.players.size() != 2:
+	# Two pilots, or six on the 3 v 3 arena; none before the first match is set up.
+	if not is_instance_valid(arena) or rules.players.size() < 2:
 		return
 	if mode == "pve" and (pve_paused or hud.video_overlay.visible):
 		return

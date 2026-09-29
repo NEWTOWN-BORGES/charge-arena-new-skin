@@ -135,6 +135,7 @@ const BY_MAP = {
 	"cidade_negra": "cidade_negra", "aurora_sombria": "aurora_sombria", "vale_corrompido": "vale_corrompido",
 	"abismo_neon": "abismo_neon", "eclipse_orbital": "eclipse_orbital",
 	"torre_terra": "terra", "torre_oceano": "oceano", "torre_orbita": "orbita", "torre_cidade": "cidade", "torre_jardim": "jardim",
+	"esquadrao": "aurora",
 }
 # The worlds in the order the map picker shows them, with the thumbnail of each.
 # Ilha Jardim is no longer offered (its world stays for the maps that name it).

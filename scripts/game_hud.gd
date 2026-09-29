@@ -24,6 +24,7 @@ const Powers = preload("res://scripts/powers.gd")
 signal test_arena_requested
 signal powers_opened
 signal pvp_ai_requested
+signal squad_requested
 signal play_requested
 signal host_requested
 signal join_requested(address: String)
@@ -123,6 +124,9 @@ var replay: Button
 var match_data: Dictionary = {}
 var team = 0
 var mode = "menu"
+# 3 contra 3: the six robots play each other and the player watches - no stick, no fire
+# button, no powers; the camera gestures still work.
+var spectating := false
 var network_status = ""
 var touches: Dictionary = {}
 var move_id = -1
@@ -1360,6 +1364,10 @@ func build_pvp_menu() -> void:
 	pvp_ai.custom_minimum_size.y = 56
 	list.add_child(pvp_ai)
 	pvp_ai.pressed.connect(func(): close_pvp(); pvp_ai_requested.emit())
+	var squad = make_button("3 CONTRA 3 · VER AS IA A JOGAR", false)
+	squad.custom_minimum_size.y = 56
+	list.add_child(squad)
+	squad.pressed.connect(func(): close_pvp(); squad_requested.emit())
 	var leave = make_button("VOLTAR", false)
 	list.add_child(leave)
 	leave.pressed.connect(close_pvp)
@@ -3087,6 +3095,7 @@ func show_game(new_mode: String, local_team: int) -> void:
 	map_overlay.hide()
 	back.text = "PAUSA" if new_mode == "pve" else "MENU"
 	mode = new_mode
+	spectating = false
 	team = local_team
 	menu.hide()
 	lobby.hide()
@@ -3165,6 +3174,8 @@ func _input(event: InputEvent) -> void:
 				else:
 					camera_tap_ms = -1000
 				camera_id = -1 if camera_touches.is_empty() else int(camera_touches.keys()[0])
+			return
+		if spectating:
 			return
 		if event.pressed:
 			if not auto_fire and fire_control == 0 and event.position.distance_to(fire_center) <= 49 * fire_size:
@@ -3574,6 +3585,11 @@ func draw_hud() -> void:
 	for side in range(2):
 		player_card(card_rects[side], side, team if side == 0 else 1 - team)
 	var p: Dictionary = match_data.players[team]
+	if spectating:
+		# Nobody's pilot to steer: a caption where the stick would be.
+		centered("3 CONTRA 3  ·  A VER AS IA", Vector2(size.x * 0.5, size.y - safe_bottom - 30), 15, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.7))
+		draw_moment()
+		return
 	if p.stun > 0:
 		var banner = stun_banner_rect()
 		panel(banner, Color(UiKit.PANEL, 0.95), Color(SUN, 0.7))
@@ -3598,16 +3614,20 @@ func draw_moment() -> void:
 		message = network_status
 	elif match_data.phase == "countdown":
 		message = str(maxi(1, ceili(match_data.timer)))
-		sub = "PREPARA O TEU DISPARO"
+		sub = "AZUIS CONTRA VERMELHOS" if spectating else "PREPARA O TEU DISPARO"
 		if not level_info.is_empty():
 			sub = "NÍVEL %d · %s" % [level_info.number, level_info.name.to_upper()]
 			detail = level_info.challenge
 	elif match_data.phase == "goal":
 		message = "GOLO!" if match_data.winner == team else "GOLO DO RIVAL"
 		sub = "NOVA RONDA A SEGUIR"
+		if spectating:
+			message = "GOLO DOS AZUIS!" if match_data.winner == 0 else "GOLO DOS VERMELHOS!"
 	elif match_data.phase == "finished":
 		message = "VITÓRIA!" if match_data.winner == team else "O RIVAL VENCEU"
 		sub = "PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE
+		if spectating:
+			message = "OS AZUIS VENCEM!" if match_data.winner == 0 else "OS VERMELHOS VENCEM!"
 		if level_result == "won":
 			sub = "NÍVEL %d CONCLUÍDO" % level_info.number
 			if not level_info.has_next:
