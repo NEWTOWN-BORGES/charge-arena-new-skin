@@ -65,9 +65,13 @@ static func mountains(view, theme: Dictionary, rng: RandomNumberGenerator, radiu
 		# Angle 0 is straight behind the far goal (-Z).
 		var at = Vector3(sin(a) * radius, floor_y, -cos(a) * radius) * rng.randf_range(0.92, 1.1)
 		at.y = floor_y
-		sets[k % 2].append(pose(at, rng.randf_range(0, TAU), rng.randf_range(1.6, 2.6)))
+		# Each range lies along the horizon, its long side to the arena.
+		sets[k % 2].append(pose(at, -a + rng.randf_range(-0.25, 0.25), rng.randf_range(1.4, 2.1)))
 	for i in range(2):
-		scatter(view, "env_mountain_%d" % i, sets[i], {"shell": stone, "trim": snow})
+		# Bare rock on the steep faces, forest on the gentle slopes (no snow).
+		var forest = Color("24283c") if night else Color("4f6b45")
+		var rock = stone if night else Color("7a7266")
+		scatter(view, "env_mountain_%d" % i, sets[i], {"shell": stone, "trim": snow, "rock": rock, "rock2": forest})
 
 static func clouds(view, theme: Dictionary, rng: RandomNumberGenerator, count: int, radius: Vector2, height: Vector2, speed: float) -> void:
 	# Puffy clouds on a slow carousel round the sky.

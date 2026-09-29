@@ -212,25 +212,26 @@ def boulder(p, seed, size=1.0):
 
 
 def mountain_range(p, seed, size=1.0):
-    """Cordilheira distante: um campo de alturas com três picos e cristas de ruído, a neve nas
-    faces altas e pouco inclinadas (trim), a rocha no resto."""
-    rng = random.Random(seed)
+    """Serra distante, realista: cristas largas e arredondadas cortadas por vales de erosão,
+    sem picos bicudos nem neve. As encostas suaves levam floresta (rock2) e só as partes
+    íngremes mostram a rocha (rock)."""
     off = _offset(seed)
-    w, d = 34.0 * size, 14.0 * size
-    nx, nz = 56, 24
-    peaks = [(rng.uniform(-11, -6) * size, rng.uniform(-2, 2) * size, rng.uniform(7, 10) * size),
-             (rng.uniform(-2, 2) * size, rng.uniform(-2, 2) * size, rng.uniform(11, 14) * size),
-             (rng.uniform(6, 11) * size, rng.uniform(-2, 2) * size, rng.uniform(7, 10) * size)]
+    w, d = 44.0 * size, 18.0 * size
+    nx, nz = 72, 28
+    top_h = 15.0 * size
+
+    def ridged(x, z, f):
+        n = 1.0 - abs(noise.noise(Vector((x * f, z * f, 0.5)) + off))
+        return n * n
 
     def height(x, z):
-        h = 0.0
-        for px, pz, ph in peaks:
-            dist = math.hypot((x - px) / (ph * 1.05), (z - pz) / (ph * 0.7))
-            h = max(h, ph * max(0.0, 1.0 - dist) ** 1.15)
-        ridge = 1.0 - abs(noise.noise(Vector((x * 0.18, z * 0.18, 0)) + off))
-        detail = noise.noise(Vector((x * 0.6, z * 0.6, 1.0)) + off)
-        edge = min(1.0, (w / 2 - abs(x)) / (w * 0.12), (d / 2 - abs(z)) / (d * 0.25))
-        return max(0.0, (h * (0.85 + 0.3 * ridge) + detail * 0.35 * size) * max(edge, 0.0))
+        # A long swell along the range, ridges on it and valleys carved by the small noise.
+        swell = 0.55 + 0.45 * noise.noise(Vector((x * 0.035, 0.0, 2.0)) + off)
+        crest = 1.0 - (abs(z) / (d * 0.5)) ** 1.6
+        h = top_h * swell * max(crest, 0.0) * (0.55 + 0.35 * ridged(x, z, 0.09) + 0.1 * ridged(x, z, 0.25))
+        h += 0.35 * size * noise.noise(Vector((x * 0.5, z * 0.5, 3.0)) + off)
+        edge = min(1.0, (w / 2 - abs(x)) / (w * 0.18))
+        return max(0.0, h * max(edge, 0.0))
 
     bm = bmesh.new()
     grid = []
@@ -243,23 +244,18 @@ def mountain_range(p, seed, size=1.0):
         grid.append(row)
     for j in range(nz):
         for i in range(nx):
-            f = bm.faces.new((grid[j][i], grid[j + 1][i], grid[j + 1][i + 1], grid[j][i + 1]))
+            bm.faces.new((grid[j][i], grid[j + 1][i], grid[j + 1][i + 1], grid[j][i + 1]))
     bm.normal_update()
     for f in bm.faces:
         if f.normal.y < 0:
             f.normal_flip()
     bm.normal_update()
-    top = max(v.co.y for v in bm.verts)
-    snow_flags = []
-    for f in bm.faces:
-        c = f.calc_center_median()
-        line = top * (0.64 + 0.1 * noise.noise(c * 0.4 + off))
-        snow_flags.append(c.y > line and f.normal.y > 0.45)
-    snow = bm.copy()
-    bmesh.ops.delete(snow, geom=[f for f, flag in zip(snow.faces, snow_flags) if not flag], context="FACES")
-    bmesh.ops.delete(bm, geom=[f for f, flag in zip(bm.faces, snow_flags) if flag], context="FACES")
+    forest_flags = [f.normal.y > 0.8 for f in bm.faces]
+    forest = bm.copy()
+    bmesh.ops.delete(forest, geom=[f for f, flag in zip(forest.faces, forest_flags) if not flag], context="FACES")
+    bmesh.ops.delete(bm, geom=[f for f, flag in zip(bm.faces, forest_flags) if flag], context="FACES")
     p.add("rock", bm, T(0, 0, 0))
-    p.add("rock2", snow, T(0, 0, 0))
+    p.add("rock2", forest, T(0, 0, 0))
 
 
 def cumulus(p, seed, size=1.0):

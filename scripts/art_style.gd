@@ -1,6 +1,6 @@
 extends RefCounted
 ## The game's art direction. "melhorado" is the shipped look: the robots and colours of the
-## studio look with real shadows, a polished stone court, lit rounds and a Ghibli-painted
+## studio look with real shadows, a polished stone court and a Ghibli-painted
 ## nature (trees, clouds, sky and a wind-combed meadow). "" is the old plain studio look; the
 ## other names are looks that were tried (tests/capture_style.gd renders any of them).
 ##   "militar": worn military mecha: matte olive and sand paint with chipped edges and dust,
@@ -52,7 +52,7 @@ const LOOKS = {
 	"melhorado": {
 		# The shipped look, improved: real shadows and the premium court, a polished dark
 		# stone that mirrors the lights, everything else as it is.
-		"shadows": true, "lit_shots": true, "day_sky": true, "key": {"energy_scale": 0.3}, "court_gloss": 0.7,
+		"shadows": true, "day_sky": true, "key": {"energy_scale": 0.3}, "court_gloss": 0.7,
 		"env": {"tonemap": Environment.TONE_MAPPER_AGX, "exposure": 1.12, "ambient": 0.5, "ambient_color": Color("c3c9cf"), "contrast": 1.12, "saturation": 1.18},
 	},
 	"sombras": {
