@@ -605,6 +605,19 @@ func build(new_map: Dictionary = {}) -> void:
 	for team in range(2):
 		build_goal(team)
 		units.append(build_player(CYAN if team == 0 else CORAL, team))
+	if map.get("squad", false):
+		# 3 contra 3: two wingmen a side, each on its flank rail, each a robot of its own.
+		for index in range(2, 6):
+			var wing = build_player(CYAN if index % 2 == 0 else CORAL, index % 2, SQUAD_SKINS[index - 2])
+			var at: Vector2 = Rules.pilot_spot(map, index, 0.0)
+			wing.position = Vector3(at.x, 0, at.y)
+			units.append(wing)
+		while stuns_before.size() < units.size():
+			stuns_before.append(0.0)
+			gait_phase.append(0.0)
+			gait_speed.append(0.0)
+			gait_side.append(0.0)
+			shot_age.append(1.0)
 	build_bricks()
 	build_boosters()
 	build_obstacles()
@@ -943,10 +956,25 @@ func build_goal(team: int) -> void:
 	arc_ribbon(self, track, 0.045, 0.015, color.darkened(0.2))
 	for p in [track.front(), track.back()]:
 		cylinder(self, p, 0.1, 0.018, color, true, 16)
+	if map.get("squad", false):
+		# 3 contra 3: the wingmen's flank rails, drawn like the arc.
+		for lane in range(map.get("lanes", []).size()):
+			var rail: Array = []
+			for step in range(33):
+				var at: Vector2 = Rules.lane_point(map, team, lane, lerpf(-1.0, 1.0, step / 32.0))
+				rail.append(Vector3(at.x, 0.023, at.y))
+			arc_ribbon(self, rail, 0.045, 0.015, color.darkened(0.2))
+			for p in [rail.front(), rail.back()]:
+				cylinder(self, p, 0.1, 0.018, color, true, 16)
 
 func build_bricks() -> void:
 	for data in Rules.map_bricks(map):
 		brick_nodes.append(make_brick(self, data, 0))
+
+func brick_skin(skin: int) -> int:
+	# The 3 v 3 arena's six hundred bricks are always the light soft brick: the themed ones
+	# carry up to two thousand triangles each.
+	return -1 if map.get("squad", false) else skin
 
 func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false) -> Node3D:
 	# Every theme keeps the same footprint, the soft shadow and three team-coloured life lights.
@@ -970,7 +998,7 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
-	if Robots.brick(self, brick, skin, team_color, tint):
+	if Robots.brick(self, brick, brick_skin(skin), team_color, tint):
 		# A themed brick is tall and busy on top: its three life lights sit on the plinth,
 		# front and back, where they are always in sight.
 		for i in range(3):
@@ -1245,6 +1273,8 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 
 # Station pilots are addressed from here up, well clear of the eleven skins in the shop.
 const STATION_SKIN = 100
+# The wingmen of the 3 v 3 arena (pilots 2..5): two robots a side besides the leaders.
+const SQUAD_SKINS = [2, 3, 4, 5]
 
 
 func spin_parts(body: Node3D, time: float) -> void:
@@ -1828,16 +1858,19 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			node.position = Vector3(data.p.x, hop * (0.5 + Rules.float_scatter(i, 45.164) * 1.1), data.p.y)
 			node.rotation.y = -data.rotation + hop * (Rules.float_scatter(i, 91.7) - 0.5) * 3.4
 			update_brick_batch(i)
-	for team in range(2):
-		var data: Dictionary = rules.players[team]
-		var node: Node3D = units[team]
+	for pilot in range(mini(units.size(), rules.players.size())):
+		# The two leaders are pilots 0 and 1 (the index is the team); on the 3 v 3 arena the
+		# wingmen follow, team = pilot % 2.
+		var team: int = pilot % 2
+		var data: Dictionary = rules.players[pilot]
+		var node: Node3D = units[pilot]
 		var desired = Vector3(data.p.x, 0, data.p.y)
 		var facing: Vector2 = data.aim
-		if interpolate:
-			var angle = lerpf(previous_motion.players[team].angle, data.angle, motion_alpha)
-			var position_on_arc = Rules.track_position(team, angle)
+		if interpolate and pilot < previous_motion.players.size():
+			var angle = lerpf(previous_motion.players[pilot].angle, data.angle, motion_alpha)
+			var position_on_arc = Rules.pilot_spot(map, pilot, angle)
 			desired = Vector3(position_on_arc.x, 0, position_on_arc.y)
-			facing = Rules.forward_direction(team, angle)
+			facing = Rules.pilot_facing(map, pilot, angle)
 		var step_vector: Vector3 = desired - node.position
 		var speed = minf(step_vector.length() / maxf(dt, 0.001), 5.0)
 		node.position = desired
@@ -1849,14 +1882,14 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		# does not flick the whole robot.
 		var right_of_body = Vector3(cos(body.rotation.y), 0, -sin(body.rotation.y))
 		var heading: float = signf(step_vector.dot(right_of_body)) if speed > 0.3 else 0.0
-		gait_side[team] = lerpf(gait_side[team], heading, minf(dt * 8.0, 1.0))
-		gait_speed[team] = lerpf(gait_speed[team], clampf(speed / 3.2, 0.0, 1.0), minf(dt * 9.0, 1.0))
-		var run: float = gait_speed[team]
-		var side: float = gait_side[team]
+		gait_side[pilot] = lerpf(gait_side[pilot], heading, minf(dt * 8.0, 1.0))
+		gait_speed[pilot] = lerpf(gait_speed[pilot], clampf(speed / 3.2, 0.0, 1.0), minf(dt * 9.0, 1.0))
+		var run: float = gait_speed[pilot]
+		var side: float = gait_side[pilot]
 		var still: float = 1.0 - run
 		# Steps come quicker the faster it goes; standing, the cycle slows to a sway of weight.
-		gait_phase[team] += dt * lerpf(1.6, 12.5, run)
-		var phase: float = gait_phase[team]
+		gait_phase[pilot] += dt * lerpf(1.6, 12.5, run)
+		var phase: float = gait_phase[pilot]
 		# The body: sinks into a runner's crouch, bounces once per step, leans into the run,
 		# rocks side to side over the planted foot and twists its hips with the stride.
 		var bounce = absf(cos(phase))
@@ -1926,12 +1959,12 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		halo.rotation.y = clock * 2.7
 		if not ((rules.phase == "goal" or rules.phase == "finished") and rules.winner == team):
 			Robots.set_mood(body, 2 if data.stun > 0 else (3 if angry[team] else 0))
-		if data.stun > stuns_before[team] + 0.2:
+		if data.stun > stuns_before[pilot] + 0.2:
 			burst(data.p, GOLD, false)
-		stuns_before[team] = data.stun
+		stuns_before[pilot] = data.stun
 		var gun: Node3D = body.get_node("Gun")
-		shot_age[team] += dt
-		var age: float = shot_age[team]
+		shot_age[pilot] += dt
+		var age: float = shot_age[pilot]
 		# Visual recoil only, the simulation never moves: the gun snaps back in a frame,
 		# holds a hair, returns with a small overshoot; the body takes a little of the kick.
 		var recoil = recoil_curve(age)
@@ -1953,7 +1986,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		body.rotation.x += -recoil * 0.05
 		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
 		emote(team, rules, body, legs, head, arm, gun)
-		goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
+		if pilot < 2:
+			goals[team].material_override.set_shader_parameter("unlocked", 1.0 if rules.brick_count(team) == 0 else 0.0)
 	for i in range(rules.bricks.size()):
 		var data: Dictionary = rules.bricks[i]
 		var brick: Node3D = brick_nodes[i]
@@ -1994,7 +2028,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			# A fresh round leaves from the muzzle of the gun that fired it and drops to the
 			# height of the bricks as it flies, so it meets even a worn, shrunken brick.
 			var launch = Vector3.ZERO
-			var owner_unit = units[ball.owner] if ball.owner < units.size() else null
+			var shooter: int = int(ball.get("pilot", ball.owner))
+			var owner_unit = units[shooter] if shooter < units.size() else null
 			if int(ball.get("bounces", 0)) == 0 and is_instance_valid(owner_unit):
 				var flash: Node3D = owner_unit.get_node_or_null("Body/Gun/Flash")
 				if flash != null and flash.is_inside_tree():
@@ -2931,7 +2966,8 @@ func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
 	burst(Vector2(muzzle.x, muzzle.z) + heading * 0.2, Rules.power_color("laser"), false)
 
 func muzzle_of(team: int) -> Vector3:
-	# Where the pilot's weapon actually points from, so a beam leaves the barrel.
+	# Where the pilot's weapon actually points from, so a beam leaves the barrel. (`team` is
+	# a pilot index: the leaders are 0 and 1.)
 	var unit: Node3D = units[team]
 	var flash_node: Node3D = unit.get_node_or_null("Body/Gun/Flash")
 	if flash_node == null:
@@ -4229,14 +4265,17 @@ func feedback_chip(at: Vector3, velocity: Vector3, tint: Color, life: float, siz
 	else:
 		fx.emit("spark", at, velocity, tint, size.x * 1.8, size.x * 0.3, life * 1.8, -2.0, 2.0, 0.08)
 
-func shot_feedback(team: int, local: bool = false) -> void:
+func shot_feedback(team: int, local: bool = false, pilot: int = -1) -> void:
 	# FIRE: the gun snaps back, the barrel flashes with a shape and a direction, and the
-	# arena answers for a moment. Everything starts on the frame the shot is made.
-	shot_age[team] = 0.0
-	var gun: Node3D = units[team].get_node("Body/Gun")
+	# arena answers for a moment. Everything starts on the frame the shot is made. `pilot`:
+	# which robot fired, when it is not the team's leader (the 3 v 3 wingmen).
+	if pilot < 0 or pilot >= units.size():
+		pilot = team
+	shot_age[pilot] = 0.0
+	var gun: Node3D = units[pilot].get_node("Body/Gun")
 	gun.get_node("Flash").scale = Vector3.ONE * 0.42
-	var origin = muzzle_of(team)
-	var direction = -units[team].get_node("Body").global_basis.z
+	var origin = muzzle_of(pilot)
+	var direction = -units[pilot].get_node("Body").global_basis.z
 	if fx != null:
 		var spark_count = int(feel.get_value("muzzle_spark_amount") * (1.0 if local else 0.6))
 		fx.muzzle(origin, direction, shot_colors[team], feel.get_value("muzzle_flash_duration"), spark_count, feel.get_value("muzzle_flash_size") * (1.0 if local else 0.8))
