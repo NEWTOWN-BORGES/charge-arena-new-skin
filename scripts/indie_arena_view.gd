@@ -1852,7 +1852,8 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		var lamp: OmniLight3D = node.get_node_or_null("Lamp")
 		if ArtStyle.lit_shots():
 			var pool: MeshInstance3D = node.get_node("FloorGlow")
-			pool.material_override = light_pool_material(Color(color, 0.9 if charged else 0.7))
+			# The pool on the floor keeps the team's colour: it says whose round it is.
+			pool.material_override = light_pool_material(Color(CYAN if int(ball.owner) == 0 else CORAL, 0.6))
 			pool.scale = Vector3.ONE * (2.4 if charged else 2.0) * swell
 		if lamp != null:
 			# At most six lit rounds at once: every lamp is paid again on every mesh it touches.
