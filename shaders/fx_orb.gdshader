@@ -21,18 +21,21 @@ void fragment() {
 	float d = length(q);
 	float angle = atan(q.y, q.x) + TIME * 9.0;
 	float dashes = step(0.5, fract(angle * 6.0 / 6.283));
-	float ring = smoothstep(0.07, 0.0, abs(d - 0.78)) * dashes * charged;
+	float aa = max(fwidth(d), 0.012);
+	float ring = (1.0 - smoothstep(0.024, 0.024 + aa, abs(d - 0.76))) * dashes * charged;
 	// Vivid colour: pastel skin colours pushed to a saturated light.
 	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
 	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.6) * 1.15, 0.0, 1.0);
 	// White-hot core, a solid ring of vivid colour around it, the halo fading out.
-	float core = smoothstep(0.24, 0.1, d);
-	float aura = smoothstep(0.58, 0.46, d);
-	float halo = pow(max(1.0 - d, 0.0), 1.4);
+	float core = smoothstep(0.19, 0.08, d);
+	float aura = 1.0 - smoothstep(0.36, 0.36 + aa * 1.5, d);
+	float edge = 1.0 - smoothstep(0.43, 0.43 + aa, d);
+	float halo = smoothstep(0.66, 0.39, d) * 0.17;
 	vec3 hot = vec3(1.0, 0.97, 0.88);
 	vec3 color = mix(vivid, hot, core);
-	color = mix(vivid * 0.9, color, aura);
-	color += vec3(ring * 0.6);
+	color = mix(vivid * 0.30, color, aura);
+	color = mix(color, vivid * 1.05 + hot * 0.15, ring);
 	ALBEDO = color;
-	ALPHA = clamp(aura + halo * 0.85 + ring, 0.0, 1.0);
+	EMISSION = vivid * (core * 0.35 + ring * 0.12);
+	ALPHA = clamp(edge + halo + ring, 0.0, 1.0);
 }

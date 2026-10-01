@@ -108,7 +108,9 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	mat.roughness = {"graphite": 0.5, "alloy": 0.26, "grass": 0.85, "stone": 0.8}.get(kind, 0.34)
 	mat.metallic = 0.85 if kind == "alloy" else (0.2 if kind == "graphite" else (0.15 if kind == "panel" else 0.0))
 	mat.metallic_specular = 0.55
-	mat.clearcoat_enabled = false
+	mat.clearcoat_enabled = quality == 2 and kind in ["ceramic", "panel"]
+	mat.clearcoat = 0.22
+	mat.clearcoat_roughness = 0.32
 	if quality == 0 or not SURFACES.has(kind):
 		mat.albedo_texture = null
 		mat.roughness_texture = null
@@ -120,7 +122,8 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	mat.roughness_texture = null if lean else maps[1]
 	mat.normal_enabled = not lean
 	mat.normal_texture = null if lean else maps[2]
-	mat.normal_scale = 0.9
+	# Small lacquer/plate relief, rather than deep concrete cracks on painted armour.
+	mat.normal_scale = 0.35 if kind in ["ceramic", "panel"] else 0.65
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE / float(TILE_METRES.get(kind, 2.0))

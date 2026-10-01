@@ -466,6 +466,8 @@ static func paint_material(view, wear: float = 0.4) -> ShaderMaterial:
 	mat.set_meta("robot_paint", true)
 	mat.set_shader_parameter("wear", wear)
 	mat.shader = _paint_shader(view.quality_level)
+	mat.set_shader_parameter("surface_grain", preload("res://art/materials/alloy_roughness.png"))
+	mat.set_shader_parameter("surface_detail", 1.0 if view.quality_level == 2 else 0.0)
 	if "theme" in view and view.theme.has("sky_low"):
 		# Far scenery fades into the world's own air.
 		var air: Color = Color(view.theme.sky_mid).lerp(view.theme.sky_low, 0.55).srgb_to_linear()
@@ -493,6 +495,7 @@ static func set_quality(view, level: int) -> void:
 	for mat in view.materials.values():
 		if mat is ShaderMaterial and mat.get_meta("robot_paint", false):
 			mat.shader = _paint_shader(level)
+			mat.set_shader_parameter("surface_detail", 1.0 if level == 2 else 0.0)
 	if view.is_inside_tree():
 		for node in view.get_tree().get_nodes_in_group(OUTLINE_GROUP):
 			node.visible = level > 0

@@ -8,6 +8,8 @@ render_mode diffuse_burley, specular_schlick_ggx;
 // Colour and finish come from the vertices (see robots.gd): rgb is the paint in linear
 // colour, alpha the finish: 1 glow, 0.75 metal, 0.5 dark chassis, 0.45 rubber, 0.25 paint.
 uniform float wear : hint_range(0.0, 1.0) = 0.4;
+uniform sampler2D surface_grain : filter_linear_mipmap, repeat_enable;
+uniform float surface_detail = 1.0;
 // The colour of the air far away (scenery fades into it).
 uniform vec3 haze = vec3(0.55, 0.68, 0.82);
 // Towards the sun (world space) and the strength of the painted scenery.
@@ -128,20 +130,24 @@ void fragment() {
 		bool dark = finish >= 0.48 && finish < 0.65;
 		// A breath of dust towards the feet grounds the figure without dirtying it.
 		float grime = smoothstep(0.5, 0.0, model_position.y) * 0.06 * (0.5 + wear);
-		// Fine grain: orange peel on the paint, brushed streaks on the metal.
-		// The fine grain of the finish was two noise lookups on every robot pixel: a flat
-		// finish reads the same on a phone and costs nothing.
+		// One filtered lookup, shared by the roster: lacquer grain and brushed alloy.
+		// Dominant-axis projection avoids stretching on the kit's differently oriented parts.
+		vec3 axis = abs(normalize(model_normal));
+		vec2 surface_uv = axis.y > max(axis.x, axis.z) ? model_position.xz : (axis.x > axis.z ? model_position.zy : model_position.xy);
 		float texture_amount = 0.5;
+		if (surface_detail > 0.5 && !glow) {
+			vec2 repeat_scale = metal ? vec2(4.0, 0.7) : vec2(2.0);
+			texture_amount = texture(surface_grain, surface_uv * repeat_scale).r;
+		}
 		ALBEDO = paint * (1.0 - grime) * (0.96 + 0.06 * texture_amount);
 		METALLIC = metal ? 0.9 : (dark ? 0.35 : 0.0);
-		ROUGHNESS = (metal ? 0.18 : (rubber ? 0.55 : (dark ? 0.34 : 0.2))) + (texture_amount - 0.5) * (metal ? 0.12 : 0.06);
+		ROUGHNESS = (metal ? 0.24 : (rubber ? 0.64 : (dark ? 0.42 : 0.28))) + (texture_amount - 0.5) * (metal ? 0.16 : 0.10);
 		SPECULAR = rubber ? 0.35 : 0.62;
 		// A clear-coat sheen on the silhouettes: the lacquer catching the sky.
 		float fresnel = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
-        vec3 rim_color = mix(vec3(0.22, 0.55, 0.85), paint, 0.45);
-        CLEARCOAT = rubber || glow ? 0.0 : 0.35;
-        CLEARCOAT_ROUGHNESS = 0.25;
-        EMISSION = glow ? paint * 2.1 : rim_color * (pow(fresnel, 3.0) * 0.42 + pow(fresnel, 7.0) * 0.28);
+		vec3 rim_color = mix(vec3(0.22, 0.55, 0.85), paint, 0.45);
+		CLEARCOAT = rubber || glow ? 0.0 : 0.35;
+		CLEARCOAT_ROUGHNESS = 0.25;
+		EMISSION = glow ? paint * 2.1 : rim_color * (pow(fresnel, 3.0) * 0.42 + pow(fresnel, 7.0) * 0.28);
 	}
 }
-

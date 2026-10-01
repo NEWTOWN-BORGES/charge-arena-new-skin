@@ -1,7 +1,6 @@
 shader_type spatial;
-// Arena floor in the studio look: large matte hexagon plates in the theme's pale tones, soft
-// seams with a rounded bevel, each half leaning gently towards its team, and the centre
-// markings painted on, not lit. Colours come from the arena theme.
+// Tactical plates: broad shapes, carbon grain and an embossed champion badge.
+// Detailed texture is only sampled on the high profile; Leve keeps the same landmarks.
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 varying vec3 world_pos;
 uniform vec4 floor_color : source_color = vec4(0.78, 0.81, 0.84, 1.0);
@@ -35,7 +34,7 @@ float hash(vec2 p) {
 
 void fragment() {
 	vec2 p = world_pos.xz;
-	vec2 q = p / 0.64;
+	vec2 q = p / 0.94;
 	const vec2 r = vec2(1.0, 1.7320508);
 	vec2 a = mod(q, r) - r * 0.5;
 	vec2 b = mod(q - r * 0.5, r) - r * 0.5;
@@ -53,9 +52,13 @@ void fragment() {
 	vec3 team = mix(team_far.rgb, team_near.rgb, side);
 	float reach = smoothstep(2.0, 8.0, abs(p.y));
 	base = mix(base, base * mix(vec3(1.0), team, 0.55), reach * 0.35);
-	base = mix(base, seam_color.rgb, seam * 0.85);
+	base = mix(base, floor_color.rgb * 0.45, seam * 0.85);
+	if (finish_quality > 1.5) {
+		float grain = texture(surface_grain, p * 0.7).r;
+		base *= 0.94 + grain * 0.10;
+	}
 	// The rounded edge of each plate catches the light.
-	base += vec3(0.04) * bevel;
+	base = mix(base, seam_color.rgb, bevel * 0.22);
 	// Centre markings: two painted rings, a dial of ticks and the dashed half-way line.
 	float rad = length(p);
 	float rings = ring_line(rad, 2.12, 0.035) + ring_line(rad, 2.34, 0.014);
@@ -65,11 +68,13 @@ void fragment() {
     vec2 crest = p / 0.85;
     float shield_edge = max(abs(crest.x) * 0.85 + max(-crest.y, 0.0) * 0.55, abs(crest.y) * 0.8);
     float shield = (1.0 - smoothstep(0.9, 0.94, shield_edge)) * smoothstep(0.76, 0.80, shield_edge);
-    float crown = step(-0.25, crest.y) * step(crest.y, 0.25 + abs(sin(crest.x * 5.4)) * 0.28) * step(abs(crest.x), 0.60);
+    float crown_top = 0.18 + 0.34 * abs(crest.x) / 0.60 + 0.40 * max(0.0, 1.0 - abs(crest.x) / 0.20);
+    float crown = step(-0.25, crest.y) * step(crest.y, crown_top) * step(abs(crest.x), 0.60);
     float emblem = max(shield, crown);
     float paint = clamp(rings + ticks * 0.8 + mid * 0.9, 0.0, 1.0);
 	base = mix(base, line_color.rgb, paint * 0.85);
 	base = mix(base, vec3(1.0, 0.57, 0.025), emblem);
+	base += vec3(0.10, 0.065, 0.01) * emblem * smoothstep(-0.3, 0.7, crest.y);
     ALBEDO = base;
     float pulse = finish_quality > 0.5 ? pow(max(0.0, sin(abs(p.y) * 1.8 - TIME * 2.0)), 8.0) : 0.0;
     EMISSION = team * seam * reach * pulse * 0.18 + vec3(1.0, 0.44, 0.015) * emblem * 0.12;

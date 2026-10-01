@@ -557,7 +557,7 @@ func build(new_map: Dictionary = {}) -> void:
 		# or an ultimate over the field could fall behind it and vanish under the floor. The
 		# floor is always the first of them, so everything on it draws on top.
 		court_mat.render_priority = Material.RENDER_PRIORITY_MIN
-	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
+	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.graphite[0])
 	court_material = court_mat
 	court_mat.set_shader_parameter("floor_color", theme.floor)
 	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)

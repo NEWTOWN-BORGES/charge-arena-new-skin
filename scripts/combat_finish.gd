@@ -67,7 +67,9 @@ static func card(view, at: Vector2, radius: float, tint: Color, life: float, mot
 	material.set_shader_parameter("seed", fmod(at.x * 1.73 + at.y * 2.13, TAU))
 	if motif != 4:
 		material.set_shader_parameter("motif", float(motif))
-		material.set_shader_parameter("hot", tint.lerp(Color("fff4dc"), 0.83))
+		material.set_shader_parameter("detail_quality", 0.0 if view.quality_level == 0 else 1.0)
+		var core_tint = Color("ffe6a3") if motif == 1 else (Color("d0ffe7") if motif == 3 else Color("edfaff"))
+		material.set_shader_parameter("hot", tint.lerp(core_tint, 0.72))
 	node.show()
 	view.effects.append({"node": node, "v": Vector3.ZERO, "ttl": life, "life": life, "gravity": false, "base": node.scale, "keep": true, "combat_finish": true})
 	return node
@@ -119,7 +121,7 @@ static func event(view, data: Dictionary, rules = null) -> void:
 	last[key] = now
 	match kind:
 		"player_hit", "mirror":
-			card(view, at, 0.42, tint, 0.18)
+			card(view, at, 0.42, tint, 0.18, 6, true, 0.54)
 		# Bricks get no card: with forty a side breaking all match long, each card was one
 		# more transparent draw on a phone. The arena's own flash and ring say enough.
 		"boost":
@@ -132,12 +134,12 @@ static func event(view, data: Dictionary, rules = null) -> void:
 			view.schedule(0.34, func(): impact(view, at, radius, Color("ffad53"), 1, 0.6))
 		"thunder":
 			var radius = float(data.get("radius", 1.0)) * 1.7
-			view.schedule(0.16, func(): impact(view, at, radius, Color("72cfff"), 2, 0.46))
+			view.schedule(0.16, func(): impact(view, at, radius, Color("00cfff"), 2, 0.46))
 		"bloom", "weld", "rebuild":
 			var middle = wall_center(data, rules)
-			card(view, middle, 3.0 if kind == "bloom" else 1.75, Color("a8ff8d"), 0.85, 3)
+			card(view, middle, 3.0 if kind == "bloom" else 1.75, Color("39f29b"), 0.85, 3)
 		"singularity":
-			card(view, at, 2.0, Color("bb94ff"), minf(float(data.get("seconds", 1.2)), 1.6), 4)
+			card(view, at, 2.0, Color("a96bff"), minf(float(data.get("seconds", 1.2)), 1.6), 4)
 		"singularity_wave", "swallow":
 			impact(view, at, 2.3, Color("c5a1ff"), 2, 0.55)
 		"laser":
@@ -146,9 +148,9 @@ static func event(view, data: Dictionary, rules = null) -> void:
 				for i in range(mini(path.size() - 1, 3)):
 					var a: Vector2 = path[i]
 					var b: Vector2 = path[i + 1]
-					beam(view, a, a.direction_to(b), a.distance_to(b), 0.5, Color("79eaff"))
+					beam(view, a, a.direction_to(b), a.distance_to(b), 0.5, Color("24d8ff"))
 			else:
-				beam(view, at, data.get("heading", Vector2.UP), float(data.get("length", 8.0)), 0.5, Color("79eaff"))
+				beam(view, at, data.get("heading", Vector2.UP), float(data.get("length", 8.0)), 0.5, Color("24d8ff"))
 		"sun_ray":
 			impact(view, at + Vector2(data.get("heading", Vector2.UP)) * 0.9, 1.2, Color("ffcc63"), 1, 0.34)
 		"ultimate":
