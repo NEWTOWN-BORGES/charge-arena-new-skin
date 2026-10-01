@@ -1436,7 +1436,7 @@ func play_events() -> void:
 			play_tone("shield")
 		elif event.kind == "power":
 			# Both sides are announced: a power launched at you should never be silent.
-			arena.power_flash(event.p, String(event.get("id", "")))
+			arena.power_flash(event.p, String(event.get("id", "")), ArenaView.CombatFinish.event_pilot(arena, event, rules))
 			var ability_cue = "ability_" + String(event.get("id", ""))
 			play_tone(ability_cue if tones.has(ability_cue) else "power")
 			arena.shake_level(GameFeel.Level.POWER)
@@ -1461,7 +1461,7 @@ func play_events() -> void:
 			# The arena steps back for a beat so the ultimate's own sound comes through.
 			release_focus = feel.get_value("ultimate_duck_seconds")
 			arena.shake_level(GameFeel.Level.ULTIMATE)
-			arena.ultimate_accent(event.p, String(event.get("id", "")))
+			arena.ultimate_accent(event.p, String(event.get("id", "")), ArenaView.CombatFinish.event_pilot(arena, event, rules))
 			if int(event.team) == local_team:
 				haptic(48 if String(event.get("id", "")) in ["meteors", "sun_ray", "sun_beam", "singularity"] else 30, 0.55)
 			# A hard-mode skin's ultimate sounds deeper and heavier than its boss's.

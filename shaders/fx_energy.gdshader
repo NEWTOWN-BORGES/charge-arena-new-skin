@@ -9,6 +9,7 @@ render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabl
 uniform vec4 tint : source_color = vec4(0.5, 0.9, 1.0, 1.0);
 uniform float strength = 1.0;
 uniform float fade = 1.0;
+uniform float detail_quality = 1.0;
 varying vec3 world_pos;
 
 float hash3(vec3 p) {
@@ -32,15 +33,17 @@ void fragment() {
 	float facing = abs(dot(normalize(NORMAL), VIEW));
 	float edge = pow(1.0 - facing, 1.6);
 	float core = pow(facing, 4.0);
-	float flow = noise3(world_pos * 3.2 + vec3(0.0, TIME * 2.6, TIME * 1.4));
-	float fine = noise3(world_pos * 9.0 - vec3(TIME * 3.0, 0.0, TIME * 2.0));
-	float live = 0.65 + 0.5 * flow + 0.25 * fine;
+	// Broad bands preserve the silhouette. Leve avoids the eight noise samples.
+	float flow = 0.5;
+	if (detail_quality > 0.5) flow = noise3(world_pos * 2.2 + vec3(0.0, TIME * 1.8, TIME));
+	float band = smoothstep(0.50, 0.68, 0.5 + 0.5 * sin(world_pos.y * 8.0 - TIME * 7.0 + world_pos.x * 1.8));
+	float live = 0.78 + 0.22 * flow;
 	// Saturated body, a bright centre where it faces the camera, soft edges: a beam of light,
 	// not a milky tube.
 	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
 	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.45), 0.0, 1.0);
 	vec3 hot = mix(vivid, vec3(1.0, 0.98, 0.92), 0.75);
-	ALBEDO = mix(vivid * (0.8 + 0.45 * live), hot, clamp(core * 0.7, 0.0, 1.0));
+	ALBEDO = mix(vivid * (0.62 + 0.38 * live), hot, clamp(core * 0.36 + band * 0.12 + edge * 0.16, 0.0, 0.65));
 	// Solid: a dense body with a brighter core, only thinning a little at the very rim.
-	ALPHA = clamp(strength * fade * (0.72 + 0.45 * core + 0.2 * edge * live), 0.0, 1.0);
+	ALPHA = clamp(strength * fade * (0.67 + 0.28 * core + 0.24 * edge), 0.0, 1.0);
 }

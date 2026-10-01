@@ -3777,8 +3777,8 @@ func stun_banner_rect() -> Rect2:
 	return Rect2(mid - 130, size.y - 77, 260, 36)
 
 func draw_powers() -> void:
-	# One key per power: the ring is the charge, the face lights up in the power's colour
-	# when it is ready. The sigils are drawn over them by the icon layer.
+	# Power colours identify the kit; gold marks readiness and the larger ultimate collar.
+	# The sigils stay in their cached atlas above the plates and progress rings.
 	icon_marks.clear()
 	coach_at = Vector2(-1, -1)
 	if not match_data.has("powers") or team >= match_data.powers.size():
@@ -3800,34 +3800,56 @@ func draw_powers() -> void:
 		var color: Color = Rules.power_color(id)
 		var running: bool = (id == "rapid" and state.rapid_time > 0) or (id == "laser" and state.laser_time > 0)
 		var charging: bool = Powers.is_ultimate(id) and state.get("ultimate_windup", 0.0) > 0
+		var ultimate: bool = index == Rules.POWER_SLOTS - 1
 		var pressed: bool = power_flash[index] > 0
 		var sink = 2.0 if pressed else 0.0
 		if ready or pressed:
-			# A ready power glows, so it is caught out of the corner of the eye.
-			UiKit.disc(self, center, span + 7, Color(color, 0.22))
+			UiKit.disc(self, center, span + 7, Color(SUN if ultimate else color, 0.18))
 		UiKit.disc(self, center + Vector2(0, 5), span, Color(UiKit.LIP, 0.75))
 		UiKit.disc(self, center + Vector2(0, sink), span, Color(UiKit.PANEL, 0.95))
 		UiKit.ring(self, center + Vector2(0, sink), span, Color(color, 0.6) if cost > 0 else Color(UiKit.CARD_EDGE, 0.6))
-		# Ready: the power's own colour. Charging: a pale wash of it, like a key not yet lit.
+		if ready or pressed:
+			UiKit.ring(self, center + Vector2(0, sink), span + 3, Color(SUN, 0.95 if ultimate else 0.75))
+		elif ultimate:
+			UiKit.ring(self, center, span + 3, Color(BRASS, 0.35))
+		# A darkened power face leaves the seconds readable throughout its cooldown.
 		var face_color = color if pressed else (color.darkened(0.04) if ready else color.lerp(UiKit.PANEL, 0.72))
+		if cool > 0 or frozen > 0:
+			face_color = color.lerp(UiKit.FIELD, 0.84)
+		elif charging:
+			face_color = color.lerp(UiKit.PANEL, 0.35)
 		if cost <= 0:
 			face_color = UiKit.CARD
 		UiKit.disc(self, center + Vector2(0, sink), span - 10, face_color)
 		# The ring is whichever of the two is still counting: the bricks before the first
 		# use, the clock after it.
 		var filled: float = (1.0 - frozen / Rules.FREEZE_SECONDS) if frozen > 0 else ((1.0 - cool / wait) if cool > 0 else (float(charge) / maxi(cost, 1)))
+		# A continuous recessed track separates progress from the decorative outer rim.
+		UiKit.ring(self, center + Vector2(0, sink), span - 5, Color(UiKit.LIP, 0.82))
 		if filled > 0 and cost > 0 and not ready:
 			var arc_at = center + Vector2(0, sink)
 			var arc_color = Color(color, 0.9)
 			# Fills clockwise from the top, so a glance is enough to read the progress.
 			later(func(): draw_arc(arc_at, span - 5, -PI * 0.5, -PI * 0.5 + TAU * clampf(filled, 0, 1), 48, arc_color, 5.0, smooth))
 		if charging:
-			# Winding up: a ring closes on the key while the pilot glows on the field.
-			var wind = 1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP
-			UiKit.disc(self, center, span - 6, Color(color, 0.12 + 0.3 * wind))
-			UiKit.ring(self, center, span + 6 - wind * 10, Color(color, 0.9))
-		# Ready: the coin in full colour. Charging: dimmed, like a key not yet lit.
-		icon_marks.append([id, center + Vector2(0, -span * 0.26 + sink), INK if ready or pressed else Color(WHITE, 0.8), span / POWER_RADIUS])
+			# The gold sweep tightens toward release, distinct from the cooldown's colour.
+			var wind = clampf(1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP, 0.0, 1.0)
+			var wind_radius = span + 6 - wind * 7
+			UiKit.ring(self, center, wind_radius, Color(SUN, 0.28))
+			later(func():
+				draw_arc(center, wind_radius, -PI * 0.5, -PI * 0.5 + TAU * wind, 48, Color(SUN, 0.95), 3.5, smooth))
+		elif ready:
+			UiKit.ring(self, center + Vector2(0, sink), span - 5, Color(SUN, 0.82))
+		if ultimate:
+			# Three small metal inlays distinguish this slot even while it is uncharged.
+			var inlay_color = Color(SUN, 0.95 if ready or charging else 0.45)
+			later(func():
+				for angle in [-0.20, 0.0, 0.20]:
+					var direction = Vector2(sin(angle), -cos(angle))
+					draw_line(center + direction * (span - 1), center + direction * (span - 6), inlay_color, 2.5, smooth))
+		# Dark ink on bright colours, light ink on darker ones, without changing power hues.
+		var face_ink = INK if (ready or pressed) and face_color.get_luminance() > 0.55 else WHITE
+		icon_marks.append([id, center + Vector2(0, -span * 0.26 + sink), face_ink if ready or pressed or charging else Color(WHITE, 0.8), span / POWER_RADIUS])
 		if ready and power_shop != null and not power_shop.tutorial_done:
 			coach_at = center
 		var caption = "PRONTO" if ready else "%d/%d" % [charge, cost]
@@ -3843,7 +3865,8 @@ func draw_powers() -> void:
 		elif running:
 			caption = "%.1f s" % (state.laser_time if id == "laser" else state.rapid_time)
 		var zoom = span / POWER_RADIUS
-		centered(caption, center + Vector2(0, span * 0.38 + sink), roundi(12 * zoom), INK if ready or pressed else WHITE, true)
+		var timer: bool = cool > 0 or charging or running
+		centered(caption, center + Vector2(0, span * 0.38 + sink), roundi((15 if timer else 12) * zoom), face_ink, true)
 		# The name goes under the button, not inside it: the ring is forty pixels across, and
 		# with the icon and the charge already in there the name was crossing the rim.
 		centered(Rules.power_label(id), center + Vector2(0, span + 19), roundi(11 * zoom), Color(WHITE, 0.95 if ready or pressed else 0.6), true, 4, Color(UiKit.NIGHT, 0.8))
