@@ -16,10 +16,10 @@ static var studio_sky: Sky
 # normal and roughness maps and the anisotropic filter, which were most of the fill cost.
 static var lean := false
 
-# The exposure and the colour push of version 3.8, the light the player chose.
+# Heroic grade: saturated team colours and deeper cool shadows.
 const EXPOSURE = 1.12
-const VIVID_SATURATION = 1.18
-const VIVID_CONTRAST = 1.12
+const VIVID_SATURATION = 1.26
+const VIVID_CONTRAST = 1.14
 static var blender_lut: ImageTexture3D
 
 static func blender_colors() -> ImageTexture3D:
@@ -43,10 +43,10 @@ static func environment(env: Environment, quality: int) -> void:
 		studio_sky = Sky.new()
 		studio_sky.radiance_size = Sky.RADIANCE_SIZE_128
 		var sky = ProceduralSkyMaterial.new()
-		sky.sky_top_color = Color("d9dee3")
-		sky.sky_horizon_color = Color("b8bec5")
-		sky.ground_bottom_color = Color("5c6168")
-		sky.ground_horizon_color = Color("9da3aa")
+		sky.sky_top_color = Color("729dd4")
+		sky.sky_horizon_color = Color("b9d5ef")
+		sky.ground_bottom_color = Color("273e5b")
+		sky.ground_horizon_color = Color("708aad")
 		sky.sun_angle_max = 0.0
 		studio_sky.sky_material = sky
 	env.sky = studio_sky
@@ -56,7 +56,7 @@ static func environment(env: Environment, quality: int) -> void:
 	# The light of version 3.8, the one the game is tuned to: a bright studio dome, AgX with
 	# a little more exposure, and a touch more contrast and colour than the raw transform.
 	# (Reinhard and the measured Blender transform, tools/color/, both came out darker.)
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = 0.65
 	env.ambient_light_color = Color("c3c9cf")
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = EXPOSURE

@@ -1,11 +1,11 @@
 extends Node3D
 ## Stylized floating stadium. Beveled reusable meshes, soft decals and bounded VFX.
-const CYAN = Color("72ddc6")
-const CORAL = Color("ef947e")
-const LIME = Color("dbdf9a")
-const CREAM = Color("dedbca")
-const DARK = Color("223c46")
-const GOLD = Color("d2ad73")
+const CYAN = Color("00caff")
+const CORAL = Color("ff2a4b")
+const LIME = Color("00f084")
+const CREAM = Color("f0f5fa")
+const DARK = Color("141d28")
+const GOLD = Color("ffb703")
 # Accents of the boss skins (their main colours live in Skins.CATALOG).
 const COPPER = Color("c07a45")
 const WOOD = Color("6e4a2e")
@@ -1573,12 +1573,12 @@ func build_showroom() -> void:
 	showroom.add_child(floor_node)
 	# A toy showroom: a mint step under a white pedestal with a thin painted lip in the team
 	# colour, on a pale floor that melts into the backdrop.
-	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("6fd4bd"))
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("123559"))
 	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.018, Color(CYAN, 0.9))
-	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("fbfaf6"))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("24496e"))
 	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.02, Color("f2cb6e"))
 	# The boss's plinth, lower and a shade darker.
-	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("f59a82"))
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("6e273d"))
 	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.02, Color(CORAL, 0.9))
 	var key = OmniLight3D.new()
 	key.position = Vector3(1.6, 3.6, 3.2)
@@ -1714,6 +1714,8 @@ func place_tour_camera() -> void:
 
 func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	lobby_view = true
+	if backdrop_mat != null:
+		backdrop_mat.set_shader_parameter("lobby_mode", 1.0)
 	tour_view = false
 	lobby_rect = rect
 	lobby_screen = screen
@@ -2524,6 +2526,7 @@ func apply_mood(rules, dt: float) -> void:
 	if is_instance_valid(secondary_light):
 		secondary_light.light_energy = mood_base.fill * (1.0 - 0.45 * mood)
 	if backdrop_mat != null:
+		backdrop_mat.set_shader_parameter("lobby_mode", 1.0 if lobby_view else 0.0)
 		var names = ["sky_top", "sky_mid", "sky_low"]
 		var sky_dark = 1.0 - MOOD_SKY_DARK * mood
 		for i in range(3):

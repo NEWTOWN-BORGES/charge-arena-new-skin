@@ -61,10 +61,19 @@ void fragment() {
 	float rings = ring_line(rad, 2.12, 0.035) + ring_line(rad, 2.34, 0.014);
 	float ticks = step(0.78, fract(atan(p.y, p.x) * 24.0 / 6.28318)) * ring_line(rad, 2.55, 0.06);
 	float mid = (1.0 - smoothstep(0.014, 0.014 + fwidth(p.y), abs(p.y))) * step(0.45, fract(p.x * 1.3));
-	float paint = clamp(rings + ticks * 0.8 + mid * 0.9, 0.0, 1.0);
+	// A custom champion shield, with a three-point energy crown.
+    vec2 crest = p / 0.85;
+    float shield_edge = max(abs(crest.x) * 0.85 + max(-crest.y, 0.0) * 0.55, abs(crest.y) * 0.8);
+    float shield = (1.0 - smoothstep(0.9, 0.94, shield_edge)) * smoothstep(0.76, 0.80, shield_edge);
+    float crown = step(-0.25, crest.y) * step(crest.y, 0.25 + abs(sin(crest.x * 5.4)) * 0.28) * step(abs(crest.x), 0.60);
+    float emblem = max(shield, crown);
+    float paint = clamp(rings + ticks * 0.8 + mid * 0.9, 0.0, 1.0);
 	base = mix(base, line_color.rgb, paint * 0.85);
-	ALBEDO = base;
-	METALLIC = 0.0;
-	ROUGHNESS = mix(mix(0.62, 0.8, seam) - paint * 0.15, 0.08 + seam * 0.3, gloss);
+	base = mix(base, vec3(1.0, 0.57, 0.025), emblem);
+    ALBEDO = base;
+    float pulse = finish_quality > 0.5 ? pow(max(0.0, sin(abs(p.y) * 1.8 - TIME * 2.0)), 8.0) : 0.0;
+    EMISSION = team * seam * reach * pulse * 0.18 + vec3(1.0, 0.44, 0.015) * emblem * 0.12;
+	METALLIC = 0.15 + emblem * 0.25;
+	ROUGHNESS = mix(mix(0.40, 0.7, seam) - paint * 0.15, 0.08 + seam * 0.3, gloss);
 	SPECULAR = mix(0.45, 0.65, gloss);
 }

@@ -304,7 +304,7 @@ static func world(theme: Dictionary) -> Dictionary:
 		"premium":
 			for key in theme:
 				out[key] = theme[key]
-			out.merge({"floor": Color("24324d"), "floor_alt": Color("21304a"), "seam": Color("3a4d70"), "line": Color("f4f6fa"),
+			out.merge({"floor": Color("182c48"), "floor_alt": Color("203c60"), "seam": Color("4b7094"), "line": Color("f4f6fa"),
 				"sky_top": Color("2a7bd6"), "sky_mid": Color("78b6ee"), "sky_low": Color("e4f1fb"),
 				"key": Color("fffaf0"), "key_energy": 1.3, "fill": Color("cfe0ff"), "fill_energy": 0.35}, true)
 		"premium_noite":
@@ -322,7 +322,7 @@ static func world(theme: Dictionary) -> Dictionary:
 				"key": Color("ffc98f"), "key_energy": 1.6, "fill": Color("8fb0ff"), "fill_energy": 0.45}, true)
 		"melhorado":
 			out = theme.duplicate()
-			out.merge({"floor": Color("24324d"), "floor_alt": Color("21304a"), "seam": Color("3a4d70"), "line": Color("f4f6fa")}, true)
+			out.merge({"floor": Color("182c48"), "floor_alt": Color("203c60"), "seam": Color("4b7094"), "line": Color("f4f6fa")}, true)
 		_:
 			return theme
 	return out

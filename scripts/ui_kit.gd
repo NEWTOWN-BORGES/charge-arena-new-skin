@@ -1,38 +1,38 @@
 extends RefCounted
 ## The interface's look: its palette, its type and the shapes every panel, key and badge is
-## cut from. Panels follow the studio look of the robots: pale, soft plates with a gentle
-## shadow and a chunky lip under them, so each key looks like a toy button you could press in.
+## cut from. Panels follow the studio look of the robots: navy combat plates with a strong
+## shadow and a chunky lip under them, so the main action reads clearly over the arena.
 ##
 ## Shapes are drawn from one small generated atlas (`atlas()`), so a whole screen of discs,
 ## rings and rounded boxes lands in a single batch instead of one draw call per shape.
 const TITLE_FILE = preload("res://art/fonts/LilitaOne-Regular.ttf")
 const BODY_FILE = preload("res://art/fonts/Rubik-Variable.ttf")
 
-# Studio greys for the plates, dark ink for the words, one warm sun for the action that
+# Stadium blues for the plates, bright ink for the words, one warm sun for the action that
 # matters, the teams' own colours for everything that belongs to a side. The names keep
 # their roles: WHITE is the main text colour and PANEL the plates, whatever their tone.
-const NIGHT = Color("d9dee3")
-const PANEL = Color("f6f7f9")
-const PANEL_EDGE = Color("cbd1d8")
-const CARD = Color("eceff3")
-const CARD_HI = Color("e0e5eb")
-const CARD_EDGE = Color("c2c9d2")
-const FIELD = Color("dfe3e8")
-const LIP = Color("aab2bc")
-const EMPTY = Color("cdd3da")
-const INK = Color("20242e")
-const WHITE = Color("262b36")
-const MUTED = Color("6a7280")
+const NIGHT = Color("0d1b35")
+const PANEL = Color("18365d")
+const PANEL_EDGE = Color("477db4")
+const CARD = Color("24558a")
+const CARD_HI = Color("326eaa")
+const CARD_EDGE = Color("4687c4")
+const FIELD = Color("102442")
+const LIP = Color("08152d")
+const EMPTY = Color("1a2d49")
+const INK = Color("101b30")
+const WHITE = Color("f4f9ff")
+const MUTED = Color("b2c9e4")
 const SUN = Color("ffd23f")
 const SUN_LIP = Color("d7931d")
-# The sun as ink: amber that still reads on the pale plates, for accent words.
-const SUN_INK = Color("a8680a")
-const MINT = Color("4fd3b9")
-const MINT_LIP = Color("22998a")
-const GOLD = Color("e8a92e")
-const DANGER = Color("f0505f")
-const CYAN = Color("5fcfb7")
-const CORAL = Color("ec8a72")
+# The sun as ink: gold that reads on the dark plates, for accent words.
+const SUN_INK = Color("ffd05a")
+const MINT = Color("38dfa3")
+const MINT_LIP = Color("147554")
+const GOLD = Color("ffb703")
+const DANGER = Color("ff2a4b")
+const CYAN = Color("00caff")
+const CORAL = Color("ff2a4b")
 
 # Where each shape sits in the atlas.
 const DISC = Rect2(0, 0, 128, 128)
@@ -43,7 +43,7 @@ const SMALL = Rect2(128, 128, 24, 24)
 const SMALL_RIM = Rect2(152, 128, 24, 24)
 const SHADOW = Rect2(176, 128, 64, 64)
 const SOLID = Rect2(242, 130, 4, 4)
-const BOX_CORNER = 22.0
+const BOX_CORNER = 14.0
 const SMALL_CORNER = 8.0
 const SHADOW_CORNER = 28.0
 
@@ -280,6 +280,9 @@ static func theme() -> Theme:
 	t.set_color("caret_color", "LineEdit", SUN)
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		t.set_stylebox(state, "OptionButton", flat(CARD if state != "hover" else CARD_HI, CARD_EDGE, 14) if state != "focus" else key_styles("secondary").focus)
+	t.set_color("font_color", "OptionButton", WHITE)
+	t.set_color("font_hover_color", "OptionButton", WHITE)
+	t.set_color("font_pressed_color", "OptionButton", WHITE)
 	t.set_font("font", "OptionButton", strong_font())
 	t.set_font_size("font_size", "OptionButton", 15)
 	t.set_stylebox("panel", "PopupMenu", flat(PANEL, CARD_EDGE, 14))
