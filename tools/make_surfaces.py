@@ -4,7 +4,7 @@
 
 Each kind is a 512 px tile that repeats without a seam: an albedo that multiplies the
 material's own colour (so one texture serves every paint), a roughness map and a normal map.
-scripts/arena_finish.gd picks the kind from the material and projects it in world space.
+scripts/presentation/arena_finish.gd picks the kind from the material and projects it in world space.
   panel   painted steel plates: seams, rivets, scuffs and a little dirt in the joints
   alloy   brushed metal
   graphite dark rubber/plastic with a fine pebble grain

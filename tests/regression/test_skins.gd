@@ -1,0 +1,184 @@
+extends SceneTree
+## Skins unlock when their campaign boss is beaten, persist, dress the right
+## models with their own colours, show in the 3D viewer and travel to the rival in PvP.
+const Skins = preload("res://scripts/progression/skins.gd")
+const TMP = "res://tests/skins-progress.tmp"
+var failures = 0
+
+func check(ok: bool, description: String) -> void:
+	if not ok:
+		failures += 1
+		push_error("FAIL: " + description)
+	else:
+		print("PASS: ", description)
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func floor_glow(projectile: Node3D) -> Color:
+	return projectile.get_node("FloorGlow").material_override.get_shader_parameter("tint")
+
+func run() -> void:
+	check(Skins.CATALOG.size() == 24, "Catalog has ten bosses, Bit, the Magnus prize and the twelve hard-mode skins")
+	check(Skins.CATALOG[0].level == 0 and Skins.CATALOG[0].name == "BIT", "First skin is the default robot, Bit")
+	check(Skins.boss_skin(1) == -1, "Level 1 trains against the standard pilot, so it carries no skin")
+	check(range(2, 12).all(func(lvl): return Skins.boss_skin(lvl) > 0), "Every campaign level from 2 to 11 has a boss skin of its own")
+	check(Skins.CATALOG.all(func(e): return e.bricks != "" and e.weapon != "" and e.about != ""), "Every skin names its weapon, brick theme and description")
+
+	var cyan = Color("72ddc6")
+	var coral = Color("ef947e")
+	check(Skins.colors(0, cyan) == {"body": cyan, "light": cyan.lightened(0.3), "shot": cyan}, "Default pilot keeps the team colours")
+	check(Skins.colors(0, cyan).body == cyan and Skins.colors(1, cyan).shot == Color("ffb35c"), "Bit keeps the team coat; Salvo fires its own orange shots")
+	check(Skins.colors(2, cyan).body == Color("5b50c4") and Skins.colors(2, cyan).shot == Color("c6a8ff"), "Órbita has its own indigo body and violet shots")
+	check(Skins.colors(1, coral, true).body == coral.darkened(0.3), "Boss tint forces red team colours before being defeated")
+
+	# These checks use the real progression, not the testing build's open collection.
+	var testing = Skins.new()
+	testing.unlock_all = true
+	check(testing.unlocked_count() == Skins.CATALOG.size(), "A testing build can wear every skin")
+	testing.unlock_all = false
+	testing.defeated = []
+	testing.unlock_all = false
+	check(testing.unlocked_count() == 1, "With the test unlock off, a pilot starts with the standard hull alone")
+	var progress = Skins.new()
+	progress.unlock_all = false
+	progress.config_path = TMP
+	check(progress.is_unlocked(0) and not progress.is_unlocked(1) and progress.unlocked_count() == 1, "Only the default skin starts unlocked")
+	check(not progress.select(1) and progress.selected == 0, "A locked skin cannot be equipped")
+	check(progress.defeat(1) and progress.is_unlocked(1) and progress.unlocked_count() == 2, "Defeating boss 1 unlocks its skin")
+	check(not progress.defeat(1), "Defeating an already unlocked boss skin returns false")
+	check(progress.select(1) and progress.selected == 1, "Unlocked skin can be equipped")
+	check(progress.defeat(6) and progress.defeat(10) and progress.unlocked_count() == 4, "Can unlock multiple boss skins")
+	check(progress.select(6) and progress.save_preferences() == OK, "Equipping and saving preferences works")
+
+	var restored = Skins.new()
+	restored.unlock_all = false
+	restored.config_path = TMP
+	restored.load_preferences()
+	check(restored.defeated.has(1) and restored.defeated.has(6) and restored.defeated.has(10) and restored.selected == 6, "Defeated bosses and equipped skin survive reload")
+
+	var edited = ConfigFile.new()
+	edited.set_value("skins", "version", Skins.SAVE_VERSION)
+	edited.set_value("skins", "defeated", [1])
+	edited.set_value("skins", "selected", 6)
+	edited.save(TMP)
+	restored.load_preferences()
+	check(restored.selected == 0, "An edited save cannot equip a locked skin")
+
+	var game = load("res://scenes/main.tscn").instantiate()
+	root.add_child(game)
+	game.set_process(false)
+	game.set_physics_process(false)
+	await process_frame
+	await process_frame
+
+	var arena = game.arena
+	var hud = game.hud
+	game.skins.config_path = TMP
+	game.skins.unlock_all = false
+	game.skins.defeated = []
+	game.skins.selected = 0
+	hud.sync_skins(game.skins)
+	arena.set_skin(1, 0) # Set rival to default so testing team 0 bricks is isolated
+
+	for skin in range(Skins.CATALOG.size()):
+		arena.set_skin(0, skin)
+		var unit: Node3D = arena.units[0]
+		var rigged = unit.has_node("Body/LegL") and unit.has_node("Body/LegR") and unit.has_node("Body/Gun/Flash") and unit.has_node("Stun")
+		# A shot is an event now (shot_feedback), not a jump in the cooldown.
+		arena.shot_feedback(0, true)
+		arena.update_state(game.rules, 0, 1.0 / 60)
+		check(rigged and unit.get_node("Body/Gun/Flash").scale.x > 0.2, "Skin %d has every animated part and fires muzzle flash" % skin)
+		if skin == 5:
+			# Eclipse's face is the visor of its helmet (or, on a fused hull, in the trunk).
+			var screen = unit.get_node_or_null("Body/Head/Robot_screen")
+			if screen == null: screen = unit.get_node("Body/Robot_screen")
+			var face: ShaderMaterial = screen.material_override
+			check(face.get_shader_parameter("style") == arena.Robots.EYES.find("slant"), "Eclipse's eyes are stern slants on its screen")
+		var total: int = arena.Rules.BRICK_COUNT * 2
+		var themed = range(total).all(func(i): return arena.brick_nodes[i].get_meta("skin") == (skin if i < arena.Rules.BRICK_COUNT else 0))
+		var lit = arena.brick_nodes.all(func(b): return b.has_node("HP0") and b.has_node("HP1") and b.has_node("HP2"))
+		check(themed and lit and arena.brick_nodes.size() == total and arena.brick_batches.size() < 24, "Skin %d styles team bricks with life lights and batching" % skin)
+
+	arena.set_skin(0, 2)
+	var orbit: Node3D = arena.units[0].get_node("Body/Head/CrestMount/Spin")
+	var turn = orbit.rotation.y
+	arena.update_state(game.rules, 0, 0.5)
+	check(not is_equal_approx(orbit.rotation.y, turn), "Órbita's orbit rings spin during play")
+
+	# Shot colours: aura follows skin, floor glow keeps team, boosts stay gold.
+	arena.set_skin(0, 2)
+	arena.set_skin(1, 0)
+	game.rules.phase = "play"
+	game.rules.balls.append({"id": 900, "owner": 0, "p": Vector2(0, 2), "v": Vector2.UP, "bounces": 0, "ttl": 4.0, "damage": 1, "boosted": false})
+	game.rules.balls.append({"id": 901, "owner": 1, "p": Vector2(0, -2), "v": Vector2.DOWN, "bounces": 0, "ttl": 4.0, "damage": 1, "boosted": false})
+	game.rules.balls.append({"id": 902, "owner": 0, "p": Vector2(1, 2), "v": Vector2.UP, "bounces": 0, "ttl": 4.0, "damage": 2, "boosted": true})
+	arena.update_state(game.rules, 0, 1.0 / 60)
+	var aura = func(id): return arena.projectiles[id].get_node("Orb").material_override.get_shader_parameter("tint")
+	check(aura.call(900) == Color("c6a8ff"), "Órbita shots glow violet")
+	check(aura.call(901) == arena.CORAL, "Default rival keeps the current coral team pigment")
+	check(floor_glow(arena.projectiles[900]) == Color(arena.CYAN, 0.6) and floor_glow(arena.projectiles[901]) == Color(arena.CORAL, 0.6), "Floor glow identifies teams with the current arena palette")
+	check(aura.call(902) == arena.GOLD and arena.projectiles[902].get_node("Orb").material_override.get_shader_parameter("charged") == 1.0, "Boosted shots stay gold, with their charge ring")
+	game.rules.balls.clear()
+	arena.update_state(game.rules, 0, 1.0 / 60)
+	arena.set_skin(0, 0)
+
+	# Viewer: preview a locked skin, drag to turn, idle spin and demo shots.
+	hud.open_skins()
+	check(hud.preview_index == 0 and hud.viewer_skin == 0 and is_instance_valid(hud.viewer_pilot), "Viewer opens on equipped pilot")
+	hud.preview_skin(2)
+	await process_frame
+	check(hud.viewer_skin == 2 and hud.viewer_pilot.has_node("Body/Head/CrestMount/Spin") and hud.skin_name.text == "ÓRBITA", "Previewing Órbita updates 3D model and name")
+	check(hud.skin_thumbs.size() == Skins.CATALOG.size() and hud.viewer_bricks.size() == 2, "Shows all eleven skins and two exhibition bricks")
+	check(hud.skin_action.disabled and hud.skin_action.text == "VENCE ESTE PILOTO" and hud.skin_state.text.begins_with("BLOQUEADA"), "Locked skin displays victory requirement and disabled action")
+	check(hud.skins_button.get_meta("count", "") == "1/24", "The hangar key counts one unlocked skin")
+
+	var drag = InputEventMouseMotion.new()
+	drag.button_mask = MOUSE_BUTTON_MASK_LEFT
+	drag.relative = Vector2(50, 0)
+	var yaw_before = hud.viewer_yaw
+	hud.viewer_input(drag)
+	hud.animate_viewer(0.1)
+	check(is_equal_approx(hud.viewer_yaw, yaw_before + 0.6), "Dragging rotates the preview turntable")
+	hud.close_skins()
+
+	# Campaign unlock flow: the Rosca now guards level 5, and level 1 only trains.
+	game.campaign.unlock_all = true
+	game.start_level(0)
+	check(game.arena.unit_skins[1] == 0, "Level 1 is a bout against a copy of the standard pilot")
+	game.start_level(4) # Level 5 (index 4) has boss 6 (Rosca)
+	check(game.arena.unit_skins[1] == 6 and game.arena.unit_tints[1] == false, "The level 5 boss fights in the colours its own skin was drawn in")
+	game.rules.phase = "finished"
+	game.rules.winner = 0 # Player wins
+	game.finish_level()
+	check(game.skins.is_unlocked(6), "Winning the level unlocks the boss skin")
+	check(hud.level_skin == "ROSCA", "HUD announces the unlocked boss skin")
+	check(game.arena.unit_tints[1] == false, "After victory the boss drops the red tint and displays true colours")
+	check(hud.skins_button.get_meta("count", "") == "2/24", "The hangar key updates its count to 2/24")
+
+	# Return to menu to equip newly unlocked skin
+	game.return_to_menu()
+	hud.open_skins()
+	hud.preview_skin(6)
+	check(hud.skin_action.text == "EQUIPAR" and not hud.skin_action.disabled, "Defeated boss skin is now equippable")
+	hud.skin_selected.emit(6)
+	check(game.skins.selected == 6 and game.arena.unit_skins[0] == 6 and hud.skin_action.text == "EQUIPADA" and hud.skin_action.disabled, "Equipping updates pilot and action text")
+	hud.close_skins()
+
+	# PvP networking
+	game.mode = "client"
+	game.local_team = 1
+	game.dress_pilots(1)
+	check(game.arena.unit_skins == [0, 6], "PvP client pilot dresses in equipped skin")
+	game.share_skin(1)
+	check(game.arena.unit_skins == [1, 6], "Rival's shared skin applies correctly")
+	game.share_skin(99)
+	check(game.arena.unit_skins == [1, 6], "Out-of-range skin ids are ignored")
+
+	game.return_to_menu()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
+	print("SKINS_RESULT failures=", failures)
+	game.queue_free()
+	await process_frame
+	await process_frame
+	quit(failures)

@@ -5,8 +5,8 @@ extends SceneTree
 # paint), as the robots' paint already stores it. Headless is fine.
 #   godot --headless -s tools/export_world.gd -- aurora terra oceano orbita cidade
 # Writes art/worlds/src/<map id>.glb.
-const View = preload("res://scripts/indie_arena_view.gd")
-const Rules = preload("res://scripts/arena_rules.gd")
+const View = preload("res://scripts/presentation/arena_view.gd")
+const Rules = preload("res://scripts/gameplay/arena_rules.gd")
 const OUT = "res://art/worlds/src/"
 const PAINTED = 0.25
 

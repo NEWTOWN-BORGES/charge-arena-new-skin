@@ -1,0 +1,86 @@
+extends SceneTree
+## Regression checks for animated attachments, bounded VFX and graphics profiles.
+const View = preload("res://scripts/presentation/arena_view.gd")
+const Rules = preload("res://scripts/gameplay/arena_rules.gd")
+const Video = preload("res://scripts/settings/video_settings.gd")
+const Audio = preload("res://scripts/audio/combat_audio.gd")
+var failures = 0
+
+func check(ok: bool, message: String) -> void:
+	if ok: print("PASS: ", message)
+	else:
+		failures += 1
+		push_error(message)
+
+func _initialize(): call_deferred("run")
+
+func run():
+	var view = View.new()
+	root.add_child(view)
+	view.build()
+	view.guide_enabled = false
+	var rules = Rules.new()
+	var video = Video.new()
+	for skin in range(12) + range(100, 110):
+		var pilot = view.build_player(View.CYAN, 0, skin)
+		var body = pilot.get_node("Body")
+		var valid = true
+		for part in ["LegL", "LegR", "Gun", "Gun/Flash", "Head", "Arm"]:
+			valid = valid and body.has_node(part)
+		# A face on the head, or cut into a fused hull (trunk and head one piece); a hull may
+		# also go without a face at all.
+		var hull = String(View.Robots.recipe(skin).parts.torso).ends_with("_hull")
+		valid = valid and (body.has_node("Head/Robot_screen") or body.has_node("Robot_screen") or hull)
+		check(valid, "Skin %d keeps animated body, legs, weapon, muzzle and face" % skin)
+		check(not body.has_node("Robot_outline"), "Skin %d has no ink hull in the studio look" % skin)
+		var batch_ok = true
+		for group in [body, body.get_node("LegL"), body.get_node("LegR"), body.get_node("Gun")]:
+			var meshes = group.get_children().filter(func(n): return n is MeshInstance3D)
+			batch_ok = batch_ok and meshes.size() <= 9
+			for child in meshes:
+				batch_ok = batch_ok and child.mesh.get_aabb().position.is_finite() and child.mesh.get_aabb().size.is_finite()
+		check(batch_ok, "Skin %d merges its parts into bounded, finite meshes" % skin)
+		pilot.free()
+	# Switching profiles must be reversible, including glow, lighting and MSAA.
+	var ivory = view.material(View.CREAM)
+	for quality in [2, 0, 1, 2]:
+		video.configure(60, quality, false, false)
+		video.apply(root, view)
+		check(ivory.normal_enabled == (quality > 0) and (ivory.albedo_texture != null) == (quality > 0) and not ivory.clearcoat_enabled, "Profile %d restores surface maps above Leve and removes them on Leve" % quality)
+		check(view.presentation_environment.glow_enabled == (quality == 2) and root.msaa_3d == Video.AA_LEVELS[quality], "Profile %d applies glow and anti-aliasing" % quality)
+		var armour: MeshInstance3D = view.units[0].get_node("Body/Robot_paint")
+		var colours = armour.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+		check(armour.material_override.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and colours != null and colours.size() > 0, "Profile %d preserves armour colours with the intended shader" % quality)
+		var new_paint = view.material(Color(0.43, 0.38, 0.49 + quality * 0.03))
+		check(new_paint.shading_mode == (BaseMaterial3D.SHADING_MODE_PER_VERTEX if quality == 0 else BaseMaterial3D.SHADING_MODE_PER_PIXEL), "Newly created materials respect the current profile")
+		check(ivory.shading_mode == new_paint.shading_mode, "Profile %d relights existing materials the same way" % quality)
+		for tick in range(120): view.update_state(rules, 0, 1.0 / 60.0)
+		var nodes_before = view.get_child_count()
+		for request in range(200):
+			View.CombatFinish.card(view, Vector2.ZERO, 1.0, Color.CYAN, 0.2, request % 7)
+		check(View.CombatFinish.active_count(view) == [8, 18, 28][quality], "Profile %d bounds simultaneous shock fronts" % quality)
+		check(view.get_child_count() == nodes_before, "Impact burst creates no extra nodes")
+		for tick in range(30): view.update_state(rules, 0, 1.0 / 60.0)
+		check(View.CombatFinish.active_count(view) == 0 and (view.get_meta(View.CombatFinish.META) as Array).size() == 28, "All shock fronts return to the pool")
+	# Recycled beam cards must reset their basis and size when reused as impacts.
+	View.CombatFinish.beam(view, Vector2.ZERO, Vector2.UP, 8.0, 0.5, Color.CYAN)
+	view.update_state(rules, 0, 0.05)
+	var beam = view.effects.back().node
+	check(beam.scale.is_equal_approx(Vector3(0.5, 4.0, 1.0)), "Beam retains its path dimensions while animating")
+	for tick in range(30): view.update_state(rules, 0, 1.0 / 60.0)
+	var ring = View.CombatFinish.card(view, Vector2.ZERO, 1.2, Color.CYAN, 0.2)
+	check(ring.scale.is_equal_approx(Vector3.ONE * 1.2) and ring.basis.y.is_equal_approx(Vector3(0, 0, -1.2)), "Reused card resets its transform after a beam")
+	for tick in range(30): view.update_state(rules, 0, 1.0 / 60.0)
+	View.CombatFinish.event(view, {"kind": "bloom", "p": rules.players[0].p, "team": 0, "bricks": [0, 1]}, rules)
+	check(View.CombatFinish.active_count(view) > 0, "Healing has a visible premium effect")
+	var clips_ok = Audio.TRACKS.size() >= 83
+	for clip in Audio.TRACKS.values():
+		clips_ok = clips_ok and clip.get_length() > 0.08 and clip.loop_mode == AudioStreamWAV.LOOP_DISABLED
+	check(clips_ok, "The expanded combat catalog retains at least 83 cues, all nonempty and non-looping")
+	var bus = Audio.prepare_bus()
+	Audio.prepare_bus()
+	var index = AudioServer.get_bus_index(bus)
+	check(index > 0 and AudioServer.get_bus_effect_count(index) == 1 and AudioServer.get_bus_effect(index, 0) is AudioEffectHardLimiter, "Combat gets one dedicated limiter without changing Master")
+	view.free()
+	print("PREMIUM_RESULT failures=", failures)
+	quit(failures)

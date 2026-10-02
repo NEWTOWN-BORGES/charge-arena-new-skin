@@ -1,5 +1,5 @@
 """O mundo cozido (art/worlds/jardim.glb) visto no Blender com a câmara de comparação, para pôr
-ao lado da mesma vista no jogo (tests/capture_world_view.gd).
+ao lado da mesma vista no jogo (tests/captures/capture_world_view.gd).
 
     python3 tools/color/blender_world_view.py saida.png
 """

@@ -1,7 +1,6 @@
 shader_type spatial;
-// Arena floor in the studio look: large matte hexagon plates in the theme's pale tones, soft
-// seams with a rounded bevel, each half leaning gently towards its team, and the centre
-// markings painted on, not lit. Colours come from the arena theme.
+// Combat deck: broad slate plates, restrained team markings and a brass centre crest.
+// Clear visual hierarchy keeps the floor behind projectiles and targets.
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 varying vec3 world_pos;
 uniform vec4 floor_color : source_color = vec4(0.78, 0.81, 0.84, 1.0);
@@ -35,7 +34,7 @@ float hash(vec2 p) {
 
 void fragment() {
 	vec2 p = world_pos.xz;
-	vec2 q = p / 0.64;
+	vec2 q = p / 1.10;
 	const vec2 r = vec2(1.0, 1.7320508);
 	vec2 a = mod(q, r) - r * 0.5;
 	vec2 b = mod(q - r * 0.5, r) - r * 0.5;
@@ -55,7 +54,7 @@ void fragment() {
 	base = mix(base, base * mix(vec3(1.0), team, 0.55), reach * 0.35);
 	base = mix(base, seam_color.rgb, seam * 0.85);
 	// The rounded edge of each plate catches the light.
-	base += vec3(0.04) * bevel;
+	base += vec3(0.018, 0.028, 0.04) * bevel;
 	// Centre markings: two painted rings, a dial of ticks and the dashed half-way line.
 	float rad = length(p);
 	float rings = ring_line(rad, 2.12, 0.035) + ring_line(rad, 2.34, 0.014);
@@ -63,8 +62,18 @@ void fragment() {
 	float mid = (1.0 - smoothstep(0.014, 0.014 + fwidth(p.y), abs(p.y))) * step(0.45, fract(p.x * 1.3));
 	float paint = clamp(rings + ticks * 0.8 + mid * 0.9, 0.0, 1.0);
 	base = mix(base, line_color.rgb, paint * 0.85);
+	// A quiet enamel crest at centre court. It uses the existing floor draw and
+	// derivative antialiasing; it does not add geometry, lights or animation passes.
+	vec2 crest_p = p / 1.1;
+	float diamond = abs(crest_p.x) + abs(crest_p.y);
+	float crest_aa = max(fwidth(diamond), 0.012);
+	float crest = 1.0 - smoothstep(0.026, 0.026 + crest_aa, abs(diamond - 0.68));
+	float core = 1.0 - smoothstep(0.2, 0.2 + crest_aa, diamond);
+	vec3 brass = vec3(0.66, 0.38, 0.085);
+	base = mix(base, brass, max(crest, core) * 0.9);
 	ALBEDO = base;
-	METALLIC = 0.0;
-	ROUGHNESS = mix(mix(0.62, 0.8, seam) - paint * 0.15, 0.08 + seam * 0.3, gloss);
+	EMISSION = brass * (crest + core) * 0.10;
+	METALLIC = 0.15;
+	ROUGHNESS = mix(mix(0.48, 0.78, seam) - paint * 0.15, 0.08 + seam * 0.3, gloss);
 	SPECULAR = mix(0.45, 0.65, gloss);
 }

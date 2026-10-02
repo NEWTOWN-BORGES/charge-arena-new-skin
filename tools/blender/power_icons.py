@@ -23,7 +23,7 @@ SIZE = 256
 CREAM = "fff4e2"
 DARK = "2a3140"
 ORANGE = "ff7a3c"
-# The colour of every power, as in scripts/powers.gd, a little deeper so the disc reads.
+# The colour of every power, as in scripts/gameplay/powers.gd, a little deeper so the disc reads.
 COLORS = {
     "blast": "ff9a4d", "rapid": "ffcf3d", "air": "4fc8f0", "ghost": "a57cff", "laser": "ff4f6a",
     "rebuild": "6fd35a", "mirror": "3fd0e8", "walls": "c9b94a", "stun": "5fb8ff", "weld": "3fcf8e",

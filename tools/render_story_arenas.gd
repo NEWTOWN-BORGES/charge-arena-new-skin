@@ -4,7 +4,7 @@ extends SceneTree
 # Writes art/story/scenes/treino.png (the training arena) and arena_<boss>.png, the arena
 # where each story rival plays: the empty court from a low, wide angle behind BIT's wall,
 # portrait 1080x1920, no pilots and no HUD.
-const Story = preload("res://scripts/story_script.gd")
+const Story = preload("res://scripts/story/story_script.gd")
 const OUT = "res://art/story/scenes/"
 
 func _initialize() -> void:

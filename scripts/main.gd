@@ -1,19 +1,19 @@
 extends Node3D
-const StoryScript = preload("res://scripts/story_script.gd")
-const ArenaTheme = preload("res://scripts/arena_theme.gd")
-const Rules = preload("res://scripts/arena_rules.gd")
-const ArenaView = preload("res://scripts/indie_arena_view.gd")
-const HUD = preload("res://scripts/game_hud.gd")
-const VideoSettings = preload("res://scripts/video_settings.gd")
-const Music = preload("res://scripts/music_player.gd")
-const Skins = preload("res://scripts/skins.gd")
-const PowerShop = preload("res://scripts/powers.gd")
-const GameSettings = preload("res://scripts/game_settings.gd")
-const Campaign = preload("res://scripts/campaign.gd")
-const Cup = preload("res://scripts/cup.gd")
-const Press = preload("res://scripts/story_press.gd")
-const CupScreen = preload("res://scripts/story_hub.gd")
-const GameFeel = preload("res://scripts/game_feel.gd")
+const StoryScript = preload("res://scripts/story/story_script.gd")
+const ArenaTheme = preload("res://scripts/presentation/arena_theme.gd")
+const Rules = preload("res://scripts/gameplay/arena_rules.gd")
+const ArenaView = preload("res://scripts/presentation/arena_view.gd")
+const HUD = preload("res://scripts/ui/game_hud.gd")
+const VideoSettings = preload("res://scripts/settings/video_settings.gd")
+const Music = preload("res://scripts/audio/music_player.gd")
+const Skins = preload("res://scripts/progression/skins.gd")
+const PowerShop = preload("res://scripts/gameplay/powers.gd")
+const GameSettings = preload("res://scripts/settings/game_settings.gd")
+const Campaign = preload("res://scripts/progression/campaign.gd")
+const Cup = preload("res://scripts/story/cup.gd")
+const Press = preload("res://scripts/story/story_press.gd")
+const CupScreen = preload("res://scripts/story/story_hub.gd")
+const GameFeel = preload("res://scripts/settings/game_feel.gd")
 var cup = Cup.new()
 var cup_screen
 var cup_active = false
@@ -39,6 +39,7 @@ var queued_shots: Array = [0, 0]
 var queued_until: Array = [0, 0]
 var pending_clicks = 0
 var pending_events: Array = []
+const MAX_PENDING_EVENTS = 80
 var remote_power_until = 0
 var remote_age = 0.0
 var network_tick = 0.0
@@ -165,6 +166,7 @@ func _ready() -> void:
 	hud.team_skins = arena.unit_skins
 	hud.team_tints = arena.unit_tints
 	hud.arena_view = arena
+	hud.world_visibility_allowed = func(): return not (mode == "menu" and is_instance_valid(cup_screen) and cup_screen.visible)
 	hud.skin_selected.connect(select_skin)
 	hud.skin_previewed.connect(preview_skin_music)
 	hud.skin_preview_closed.connect(restore_skin_music)
@@ -248,7 +250,7 @@ func _ready() -> void:
 	cup_screen.action.connect(cup_action)
 	cup_screen.refresh()
 	cup_screen.hide()
-	var scroll_gestures = preload("res://scripts/ui_scroll.gd").new()
+	var scroll_gestures = preload("res://scripts/ui/ui_scroll.gd").new()
 	scroll_gestures.name = "ScrollGestures"
 	scroll_gestures.surface = func():
 		# Topmost first: the shop can open over the story, both over the lobby. The story
@@ -850,6 +852,11 @@ func show_levels() -> void:
 
 func close_network() -> void:
 	clear_shots()
+	pending_events.clear()
+	network_tick = 0.0
+	remote_backgrounded = false
+	remote_power_until = 0
+	held_power = -1
 	mouse_firing = false
 	connected = false
 	remote_id = 0
@@ -1304,7 +1311,7 @@ var feel_panel
 
 func open_feel_tuning() -> void:
 	if not is_instance_valid(feel_panel):
-		feel_panel = preload("res://scripts/feel_panel.gd").new()
+		feel_panel = preload("res://scripts/ui/feel_panel.gd").new()
 		hud.add_child(feel_panel)
 	feel_panel.open(feel)
 
@@ -1610,7 +1617,7 @@ func play_events() -> void:
 			play_tone("blast")
 
 func local_command() -> Dictionary:
-	if hud.video_overlay.visible or pve_paused:
+	if backgrounded or remote_backgrounded or hud.video_overlay.visible or pve_paused:
 		# Drop anything tapped while the match was on hold.
 		hud.take_power()
 		hud.fire_tap = false
@@ -1710,7 +1717,7 @@ func magnet_pull() -> float:
 	return clampf((best - player.angle) * 5.0, -0.35, 0.35)
 
 func _physics_process(dt: float) -> void:
-	if mode == "menu":
+	if backgrounded or remote_backgrounded or mode == "menu":
 		return
 	if mode == "pve" and (hud.video_overlay.visible or pve_paused):
 		return
@@ -1771,8 +1778,7 @@ func _physics_process(dt: float) -> void:
 	if mode == "host":
 		# Events happen every tick but packets leave at 20 Hz, so they are kept until the
 		# next one goes out. Capped, because a meteor shower must not inflate a packet.
-		if pending_events.size() < 80:
-			pending_events.append_array(rules.events)
+		queue_network_events(rules.events)
 		network_tick += dt
 		if network_tick >= 1.0 / 20:
 			network_tick = 0
@@ -1782,9 +1788,15 @@ func _physics_process(dt: float) -> void:
 			pending_events = []
 			receive_state.rpc_id(remote_id, packet)
 
+func queue_network_events(events: Array) -> void:
+	# A single large ultimate can exceed the budget before the next packet is sent.
+	var remaining = MAX_PENDING_EVENTS - pending_events.size()
+	if remaining > 0:
+		pending_events.append_array(events.slice(0, remaining))
+
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
 func submit_input(move: Vector2, firing: bool) -> void:
-	if mode != "host" or multiplayer.get_remote_sender_id() != remote_id:
+	if backgrounded or remote_backgrounded or mode != "host" or multiplayer.get_remote_sender_id() != remote_id:
 		return
 	if not move.is_finite():
 		return
@@ -1794,13 +1806,13 @@ func submit_input(move: Vector2, firing: bool) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func submit_fire_tap() -> void:
-	if mode == "host" and multiplayer.get_remote_sender_id() == remote_id:
+	if not backgrounded and not remote_backgrounded and mode == "host" and multiplayer.get_remote_sender_id() == remote_id:
 		queue_shot(1 - local_team)
 
 @rpc("any_peer", "call_remote", "reliable")
 func submit_power(power: int) -> void:
 	# Reliable and separate: a dropped movement packet must not swallow a power.
-	if mode != "host" or multiplayer.get_remote_sender_id() != remote_id:
+	if backgrounded or remote_backgrounded or mode != "host" or multiplayer.get_remote_sender_id() != remote_id:
 		return
 	if power < 0 or power >= Rules.POWER_SLOTS:
 		return
@@ -1809,7 +1821,7 @@ func submit_power(power: int) -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered", 2)
 func receive_state(data: Dictionary) -> void:
-	if mode != "client":
+	if mode != "client" or backgrounded or remote_backgrounded:
 		return
 	arena.capture_motion(rules)
 	if not rules.apply_network_snapshot(data):
@@ -1832,6 +1844,9 @@ const DOZE_FPS = 10
 const BACKGROUND_FPS = 1
 var last_input_ms = 0
 var backgrounded = false
+var remote_backgrounded = false
+var foreground_process_mode = Node.PROCESS_MODE_INHERIT
+var foreground_bus_muted = false
 var screen_kept_on = true
 
 func idle_frame_rate() -> void:
@@ -1843,7 +1858,7 @@ func idle_frame_rate() -> void:
 		if Engine.max_fps != BACKGROUND_FPS:
 			Engine.max_fps = BACKGROUND_FPS
 		return
-	var resting: bool = mode == "menu" or pve_paused or hud.video_overlay.visible or network_status != "" \
+	var resting: bool = mode == "menu" or pve_paused or remote_backgrounded or hud.video_overlay.visible or network_status != "" \
 		or (rules != null and rules.phase == "finished")
 	var dozing: bool = resting and Time.get_ticks_msec() - last_input_ms > DOZE_SECONDS * 1000.0
 	var wanted: int = (DOZE_FPS if dozing else IDLE_FPS) if resting else video.runtime_fps
@@ -1852,11 +1867,6 @@ func idle_frame_rate() -> void:
 	if screen_kept_on == resting:
 		screen_kept_on = not resting
 		DisplayServer.screen_set_keep_on(screen_kept_on)
-	# The lobby's robots are the showcase: at the resting rate they can afford smooth
-	# edges on every profile. A match keeps the antialiasing the chosen profile pays for.
-	var wanted_aa = Viewport.MSAA_4X if mode == "menu" else video.AA_LEVELS[video.quality]
-	if get_viewport().msaa_3d != wanted_aa:
-		get_viewport().msaa_3d = wanted_aa
 
 # Automated runs without a screen (the tests) never see a tutorial; a test can force it.
 var force_tutorials = false
@@ -1893,23 +1903,66 @@ func tutorial_done(kind: String, _skipped: bool) -> void:
 	save_game_settings()
 
 func go_background(away: bool) -> void:
-	# Like any other app: out of sight, the game stops - the match paused, every sound
-	# silenced, the frame rate at one - and it comes back where it was.
+	if backgrounded == away:
+		return
 	backgrounded = away
-	AudioServer.set_bus_mute(0, away)
+	# ENet's transport remains responsible for disconnects/timeouts. Both compatible peers
+	# pause the match, instead of the visible player continuing against an absent opponent.
+	if connected and mode in ["host", "client"]:
+		var other_id = remote_id if mode == "host" else 1
+		if other_id > 0 and multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+			receive_peer_suspension.rpc_id(other_id, away)
 	if away:
+		foreground_bus_muted = AudioServer.is_bus_mute(0)
+		AudioServer.set_bus_mute(0, true)
+		foreground_process_mode = process_mode
 		pause_pve()
+		clear_session_input()
 		save_skins()
+		save_powers()
 		DisplayServer.screen_set_keep_on(false)
 		screen_kept_on = false
 		Engine.max_fps = BACKGROUND_FPS
+		# FPS alone does not suspend physics or descendant UI/particle updates.
+		process_mode = Node.PROCESS_MODE_DISABLED
 	else:
+		process_mode = foreground_process_mode
+		AudioServer.set_bus_mute(0, foreground_bus_muted)
+		clear_session_input()
 		last_input_ms = Time.get_ticks_msec()
+		fps_timer = 0.0
+		idle_frame_rate()
+
+func clear_session_input() -> void:
+	stop_haptics()
+	clear_shots()
+	mouse_firing = false
+	held_power = -1
+	remote_power = -1
+	remote_command = {"move": Vector2.ZERO, "fire": false}
+	remote_age = 1.0
+	if is_instance_valid(hud):
+		hud.reset_touch()
+
+@rpc("any_peer", "call_remote", "reliable")
+func receive_peer_suspension(away: bool) -> void:
+	var expected = remote_id if mode == "host" else 1
+	if not connected or mode not in ["host", "client"] or multiplayer.get_remote_sender_id() != expected:
+		return
+	remote_backgrounded = away
+	clear_session_input()
+	network_status = "Rival em pausa — à espera do regresso…" if away else ""
+	hud.update_match(rules, network_status)
+	idle_frame_rate()
 
 func _process(dt: float) -> void:
+	if backgrounded:
+		return
+	idle_frame_rate()
+	if remote_backgrounded:
+		return
 	update_sustained_haptics()
 	update_feedback_mix(dt)
-	idle_frame_rate()
 	hud.fps_label.visible = video.show_fps and mode != "menu"
 	if mode == "menu" and is_instance_valid(cup_screen) and cup_screen.visible:
 		return
@@ -1981,7 +2034,7 @@ func _process(dt: float) -> void:
 func build_audio() -> void:
 	# A pool lets weapon tails, ricochets and impacts overlap instead of every
 	# new effect cutting the sound already playing.
-	var combat_bus = preload("res://scripts/combat_audio.gd").prepare_bus()
+	var combat_bus = preload("res://scripts/audio/combat_audio.gd").prepare_bus()
 	for i in range(28):
 		var voice = AudioStreamPlayer.new()
 		voice.bus = combat_bus
@@ -1990,7 +2043,7 @@ func build_audio() -> void:
 		add_child(voice)
 		audio_voices.append(voice)
 	audio = audio_voices[0]
-	tones = preload("res://scripts/combat_audio.gd").TRACKS.duplicate()
+	tones = preload("res://scripts/audio/combat_audio.gd").TRACKS.duplicate()
 	tones["notify"] = notify_wave()
 	for skin in range(Skins.CATALOG.size()):
 		if tones.has("shot_%d_0" % skin):
@@ -2014,90 +2067,6 @@ func notify_wave() -> AudioStreamWAV:
 			var envelope = minf(local / 0.006, 1.0) * exp(-local * 7.5)
 			sample += (sin(TAU * note[1] * local) + 0.3 * sin(TAU * note[1] * 2.0 * local)) * envelope * 0.32
 		bytes.encode_s16(i * 2, int(clampf(sample, -1.0, 1.0) * 32000.0))
-	wave.data = bytes
-	return wave
-
-func roar_wave(seconds: float, base_hz: float, grit: float) -> AudioStreamWAV:
-	# A held, throaty beam: two detuned saws under a slow tremolo.
-	var wave = AudioStreamWAV.new()
-	wave.format = AudioStreamWAV.FORMAT_16_BITS
-	wave.mix_rate = 22050
-	var count = int(22050 * seconds)
-	var bytes = PackedByteArray()
-	bytes.resize(count * 2)
-	var noise = RandomNumberGenerator.new()
-	noise.seed = int(base_hz)
-	for i in range(count):
-		var t = float(i) / 22050.0
-		var progress = float(i) / count
-		var saw = fmod(t * base_hz, 1.0) * 2.0 - 1.0 + fmod(t * base_hz * 1.004, 1.0) * 2.0 - 1.0
-		var tremolo = 0.75 + 0.25 * sin(t * TAU * 21.0)
-		var envelope = minf(t * 24.0, 1.0) * minf((1.0 - progress) * 4.0, 1.0)
-		var value = saw * 0.4 + grit * noise.randf_range(-1.0, 1.0) * 0.5
-		bytes.encode_s16(i * 2, int(clampf(value * tremolo * envelope * 0.8, -1.0, 1.0) * 19000))
-	wave.data = bytes
-	return wave
-
-func crack_wave(seconds: float) -> AudioStreamWAV:
-	# Lightning: a white crack that collapses into a rolling tail.
-	var wave = AudioStreamWAV.new()
-	wave.format = AudioStreamWAV.FORMAT_16_BITS
-	wave.mix_rate = 22050
-	var count = int(22050 * seconds)
-	var bytes = PackedByteArray()
-	bytes.resize(count * 2)
-	var noise = RandomNumberGenerator.new()
-	noise.seed = 4711
-	var rumble = 0.0
-	for i in range(count):
-		var t = float(i) / 22050.0
-		var progress = float(i) / count
-		var snap = noise.randf_range(-1.0, 1.0) * pow(1.0 - progress, 5.0)
-		rumble = lerpf(rumble, noise.randf_range(-1.0, 1.0), 0.06)
-		var body = rumble * pow(1.0 - progress, 1.6) * 0.9 + sin(t * TAU * lerpf(90.0, 40.0, progress)) * 0.3 * pow(1.0 - progress, 2.0)
-		bytes.encode_s16(i * 2, int(clampf(snap + body, -1.0, 1.0) * 19000))
-	wave.data = bytes
-	return wave
-
-func chime_wave(seconds: float, base_hz: float) -> AudioStreamWAV:
-	# Bloom: a soft major chord that opens upwards, like the wall breathing again.
-	var wave = AudioStreamWAV.new()
-	wave.format = AudioStreamWAV.FORMAT_16_BITS
-	wave.mix_rate = 22050
-	var count = int(22050 * seconds)
-	var bytes = PackedByteArray()
-	bytes.resize(count * 2)
-	for i in range(count):
-		var t = float(i) / 22050.0
-		var progress = float(i) / count
-		var value = 0.0
-		for step in range(3):
-			var partial = base_hz * [1.0, 1.26, 1.5][step]
-			var start = step * 0.08
-			if t < start:
-				continue
-			value += sin((t - start) * TAU * partial) * pow(1.0 - progress, 1.8) * [0.5, 0.36, 0.3][step]
-		bytes.encode_s16(i * 2, int(clampf(value, -1.0, 1.0) * 19000))
-	wave.data = bytes
-	return wave
-
-func sweep_wave(seconds: float, from_hz: float, to_hz: float, grit: float) -> AudioStreamWAV:
-	# Continuous phase keeps the sweep free of clicks; the noise share gives each cue its body.
-	var wave = AudioStreamWAV.new()
-	wave.format = AudioStreamWAV.FORMAT_16_BITS
-	wave.mix_rate = 22050
-	var count = int(22050 * seconds)
-	var bytes = PackedByteArray()
-	bytes.resize(count * 2)
-	var noise = RandomNumberGenerator.new()
-	noise.seed = int(from_hz + to_hz)
-	var phase = 0.0
-	for i in range(count):
-		var progress = float(i) / count
-		phase += TAU * lerpf(from_hz, to_hz, progress * progress) / 22050.0
-		var envelope = minf(float(i) / 140.0, 1.0) * pow(1.0 - progress, 1.55)
-		var value = sin(phase) + grit * noise.randf_range(-1.0, 1.0) * (1.0 - progress)
-		bytes.encode_s16(i * 2, int(clampf(value * envelope * 0.62, -1.0, 1.0) * 19000))
 	wave.data = bytes
 	return wave
 

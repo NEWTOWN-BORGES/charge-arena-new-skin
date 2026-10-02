@@ -4,9 +4,9 @@ extends SceneTree
 # Writes art/ui/maps/<world>.png (the map picker thumbnail, a 256 px match view) for the five
 # corrupted worlds, and art/story/scenes/arena_s2_<boss>.png: the empty court where each
 # season-two rival fights, portrait 1080x1920, for the story's round cards.
-const Story = preload("res://scripts/story_script.gd")
-const ArenaTheme = preload("res://scripts/arena_theme.gd")
-const Rules = preload("res://scripts/arena_rules.gd")
+const Story = preload("res://scripts/story/story_script.gd")
+const ArenaTheme = preload("res://scripts/presentation/arena_theme.gd")
+const Rules = preload("res://scripts/gameplay/arena_rules.gd")
 
 func _initialize() -> void:
 	call_deferred("run")

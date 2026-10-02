@@ -2,7 +2,7 @@
 holofote, pilares das balizas e adereços do convés (sucata, caixas, barris, contentor, grua,
 drone, placar, antena, plataforma de aterragem, nuvem, propulsor, cabeça de robô, roda
 dentada). O jogo pinta-as como os robôs (papéis de cor nos vértices) e espalha-as à volta do
-contorno de cada mapa (scripts/arena_sky.gd).
+contorno de cada mapa (scripts/presentation/arena_sky.gd).
 
 Coordenadas em unidades do Godot: Y para cima, origem no chão. A muralha tem 1 m ao longo de
 X com a face de dentro para +Z; as torres apontam o holofote para +Z.

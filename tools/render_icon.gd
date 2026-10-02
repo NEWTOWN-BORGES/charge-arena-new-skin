@@ -1,8 +1,8 @@
 extends SceneTree
 # The app icon: BIT's face, front on, rendered from the real model (needs a GPU; omit --headless).
 #   godot -s tools/render_icon.gd      # writes art/icon/bit_face.png (512 x 512, transparent)
-const View = preload("res://scripts/indie_arena_view.gd")
-const Robots = preload("res://scripts/robots.gd")
+const View = preload("res://scripts/presentation/arena_view.gd")
+const Robots = preload("res://scripts/presentation/robots.gd")
 const OUT = "res://art/icon/bit_face.png"
 
 func _initialize() -> void:

@@ -1,14 +1,14 @@
 extends SceneTree
 var foreground = false
 var painter: Node2D
-var portraits = preload("res://scripts/game_hud.gd").new()
+var portraits = preload("res://scripts/ui/game_hud.gd").new()
 func _initialize() -> void: call_deferred("run")
 func draw_icon() -> void:
 	if not foreground:
 		painter.draw_rect(Rect2(0, 0, 512, 512), Color("101d29"))
 		painter.draw_circle(Vector2(256, 236), 202, Color("1b2d39"), true, -1, true)
 	painter.draw_set_transform(Vector2(256, 236), 0, Vector2.ONE * 3.7)
-	portraits.sentinel_portrait(painter, Vector2.ZERO, preload("res://scripts/skins.gd").colors(5, Color.WHITE), false)
+	portraits.sentinel_portrait(painter, Vector2.ZERO, preload("res://scripts/progression/skins.gd").colors(5, Color.WHITE), false)
 	painter.draw_set_transform(Vector2.ZERO)
 	var badge = StyleBoxFlat.new()
 	badge.bg_color = Color("d2ad73")

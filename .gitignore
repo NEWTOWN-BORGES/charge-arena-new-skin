@@ -3,6 +3,9 @@
 builds/
 *.tmp
 .test-user/
+.qa/
+override.cfg
+outputs/
 
 __pycache__/
 art/worlds/src/

@@ -1,0 +1,115 @@
+extends SceneTree
+const Settings = preload("res://scripts/settings/video_settings.gd")
+var failures = 0
+var checks = 0
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func check(ok: bool, description: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		push_error("FAIL: " + description)
+	else:
+		print("PASS: ", description)
+
+func run() -> void:
+	var game = load("res://scenes/main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	game.set_process(false)
+	var settings = Settings.new()
+	for limit in Settings.FPS_OPTIONS:
+		for quality in range(3):
+			settings.configure(limit, quality, false, true)
+			settings.apply(root, game.arena)
+			check(Engine.max_fps == limit and root.msaa_3d == Settings.AA_LEVELS[quality] and Engine.physics_ticks_per_second == 60, "FPS %d / quality %d apply without changing physics speed" % [limit, quality])
+	settings.configure(90, 2, true, true)
+	var path = "res://tests/video-preferences.tmp"
+	check(settings.save_preferences(path) == OK, "Display preferences save successfully")
+	var restored = Settings.new()
+	restored.load_preferences(path)
+	check(restored.fps == 90 and restored.quality == 2 and restored.vsync and restored.show_fps, "FPS, quality, VSync and counter survive reload")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	restored.configure(-1, 500, false, false)
+	check(restored.fps == 60 and restored.quality == 2, "Invalid settings are clamped safely")
+	restored.configure(120, 2, false, false)
+	check(restored.fps == 60, "A setting of 120 saved by an older build lands on 60")
+	restored.configure(90, 2, false, false)
+	restored.apply(root, game.arena)
+	for i in range(3):
+		restored.adapt(root, 45, true)
+	check(restored.runtime_fps == 90, "A short heavy moment, like a power, gives nothing away")
+	for i in range(3):
+		restored.adapt(root, 45, true)
+	check(restored.runtime_fps == 60 and is_equal_approx(root.scaling_3d_scale, 1.0) and root.msaa_3d == Settings.AA_LEVELS[2], "Then falls from 90 to 60 FPS, the picture itself untouched")
+	for i in range(6):
+		restored.adapt(root, 45, true)
+	check(restored.runtime_fps == 60, "A phone in the forties keeps 60 instead of dropping to 30")
+	for i in range(Settings.RECOVER_WINDOWS):
+		restored.adapt(root, 60, true)
+	check(restored.runtime_fps == 90, "Once the phone keeps up again it wins the frame rate back")
+	for i in range(6):
+		restored.adapt(root, 45, true)
+	check(restored.recover_after == Settings.RECOVER_WINDOWS * 2, "A step up that does not hold makes the next one wait longer")
+	restored.configure(60, 1, false, false)
+	restored.apply(root, game.arena)
+	for i in range(60):
+		restored.adapt(root, 25, true)
+	check(restored.runtime_fps == 30, "Only a phone that cannot reach the forties drops to 30")
+	restored.configure(60, 0, false, false)
+	restored.apply(root, game.arena)
+	for i in range(6):
+		restored.adapt(root, 20, true)
+	check(restored.runtime_fps < 60 and is_equal_approx(root.scaling_3d_scale, 1.0), "Leve lowers its frame rate on a weak phone, never the size of the 3D")
+	settings.configure(90, 2, true, true)
+	game.hud.sync_video(settings)
+	check(game.hud.fps_choice.selected == Settings.FPS_OPTIONS.find(90) and game.hud.quality_choice.selected == 2 and game.hud.fps_label.visible, "Settings menu and real FPS counter reflect selected preferences")
+	game.start_pve()
+	game.hud.move_vector = Vector2.RIGHT
+	game.mouse_firing = true
+	game.hud.open_video()
+	game.hud.request_power(0)
+	check(game.local_command() == {"move": Vector2.ZERO, "fire": false, "power": -1} and not game.mouse_firing and game.hud.power_request == -1, "Opening graphics settings releases movement, firing and powers")
+	var before: Dictionary = game.rules.snapshot().duplicate(true)
+	game._physics_process(0.1)
+	check(game.rules.snapshot() == before, "PvE simulation pauses while changing graphics settings")
+	game.hud.close_video()
+	# Tap to shoot is the default: back from the settings the gun waits for a tap (the
+	# automatic one fires on its own), and the pilot stands still.
+	check(not game.hud.video_overlay.visible and game.local_command().fire == game.game_settings.auto_fire and game.hud.move_vector == Vector2.ZERO, "Closing settings hands the pilot back, standing still and firing as the setting says")
+	game.rules.phase = "play"
+	game.arena.capture_motion(game.rules)
+	game.rules.step(0.1, [{"move": Vector2.RIGHT}, {"move": Vector2.ZERO}])
+	game.arena.update_state(game.rules, 0, 0.008, 0.5)
+	var mid: Vector2 = game.Rules.track_position(0, game.rules.players[0].angle * 0.5)
+	check(game.arena.units[0].position.is_equal_approx(Vector3(mid.x, 0, mid.y)), "High-refresh visual frames interpolate the player along the actual arc")
+	check(game.arena.obstacle_nodes[0].position.x > 0 and game.arena.obstacle_nodes[0].position.x < game.rules.obstacles[0].p.x, "Moving obstacles interpolate between simulation ticks")
+	check(game.arena.static_batch_count > 0 and game.arena.static_batch_count < 60 and game.arena.brick_batches.size() < 20, "Architecture and 560 brick pieces are grouped into a bounded number of draws")
+	game.rules.bricks[0].hp = 1
+	game.arena.update_state(game.rules, 0, 0.008)
+	var body_binding = game.arena.brick_instances[0][2]
+	var pose: Transform3D = body_binding.batch.get_instance_transform(body_binding.slot)
+	if DisplayServer.get_name() != "headless":
+		check(is_equal_approx(pose.basis.x.length(), 0.52), "Batched brick geometry shrinks to match its remaining life")
+	game.rules.bricks[0].hp = 0
+	game.rules.bricks[0].alive = false
+	game.arena.update_state(game.rules, 0, 0.008)
+	if DisplayServer.get_name() != "headless":
+		check(body_binding.batch.get_instance_transform(body_binding.slot).origin.y < -50, "Destroyed brick is removed from the visible batch")
+	game.rules.reset_round()
+	game.arena.update_state(game.rules, 0, 0.008)
+	if DisplayServer.get_name() != "headless":
+		check(is_equal_approx(body_binding.batch.get_instance_transform(body_binding.slot).basis.x.length(), 1.0), "New round restores batched bricks at full size")
+	else:
+		print("GPU_ONLY: 3 MultiMesh readback checks require a graphical renderer; dummy rendering returns identity transforms.")
+	print("BATCH_METRICS architecture=", game.arena.static_batch_count, " brick_batches=", game.arena.brick_batches.size())
+	# Weak phone GPUs get the lean surfaces; a 90 Hz panel never steps down to a judder of 60.
+	check(Settings.weak_gpu("Mali-G57 MC2"), "A Galaxy A15's Mali-G57 counts as a weak GPU")
+	check(not Settings.weak_gpu("Adreno (TM) 740"), "A Galaxy S23's Adreno 740 is not a weak GPU")
+	check(Settings.weak_gpu("Adreno (TM) 610"), "An Adreno 610 counts as a weak GPU")
+	check(Settings.ladder(90.0) == [90, 45, 30], "A 90 Hz panel steps 90 -> 45 -> 30")
+	check(Settings.ladder(60.0) == [90, 60, 30], "A 60 Hz panel steps 60 -> 30")
+	print("VIDEO_RESULT ", checks - failures, "/", checks, " passed")
+	quit(1 if failures else 0)
