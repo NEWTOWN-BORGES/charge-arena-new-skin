@@ -4,6 +4,7 @@ const View = preload("res://scripts/indie_arena_view.gd")
 const Rules = preload("res://scripts/arena_rules.gd")
 const Video = preload("res://scripts/video_settings.gd")
 const Audio = preload("res://scripts/combat_audio.gd")
+const Skins = preload("res://scripts/skins.gd")
 var failures = 0
 
 func check(ok: bool, message: String) -> void:
@@ -46,8 +47,16 @@ func run():
 	for quality in [2, 0, 1, 2]:
 		video.configure(60, quality, false, false)
 		video.apply(root, view)
-		check(not ivory.normal_enabled and ivory.albedo_texture == null and not ivory.clearcoat_enabled, "Profile %d keeps the clean studio paint: no grain, no clearcoat" % quality)
-		check(view.presentation_environment.glow_enabled == (quality == 2) and root.msaa_3d == Video.AA_LEVELS[quality], "Profile %d applies glow and anti-aliasing" % quality)
+		if quality == 0:
+			check(ivory.albedo_texture == null and ivory.roughness_texture == null and not ivory.normal_enabled and ivory.normal_texture == null and not ivory.clearcoat_enabled, "Light profile removes texture, normal, roughness-map and clearcoat cost after a refined profile")
+		else:
+			check(ivory.albedo_texture != null and ivory.albedo_texture.get_width() > 0 and ivory.albedo_texture.get_height() > 0, "Profile %d restores painted surface detail after the light profile" % quality)
+			var rich_surfaces = not view.ArenaFinish.lean
+			check(ivory.normal_enabled == rich_surfaces and (ivory.normal_texture != null) == rich_surfaces and (ivory.roughness_texture != null) == rich_surfaces, "Profile %d retains relief and roughness only when the GPU budget permits" % quality)
+			check(ivory.clearcoat_enabled == (quality == 2) and ivory.clearcoat > 0.0 and ivory.clearcoat <= 1.0 and ivory.clearcoat_roughness > 0.0 and ivory.clearcoat_roughness <= 1.0, "Only the refined profile adds a bounded lacquer reflection")
+		check(ivory.albedo_color.is_equal_approx(View.CREAM), "Profile %d preserves the base armour colour" % quality)
+		var expected_aa = mini(Video.AA_LEVELS[quality], Viewport.MSAA_2X) if OS.has_feature("mobile") else Video.AA_LEVELS[quality]
+		check(view.presentation_environment.glow_enabled == (quality == 2 and not OS.has_feature("mobile")) and root.msaa_3d == expected_aa, "Profile %d applies glow and anti-aliasing within the platform budget" % quality)
 		var armour: MeshInstance3D = view.units[0].get_node("Body/Robot_paint")
 		var colours = armour.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
 		check(armour.material_override.shader.resource_path.ends_with("robot_paint_low.gdshader") == (quality == 0) and colours != null and colours.size() > 0, "Profile %d preserves armour colours with the intended shader" % quality)
@@ -62,6 +71,17 @@ func run():
 		check(view.get_child_count() == nodes_before, "Impact burst creates no extra nodes")
 		for tick in range(30): view.update_state(rules, 0, 1.0 / 60.0)
 		check(View.CombatFinish.active_count(view) == 0 and (view.get_meta(View.CombatFinish.META) as Array).size() == 28, "All shock fronts return to the pool")
+	# Weak GPUs keep painted plates at high detail while avoiding extra texture samples.
+	# Exercise the cache in both directions so a downgrade cannot permanently strip detail.
+	var prior_lean = view.ArenaFinish.lean
+	view.ArenaFinish.lean = true
+	view.set_quality(2)
+	check(ivory.albedo_texture != null and ivory.roughness_texture == null and not ivory.normal_enabled and ivory.normal_texture == null, "Weak-GPU refinement keeps paint but removes normal and roughness-map sampling")
+	view.ArenaFinish.lean = false
+	view.set_quality(2)
+	check(ivory.albedo_texture != null and ivory.roughness_texture != null and ivory.normal_enabled and ivory.normal_texture != null and ivory.clearcoat_enabled, "Refined surfaces recover relief and reflections after a GPU downgrade")
+	view.ArenaFinish.lean = prior_lean
+	view.set_quality(2)
 	# Recycled beam cards must reset their basis and size when reused as impacts.
 	View.CombatFinish.beam(view, Vector2.ZERO, Vector2.UP, 8.0, 0.5, Color.CYAN)
 	view.update_state(rules, 0, 0.05)
@@ -73,10 +93,34 @@ func run():
 	for tick in range(30): view.update_state(rules, 0, 1.0 / 60.0)
 	View.CombatFinish.event(view, {"kind": "bloom", "p": rules.players[0].p, "team": 0, "bricks": [0, 1]}, rules)
 	check(View.CombatFinish.active_count(view) > 0, "Healing has a visible premium effect")
-	var clips_ok = Audio.TRACKS.size() == 83
+	var clips_ok = not Audio.TRACKS.is_empty()
 	for clip in Audio.TRACKS.values():
-		clips_ok = clips_ok and clip.get_length() > 0.08 and clip.loop_mode == AudioStreamWAV.LOOP_DISABLED
-	check(clips_ok, "All 83 combat cues are loaded, nonempty and do not loop")
+		clips_ok = clips_ok and clip is AudioStreamWAV and clip.data.size() > 0 and clip.get_length() > 0.08 and clip.loop_mode == AudioStreamWAV.LOOP_DISABLED
+	check(clips_ok, "Every combat cue is loaded, contains audio and does not loop")
+	# Coverage follows the playable kit and base skins, rather than a total that changes
+	# when a solar alias or another ability is added.
+	for power in Rules.Powers.CATALOG:
+		check(Audio.TRACKS.has("ability_" + String(power.id)), "Ability %s has its own announcement cue" % power.id)
+	for cue in ["power", "charging", "unleash", "goal", "boost", "shield", "ricochet", "metal", "blast", "laser_tick", "void_wave", "void_burst", "sentry"]:
+		check(Audio.TRACKS.has(cue), "Combat feedback %s has a cue" % cue)
+	for ultimate in Rules.Powers.ULTIMATES:
+		var cue = "meteor" if ultimate.id == "meteors" else String(ultimate.id)
+		check(Audio.TRACKS.has(cue), "Ultimate %s has discharge or impact audio" % ultimate.id)
+	var base_skins: Dictionary = {}
+	for skin in range(Skins.CATALOG.size()):
+		base_skins[Skins.base_of(skin)] = true
+	for skin in base_skins:
+		var variants: Dictionary = {}
+		for variant in range(3):
+			var cue = "shot_%d_%d" % [skin, variant]
+			if Audio.TRACKS.has(cue): variants[hash(Audio.TRACKS[cue].data)] = true
+		check(variants.size() == 3, "Base skin %d has three distinct rotating shot recordings" % skin)
+	for impact in ["hit", "break"]:
+		var variants: Dictionary = {}
+		for variant in range(3):
+			var cue = "%s_%d" % [impact, variant]
+			if Audio.TRACKS.has(cue): variants[hash(Audio.TRACKS[cue].data)] = true
+		check(variants.size() == 3, "Impacts %s have three distinct recordings" % impact)
 	var bus = Audio.prepare_bus()
 	Audio.prepare_bus()
 	var index = AudioServer.get_bus_index(bus)

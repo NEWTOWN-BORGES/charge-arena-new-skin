@@ -5,6 +5,7 @@ extends RefCounted
 ## with the colours baked into its vertices, so a robot costs a handful of draws: that mesh,
 ## an ink outline per group and a face screen of its own.
 const KIT = preload("res://art/robots/kit.glb")
+const HEROIC_KIT = preload("res://art/robots/heroic_cast.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -134,14 +135,15 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		var scene: Node = KIT.instantiate()
-		for root in scene.get_children():
-			var items: Array = []
-			for child in root.get_children():
-				if child is MeshInstance3D:
-					items.append([child.mesh, child.mesh.surface_get_material(0).resource_name])
-			_parts[String(root.name)] = items
-		scene.free()
+		for library in [KIT, HEROIC_KIT]:
+			var scene: Node = library.instantiate()
+			for root in scene.get_children():
+				var items: Array = []
+				for child in root.get_children():
+					if child is MeshInstance3D:
+						items.append([child.mesh, child.mesh.surface_get_material(0).resource_name])
+				_parts[String(root.name)] = items
+			scene.free()
 	return _parts.get(name, [])
 
 static func merged(key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Dictionary:

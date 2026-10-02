@@ -26,6 +26,10 @@ func cast_effects(arena) -> Array:
 
 func body_origins(game, quality: int) -> void:
 	game.start_squad(false)
+	# The revised silhouettes have different hull centres and body proportions.
+	# Exercise each one as a leader and as a companion, on both graphics profiles.
+	for pilot in range(6):
+		game.arena.set_pilot_skin(pilot, [5, 6, 8, 5, 6, 8][pilot])
 	game.hud.hide()
 	game.arena.guide_enabled = false
 	game.video.configure(60, quality, false, false)
