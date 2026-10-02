@@ -14,6 +14,20 @@ const RUBBER = Color("15171c")
 const HAZARD = Color("f2c230")
 const LIGHT = Color("8ff6e2")
 
+static func scenery_color(theme: Dictionary, role: String, day: Color) -> Color:
+	# Night worlds use the same models and layout, with dark armour and readable neon
+	# accents. Keep this palette work at construction time, without more lights or passes.
+	if not theme.has("neon"):
+		return day
+	match role:
+		"shell": return Color(theme.block).lightened(0.14)
+		"accent": return Color(theme.get("neon_alt", theme.accent))
+		"signal": return Color(theme.neon)
+		"metal": return Color(theme.frame).lightened(0.28).lerp(Color(theme.line), 0.15)
+		"dark": return Color(theme.frame)
+		"glass": return Color(theme.floor).darkened(0.22)
+	return day
+
 static func signed_area(points: Array) -> float:
 	var total = 0.0
 	for i in range(points.size()):
@@ -85,6 +99,37 @@ static func circle(radius: float, sides: int = 32, center: Vector2 = Vector2.ZER
 		var a = TAU * i / sides
 		points.append(center + Vector2(cos(a), sin(a)) * radius)
 	return points
+
+static func finish_perimeter(view, theme: Dictionary) -> void:
+	# Two thin, solid inlays and capped service plates. Reuse three colours across every
+	# piece so the existing static merger keeps the extra draw count bounded.
+	var hull = hull_of(view.walls)
+	var frame: Color = theme.frame
+	var trim: Color = theme.accent
+	var face_color: Color = theme.block
+	ring(view, offset(hull, 0.78), offset(hull, 0.92), 0.032, 0.025, frame)
+	ring(view, offset(hull, 0.92), offset(hull, 0.97), 0.036, 0.02, trim)
+	var path = offset(hull, 1.28)
+	var remaining = 24
+	for i in range(path.size()):
+		var a: Vector2 = path[i]
+		var b: Vector2 = path[(i + 1) % path.size()]
+		var length = a.distance_to(b)
+		var count = mini(int(length / 3.4), remaining)
+		for k in range(count):
+			var p = a.lerp(b, (k + 0.5) / float(count))
+			# Keep the approach behind both goals clear of decorative hardware.
+			if absf(p.x) < 2.6:
+				continue
+			var plate = Node3D.new()
+			plate.transform = along(Vector3(p.x, 0.025, p.y), Vector3(b.x - a.x, 0, b.y - a.y))
+			view.add_child(plate)
+			view.box(plate, Vector3.ZERO, Vector3(0.72, 0.06, 0.40), frame, false, 0.0)
+			view.box(plate, Vector3(0, 0.036, 0), Vector3(0.58, 0.015, 0.27), face_color, false, 0.0)
+			view.box(plate, Vector3(-0.16, 0.047, 0), Vector3(0.09, 0.008, 0.27), trim, false, 0.0)
+			remaining -= 1
+		if remaining <= 0:
+			break
 
 static func ring(view, inner: Array, outer: Array, top: float, depth: float, color: Color) -> void:
 	# A band between two outlines with the same corners (offsets of one hull): its top and
@@ -232,6 +277,36 @@ static func build(view, theme: Dictionary) -> void:
 	hazard_band(view, stripe, -0.02)
 	walls_and_towers(view, walls)
 	furniture(view, walls, hull, theme)
+	deck_equipment(view, hull, theme)
+
+static func deck_equipment(view, hull: Array, theme: Dictionary) -> void:
+	# Two recognisable ventilation stations on the visible rim of the flying platform.
+	# Low-sided cylinders and three broad blades give a readable silhouette at phone size;
+	# everything is opaque, motionless and merged with the existing architecture.
+	var reach = reach_of(hull)
+	var paint: Color = theme.get("armour", HAZARD)
+	var dark = scenery_color(theme, "dark", GRAPHITE)
+	var steel = scenery_color(theme, "metal", STEEL)
+	for side in [-1.0, 1.0]:
+		var station = Node3D.new()
+		station.name = "DeckVentilation"
+		station.position = Vector3(side * (reach + 2.70), 0, side * Rules.HALF_LENGTH * 0.48)
+		view.add_child(station)
+		view.box(station, Vector3(0, 0.16, 0), Vector3(1.0, 0.32, 1.5), dark, false, 0.05)
+		view.box(station, Vector3(0, 0.40, 0), Vector3(0.84, 0.34, 1.32), paint, false, 0.07)
+		for z in [-0.35, 0.35]:
+			view.cylinder(station, Vector3(0, 0.595, z), 0.32, 0.08, steel, false, 12)
+			view.cylinder(station, Vector3(0, 0.644, z), 0.265, 0.025, dark, false, 12)
+			for blade in range(3):
+				var vane = view.box(station, Vector3(0, 0.667, z), Vector3(0.43, 0.025, 0.075), steel, false, 0.0)
+				vane.rotation.y = blade * PI / 3.0
+		# Inset side grilles and two raised protective end hoops.
+		for z in [-0.45, -0.15, 0.15, 0.45]:
+			view.box(station, Vector3(-side * 0.425, 0.40, z), Vector3(0.012, 0.13, 0.08), dark, false, 0.0)
+		for z in [-0.70, 0.70]:
+			for x in [-0.46, 0.46]:
+				view.box(station, Vector3(x, 0.44, z), Vector3(0.05, 0.60, 0.05), steel, false, 0.0)
+			view.box(station, Vector3(0, 0.74, z), Vector3(0.97, 0.05, 0.05), steel, false, 0.0)
 
 static func walls_and_towers(view, walls: Array, look: Dictionary = {}) -> void:
 	# `look` recolours the armour for a world: "shell" (the plates), "trim" (the tower domes)
@@ -283,11 +358,14 @@ static func furniture(view, walls: Array, hull: Array, theme: Dictionary) -> voi
 	# Drones hover over the deck, never over the field.
 	for spot in [Vector3(-side_x - 0.9, 2.4, -1.0), Vector3(side_x + 1.0, 2.2, 1.0), Vector3(-side_x - 1.3, 2.7, 4.8)]:
 		place(view, "prop_drone", facing(spot, Vector3.FORWARD), {"shell": Color("f4f6f8"), "dark": GRAPHITE, "metal": STEEL, "glow": LIGHT})
-	# Scrap, crates and barrels scattered on the deck ring, clear of the goal ends.
+	# Cargo along the rim, with a few salvage pieces as landmarks. Repeated large scrap
+	# silhouettes used to crowd the little machines and the path beside the wall.
 	var kinds = ["prop_scrap_a", "prop_scrap_b", "prop_crates", "prop_barrels", "prop_crates", "prop_barrels", "prop_scrap_bits"]
 	var placed: Array = []
 	var tries = 0
-	var props: int = rich(view, 24)
+	var props: int = rich(view, 18)
+	var salvage = 0
+	var ventilation_x = reach_of(hull) + 2.70
 	while placed.size() < props and tries < 3000:
 		tries += 1
 		var q = Vector2(rng.randf_range(-side_x - 2.0, side_x + 2.0), rng.randf_range(-Rules.HALF_LENGTH - 3.0, Rules.HALF_LENGTH + 3.0))
@@ -296,6 +374,8 @@ static func furniture(view, walls: Array, hull: Array, theme: Dictionary) -> voi
 		if absf(q.x) < 3.0 and absf(q.y) > Rules.HALF_LENGTH - 1.0:
 			continue
 		if absf(q.x) > side_x - 1.2 and ((q.x < 0 and q.y > -4.6 and q.y < 2.4) or (q.x > 0 and q.y > -3.4 and q.y < 4.8)):
+			continue
+		if q.distance_to(Vector2(-ventilation_x, -Rules.HALF_LENGTH * 0.48)) < 1.15 or q.distance_to(Vector2(ventilation_x, Rules.HALF_LENGTH * 0.48)) < 1.15:
 			continue
 		var clear = true
 		for other in placed:
@@ -306,6 +386,11 @@ static func furniture(view, walls: Array, hull: Array, theme: Dictionary) -> voi
 			continue
 		placed.append(q)
 		var kind: String = kinds[rng.randi() % kinds.size()]
+		if kind.begins_with("prop_scrap"):
+			if salvage >= 2:
+				kind = "prop_crates" if placed.size() % 2 == 0 else "prop_barrels"
+			else:
+				salvage += 1
 		var paint: Dictionary
 		match kind:
 			"prop_crates":
@@ -314,7 +399,10 @@ static func furniture(view, walls: Array, hull: Array, theme: Dictionary) -> voi
 				paint = {"shell": [Color("ff5c4d"), Color("2fa6e0")][rng.randi() % 2], "trim": [Color("2fc4a5"), Color("ffae3d")][rng.randi() % 2], "dark": GRAPHITE, "metal": STEEL}
 			_:
 				paint = {"shell": Color("dfe5ea"), "trim": Color("c9794a"), "label": Color("a39a92"), "dark": GRAPHITE, "metal": STEEL, "rubber": RUBBER, "glow": LIGHT}
-		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU))
+		var angle = rng.randf_range(0, TAU)
+		if not kind.begins_with("prop_scrap"):
+			angle = snappedf(angle, PI * 0.5)
+		var turn = Basis(Vector3.UP, angle)
 		place(view, kind, Transform3D(turn, Vector3(q.x, 0, q.y)), paint)
 	# Thrusters under the hull and clouds drifting past below the deck.
 	for spot in [Vector2(-0.45, -0.6), Vector2(0.45, -0.6), Vector2(-0.45, 0.6), Vector2(0.45, 0.6)]:

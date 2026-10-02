@@ -36,8 +36,48 @@ static func build(view, theme: Dictionary) -> void:
 		view.segment(view, Vector3(a.x, -0.44, a.y), Vector3(b.x, -0.44, b.y), 0.05, 0.04, CYAN, true)
 	ArenaSky.hazard_band(view, ArenaSky.offset(hull, 3.1), -0.02)
 	ArenaSky.walls_and_towers(view, walls, {"glow": CYAN})
+	dock_architecture(view, hull)
 	station(view, theme, reach, far)
 	drifting(view, rng, reach, far)
+
+static func dock_architecture(view, hull: Array) -> void:
+	# Exterior docking collars give the station an engineered silhouette at match-camera
+	# distance. No structure sits underneath the transparent playing field.
+	var shell = ArenaSky.scenery_color(view.theme, "shell", WHITE)
+	var accent = ArenaSky.scenery_color(view.theme, "accent", ORANGE)
+	var metal = ArenaSky.scenery_color(view.theme, "metal", ArenaSky.STEEL)
+	var dark = ArenaSky.scenery_color(view.theme, "dark", ArenaSky.GRAPHITE)
+	var signal_color = ArenaSky.scenery_color(view.theme, "signal", CYAN)
+	var perimeter = ArenaSky.offset(hull, 2.8)
+	var docks = 0
+	for i in range(perimeter.size()):
+		var a: Vector2 = perimeter[i]
+		var b: Vector2 = perimeter[(i + 1) % perimeter.size()]
+		var q = a.lerp(b, 0.5)
+		if absf(q.x) < 3.2 or a.distance_to(b) < 3.5:
+			continue
+		if docks >= 6:
+			break
+		var tangent = (b - a).normalized()
+		var dock = Node3D.new()
+		dock.name = "DockingCollar%d" % docks
+		dock.transform = ArenaSky.along(Vector3(q.x, 0, q.y), Vector3(tangent.x, 0, tangent.y))
+		view.add_child(dock)
+		# Chunky housing, contrasting armor cap, recessed vents and a cyan status slot.
+		# Colours are shared with the existing modules; geometry is merged at build time.
+		view.box(dock, Vector3(0, 0.30, 0), Vector3(2.28, 0.56, 0.76), dark, false, 0.09)
+		view.box(dock, Vector3(0, 0.66, 0), Vector3(1.82, 0.23, 0.96), shell, false, 0.08)
+		view.box(dock, Vector3(0, 0.81, 0), Vector3(1.06, 0.12, 0.63), accent, false, 0.04)
+		view.box(dock, Vector3(0, 0.39, -0.395), Vector3(1.35, 0.10, 0.035), signal_color, true, 0.0)
+		for side in [-1, 1]:
+			view.box(dock, Vector3(side * 0.93, 0.12, 0), Vector3(0.20, 0.70, 1.02), shell, false, 0.045)
+			view.box(dock, Vector3(side * 0.94, 0.52, 0), Vector3(0.23, 0.10, 1.05), accent, false, 0.02)
+			# Structural outriggers drop below the rim instead of intruding on the field.
+			view.box(dock, Vector3(side * 0.94, -0.61, 0), Vector3(0.17, 0.74, 0.42), metal, false, 0.025)
+		if int(view.quality_level) > 0:
+			for x in [-0.48, -0.24, 0.0, 0.24, 0.48]:
+				view.box(dock, Vector3(x, 0.58, 0.41), Vector3(0.075, 0.27, 0.27), metal, false, 0.0)
+		docks += 1
 
 static func station(view, theme: Dictionary, reach: float, far: float) -> void:
 	var dark = ArenaSky.GRAPHITE

@@ -608,6 +608,10 @@ func build(new_map: Dictionary = {}) -> void:
 	# Life on top of the world: trees, flowers, mountains on the horizon, drifting clouds.
 	if not bake_export:
 		ArenaLife.build(self, theme, String(theme.get("dressing", "")))
+	# Decorative curb and service markers stay outside the collision outline; all opaque
+	# pieces are merged with the architecture below, with no physics or per-frame work.
+	if dressing != "bare":
+		ArenaSky.finish_perimeter(self, theme)
 	world_nodes = get_children().slice(first_world_node)
 	world_label("C H A R G E", Vector3(0, 0.024, 1.34), theme.line, 30)
 	for team in range(2):

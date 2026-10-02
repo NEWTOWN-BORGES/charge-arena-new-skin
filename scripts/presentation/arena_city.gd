@@ -37,11 +37,53 @@ static func build(view, theme: Dictionary) -> void:
 		view.segment(view, Vector3(a.x, 0.2, a.y), Vector3(b.x, 0.2, b.y), 0.24, 0.46, WHITE)
 		view.segment(view, Vector3(a.x, 0.44, a.y), Vector3(b.x, 0.44, b.y), 0.1, 0.03, CYAN, true)
 	ArenaSky.walls_and_towers(view, walls)
+	roof_architecture(view, hull)
 	tower(view, edge, rng)
 	var neighbours = city(view, rng, reach, far)
 	roof_plant(view, rng, reach, far, neighbours)
 	ArenaLife.roof_gardens(view, rng, neighbours, reach, far)
 	view.platform(ArenaSky.circle(90.0, 24), STREET, 0.5, theme.street)
+
+static func roof_architecture(view, hull: Array) -> void:
+	# Broad, readable rooftop silhouettes beside the match, rather than tiny details on
+	# buildings beyond the camera. The existing roof and its material remain untouched.
+	# All the pieces use the same five opaque paints and join the static arena batches.
+	var shell = ArenaSky.scenery_color(view.theme, "shell", WHITE)
+	var glass = ArenaSky.scenery_color(view.theme, "glass", GLASS)
+	var dark = ArenaSky.scenery_color(view.theme, "dark", ArenaSky.GRAPHITE)
+	var accent = ArenaSky.scenery_color(view.theme, "accent", WARM)
+	var signal_color = ArenaSky.scenery_color(view.theme, "signal", CYAN)
+	var perimeter = ArenaSky.offset(hull, 2.55)
+	var bays = 0
+	for i in range(perimeter.size()):
+		var a: Vector2 = perimeter[i]
+		var b: Vector2 = perimeter[(i + 1) % perimeter.size()]
+		var q = a.lerp(b, 0.5)
+		if absf(q.x) < 3.2 or a.distance_to(b) < 3.5:
+			continue
+		if bays >= 6:
+			break
+		var tangent = (b - a).normalized()
+		var bay = Node3D.new()
+		bay.name = "RooftopGallery%d" % bays
+		bay.transform = ArenaSky.along(Vector3(q.x, 0, q.y), Vector3(tangent.x, 0, tangent.y))
+		view.add_child(bay)
+		# A sheltered roof gallery: substantial white frame, tinted opaque glazing,
+		# projecting cornice and two warm illuminated sign panels (no light sources).
+		view.box(bay, Vector3(0, 0.46, 0), Vector3(2.25, 0.82, 0.64), glass, false, 0.08)
+		for side in [-1, 1]:
+			view.box(bay, Vector3(side * 1.04, 0.64, 0), Vector3(0.20, 1.24, 0.86), shell, false, 0.05)
+			view.box(bay, Vector3(side * 0.63, 0.64, -0.335), Vector3(0.45, 0.27, 0.03), accent, true, 0.0)
+		view.box(bay, Vector3(0, 1.20, 0), Vector3(2.46, 0.20, 1.0), shell, false, 0.07)
+		view.box(bay, Vector3(0, 1.10, -0.51), Vector3(2.18, 0.07, 0.03), signal_color, true, 0.0)
+		view.box(bay, Vector3(0, 0.17, -0.49), Vector3(2.32, 0.22, 0.40), dark, false, 0.04)
+		# The vertical mullions and canopy slats are expendable detail on light phones.
+		if int(view.quality_level) > 0:
+			for x in [-0.34, 0.34]:
+				view.box(bay, Vector3(x, 0.61, -0.35), Vector3(0.045, 0.65, 0.04), shell, false, 0.0)
+			for x in [-0.76, 0.0, 0.76]:
+				view.box(bay, Vector3(x, 1.32, 0), Vector3(0.08, 0.035, 0.84), dark, false, 0.0)
+		bays += 1
 
 static func tower(view, edge: Array, rng: RandomNumberGenerator) -> void:
 	# The arena's own tower, down to the street: violet facade and a band of windows on every

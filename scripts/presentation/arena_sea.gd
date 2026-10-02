@@ -41,6 +41,7 @@ static func build(view, theme: Dictionary) -> void:
 		tiers.append([outline, spec[2]])
 		below = spec[2]
 	var taken = base(view, tiers, reach, far)
+	taken.append_array(pressure_stations(view, tiers, reach))
 	reef(view, rng, tiers, hull, reach, far, taken)
 
 static func base(view, tiers: Array, reach: float, far: float) -> Array:
@@ -72,7 +73,63 @@ static func base(view, tiers: Array, reach: float, far: float) -> Array:
 		Vector2(0.4, -(far + 6.9)), Vector2(reach * 0.5 + 3.2, -(far + 9.4)), Vector2(-(reach + 9.2), 3.0), sub_at, sub_at + Vector2(1.6, 0), sub_at - Vector2(1.6, 0),
 		Vector2(reach + 3.9, -(far + 3.6)), Vector2(-(reach + 4.2), -(far + 3.4))]
 
+static func pressure_stations(view, tiers: Array, reach: float) -> Array:
+	# Compact pressure machinery frames the close view; the lenses are solid painted
+	# geometry, not transparent glass or real lights. Twelve-sided rings stay light on mobile.
+	var occupied: Array = []
+	var shell = ArenaSky.scenery_color(view.theme, "shell", WHITE)
+	var dark = ArenaSky.scenery_color(view.theme, "dark", ArenaSky.GRAPHITE)
+	var steel = ArenaSky.scenery_color(view.theme, "metal", ArenaSky.STEEL)
+	var accent = ArenaSky.scenery_color(view.theme, "accent", YELLOW)
+	var signal_color = ArenaSky.scenery_color(view.theme, "signal", Color("249f86"))
+	for side in [-1, 1]:
+		var q = Vector2(side * (reach + 3.9), -side * 6.2)
+		if not Ground.flat_at(q, tiers, 1.0):
+			continue
+		occupied.append_array([q, q + Vector2(0, 0.9), q - Vector2(0, 0.9)])
+		var station = Node3D.new()
+		station.name = "ReefPressureStation%d" % side
+		station.transform = ArenaSky.facing(Vector3(q.x, Ground.height_at(q, tiers), q.y), Vector3(-side, 0, 0))
+		view.add_child(station)
+		view.box(station, Vector3(0, 0.16, 0), Vector3(1.88, 0.32, 1.2), dark, false, 0.1)
+		view.box(station, Vector3(0, 0.9, -0.07), Vector3(1.56, 1.5, 0.86), shell, false, 0.16)
+		view.box(station, Vector3(0, 1.71, -0.07), Vector3(1.9, 0.23, 1.05), accent, false, 0.08)
+		# Concentric bevels around a deep teal pressure window, with a broad highlight.
+		for spec in [[0.67, 0.22, 0.42, steel], [0.56, 0.23, 0.46, accent], [0.45, 0.24, 0.5, dark], [0.37, 0.25, 0.515, signal_color]]:
+			var port = view.cylinder(station, Vector3(0, 0.98, spec[2]), spec[0], spec[1], spec[3], false, 12)
+			port.rotation.x = PI * 0.5
+		view.box(station, Vector3(-0.1, 1.15, 0.655), Vector3(0.36, 0.07, 0.025), shell, false, 0.02)
+		for x in [-0.83, 0.83]:
+			view.cylinder(station, Vector3(x, 0.77, -0.04), 0.12, 1.28, steel, false, 8)
+			view.cylinder(station, Vector3(x, 1.15, -0.04), 0.16, 0.18, accent, false, 8)
+			view.box(station, Vector3(x * 0.63, 0.28, 0.66), Vector3(0.29, 0.13, 0.14), accent, false, 0.02)
+		for x in [-0.48, 0.0, 0.48]:
+			view.box(station, Vector3(x, 1.845, -0.07), Vector3(0.22, 0.03, 0.64), dark, false, 0.0)
+	return occupied
+
+static func reef_gardens(view, tiers: Array, reach: float) -> Array:
+	# Curated coral silhouettes at two near corners replace a few scattered specimens.
+	# There are no new mesh assets or material variants, just an intentional composition.
+	var occupied: Array = []
+	for side in [-1, 1]:
+		var center = Vector2(side * (reach + 4.15), side * 6.2)
+		if not Ground.flat_at(center, tiers, 1.1):
+			continue
+		occupied.append_array([center, center + Vector2(0, 1.1), center - Vector2(0, 1.1)])
+		for i in range(2):
+			var q = center + Vector2(side * 0.35, (i - 0.5) * 1.1)
+			Ground.put(view, "env_rock_%d" % i, q, tiers, Vector3(side, 0, 0.3), {"shell": Color("5f7d99"), "trim": Color("a9c4d6")}, 1.1 + 0.2 * i)
+		for i in range(3):
+			var q = center + Vector2(-side * 0.4, (i - 1) * 0.95)
+			var tone = CORALS[0 if side < 0 else 1]
+			var key = "env_coral_fan_0" if i == 1 else "env_coral_tubes_0"
+			Ground.put(view, key, q, tiers, Vector3(-side, 0, 0.4), {"shell": tone[0], "trim": tone[1].darkened(0.1), "label": tone[1]}, 1.9 if i == 1 else 1.15)
+	return occupied
+
 static func reef(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, reach: float, far: float, taken: Array) -> void:
+	var gardens = reef_gardens(view, tiers, reach)
+	taken.append_array(gardens)
+	var garden_count = int(gardens.size() / 3)
 	var deck = ArenaSky.offset(hull, 2.9)
 	var sample = func(r: RandomNumberGenerator):
 		var q = Vector2(r.randf_range(-(reach + 26.0), reach + 26.0), r.randf_range(-(far + 24.0), far + 9.0))
@@ -88,7 +145,7 @@ static func reef(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, re
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(1.3, 2.2))
 		ArenaSky.place(view, "env_kelp_%d" % (rng.randi() % 2), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers), q.y)), {"shell": tone[0], "trim": tone[1], "label": tone[2]})
 	taken = taken + kelp
-	var corals = ArenaSky.spots(rng, ArenaSky.rich(view, 50), sample, 1.35, taken)
+	var corals = ArenaSky.spots(rng, ArenaSky.rich(view, 50) - garden_count * 3, sample, 1.35, taken)
 	for q in corals:
 		var tone = CORALS[rng.randi() % CORALS.size()]
 		var kind = "env_coral_tubes_%d" % (rng.randi() % 2) if rng.randf() < 0.55 else "env_coral_fan_%d" % (rng.randi() % 2)
@@ -99,7 +156,7 @@ static func reef(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, re
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(1.0, 1.6))
 		ArenaSky.place(view, "env_bubbles_%d" % (rng.randi() % 2), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers), q.y)), {"label": Color("e6fbff")})
 		taken.append(q)
-	for q in ArenaSky.spots(rng, ArenaSky.rich(view, 16), sample, 2.0, taken):
+	for q in ArenaSky.spots(rng, ArenaSky.rich(view, 16) - garden_count * 2, sample, 2.0, taken):
 		var turn = Basis(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3.ONE * rng.randf_range(0.8, 1.5))
 		ArenaSky.place(view, "env_rock_%d" % (rng.randi() % 3), Transform3D(turn, Vector3(q.x, Ground.height_at(q, tiers) - 0.05, q.y)), {"shell": Color("5f7d99"), "trim": Color("a9c4d6")})
 	# Schools of fish in the open water round the deck, never over the field.

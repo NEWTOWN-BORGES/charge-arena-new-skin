@@ -76,7 +76,8 @@ static func build(view, theme: Dictionary) -> void:
 	view.box(view, Vector3(track_x, FLOOR + 0.006, 13.0 - (far + 4.2) * 0.5), Vector3(1.8, 0.02, 26.0 + far + 4.2), theme.dirt, false, 0.0)
 	view.box(view, Vector3(0, FLOOR + 0.006, -(far + 4.2)), Vector3((reach + 5.0) * 2.0, 0.02, 1.4), theme.dirt, false, 0.0)
 	outpost(view, tiers, reach, far)
-	nature(view, rng, tiers, hull, reach, far)
+	var service_spots = service_yard(view, tiers, reach)
+	nature(view, rng, tiers, hull, reach, far, service_spots)
 
 static func outpost(view, tiers: Array, reach: float, far: float) -> void:
 	var dark = ArenaSky.GRAPHITE
@@ -114,9 +115,52 @@ static func outpost(view, tiers: Array, reach: float, far: float) -> void:
 	ArenaSky.place(view, "prop_barrels", ArenaSky.facing(Vector3(side_x + 0.1, -0.03, 3.4), Vector3.LEFT), {"shell": Color("ff5c4d"), "trim": TEAL, "dark": dark, "metal": steel})
 	ArenaSky.place(view, "prop_scrap_a", ArenaSky.facing(Vector3(-side_x - 0.1, -0.03, -3.6), Vector3.RIGHT), {"shell": Color("dfe5ea"), "trim": Color("c9794a"), "label": Color("a39a92"), "dark": dark, "metal": steel, "rubber": ArenaSky.RUBBER, "glow": ArenaSky.LIGHT})
 
-static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, reach: float, far: float) -> void:
+static func service_yard(view, tiers: Array, reach: float) -> Array:
+	# Two readable silhouettes beside the court, rather than more distant scatter. Every
+	# panel uses five opaque colours and joins the static merger; the same geometry serves
+	# daylight and neon worlds, with colours supplied by the active scenery palette.
+	var occupied: Array = []
+	var shell = ArenaSky.scenery_color(view.theme, "shell", WHITE)
+	var dark = ArenaSky.scenery_color(view.theme, "dark", ArenaSky.GRAPHITE)
+	var steel = ArenaSky.scenery_color(view.theme, "metal", ArenaSky.STEEL)
+	var accent = ArenaSky.scenery_color(view.theme, "accent", ORANGE)
+	var signal_color = ArenaSky.scenery_color(view.theme, "signal", TEAL)
+	for index in range(2):
+		var q = Vector2(reach + 3.85, -7.0 if index == 0 else 7.0)
+		if not flat_at(q, tiers, 1.35):
+			continue
+		occupied.append_array([q, q + Vector2(0, 1.2), q - Vector2(0, 1.2)])
+		var rack = Node3D.new()
+		rack.name = "OutpostEnergyRack%d" % index
+		rack.transform = ArenaSky.facing(Vector3(q.x, height_at(q, tiers), q.y), Vector3.LEFT)
+		view.add_child(rack)
+		# A raised machine plinth, two enamel power cells and a protective coloured hood.
+		view.box(rack, Vector3(0, 0.13, 0), Vector3(2.7, 0.26, 1.0), dark, false, 0.07)
+		view.box(rack, Vector3(0, 1.1, -0.34), Vector3(2.5, 1.75, 0.2), shell, false, 0.05)
+		for x in [-0.68, 0.68]:
+			view.cylinder(rack, Vector3(x, 1.03, 0), 0.38, 1.4, signal_color, false, 12)
+			for y in [0.39, 1.04, 1.67]:
+				view.cylinder(rack, Vector3(x, y, 0), 0.415, 0.13, steel, false, 12)
+			view.box(rack, Vector3(x, 1.08, 0.389), Vector3(0.3, 0.7, 0.055), dark, false, 0.025)
+			for y in [0.89, 1.08, 1.27]:
+				view.box(rack, Vector3(x, y, 0.422), Vector3(0.19, 0.07, 0.02), accent, false, 0.0)
+		view.box(rack, Vector3(0, 1.98, 0), Vector3(2.88, 0.25, 1.17), accent, false, 0.09)
+		view.box(rack, Vector3(0, 2.115, 0), Vector3(2.55, 0.04, 0.87), shell, false, 0.0)
+		# Broad hood vents and a inset service display read as texture at game distance.
+		for x in [-0.7, 0.0, 0.7]:
+			view.box(rack, Vector3(x, 2.145, 0), Vector3(0.4, 0.025, 0.65), dark, false, 0.0)
+		view.box(rack, Vector3(0, 0.98, 0.48), Vector3(0.42, 0.65, 0.22), shell, false, 0.04)
+		view.box(rack, Vector3(0, 1.08, 0.601), Vector3(0.28, 0.26, 0.025), dark, false, 0.0)
+		view.box(rack, Vector3(0, 1.08, 0.618), Vector3(0.18, 0.055, 0.012), signal_color, false, 0.0)
+		for x in [-1.1, 1.1]:
+			view.box(rack, Vector3(x, 0.4, 0.51), Vector3(0.16, 0.62, 0.18), accent, false, 0.025)
+			view.box(rack, Vector3(x, 0.46, 0.61), Vector3(0.17, 0.12, 0.025), dark, false, 0.0)
+	return occupied
+
+static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, reach: float, far: float, service_spots: Array = []) -> void:
 	var pad = ArenaSky.offset(hull, 2.9)
 	var taken: Array = [Vector2(reach * 0.5 + 1.2, -(far + 8.3)), Vector2(-reach * 0.3, -(far + 8.4)), Vector2(reach * 0.12, -(far + 7.0))]
+	taken.append_array(service_spots)
 	for row in range(2):
 		for k in range(3):
 			taken.append(Vector2(-(reach * 0.62 + 2.4) - k * 3.5, -(far + 6.9) - row * 2.6))
@@ -129,6 +173,14 @@ static func nature(view, rng: RandomNumberGenerator, tiers: Array, hull: Array, 
 		var q = Vector2(r.randf_range(-(reach + 26.0), reach + 26.0), r.randf_range(-(far + 24.0), far + 9.0))
 		if Geometry2D.is_point_in_polygon(q, PackedVector2Array(pad)):
 			return null
+		# Reserve the canopy envelope around each rack, not just its trunk footprint.
+		# The camera looks north over the court: nearer crowns project across machinery
+		# behind them. Bias this small clearance towards the camera as well as sideways.
+		for i in range(0, service_spots.size(), 3):
+			var center: Vector2 = service_spots[i]
+			var clearance = (q - center - Vector2(0, 1.2)) / Vector2(3.2, 4.2)
+			if clearance.length_squared() < 1.0:
+				return null
 		if absf(q.x - (-(reach + 4.1))) < 1.4 and q.y > -(far + 5.0):
 			return null
 		if absf(q.y + far + 4.2) < 1.1 and absf(q.x) < reach + 5.2:
