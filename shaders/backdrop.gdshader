@@ -7,6 +7,7 @@ uniform vec4 sky_mid : source_color = vec4(0.66, 0.69, 0.72, 1.0);
 uniform vec4 sky_low : source_color = vec4(0.78, 0.8, 0.82, 1.0);
 // Space: a starfield over the gradient (0 = none).
 uniform float stars = 0.0;
+uniform float lobby_mode = 0.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -54,5 +55,12 @@ void fragment() {
 	}
 	// Film grain so the gradient never bands on a phone screen.
 	color += (hash(floor(FRAGCOORD.xy)) - 0.5) * 0.006;
+	if (lobby_mode > 0.5) {
+		vec2 focus = (p - vec2(0.5, 0.35)) * vec2(1.0, 0.7);
+		float halo = exp(-dot(focus, focus) * 9.0);
+		color = mix(vec3(0.015, 0.035, 0.11), vec3(0.025, 0.32, 0.65), halo);
+		float rays = pow(max(0.0, cos(atan(focus.y, focus.x) * 10.0)), 8.0);
+		color += vec3(0.02, 0.08, 0.15) * rays * halo * smoothstep(0.05, 0.3, length(focus));
+	}
 	COLOR = vec4(color, 1.0);
 }

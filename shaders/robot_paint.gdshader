@@ -1,27 +1,25 @@
 shader_type spatial;
-// Lacquered armour, polished metal, graphite chassis and lit sensors. Different roughness
-// and a restrained edge highlight separate the materials without extra lights or geometry.
+// Robot parts in the studio look, with real surfaces: glossy lacquered paint with a clear coat,
+// polished metal, graphite chassis and lit sensors. A fine grain in the finish (orange peel on
+// the paint, brushing on the metal) and a rim of light on the silhouettes keep them from
+// reading as matte rubber.
 render_mode diffuse_burley, specular_schlick_ggx;
 
 // Colour and finish come from the vertices (see robots.gd): rgb is the paint in linear
 // colour, alpha the finish: 1 glow, 0.75 metal, 0.5 dark chassis, 0.45 rubber, 0.25 paint.
 uniform float wear : hint_range(0.0, 1.0) = 0.4;
+uniform sampler2D surface_grain : filter_linear_mipmap, repeat_enable;
+uniform float surface_detail = 1.0;
 // The colour of the air far away (scenery fades into it).
 uniform vec3 haze = vec3(0.55, 0.68, 0.82);
 // Towards the sun (world space) and the strength of the painted scenery.
 uniform vec3 sun_dir = vec3(-0.45, 0.75, 0.48);
 uniform float paint_gain = 1.25;
 varying vec3 model_position;
-// Preserve the identity of each robot without lifting every pigment to pastel.
-// This grade is shared by the lit and economical unlit profiles.
+// Preserve the roster's saturated paint instead of mixing it into milky grey.
 vec3 studio(vec3 paint, float finish) {
-	bool chassis = finish >= 0.4 && finish < 0.65;
-	if (finish > 0.9 || chassis) return paint;
-	float luma = dot(paint, vec3(0.2126, 0.7152, 0.0722));
-	vec3 pigment = max(mix(vec3(luma), paint, 1.08), vec3(0.0));
-	return min(pigment * 1.18 + vec3(0.012), vec3(0.96));
+ return paint * (finish > 0.9 ? 1.0 : 1.12);
 }
-
 
 varying vec3 model_normal;
 varying vec3 world_position;
@@ -46,6 +44,20 @@ void vertex() {
 	vec3 middle = (MODEL_MATRIX * vec4(0.0, COLOR.a < 0.2 ? 0.5 : 1.6, 0.0, 1.0)).xyz;
 	vec3 outward = normalize(world_position - middle + vec3(0.0, 0.0001, 0.0));
 	volume_normal = normalize(mix(world_normal, outward, 0.65));
+}
+
+float hash3(vec3 p) {
+	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+float grain(vec3 p) {
+	// Value noise: the grain of the finish.
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y);
+	float b = mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y);
+	return mix(a, b, f.z);
 }
 
 void fragment() {
@@ -116,17 +128,26 @@ void fragment() {
 		bool metal = finish > 0.65 && finish < 0.9;
 		bool rubber = finish > 0.4 && finish < 0.48;
 		bool dark = finish >= 0.48 && finish < 0.65;
-		float grounding = mix(0.74, 1.04, smoothstep(-0.5, 0.75, normalize(world_normal).y));
-		ALBEDO = paint * (glow ? 1.0 : grounding);
-		METALLIC = metal ? 0.82 : (dark ? 0.2 : 0.04);
-		ROUGHNESS = metal ? 0.24 : (rubber ? 0.68 : (dark ? 0.44 : 0.32));
-		SPECULAR = rubber ? 0.22 : 0.55;
-		CLEARCOAT = (!metal && !rubber && !dark && !glow) ? 0.32 : 0.0;
+		// A breath of dust towards the feet grounds the figure without dirtying it.
+		float grime = smoothstep(0.5, 0.0, model_position.y) * 0.06 * (0.5 + wear);
+		// One filtered lookup, shared by the roster: lacquer grain and brushed alloy.
+		// Dominant-axis projection avoids stretching on the kit's differently oriented parts.
+		vec3 axis = abs(normalize(model_normal));
+		vec2 surface_uv = axis.y > max(axis.x, axis.z) ? model_position.xz : (axis.x > axis.z ? model_position.zy : model_position.xy);
+		float texture_amount = 0.5;
+		if (surface_detail > 0.5 && !glow) {
+			vec2 repeat_scale = metal ? vec2(4.0, 0.7) : vec2(2.0);
+			texture_amount = texture(surface_grain, surface_uv * repeat_scale).r;
+		}
+		ALBEDO = paint * (1.0 - grime) * (0.96 + 0.06 * texture_amount);
+		METALLIC = metal ? 0.9 : (dark ? 0.35 : 0.0);
+		ROUGHNESS = (metal ? 0.24 : (rubber ? 0.64 : (dark ? 0.42 : 0.28))) + (texture_amount - 0.5) * (metal ? 0.16 : 0.10);
+		SPECULAR = rubber ? 0.35 : 0.62;
+		// A clear-coat sheen on the silhouettes: the lacquer catching the sky.
+		float fresnel = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+		vec3 rim_color = mix(vec3(0.22, 0.55, 0.85), paint, 0.45);
+		CLEARCOAT = rubber || glow ? 0.0 : 0.35;
 		CLEARCOAT_ROUGHNESS = 0.25;
-		// One inexpensive silhouette highlight, no additional light or outline mesh.
-		float edge = 1.0 - max(dot(normalize(NORMAL), normalize(VIEW)), 0.0);
-		float rim = edge * edge * edge * edge;
-		vec3 edge_tint = mix(vec3(0.34, 0.58, 0.82), paint, 0.4);
-		EMISSION = glow ? paint * 2.1 : edge_tint * rim * (rubber ? 0.04 : 0.18);
+		EMISSION = glow ? paint * 2.1 : rim_color * (pow(fresnel, 3.0) * 0.42 + pow(fresnel, 7.0) * 0.28);
 	}
 }

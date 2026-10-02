@@ -35,7 +35,8 @@ void fragment() {
 	vec2 b = mod(sph - r * 0.5, r) - r * 0.5;
 	vec2 cell = dot(a, a) < dot(b, b) ? a : b;
 	float edge_dist = 0.5 - hex_edge(cell);
-	float lattice = 1.0 - smoothstep(0.015, 0.06, edge_dist);
+	float aa = max(fwidth(edge_dist), 0.004);
+	float lattice = 1.0 - smoothstep(0.018, 0.018 + aa * 1.5, edge_dist);
 	float facing = abs(dot(normalize(NORMAL), VIEW));
 	float rim = pow(1.0 - facing, 2.2);
 	// The band of light running up the shield.
@@ -55,7 +56,8 @@ void fragment() {
 	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
 	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.35), 0.0, 1.0);
 	vec3 hot = mix(vivid, vec3(1.0, 0.99, 0.95), 0.7);
-	float light = 0.12 + lattice * 0.55 + rim * 0.7 + scan * 0.35 + ring * 1.2 + lip * 1.5;
+	// A clear centre keeps the robot visible; the perimeter and hits carry the shield.
+	float light = 0.045 + lattice * 0.42 + rim * 0.82 + scan * 0.22 + ring * 1.2 + lip * 1.5;
 	ALBEDO = mix(vivid, hot, clamp(lattice * 0.4 + ring + lip + scan * 0.3, 0.0, 1.0));
 	ALPHA = clamp(light * strength * front, 0.0, 1.0);
 }

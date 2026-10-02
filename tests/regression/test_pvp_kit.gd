@@ -43,6 +43,8 @@ func run() -> void:
 	game.share_skin(Skins.CATALOG.size())
 	check(game.rules.power_id(1, 2) == "" and game.arena.unit_skins[1] == 0, "A skin index that does not exist is ignored, kit and model left as they were")
 	game.return_to_menu()
+	game.queue_free()
+	await process_frame
 	for leftover in [TMP, TMP + "s"]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(leftover))
 	print("PVP_KIT_RESULT failures=", failures)

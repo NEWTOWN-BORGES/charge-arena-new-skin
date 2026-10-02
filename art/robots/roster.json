@@ -1,6 +1,9 @@
 {
 	"about": "Receitas dos robôs: brick = peça do tijolo temático que defende a muralha; peças do kit (art/robots/kit.glb), cores por papel, escala do corpo e desgaste da pintura. Cores vazias usam a cor da equipa. eye_style: capsule, dots, bars, square, slant, monocle, visor, equalizer, single, rings, stars, arcs, slits (um rasgo num casco, sem ecrã).",
 	"heads": {
+		"batida12_head": {"top": 1.826, "center": 1.7200000286102295, "aspect": 5.897},
+		"rosca12_head": {"top": 1.61, "center": 1.42, "aspect": 3.8},
+		"eclipse12_head": {"top": 2.278, "center": 2.105, "aspect": 4.889},
 		"head_box": {"top": 1.8, "center": 1.44, "aspect": 1.44},
 		"head_wide": {"top": 1.71, "center": 1.4, "aspect": 2.095},
 		"head_tall": {"top": 1.93, "center": 1.5, "aspect": 1.0},
@@ -90,24 +93,414 @@
 				["PULSO", [-0.65, 0.58, -0.12], 0.34, [-0.8, 0.2, -1.0]], ["MÃO", [-0.68, 0.45, -0.18], 0.4, [-0.3, 0.1, -1.0]], ["CINTURA", [0.0, 0.78, 0.02], 0.5, [-0.5, 0.1, 1.0]],
 				["ANCA", [0.24, 0.6, 0.0], 0.45, [1.0, 0.15, 0.7]], ["JOELHO", [0.23, 0.4, -0.01], 0.42, [1.0, 0.15, 0.5]], ["TORNOZELO E LAGARTA", [-0.23, 0.18, -0.04], 0.7, [-1.0, 0.3, -0.6]],
 				["CAPACETE E PIRILAMPO", [0.0, 1.65, -0.05], 0.6, [0.4, 0.4, -1.0]], ["BROCA", [0.54, 0.84, -0.7], 0.8, [1.0, 0.4, -0.6]]]},
-		{"name": "ECLIPSE", "brick": "brick_monolith", "brick_top": "top_horns", "eye_style": "slant", "scale": [1.0, 1.0, 1.0], "wear": 0.3,
-			"hip": [0.2, 0.88, 0.0], "muzzle": [0.52, 1.0, -1.12],
-			"parts": {"head": "eclipse8_head", "top": "", "spin": "", "torso": "eclipse8_torso", "shoulders": "eclipse8_shoulders", "back": "", "arm": "eclipse8_arm", "legs": "eclipse8_leg", "gun": "eclipse8_gun"},
-			"palette": {"shell": "57536a", "trim": "cfc9dc", "dark": "16151b", "metal": "6d6880", "glow": "b95cff", "team": "", "eyes": "d69cff", "rubber": "101014"},
-			"design_note": "O executor, alto e anguloso: elmo pequeno e afiado enterrado numa gola alta, visor sob a sobrancelha em V, peito em cunha com o núcleo do eclipse (disco negro e coroa violeta), ombreiras maciças, garra de três dedos compridos e um canhão com o anel do eclipse na boca.",
-			"callouts": [["PESCOÇO E HALO", [0.0, 1.55, 0.2], 0.6, [0.5, 0.3, 1.0]], ["OMBRO E ESPIGÕES", [-0.44, 1.36, 0.01], 0.6, [-1.0, 0.3, -0.5]], ["COTOVELO", [-0.5, 1.06, 0.02], 0.4, [-0.6, 0.5, 0.8]],
-				["PULSO", [-0.53, 0.78, -0.1], 0.3, [-0.8, 0.2, -1.0]], ["GARRA", [-0.55, 0.64, -0.15], 0.36, [-0.3, 0.1, -1.0]], ["CINTURA", [0.0, 0.9, 0.02], 0.45, [-0.5, 0.1, 1.0]],
-				["ANCA", [0.19, 0.74, 0.0], 0.42, [1.0, 0.15, 0.7]], ["JOELHO", [0.19, 0.54, -0.13], 0.4, [1.0, 0.15, -0.5]], ["CALCANHAR E ESPORÕES", [-0.19, 0.2, 0.0], 0.6, [-1.0, 0.3, -0.6]],
-				["ELMO E CHIFRES", [0.0, 1.9, -0.05], 0.55, [0.5, 0.3, -1.0]], ["LANÇA DE ANEL", [0.45, 0.95, -0.85], 0.6, [1.0, 0.4, -0.6]]]},
-		{"name": "ROSCA", "brick": "brick_gear", "brick_top": "top_rods", "eye_style": "monocle", "scale": [0.97, 0.97, 0.97], "wear": 0.5,
-			"hip": [0.21, 0.66, 0.0], "muzzle": [0.45, 0.78, -0.93],
-			"parts": {"head": "", "top": "", "spin": "", "torso": "rosca3_hull", "shoulders": "rosca2_shoulders", "back": "", "arm": "rosca2_arm", "legs": "rosca2_leg", "gun": "rosca2_gun"},
-			"palette": {"shell": "c9652e", "trim": "eadfc9", "dark": "33282a", "metal": "d7a95e", "glow": "ffc15a", "team": "", "eyes": "ffd27a", "rubber": "1a1614"},
-			"design_note": "Mecânica de bancada sem pescoço: a cabeça em tambor assente no tronco em tambor, um só cilindro alto com os óculos de soldador na testa e a lupa num braço articulado, garra à esquerda, rebitadora à direita.",
-			"callouts": [["CASCO SEM PESCOÇO", [0.0, 1.47, 0.02], 0.45, [0.5, 0.3, -1.0]], ["OMBRO", [-0.43, 1.26, 0.01], 0.55, [-1.0, 0.3, -0.5]], ["COTOVELO", [-0.5, 0.98, 0.02], 0.4, [-0.6, 0.5, 0.8]],
-				["PULSO", [-0.53, 0.7, -0.1], 0.3, [-0.8, 0.2, -1.0]], ["GARRA", [-0.55, 0.57, -0.15], 0.36, [-0.3, 0.1, -1.0]], ["CINTURA", [0.0, 0.83, 0.02], 0.45, [-0.5, 0.1, 1.0]],
-				["ANCA", [0.22, 0.66, 0.0], 0.42, [1.0, 0.15, 0.7]], ["JOELHO", [0.21, 0.42, -0.01], 0.4, [1.0, 0.15, 0.5]], ["TORNOZELO E RODAS", [-0.21, 0.16, -0.05], 0.55, [-1.0, 0.3, -0.6]],
-				["ÓCULOS E LUPA", [0.03, 1.7, -0.2], 0.45, [0.5, 0.2, -1.0]], ["REBITADORA", [0.47, 0.86, -0.62], 0.7, [1.0, 0.4, -0.6]]]},
+		{
+			"name": "ECLIPSE",
+			"brick": "brick_monolith",
+			"brick_top": "top_horns",
+			"eye_style": "visor",
+			"scale": [
+				1.0,
+				1.0,
+				1.0
+			],
+			"wear": 0.3,
+			"hip": [
+				0.195,
+				0.96,
+				0.0
+			],
+			"muzzle": [
+				0.4,
+				1.23,
+				-1.13
+			],
+			"parts": {
+				"head": "eclipse12_head",
+				"torso": "eclipse12_torso",
+				"shoulders": "eclipse12_shoulders",
+				"arm": "eclipse12_arm",
+				"gun": "eclipse12_gun",
+				"legs": "eclipse12_leg",
+				"top": "",
+				"back": "",
+				"spin": ""
+			},
+			"palette": {
+				"shell": "2c2c43",
+				"trim": "695280",
+				"dark": "101621",
+				"metal": "9da9bd",
+				"glow": "ad46ee",
+				"team": "",
+				"screen": "070b14",
+				"rubber": "090e15",
+				"hazard": "deac53",
+				"label": "bfc7db",
+				"eyes": "ff3164"
+			},
+			"design_note": "Vilão orbital alto e esguio: sensor circular negro com olhar rubro estreito, pala angular, núcleo abissal violeta, escudo peitoral em ponta, ombros assimétricos e pernas longas articuladas.",
+			"callouts": [
+				[
+					"PESCOÇO E HALO",
+					[
+						0.0,
+						1.55,
+						0.2
+					],
+					0.6,
+					[
+						0.5,
+						0.3,
+						1.0
+					]
+				],
+				[
+					"OMBRO E ESPIGÕES",
+					[
+						-0.44,
+						1.36,
+						0.01
+					],
+					0.6,
+					[
+						-1.0,
+						0.3,
+						-0.5
+					]
+				],
+				[
+					"COTOVELO",
+					[
+						-0.5,
+						1.06,
+						0.02
+					],
+					0.4,
+					[
+						-0.6,
+						0.5,
+						0.8
+					]
+				],
+				[
+					"PULSO",
+					[
+						-0.53,
+						0.78,
+						-0.1
+					],
+					0.3,
+					[
+						-0.8,
+						0.2,
+						-1.0
+					]
+				],
+				[
+					"GARRA",
+					[
+						-0.55,
+						0.64,
+						-0.15
+					],
+					0.36,
+					[
+						-0.3,
+						0.1,
+						-1.0
+					]
+				],
+				[
+					"CINTURA",
+					[
+						0.0,
+						0.9,
+						0.02
+					],
+					0.45,
+					[
+						-0.5,
+						0.1,
+						1.0
+					]
+				],
+				[
+					"ANCA",
+					[
+						0.19,
+						0.74,
+						0.0
+					],
+					0.42,
+					[
+						1.0,
+						0.15,
+						0.7
+					]
+				],
+				[
+					"JOELHO",
+					[
+						0.19,
+						0.54,
+						-0.13
+					],
+					0.4,
+					[
+						1.0,
+						0.15,
+						-0.5
+					]
+				],
+				[
+					"CALCANHAR E ESPORÕES",
+					[
+						-0.19,
+						0.2,
+						0.0
+					],
+					0.6,
+					[
+						-1.0,
+						0.3,
+						-0.6
+					]
+				],
+				[
+					"ELMO E CHIFRES",
+					[
+						0.0,
+						1.9,
+						-0.05
+					],
+					0.55,
+					[
+						0.5,
+						0.3,
+						-1.0
+					]
+				],
+				[
+					"LANÇA DE ANEL",
+					[
+						0.45,
+						0.95,
+						-0.85
+					],
+					0.6,
+					[
+						1.0,
+						0.4,
+						-0.6
+					]
+				]
+			],
+			"mouth": false
+		},
+		{
+			"name": "ROSCA",
+			"brick": "brick_gear",
+			"brick_top": "top_rods",
+			"eye_style": "visor",
+			"scale": [
+				1.0,
+				1.0,
+				1.0
+			],
+			"wear": 0.5,
+			"hip": [
+				0.22,
+				0.6,
+				0.0
+			],
+			"muzzle": [
+				0.47,
+				0.81,
+				-1.01
+			],
+			"parts": {
+				"head": "rosca12_head",
+				"torso": "rosca12_torso",
+				"shoulders": "rosca12_shoulders",
+				"arm": "rosca12_arm",
+				"gun": "rosca12_gun",
+				"legs": "rosca12_leg",
+				"legs_l": "rosca12_leg_l",
+				"legs_r": "rosca12_leg_r",
+				"back": "",
+				"top": "",
+				"spin": ""
+			},
+			"palette": {
+				"shell": "24556b",
+				"trim": "d8ded9",
+				"dark": "12232d",
+				"metal": "ba9c60",
+				"glow": "ffd26a",
+				"screen": "07141c",
+				"team": "",
+				"rubber": "101922",
+				"eyes": "ffd375"
+			},
+			"design_note": "Marinheiro robótico, irmão afastado do Gancho: pipa naval azul-petróleo e cúpula integrada off-white, vigia âmbar, gola de marinheiro, hélice peitoral, pinça articulada, guincho de corda e lança-arpão de proa. Anca compacta sólida, membros curvos uniformes.",
+			"callouts": [
+				[
+					"CASCO SEM PESCOÇO",
+					[
+						0.0,
+						1.47,
+						0.02
+					],
+					0.45,
+					[
+						0.5,
+						0.3,
+						-1.0
+					]
+				],
+				[
+					"OMBRO",
+					[
+						-0.43,
+						1.26,
+						0.01
+					],
+					0.55,
+					[
+						-1.0,
+						0.3,
+						-0.5
+					]
+				],
+				[
+					"COTOVELO",
+					[
+						-0.5,
+						0.98,
+						0.02
+					],
+					0.4,
+					[
+						-0.6,
+						0.5,
+						0.8
+					]
+				],
+				[
+					"PULSO",
+					[
+						-0.53,
+						0.7,
+						-0.1
+					],
+					0.3,
+					[
+						-0.8,
+						0.2,
+						-1.0
+					]
+				],
+				[
+					"GARRA",
+					[
+						-0.55,
+						0.57,
+						-0.15
+					],
+					0.36,
+					[
+						-0.3,
+						0.1,
+						-1.0
+					]
+				],
+				[
+					"CINTURA",
+					[
+						0.0,
+						0.83,
+						0.02
+					],
+					0.45,
+					[
+						-0.5,
+						0.1,
+						1.0
+					]
+				],
+				[
+					"ANCA",
+					[
+						0.22,
+						0.66,
+						0.0
+					],
+					0.42,
+					[
+						1.0,
+						0.15,
+						0.7
+					]
+				],
+				[
+					"JOELHO",
+					[
+						0.21,
+						0.42,
+						-0.01
+					],
+					0.4,
+					[
+						1.0,
+						0.15,
+						0.5
+					]
+				],
+				[
+					"TORNOZELO E RODAS",
+					[
+						-0.21,
+						0.16,
+						-0.05
+					],
+					0.55,
+					[
+						-1.0,
+						0.3,
+						-0.6
+					]
+				],
+				[
+					"ÓCULOS E LUPA",
+					[
+						0.03,
+						1.7,
+						-0.2
+					],
+					0.45,
+					[
+						0.5,
+						0.2,
+						-1.0
+					]
+				],
+				[
+					"REBITADORA",
+					[
+						0.47,
+						0.86,
+						-0.62
+					],
+					0.7,
+					[
+						1.0,
+						0.4,
+						-0.6
+					]
+				]
+			],
+			"mouth": false
+		},
 		{"name": "FAÍSCA", "brick": "brick_coil", "brick_top": "top_bolts", "eye_style": "visor", "scale": [0.94, 1.06, 0.94], "wear": 0.3,
 			"hip": [0.19, 0.74, 0.0], "muzzle": [0.42, 0.95, -0.98],
 			"parts": {"head": "faisca9_head", "top": "", "spin": "", "torso": "faisca9_torso", "shoulders": "faisca10_shoulders", "back": "", "arm": "faisca10_arm", "legs": "faisca2_leg", "gun": "faisca9_gun"},
@@ -117,15 +510,207 @@
 				["PULSO", [-0.49, 0.78, -0.1], 0.3, [-0.8, 0.2, -1.0]], ["MÃO", [-0.51, 0.66, -0.15], 0.32, [-0.3, 0.1, -1.0]], ["CINTURA", [0.0, 0.9, 0.02], 0.45, [-0.5, 0.1, 1.0]],
 				["ANCA", [0.19, 0.74, 0.0], 0.42, [1.0, 0.15, 0.7]], ["JOELHO", [0.19, 0.54, -0.12], 0.4, [1.0, 0.15, -0.5]], ["CALCANHAR E PÉ", [-0.19, 0.2, 0.0], 0.6, [-1.0, 0.3, -0.6]],
 				["VISOR E PARA-RAIOS", [0.0, 1.85, -0.1], 0.5, [0.5, 0.3, -1.0]], ["EMISSOR-BOBINA", [0.43, 0.93, -0.8], 0.6, [1.0, 0.4, -0.6]]]},
-		{"name": "BATIDA", "brick": "brick_speaker", "brick_top": "top_mohawk", "eye_style": "equalizer", "scale": [0.95, 0.95, 0.95], "wear": 0.25,
-			"hip": [0.2, 0.7, 0.0], "muzzle": [0.44, 0.86, -1.0],
-			"parts": {"head": "batida11_head", "top": "", "spin": "", "torso": "batida11_torso", "shoulders": "batida11_shoulders", "back": "", "arm": "batida11_arm", "legs": "batida11_leg", "gun": "batida11_gun"},
-			"palette": {"shell": "f39cc4", "trim": "fbeef4", "dark": "2a1f33", "metal": "c2b8d0", "glow": "ff4fb8", "team": "", "eyes": "ff8ad6", "rubber": "1a1520"},
-			"design_note": "A DJ do circuito: cabeça em tambor deitado como um rádio-leitor, com o ecrã numa moldura, colunas de som torneadas nas pontas, pega em arco e antena; tronco em pipo com a coluna de som no peito e o gira-discos às costas, ombreiras-coluna com grelha e um megafone no braço.",
-			"callouts": [["CASCO SEM PESCOÇO", [0.0, 1.46, 0.02], 0.45, [0.5, 0.3, -1.0]], ["OMBRO E COLUNA", [-0.42, 1.3, 0.0], 0.6, [-1.0, 0.4, -0.6]], ["COTOVELO", [-0.49, 0.99, 0.02], 0.4, [-0.6, 0.5, 0.8]],
-				["PULSO", [-0.52, 0.72, -0.1], 0.3, [-0.8, 0.2, -1.0]], ["MÃO", [-0.54, 0.6, -0.15], 0.32, [-0.3, 0.1, -1.0]], ["CINTURA", [0.0, 0.83, 0.02], 0.45, [-0.5, 0.1, 1.0]],
-				["ANCA", [0.21, 0.66, 0.0], 0.42, [1.0, 0.15, 0.7]], ["JOELHO", [0.2, 0.41, -0.01], 0.4, [1.0, 0.15, 0.5]], ["TORNOZELO E PÉ", [-0.2, 0.12, -0.05], 0.5, [-1.0, 0.3, -0.6]],
-				["AUSCULTADORES", [-0.25, 1.75, 0.0], 0.55, [-1.0, 0.3, -0.6]], ["MEGAFONE", [0.46, 0.86, -0.7], 0.7, [1.0, 0.4, -0.6]]]},
+		{
+			"name": "BATIDA",
+			"brick": "brick_speaker",
+			"brick_top": "top_mohawk",
+			"eye_style": "equalizer",
+			"scale": [
+				0.99,
+				0.99,
+				0.99
+			],
+			"wear": 0.2,
+			"hip": [
+				0.20000000298023224,
+				0.699999988079071,
+				0.0
+			],
+			"muzzle": [
+				0.4399999976158142,
+				0.8600000143051147,
+				-1.0
+			],
+			"parts": {
+				"head": "batida12_head",
+				"top": "",
+				"spin": "",
+				"torso": "batida12_torso",
+				"shoulders": "batida12_shoulders",
+				"back": "",
+				"arm": "batida12_arm",
+				"legs": "batida12_leg",
+				"gun": "batida12_gun"
+			},
+			"palette": {
+				"shell": "7e164c",
+				"trim": "293344",
+				"dark": "101821",
+				"metal": "75889b",
+				"glow": "00dcf0",
+				"team": "",
+				"eyes": "00e5ed",
+				"rubber": "090f17"
+			},
+			"design_note": "Engenho de combate sonico: cabeca larga e achatada com barra equalizadora, carapaca triangular magenta e grafite, subwoofer toracico grande e inclinado com grade, dois pods sonoros circulares assimetricos suspensos em suportes, disco percussivo no braco esquerdo, canhao de ressonancia largo, hub de anca compacto sem saia em U e pernas digitigradas com amortecedores.",
+			"callouts": [
+				[
+					"CASCO SEM PESCOÇO",
+					[
+						0.0,
+						1.46,
+						0.02
+					],
+					0.45,
+					[
+						0.5,
+						0.3,
+						-1.0
+					]
+				],
+				[
+					"OMBRO E COLUNA",
+					[
+						-0.42,
+						1.3,
+						0.0
+					],
+					0.6,
+					[
+						-1.0,
+						0.4,
+						-0.6
+					]
+				],
+				[
+					"COTOVELO",
+					[
+						-0.49,
+						0.99,
+						0.02
+					],
+					0.4,
+					[
+						-0.6,
+						0.5,
+						0.8
+					]
+				],
+				[
+					"PULSO",
+					[
+						-0.52,
+						0.72,
+						-0.1
+					],
+					0.3,
+					[
+						-0.8,
+						0.2,
+						-1.0
+					]
+				],
+				[
+					"MÃO",
+					[
+						-0.54,
+						0.6,
+						-0.15
+					],
+					0.32,
+					[
+						-0.3,
+						0.1,
+						-1.0
+					]
+				],
+				[
+					"CINTURA",
+					[
+						0.0,
+						0.83,
+						0.02
+					],
+					0.45,
+					[
+						-0.5,
+						0.1,
+						1.0
+					]
+				],
+				[
+					"ANCA",
+					[
+						0.21,
+						0.66,
+						0.0
+					],
+					0.42,
+					[
+						1.0,
+						0.15,
+						0.7
+					]
+				],
+				[
+					"JOELHO",
+					[
+						0.2,
+						0.41,
+						-0.01
+					],
+					0.4,
+					[
+						1.0,
+						0.15,
+						0.5
+					]
+				],
+				[
+					"TORNOZELO E PÉ",
+					[
+						-0.2,
+						0.12,
+						-0.05
+					],
+					0.5,
+					[
+						-1.0,
+						0.3,
+						-0.6
+					]
+				],
+				[
+					"AUSCULTADORES",
+					[
+						-0.25,
+						1.75,
+						0.0
+					],
+					0.55,
+					[
+						-1.0,
+						0.3,
+						-0.6
+					]
+				],
+				[
+					"MEGAFONE",
+					[
+						0.46,
+						0.86,
+						-0.7
+					],
+					0.7,
+					[
+						1.0,
+						0.4,
+						-0.6
+					]
+				]
+			],
+			"mouth": false
+		},
 		{"name": "GANCHO", "brick": "brick_chest", "brick_top": "top_crest", "eye_style": "single", "scale": [1.0, 1.02, 1.0], "wear": 0.5,
 			"hip": [0.21, 0.64, 0.0], "muzzle": [0.45, 0.8, -1.02],
 			"parts": {"head": "", "top": "", "spin": "", "torso": "gancho3_hull", "shoulders": "gancho2_shoulders", "back": "", "arm": "gancho2_arm", "legs": "gancho2_leg", "gun": "gancho2_gun"},

@@ -5,6 +5,7 @@ extends RefCounted
 ## with the colours baked into its vertices, so a robot costs a handful of draws: that mesh,
 ## an ink outline per group and a face screen of its own.
 const KIT = preload("res://art/robots/kit.glb")
+const HEROIC_KIT = preload("res://art/robots/heroic_cast.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -134,14 +135,15 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		var scene: Node = KIT.instantiate()
-		for root in scene.get_children():
-			var items: Array = []
-			for child in root.get_children():
-				if child is MeshInstance3D:
-					items.append([child.mesh, child.mesh.surface_get_material(0).resource_name])
-			_parts[String(root.name)] = items
-		scene.free()
+		for library in [KIT, HEROIC_KIT]:
+			var scene: Node = library.instantiate()
+			for root in scene.get_children():
+				var items: Array = []
+				for child in root.get_children():
+					if child is MeshInstance3D:
+						items.append([child.mesh, child.mesh.surface_get_material(0).resource_name])
+				_parts[String(root.name)] = items
+			scene.free()
 	return _parts.get(name, [])
 
 static func merged(key: String, placed: Array, paint: Dictionary, outline: bool = true) -> Dictionary:
@@ -466,6 +468,8 @@ static func paint_material(view, wear: float = 0.4) -> ShaderMaterial:
 	mat.set_meta("robot_paint", true)
 	mat.set_shader_parameter("wear", wear)
 	mat.shader = _paint_shader(view.quality_level)
+	mat.set_shader_parameter("surface_grain", preload("res://art/materials/alloy_roughness.png"))
+	mat.set_shader_parameter("surface_detail", 1.0 if view.quality_level == 2 else 0.0)
 	if "theme" in view and view.theme.has("sky_low"):
 		# Far scenery fades into the world's own air.
 		var air: Color = Color(view.theme.sky_mid).lerp(view.theme.sky_low, 0.55).srgb_to_linear()
@@ -493,6 +497,7 @@ static func set_quality(view, level: int) -> void:
 	for mat in view.materials.values():
 		if mat is ShaderMaterial and mat.get_meta("robot_paint", false):
 			mat.shader = _paint_shader(level)
+			mat.set_shader_parameter("surface_detail", 1.0 if level == 2 else 0.0)
 	if view.is_inside_tree():
 		for node in view.get_tree().get_nodes_in_group(OUTLINE_GROUP):
 			node.visible = level > 0

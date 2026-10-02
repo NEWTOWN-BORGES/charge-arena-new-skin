@@ -16,27 +16,46 @@ static var studio_sky: Sky
 # normal and roughness maps and the anisotropic filter, which were most of the fill cost.
 static var lean := false
 
-# Vivid paint without clipping white armour or washing the dark chassis into pastel.
-const EXPOSURE = 1.05
-const VIVID_SATURATION = 1.12
-const VIVID_CONTRAST = 1.15
+# Heroic grade: saturated team colours and deeper cool shadows.
+const EXPOSURE = 1.12
+const VIVID_SATURATION = 1.26
+const VIVID_CONTRAST = 1.14
+static var blender_lut: ImageTexture3D
+
+static func blender_colors() -> ImageTexture3D:
+	# The table is a strip of 33 slices of 33 x 33 (red across, green down, blue slice by
+	# slice), imported without compression so every entry stays exact.
+	if blender_lut == null:
+		var strip: Image = load("res://art/color/blender_lut.png").get_image()
+		strip.convert(Image.FORMAT_RGB8)
+		var size = strip.get_height()
+		var slices: Array[Image] = []
+		for z in range(size):
+			slices.append(strip.get_region(Rect2i(z * size, 0, size, size)))
+		blender_lut = ImageTexture3D.new()
+		blender_lut.create(Image.FORMAT_RGB8, size, size, size, false, slices)
+	return blender_lut
 
 static func environment(env: Environment, quality: int) -> void:
-	# A cool overhead fill and darker underside separate armour planes and chassis.
+	# The studio: a neutral grey dome that lights every side softly and gives the paint and the
+	# metal something quiet to reflect, as in the Blender renders the look was designed in.
 	if studio_sky == null:
 		studio_sky = Sky.new()
 		studio_sky.radiance_size = Sky.RADIANCE_SIZE_128
 		var sky = ProceduralSkyMaterial.new()
-		sky.sky_top_color = Color("a2bddd")
-		sky.sky_horizon_color = Color("b4c4d8")
-		sky.ground_bottom_color = Color("28364d")
-		sky.ground_horizon_color = Color("687f99")
+		sky.sky_top_color = Color("729dd4")
+		sky.sky_horizon_color = Color("b9d5ef")
+		sky.ground_bottom_color = Color("273e5b")
+		sky.ground_horizon_color = Color("708aad")
 		sky.sun_angle_max = 0.0
 		studio_sky.sky_material = sky
 	env.sky = studio_sky
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 1.0
+	# The light of version 3.8, the one the game is tuned to: a bright studio dome, AgX with
+	# a little more exposure, and a touch more contrast and colour than the raw transform.
+	# (Reinhard and the measured Blender transform, tools/color/, both came out darker.)
 	env.ambient_light_energy = 0.65
 	env.ambient_light_color = Color("c3c9cf")
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
@@ -89,7 +108,9 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	mat.roughness = {"graphite": 0.5, "alloy": 0.26, "grass": 0.85, "stone": 0.8}.get(kind, 0.34)
 	mat.metallic = 0.85 if kind == "alloy" else (0.2 if kind == "graphite" else (0.15 if kind == "panel" else 0.0))
 	mat.metallic_specular = 0.55
-	mat.clearcoat_enabled = false
+	mat.clearcoat_enabled = quality == 2 and kind in ["ceramic", "panel"]
+	mat.clearcoat = 0.22
+	mat.clearcoat_roughness = 0.32
 	if quality == 0 or not SURFACES.has(kind):
 		mat.albedo_texture = null
 		mat.roughness_texture = null
@@ -101,7 +122,8 @@ static func surface(mat: StandardMaterial3D, quality: int) -> void:
 	mat.roughness_texture = null if lean else maps[1]
 	mat.normal_enabled = not lean
 	mat.normal_texture = null if lean else maps[2]
-	mat.normal_scale = 0.9
+	# Small lacquer/plate relief, rather than deep concrete cracks on painted armour.
+	mat.normal_scale = 0.35 if kind in ["ceramic", "panel"] else 0.65
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE / float(TILE_METRES.get(kind, 2.0))

@@ -63,24 +63,34 @@ void fragment() {
 	float shape;
 	float core;
 	if (kind == 1) {
-		shape = exp(-q.y * q.y * 7.0) * smoothstep(1.0, 0.1, abs(q.x));
-		core = exp(-q.y * q.y * 30.0) * smoothstep(0.8, 0.0, abs(q.x));
+		// A tapered streak, with a bright leading tip and a coloured trailing edge.
+		float width = mix(0.10, 0.38, smoothstep(-1.0, 0.65, q.x));
+		float edge = abs(q.y) / width + abs(q.x) * 0.52;
+		float aa = max(fwidth(edge), 0.035);
+		shape = (1.0 - smoothstep(0.88 - aa, 0.88 + aa, edge)) * smoothstep(-1.0, -0.72, q.x);
+		core = (1.0 - smoothstep(0.10, 0.20, abs(q.y))) * smoothstep(-0.65, 0.4, q.x) * shape;
 	} else if (kind == 2) {
-		float arms = max(1.0 - abs(q.x) * 7.0 - abs(q.y), 0.0) + max(1.0 - abs(q.y) * 7.0 - abs(q.x), 0.0);
-		shape = clamp(arms, 0.0, 1.0) + pow(max(1.0 - d, 0.0), 3.0);
-		core = pow(max(1.0 - d * 2.2, 0.0), 2.0);
+		float cross_shape = min(abs(q.x) * 5.5 + abs(q.y), abs(q.y) * 5.5 + abs(q.x));
+		float aa = max(fwidth(cross_shape), 0.025);
+		shape = 1.0 - smoothstep(0.83 - aa, 0.83 + aa, cross_shape);
+		core = 1.0 - smoothstep(0.10, 0.25, d);
 	} else if (kind == 3) {
-		shape = smoothstep(0.16, 0.0, abs(d - 0.84)) + smoothstep(0.9, 0.2, d) * 0.12;
-		core = smoothstep(0.05, 0.0, abs(d - 0.84));
+		float aa = max(fwidth(d), 0.012);
+		shape = 1.0 - smoothstep(0.055, 0.055 + aa, abs(d - 0.84));
+		// A slim second band gives a readable shockwave without filling the floor.
+		shape += (1.0 - smoothstep(0.018, 0.018 + aa, abs(d - 0.70))) * 0.23;
+		core = 1.0 - smoothstep(0.012, 0.028, abs(d - 0.84));
 	} else {
-		shape = pow(max(1.0 - d, 0.0), 2.2);
-		core = pow(max(1.0 - d * 1.8, 0.0), 2.0);
+		shape = smoothstep(0.76, 0.29, d) * 0.75 + smoothstep(0.36, 0.18, d) * 0.25;
+		core = smoothstep(0.26, 0.08, d);
 	}
-	float fade = kind == 3 ? pow(1.0 - age_k, 1.5) : (1.0 - age_k) * smoothstep(0.0, 0.08, age_k + 0.02);
+	float age = clamp(age_k, 0.0, 1.0);
+	float fade = kind == 3 ? pow(1.0 - age, 1.2) : (1.0 - age) * smoothstep(0.0, 0.05, age + 0.02);
 	float grey = dot(tint.rgb, vec3(0.2126, 0.7152, 0.0722));
 	vec3 vivid = clamp(mix(vec3(grey), tint.rgb, 1.4), 0.0, 1.0);
 	// Sparks flicker as they fly.
-	float flicker = kind == 1 ? 0.8 + 0.2 * sin(TIME * 40.0 + age_k * 25.0) : 1.0;
-	ALBEDO = mix(vivid, vec3(1.0, 0.98, 0.92), clamp(core * 0.75, 0.0, 1.0)) * flicker;
-	ALPHA = clamp((shape * 0.85 + core * 0.4) * fade * tint.a, 0.0, 1.0);
+	float flicker = kind == 1 ? 0.94 + 0.06 * sin(TIME * 40.0 + age * 25.0) : 1.0;
+	ALBEDO = mix(vivid, vec3(1.0, 0.98, 0.88), clamp(core * 0.87, 0.0, 1.0)) * flicker;
+	EMISSION = vivid * core * 0.2 * fade;
+	ALPHA = clamp(shape * fade * tint.a, 0.0, 1.0);
 }

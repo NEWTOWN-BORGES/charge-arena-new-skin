@@ -77,5 +77,7 @@ func run() -> void:
 	scene._input(mouse_event(Vector2(640, 600), false, false))
 	check(not scene.mouse_firing, "Largar o rato verdadeiro pára o disparo")
 
+	scene.queue_free()
+	await process_frame
 	print("MOBILE_INPUT_RESULT failures=", failures)
 	quit(failures)

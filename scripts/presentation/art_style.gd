@@ -2,7 +2,7 @@ extends RefCounted
 ## The game's art direction. "melhorado" is the shipped look: the robots and colours of the
 ## studio look with real shadows, a polished stone court and a Ghibli-painted
 ## nature (trees, clouds, sky and a wind-combed meadow). "" is the old plain studio look; the
-## other names are looks that were tried (tests/captures/capture_style.gd renders any of them).
+## other names are looks that were tried (tests/capture_style.gd renders any of them).
 ##   "militar": worn military mecha: matte olive and sand paint with chipped edges and dust,
 ##   bare gunmetal, visor faces, a hard low sun and a dusty, desaturated grade.
 ##   "neon": dark sci-fi at night: black glossy armour with the trims burning in neon, a
@@ -12,7 +12,7 @@ extends RefCounted
 ##   "adulto": stylized but grown-up, like the hero shooters: painted two-tone shading, bright
 ##   bevels and a lit rim, bone and slate armour with one strong accent, golden-hour light.
 static var current := "melhorado"
-# Parts of the look switched off, to measure what each costs (tests/benchmarks/benchmark_look.gd):
+# Parts of the look switched off, to measure what each costs (tests/benchmark_look.gd):
 # "sky", "nature", "shadows".
 static var off: Array = []
 # The player's choice in Options (VideoSettings.shadows): real sun shadows or the soft discs.
@@ -304,7 +304,7 @@ static func world(theme: Dictionary) -> Dictionary:
 		"premium":
 			for key in theme:
 				out[key] = theme[key]
-			out.merge({"floor": Color("24324d"), "floor_alt": Color("21304a"), "seam": Color("3a4d70"), "line": Color("f4f6fa"),
+			out.merge({"floor": Color("182c48"), "floor_alt": Color("203c60"), "seam": Color("4b7094"), "line": Color("f4f6fa"),
 				"sky_top": Color("2a7bd6"), "sky_mid": Color("78b6ee"), "sky_low": Color("e4f1fb"),
 				"key": Color("fffaf0"), "key_energy": 1.3, "fill": Color("cfe0ff"), "fill_energy": 0.35}, true)
 		"premium_noite":
@@ -322,9 +322,7 @@ static func world(theme: Dictionary) -> Dictionary:
 				"key": Color("ffc98f"), "key_energy": 1.6, "fill": Color("8fb0ff"), "fill_energy": 0.45}, true)
 		"melhorado":
 			out = theme.duplicate()
-			# Preserve each world's scenery, but keep combat on a quiet slate surface.
-			# Warm plates and cool shadows separate the figures without extra shadow passes.
-			out.merge({"floor": Color("20334c"), "floor_alt": Color("273e55"), "seam": Color("101d30"), "line": Color("9bb6cf")}, true)
+			out.merge({"floor": Color("182c48"), "floor_alt": Color("203c60"), "seam": Color("4b7094"), "line": Color("f4f6fa")}, true)
 		_:
 			return theme
 	return out

@@ -7,16 +7,10 @@ render_mode unshaded;
 // Colour and finish come from the vertices (see robots.gd); alpha 1 marks lights.
 uniform float wear : hint_range(0.0, 1.0) = 0.4;
 varying vec3 world_normal;
-// Preserve the identity of each robot without lifting every pigment to pastel.
-// This grade is shared by the lit and economical unlit profiles.
+// Preserve the roster's saturated paint instead of mixing it into milky grey.
 vec3 studio(vec3 paint, float finish) {
-	bool chassis = finish >= 0.4 && finish < 0.65;
-	if (finish > 0.9 || chassis) return paint;
-	float luma = dot(paint, vec3(0.2126, 0.7152, 0.0722));
-	vec3 pigment = max(mix(vec3(luma), paint, 1.08), vec3(0.0));
-	return min(pigment * 1.18 + vec3(0.012), vec3(0.96));
+ return paint * (finish > 0.9 ? 1.0 : 1.12);
 }
-
 
 void vertex() {
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -27,16 +21,17 @@ void fragment() {
 	float finish = COLOR.a;
 	vec3 key_dir = normalize(vec3(-0.45, 0.8, 0.45));
 	float wrap = clamp(dot(n, key_dir) * 0.5 + 0.5, 0.0, 1.0);
-	vec3 fill = mix(vec3(0.23, 0.32, 0.46), vec3(0.66, 0.76, 0.9), n.y * 0.5 + 0.5);
+	vec3 fill = mix(vec3(0.42, 0.44, 0.47), vec3(0.78, 0.8, 0.83), n.y * 0.5 + 0.5);
 	vec3 half_dir = normalize(key_dir + vec3(0.0, 0.55, 0.85));
 	// Glossy: a tighter, brighter highlight than the old semi-matte one.
 	float shine = pow(clamp(dot(n, half_dir), 0.0, 1.0), finish > 0.65 && finish < 0.9 ? 40.0 : 22.0);
 	float gloss = finish > 0.9 ? 0.0 : (finish > 0.4 && finish < 0.48 ? 0.05 : 0.3);
 	vec3 lit = studio(COLOR.rgb, finish) * (fill * 0.55 + vec3(1.0, 0.97, 0.93) * wrap * wrap * 0.75) + vec3(shine * gloss);
-	float edge = 1.0 - max(dot(normalize(NORMAL), normalize(VIEW)), 0.0);
-	float rim = edge * edge * edge * edge;
-	lit += mix(vec3(0.3, 0.52, 0.8), COLOR.rgb, 0.35) * rim * 0.15;
-	ALBEDO = finish > 0.9 ? COLOR.rgb * 1.7 : lit;
+	float band = smoothstep(0.34, 0.44, wrap);
+    lit = studio(COLOR.rgb, finish) * mix(vec3(0.32, 0.43, 0.62), vec3(1.0, 0.97, 0.88), band) + vec3(shine * gloss);
+    float fresnel = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+    lit += vec3(0.18, 0.45, 0.7) * pow(fresnel, 3.0) * 0.35;
+    ALBEDO = finish > 0.9 ? COLOR.rgb * 1.9 : lit;
 	float sun = dot(n, key_dir);
 	if (finish < 0.1) {
 		ALBEDO = COLOR.rgb * (fill * 0.6 + vec3(1.0, 0.97, 0.9) * wrap * 0.65);

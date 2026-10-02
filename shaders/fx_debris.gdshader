@@ -6,6 +6,7 @@ render_mode unshaded, skip_vertex_transform, shadows_disabled;
 uniform float now = 0.0;
 varying vec4 tint;
 varying float lit;
+varying vec3 face_tone;
 
 vec3 spin(vec3 v, vec3 axis, float angle) {
 	return v * cos(angle) + cross(axis, v) * sin(angle) + axis * dot(axis, v) * (1.0 - cos(angle));
@@ -19,6 +20,7 @@ void vertex() {
 	if (k < 0.0 || k > 1.0) {
 		VERTEX = vec3(0.0, 0.0, 100.0);
 		lit = 0.0;
+		face_tone = vec3(0.0);
 	} else {
 		vec3 p0 = MODEL_MATRIX[3].xyz;
 		vec3 v0 = MODEL_MATRIX[0].xyz;
@@ -32,12 +34,15 @@ void vertex() {
 		float angle = c.w * age * rolling + c.z * 6.283;
 		vec3 local = spin(VERTEX * size * vec3(1.0, 0.6, 1.3), axis, angle);
 		vec3 normal = spin(NORMAL, axis, angle);
-		lit = 0.55 + 0.45 * max(dot(normal, normalize(vec3(-0.4, 0.85, 0.35))), 0.0);
+		float key = dot(normal, normalize(vec3(-0.4, 0.85, 0.35)));
+		// Flat, distinct face tones keep tiny tumbling fragments readable.
+		lit = mix(0.42, 0.73, step(-0.12, key)) + step(0.54, key) * 0.34;
+		face_tone = mix(vec3(0.67, 0.80, 1.0), vec3(1.0, 0.97, 0.85), step(0.1, key));
 		VERTEX = (VIEW_MATRIX * vec4(p + local, 1.0)).xyz;
 		NORMAL = (VIEW_MATRIX * vec4(normal, 0.0)).xyz;
 	}
 }
 
 void fragment() {
-	ALBEDO = tint.rgb * lit;
+	ALBEDO = tint.rgb * lit * face_tone;
 }

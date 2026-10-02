@@ -1,0 +1,10 @@
+# Godot scripts and build tools must behave identically on Windows and Linux.
+*.gd text eol=lf
+*.gdshader text eol=lf
+*.tscn text eol=lf
+*.godot text eol=lf
+*.cfg text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+.gitignore text eol=lf

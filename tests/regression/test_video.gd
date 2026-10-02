@@ -111,5 +111,7 @@ func run() -> void:
 	check(Settings.weak_gpu("Adreno (TM) 610"), "An Adreno 610 counts as a weak GPU")
 	check(Settings.ladder(90.0) == [90, 45, 30], "A 90 Hz panel steps 90 -> 45 -> 30")
 	check(Settings.ladder(60.0) == [90, 60, 30], "A 60 Hz panel steps 60 -> 30")
+	game.queue_free()
+	await process_frame
 	print("VIDEO_RESULT ", checks - failures, "/", checks, " passed")
 	quit(1 if failures else 0)

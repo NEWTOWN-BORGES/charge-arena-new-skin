@@ -1344,7 +1344,7 @@ func activate_power(team: int, index: int) -> bool:
 				# Ultimates take two seconds of glow before they land.
 				powers[team].ultimate_id = id
 				powers[team].ultimate_windup = ULTIMATE_WINDUP
-				events.append({"kind": "ultimate_charge", "id": id, "team": team, "p": p.p})
+			events.append({"kind": "ultimate_charge", "id": id, "team": team, "p": p.p, "pilot": acting if acting >= 0 else team})
 	return true
 
 func step_ultimate(team: int, dt: float) -> void:
@@ -1407,7 +1407,7 @@ func step_ultimate(team: int, dt: float) -> void:
 func fire_ultimate(team: int) -> void:
 	var state: Dictionary = powers[team]
 	var id = String(state.ultimate_id)
-	events.append({"kind": "ultimate", "id": id, "team": team, "p": players[team].p})
+	events.append({"kind": "ultimate", "id": id, "team": team, "p": players[team].p, "pilot": acting if acting >= 0 else team})
 	match id:
 		"sun_ray":
 			# The first bite lands with the flash; the rest are counted out after it.

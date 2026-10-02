@@ -1,11 +1,11 @@
 extends Node3D
 ## Stylized floating stadium. Beveled reusable meshes, soft decals and bounded VFX.
-const CYAN = Color("24bded")
-const CORAL = Color("f44861")
-const LIME = Color("63e19b")
-const CREAM = Color("e5edf5")
-const DARK = Color("172538")
-const GOLD = Color("f4b63b")
+const CYAN = Color("00caff")
+const CORAL = Color("ff2a4b")
+const LIME = Color("00f084")
+const CREAM = Color("f0f5fa")
+const DARK = Color("141d28")
+const GOLD = Color("ffb703")
 # Accents of the boss skins (their main colours live in Skins.CATALOG).
 const COPPER = Color("c07a45")
 const WOOD = Color("6e4a2e")
@@ -420,6 +420,12 @@ func set_quality(level: int) -> void:
 	if court_material != null: court_material.set_shader_parameter("finish_quality", float(quality_level))
 	Robots.set_quality(self, quality_level)
 	if fx != null: fx.quality = quality_level
+	# Persistent beams and shells follow profile changes too, without rebuilding their nodes.
+	for power_root in power_nodes:
+		for part in power_root.find_children("*", "MeshInstance3D", true, false):
+			var energy = part.material_override
+			if energy is ShaderMaterial and energy.shader == ENERGY:
+				energy.set_shader_parameter("detail_quality", 0.0 if quality_level == 0 else 1.0)
 	# Transparent contact decals are the largest group of separate draw calls.
 	# Keep them in the two prettier profiles and remove them entirely on Leve.
 	for node in soft_disc_nodes:
@@ -557,7 +563,7 @@ func build(new_map: Dictionary = {}) -> void:
 		# or an ultimate over the field could fall behind it and vanish under the floor. The
 		# floor is always the first of them, so everything on it draws on top.
 		court_mat.render_priority = Material.RENDER_PRIORITY_MIN
-	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.ceramic[0])
+	court_mat.set_shader_parameter("surface_grain", ArenaFinish.SURFACES.graphite[0])
 	court_material = court_mat
 	court_mat.set_shader_parameter("floor_color", theme.floor)
 	court_mat.set_shader_parameter("floor_alt", theme.floor_alt)
@@ -1571,13 +1577,14 @@ func build_showroom() -> void:
 	floor_node.material_override = floor_mat
 	floor_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	showroom.add_child(floor_node)
-	# A machined podium: dark foundation, enamel face and a readable team-colour rim.
-	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("192d47"))
+	# A toy showroom: a mint step under a white pedestal with a thin painted lip in the team
+	# colour, on a pale floor that melts into the backdrop.
+	cylinder(showroom, Vector3(0, 0.1, 0), 1.75, 0.2, Color("123559"))
 	torus(showroom, Vector3(0, 0.2, 0), 1.75, 0.018, Color(CYAN, 0.9))
-	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("455973"))
+	cylinder(showroom, Vector3(0, 0.31, 0), 1.35, 0.22, Color("24496e"))
 	torus(showroom, Vector3(0, PEDESTAL_TOP, 0), 1.35, 0.02, Color("f2cb6e"))
 	# The boss's plinth, lower and a shade darker.
-	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("472639"))
+	cylinder(showroom, BOSS_SPOT + Vector3(0, 0.12, 0), 1.1, 0.24, Color("6e273d"))
 	torus(showroom, BOSS_SPOT + Vector3(0, 0.24, 0), 1.1, 0.02, Color(CORAL, 0.9))
 	var key = OmniLight3D.new()
 	key.position = Vector3(1.6, 3.6, 3.2)
@@ -1713,6 +1720,8 @@ func place_tour_camera() -> void:
 
 func frame_lobby(rect: Rect2, screen: Vector2) -> void:
 	lobby_view = true
+	if backdrop_mat != null:
+		backdrop_mat.set_shader_parameter("lobby_mode", 1.0)
 	tour_view = false
 	lobby_rect = rect
 	lobby_screen = screen
@@ -2159,7 +2168,7 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		for glow_material in effect.get("energy", []):
 			glow_material.set_shader_parameter("fade", remaining if effect.get("grow", false) or effect.get("keep", false) else 1.0)
 		if effect.get("combat_finish", false):
-			CombatFinish.animate(effect, remaining)
+			CombatFinish.animate(effect, remaining, self)
 		if effect.get("lamp", 0.0) > 0.0:
 			# A lamp dies down instead of shrinking.
 			effect.node.light_energy = effect.lamp * remaining * remaining
@@ -2230,13 +2239,15 @@ func energize(node: Node) -> Array:
 		var color: Color = flat.albedo_color
 		glow.set_shader_parameter("tint", Color(color.r, color.g, color.b, 1.0))
 		glow.set_shader_parameter("strength", color.a)
+		glow.set_shader_parameter("detail_quality", 0.0 if quality_level == 0 else 1.0)
 		piece.material_override = glow
 		made.append(glow)
 	return made
 
 func warm_shaders() -> void:
-	# A deferred warmup can outlive a map switch. Detached arenas must not access global poses.
-	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(camera) or not camera.is_inside_tree():
+	# Deferred warm-up callbacks can outlive the match view. Avoid asking Godot for
+	# global transforms after this node (or its camera) has left the scene tree.
+	if not is_inside_tree() or not is_instance_valid(camera) or not camera.is_inside_tree():
 		return
 	if is_instance_valid(warm_root):
 		warm_root.queue_free()
@@ -2524,6 +2535,7 @@ func apply_mood(rules, dt: float) -> void:
 	if is_instance_valid(secondary_light):
 		secondary_light.light_energy = mood_base.fill * (1.0 - 0.45 * mood)
 	if backdrop_mat != null:
+		backdrop_mat.set_shader_parameter("lobby_mode", 1.0 if lobby_view else 0.0)
 		var names = ["sky_top", "sky_mid", "sky_low"]
 		var sky_dark = 1.0 - MOOD_SKY_DARK * mood
 		for i in range(3):
@@ -2965,19 +2977,47 @@ func ricochet_spark(at: Vector2, heading: Vector2) -> void:
 		fx.sparks(p, color, 10, 6.0, 0.1, 0.25, Vector3(heading.x, 0.2, heading.y), 60.0)
 		fx.ring(Vector3(at.x, 0.06, at.y), color, 0.55, 0.25)
 
-func power_flash(pos: Vector2, id: String) -> void:
+func cast_pilot(at: Vector2, pilot: int = -1) -> int:
+	if pilot >= 0 and pilot < units.size(): return pilot
+	var nearest = -1
+	var distance = INF
+	for index in range(units.size()):
+		var unit: Node3D = units[index]
+		if not unit.visible: continue
+		var gap = Vector2(unit.position.x, unit.position.z).distance_squared_to(at)
+		if gap < distance:
+			nearest = index
+			distance = gap
+	return nearest
+
+func cast_origin(at: Vector2, pilot: int = -1) -> Vector3:
+	var index = cast_pilot(at, pilot)
+	if index < 0: return Vector3(at.x, 0.8, at.y)
+	var unit: Node3D = units[index]
+	var hull: MeshInstance3D = unit.get_node_or_null("Body/Robot_paint")
+	var center: Vector3
+	if hull != null and hull.mesh != null:
+		center = to_local(hull.to_global(hull.mesh.get_aabb().get_center()))
+	else:
+		center = to_local(unit.get_node("Body").to_global(Vector3(0, 0.8, 0)))
+	# Gameplay events can arrive a frame before the rendered pilot moves. Retain
+	# the animated hull offset but anchor it to the event's actual pilot position.
+	return Vector3(at.x, unit.position.y, at.y) + center - unit.position
+
+func power_flash(pos: Vector2, id: String, pilot: int = -1) -> void:
 	# A power going off: a floor ring in its colour; defensive powers lift a column of
 	# embers, attacks throw sparks outwards.
 	var color = Rules.power_color(id)
+	var origin = cast_origin(pos, pilot)
 	if fx != null:
 		var defense = id in ["weld", "rebuild", "mirror", "walls", "bloom", "plating", "dome", "slow", "sponge", "immune"]
 		fx.ring(Vector3(pos.x, 0.06, pos.y), color, 0.8, 0.45)
-		fx.glow(Vector3(pos.x, 0.5, pos.y), color, 0.9, 0.3)
+		fx.glow(origin, color, 0.9, 0.3)
 		if defense:
-			fx.embers(Vector3(pos.x, 0.2, pos.y), color, 10, 1.2, 0.18, 0.7, Vector3.UP, 25.0, 1.5)
+			fx.embers(origin, color, 10, 1.2, 0.18, 0.7, Vector3.UP, 25.0, 1.5)
 		else:
-			fx.sparks(Vector3(pos.x, 0.45, pos.y), color, 10, 6.0, 0.14, 0.35, Vector3.UP, 100.0)
-	burst(pos, color, false)
+			fx.sparks(origin, color, 10, 6.0, 0.14, 0.35, Vector3.UP, 100.0)
+		fx.hit(origin, color, 0.8)
 
 func laser_beam(from: Vector2, heading: Vector2, team: int) -> void:
 	# Each bite sparks at the muzzle; the beam itself is drawn every frame below.
@@ -3936,28 +3976,44 @@ func update_power_effects(rules, dt: float) -> void:
 			# Winding up: a ring of light closes on the pilot and sparks rise out of it.
 			var pilot: Vector2 = rules.players[who].p
 			charging.position = Vector3(pilot.x, 0, pilot.y)
-			var wind = 1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP
-			charging.scale = Vector3.ONE * lerpf(2.6, 0.9, wind)
-			charging.rotation.y = clock * 3.4
+			var wind = clampf(1.0 - state.ultimate_windup / Rules.ULTIMATE_WINDUP, 0.0, 1.0)
+			# Broad anticipation settles into a tight seal; the last beat is visually stronger.
+			charging.scale = Vector3.ONE * lerpf(2.2, 0.95, smoothstep(0.0, 0.82, wind))
+			charging.rotation.y = clock * lerpf(1.6, 5.2, wind)
 			var glow: Color = Rules.power_color(String(state.ultimate_id))
+			var identity: Dictionary = CombatFinish.signature_for(String(state.ultimate_id))
+			var seal: MeshInstance3D = charging.get_node("Seal")
+			var seal_mat: ShaderMaterial = seal.material_override
+			seal_mat.set_shader_parameter("emblem", float(identity.emblem))
+			seal_mat.set_shader_parameter("motif", float(identity.motif))
+			seal_mat.set_shader_parameter("rank", identity.rank)
+			seal_mat.set_shader_parameter("tint", identity.tint)
+			seal_mat.set_shader_parameter("hot", glow.lightened(0.35))
+			seal_mat.set_shader_parameter("strength", 0.4 + wind * 0.55)
+			seal_mat.set_shader_parameter("detail_quality", 0.0 if quality_level == 0 else 1.0)
 			if String(state.ultimate_id).begins_with("b_"):
-				glow = glow.lerp(Color("fff4d8"), 0.35)
+				glow = glow.lerp(Color("fff4d8"), 0.15)
 				charging.rotation.y = -clock * 5.5
 				charging.scale.y = 1.25 + 0.15 * sin(clock * 18)
+			# Keep the glyph centred on the animated chassis, independent of the
+			# rotating/shrinking floor ring and whichever pilot cast it in 3v3.
+			seal.global_transform = Transform3D(camera.global_basis.scaled(Vector3.ONE * lerpf(1.25, 0.95, wind)), to_global(cast_origin(pilot, who)))
 			for part in charging.get_children():
 				if part is MeshInstance3D:
+					if part.name == "Seal": continue
 					var energy = part.material_override
 					if not (energy is ShaderMaterial and energy.shader == ENERGY):
 						energy = ShaderMaterial.new()
 						energy.shader = ENERGY
 						part.material_override = energy
 					energy.set_shader_parameter("tint", glow)
-					energy.set_shader_parameter("strength", 0.45 + 0.55 * wind)
+					energy.set_shader_parameter("strength", 0.35 + 0.65 * wind)
+					energy.set_shader_parameter("detail_quality", 0.0 if quality_level == 0 else 1.0)
 			if fmod(clock, 0.14) < dt:
 				# Embers pulled up into the pilot, faster as the moment approaches.
 				var ring_at = pilot + Vector2(cos(clock * 5.0), sin(clock * 5.0)) * lerpf(2.4, 0.8, wind)
-				emitter(Vector3(ring_at.x, 0.15, ring_at.y), glow, 8, 0.45, 1.6 + wind * 2.4, 16.0, 0.26, -2.5, Vector3.UP)
-				flash(Vector3(pilot.x, 0.9, pilot.y), glow, 1.2 + wind * 3.5, 0.2, 6.0)
+				emitter(Vector3(ring_at.x, 0.15, ring_at.y), glow, 4 if quality_level == 0 else 8, 0.45, 1.6 + wind * 2.4, 16.0, 0.20, -2.5, Vector3.UP)
+				flash(cast_origin(pilot, who), glow, 1.2 + wind * 3.5, 0.2, 6.0)
 		if warm_frames <= 0:
 			dim_beam_lamps(team)
 		var ray: Node3D = power_nodes[team].get_node("SunRay")
@@ -4115,7 +4171,7 @@ func build_power_effects() -> void:
 		# and a soft corona around them, plus rings that ride down the beam.
 		# Solid now: a white core, an opaque sun body, an opaque orange sheath and only the
 		# outermost corona see-through; a spiral of flame bands turns round it.
-		for layer in [[0.22, Color("fff8e8")], [0.42, Rules.power_color("sun_ray")], [0.56, Color("ff7a1a")], [0.66, Color(Color("ff9a3c"), 0.2)]]:
+		for layer in [[0.13, Color("fff3c7")], [0.42, Color("ffca0b")], [0.56, Color("ff701a")], [0.66, Color(Color("ff9a3c"), 0.16)]]:
 			var tube = cylinder(ray, Vector3(0.5, 0, 0), float(layer[0]), 1.0, layer[1], true, 20)
 			tube.rotation.z = PI * 0.5
 		var spiral = Node3D.new()
@@ -4163,6 +4219,20 @@ func build_power_effects() -> void:
 		var windup = Node3D.new()
 		windup.name = "Windup"
 		root.add_child(windup)
+		# Built once: the selected ultimate's glyph stays upright inside the closing ring.
+		var seal = MeshInstance3D.new()
+		seal.name = "Seal"
+		var seal_mesh = QuadMesh.new()
+		seal_mesh.size = Vector2(1.65, 1.65)
+		seal.mesh = seal_mesh
+		seal.rotation.x = -PI * 0.5
+		seal.position.y = 0.065
+		seal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var seal_mat = ShaderMaterial.new()
+		seal_mat.shader = CombatFinish.FRONT
+		seal_mat.set_shader_parameter("age", 0.25)
+		seal.material_override = seal_mat
+		windup.add_child(seal)
 		torus(windup, Vector3(0, 0.5, 0), 0.9, 0.05, Color(GOLD, 0.7), true)
 		for i in range(4):
 			var angle = i * TAU / 4
@@ -4372,16 +4442,16 @@ func goal_scored(team_scoring: int, spot: Vector3) -> void:
 			var at = Vector3(randf_range(-4.0, 4.0), 5.5, spot.z * randf_range(0.2, 0.9))
 			fx.embers(at, palette[i % palette.size()], 14, 1.2, 0.12, 2.4, Vector3.DOWN, 120.0, -0.4)
 
-func ultimate_accent(at: Vector2, id: String) -> void:
+func ultimate_accent(at: Vector2, id: String, pilot: int = -1) -> void:
 	# Small silhouette accents augment, rather than replace, each themed main effect.
-	var tint = Rules.power_color(id)
+	var tint = deep(Rules.power_color(id))
 	# The release itself lights the field and keeps the room dim for a beat.
 	hold_mood(1.4)
 	light_field(tint.lightened(0.2), 0.8, 0.5)
-	var origin = Vector3(at.x, 0.7, at.y)
+	var origin = cast_origin(at, pilot)
 	var count = 5 if quality_level == 0 else 9
-	var rising = id in ["bloom", "meteors", "sun_ray", "sun_beam"]
-	var inward = id in ["singularity", "plunder"]
+	var rising = id in ["bloom", "meteors", "sun_ray", "sun_beam", "volley", "sentries", "b_hail", "b_patch"]
+	var inward = id in ["singularity", "plunder", "b_aim"]
 	for i in range(count):
 		var a = float(i) / count * TAU
 		var radial = Vector3(cos(a), 0, sin(a))

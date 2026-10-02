@@ -1,6 +1,6 @@
 # Revisão técnica e visual da base 3.44.0
 
-Data: 1 de outubro de 2026. Repositório: `NEWTOWN-BORGES/charge-arena-new-skin`. Base: `a820badd10aad39cff97da6c39944895e7fcbd17`. Trabalho preparado numa branch separada, sem substituir a branch da outra implementação nem a release `apk`.
+Data: 2 de outubro de 2026. Repositório: `NEWTOWN-BORGES/charge-arena-new-skin`. Base de integração: `codex/3.44-arena-heroica` (`b7aa1c2be351256b8d5b0186186cd8d98422d3a6`), que já contém o histórico iniciado em `a820bad`. O resultado mantém as alterações de manutenção numa branch separada, sem substituir a branch da outra implementação nem a release APK.
 
 ## Direção visual
 
@@ -39,11 +39,15 @@ O novo executor isola os saves por teste, guarda logs/JSON e verifica erros do m
 
 ## Validação
 
-Os resultados finais e as capturas estão registados nesta secção após a execução da suite. O ambiente de validação é Godot 4.7.1 no Windows, com testes de lógica headless e capturas reais em OpenGL Compatibility.
+Godot 4.7.1 no Windows: verificador de recursos passou (563 caminhos, 162 UIDs, zero erros); 53 testes de regressão passaram, incluindo os quatro casos que foram corrigidos e repetidos individualmente; integração PvP entre dois processos passou (4/4). `test_premium` e `test_abilities_heroic` passaram; o último validou 96 lançamentos de habilidade/ultimate e 24 origens. A suite de regressão corre em projetos espelhados, com diretórios de save próprios; nenhum save real é aberto.
+
+O teste de layout da galeria cobre 1280×720, 720×1280, 360×640 e 1600×720. A importação do elenco 3D passou no editor do Godot. Estas verificações são headless/automatizadas e não substituem uma avaliação visual no telemóvel.
+
+Os presets Android ficam em versionCode 73 e nome 3.44.0. O perfil LAB mantém o identificador `org.chargearena.newskinlab`; nenhum APK foi exportado nesta revisão.
 
 ## Limites conhecidos
 
 - Não foi medido consumo, temperatura ou FPS num Galaxy S23/A15 nesta revisão. Os testes não demonstram saúde da bateria nem garantem 60/120 FPS nesses aparelhos.
 - A prova de PvP é local entre dois processos, não uma sessão em duas redes móveis. Snapshots grandes continuam a poder exceder o MTU do ENet e provocar fragmentação; redes com perdas precisam de validação específica antes de uma release.
 - A revisão prepara código e presets da base 3.44.0. Não constitui uma nova release Android nem altera o APK instalado.
-- A lógica de campanha, o equilíbrio de combate, os modelos geométricos e a composição das músicas não foram redesenhados nesta passagem de manutenção e acabamento.
+- O elenco visual agora inclui os modelos heroicos Eclipse, Rosca e Batida da branch integrada. Não foi feita uma medição comparativa de FPS dos modelos num Galaxy A15 ou S23.
