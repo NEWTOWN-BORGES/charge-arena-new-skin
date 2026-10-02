@@ -2091,51 +2091,52 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 			pool.material_override = light_pool_material(Color(CYAN if int(ball.owner) == 0 else CORAL, 0.6))
 			pool.scale = Vector3.ONE * (2.4 if charged else 2.0) * swell
 		if lamp != null:
-			# At most six lit rounds at once: every lamp is paid again on every mesh it touches.
-			lamp.visible = projectiles.keys().find(ball.id) < 6
-			lamp.light_color = color
-			lamp.light_energy = (7.0 if charged else 5.0) * swell
-			lamp.omni_range = 4.2 * swell
+			if OS.has_feature("mobile"):
+				lamp.visible = false
+			else:
+				lamp.visible = projectiles.keys().find(ball.id) < 6
+				lamp.light_color = color
+				lamp.light_energy = (7.0 if charged else 5.0) * swell
+				lamp.omni_range = 4.2 * swell
 		orb.material_override.set_shader_parameter("charged", 1.0 if charged else 0.0)
-		# The comet tail: short-lived glows left behind every frame by the GPU batch.
+		# The comet tail: space-paced glows left behind by the GPU batch, avoiding frame-rate churn at 90 FPS.
 		if fx != null:
-			# Two glows per frame, one halfway back along this frame's travel, so the tail
-			# reads as one continuous streak rather than a string of beads.
-			var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
-			var stride = Vector3(ball.v.x, 0, ball.v.y) * dt
-			# Two glows a frame only on Refinado: every glow is transparent overdraw, and a
-			# phone on the lighter profiles reads the comet just as well from one.
-			for k in range(2 if quality_level > 1 else 1):
-				# trail_length stretches the tail by how long each glow lives: short and legible,
-				# never a line across the arena that hides the bricks behind it.
-				fx.emit("glow", node.position - stride * (0.5 * k) + back * 0.1, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length"))
-			match kind:
-				4:
-					# The marksman's tracer: a long bright streak behind a fast round.
-					fx.emit("spark", node.position, back * 2.0, Color("fffbe0"), 0.7, 0.14, 0.25, 0.0, 1.0, 0.6)
-					fx.emit("glow", node.position, back * 0.5, Color(color, 0.9), 0.75, 0.12, 0.4)
-				5:
-					# The cluster shell smokes and throws embers as it goes.
-					# A burning fuse: a fire tail, dark smoke rolling off it and embers.
-					if Engine.get_process_frames() % 2 == 0:
-						fx.smoke(node.position, Color("4d433c"), 1, 0.4, 1.1, 0.05, 0.5)
-					fx.emit("glow", node.position, back * 1.2 + Vector3(0, 0.4, 0), Color(color, 0.95), 0.7, 0.15, 0.35)
-					fx.emit("glow", node.position, back * 0.6, Color("fff0c0", 0.95), 0.35, 0.05, 0.15)
-					for n in range(2):
-						fx.emit("spark", node.position, back * 2.5 + Vector3(randf_range(-1.5, 1.5), randf_range(0, 1.5), randf_range(-1.5, 1.5)), color.lightened(0.2), 0.16, 0.02, 0.45, -3.0, 1.0, 0.08)
-				6:
-					# The ricochet round leaves teal after-images, brighter once it has bounced.
-					fx.emit("glow", node.position, Vector3.ZERO, Color(color, 0.8 if ball.bounces < 1 else 0.95), 0.6 if ball.bounces < 1 else 0.8, 0.08, 0.35)
-					fx.emit("spark", node.position, Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * 2.0, Color("e8fff8"), 0.12, 0.02, 0.3, 0.0, 1.0, 0.05)
-				7:
-					fx.emit("spark", node.position, back * 1.5, color.lightened(0.3), 0.22, 0.04, 0.25, 0.0, 1.0, 0.2)
-					fx.emit("glow", node.position, back * 0.4, Color(color, 0.9), 0.45, 0.06, 0.22)
-			var defender_state: Dictionary = rules.powers[1 - int(ball.owner)]
-			if defender_state.slow_time > 0 and signf(ball.p.y) == signf(rules.players[1 - int(ball.owner)].p.y):
-				# Caught in the slow field: a green halo drags behind it.
-				fx.emit("glow", node.position, back * 0.3, Color(Rules.power_color("slow"), 0.8), 0.55, 0.3, 0.35)
-			if charged and quality_level > 0:
-				fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
+			var prev_emit_pos: Vector3 = ball_previous.get(ball.id, node.position)
+			var dist: float = prev_emit_pos.distance_to(node.position)
+			var should_emit: bool = dist >= 0.20 or not ball_previous.has(ball.id)
+			if should_emit:
+				ball_previous[ball.id] = node.position
+				var back = Vector3(-ball.v.x, 0, -ball.v.y).normalized()
+				var trail_life: float = (0.24 if quality_level > 0 else 0.14) * feel.get_value("trail_length")
+				fx.emit("glow", node.position + back * 0.08, back * 0.8, Color(color, 0.55), 0.42 * swell, 0.08, trail_life)
+				if quality_level > 1 and not OS.has_feature("mobile"):
+					fx.emit("glow", (node.position + prev_emit_pos) * 0.5, back * 0.8, Color(color, 0.4), 0.38 * swell, 0.08, trail_life)
+				match kind:
+					4:
+						# The marksman's tracer: a long bright streak behind a fast round.
+						fx.emit("spark", node.position, back * 2.0, Color("fffbe0"), 0.7, 0.14, 0.25, 0.0, 1.0, 0.6)
+						fx.emit("glow", node.position, back * 0.5, Color(color, 0.9), 0.75, 0.12, 0.4)
+					5:
+						# The cluster shell smokes and throws embers as it goes.
+						if Engine.get_process_frames() % 2 == 0:
+							fx.smoke(node.position, Color("4d433c"), 1, 0.4, 1.1, 0.05, 0.5)
+						fx.emit("glow", node.position, back * 1.2 + Vector3(0, 0.4, 0), Color(color, 0.95), 0.7, 0.15, 0.35)
+						fx.emit("glow", node.position, back * 0.6, Color("fff0c0", 0.95), 0.35, 0.05, 0.15)
+						for n in range(2):
+							fx.emit("spark", node.position, back * 2.5 + Vector3(randf_range(-1.5, 1.5), randf_range(0, 1.5), randf_range(-1.5, 1.5)), color.lightened(0.2), 0.16, 0.02, 0.45, -3.0, 1.0, 0.08)
+					6:
+						# The ricochet round leaves teal after-images, brighter once it has bounced.
+						fx.emit("glow", node.position, Vector3.ZERO, Color(color, 0.8 if ball.bounces < 1 else 0.95), 0.6 if ball.bounces < 1 else 0.8, 0.08, 0.35)
+						fx.emit("spark", node.position, Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)) * 2.0, Color("e8fff8"), 0.12, 0.02, 0.3, 0.0, 1.0, 0.05)
+					7:
+						fx.emit("spark", node.position, back * 1.5, color.lightened(0.3), 0.22, 0.04, 0.25, 0.0, 1.0, 0.2)
+						fx.emit("glow", node.position, back * 0.4, Color(color, 0.9), 0.45, 0.06, 0.22)
+				var defender_state: Dictionary = rules.powers[1 - int(ball.owner)]
+				if defender_state.slow_time > 0 and signf(ball.p.y) == signf(rules.players[1 - int(ball.owner)].p.y):
+					# Caught in the slow field: a green halo drags behind it.
+					fx.emit("glow", node.position, back * 0.3, Color(Rules.power_color("slow"), 0.8), 0.55, 0.3, 0.35)
+				if charged and quality_level > 0:
+					fx.emit("spark", node.position, back * 3.0 + Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)), color.lightened(0.3), 0.12, 0.02, 0.22, -4.0, 2.0, 0.06)
 	if trail_timer > trail_interval:
 		trail_timer = 0
 	for id in projectiles.keys():
@@ -2308,7 +2309,7 @@ func take_orb(owner: int) -> Node3D:
 		root.add_child(orb)
 		var glow = soft_disc(root, Vector3(0, -0.53, 0), Vector2(1.55, 1.55), Color(CYAN, 0.42))
 		glow.name = "FloorGlow"
-		if ArtStyle.lit_shots() and (quality_level > 0 or not OS.has_feature("mobile")):
+		if ArtStyle.lit_shots() and not OS.has_feature("mobile") and quality_level > 0:
 			# A real light in every round: it washes the court, the bricks and the robots
 			# it flies past.
 			var lamp = OmniLight3D.new()

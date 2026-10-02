@@ -117,7 +117,7 @@ static func environment(env: Environment) -> void:
 		env.ambient_light_color = grade.ambient_color
 	env.adjustment_contrast = grade.contrast
 	env.adjustment_saturation = grade.saturation
-	if grade.get("glow", false):
+	if grade.get("glow", false) and not OS.has_feature("mobile"):
 		env.glow_enabled = true
 		env.glow_intensity = grade.glow_intensity
 		env.glow_bloom = grade.glow_bloom

@@ -139,14 +139,14 @@ func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) 
 	if (not OS.has_feature("mobile") and not force_mobile) or fps < 60:
 		return false
 	var expected = float(runtime_fps)
-	if measured_fps < expected * 0.84:
+	if measured_fps < expected * 0.72:
 		low_windows += 1
 		stable_windows = 0
 	else:
 		low_windows = 0
 		stable_windows += 1
 	# Three seconds of trouble, not one burst of a power, before anything is given away.
-	var required_windows = 6 if quality > 0 else 3
+	var required_windows = 10 if quality > 0 else 6
 	if low_windows < required_windows:
 		# Keeping up again: restore frames without changing resolution or materials.
 		# Without this a short heavy moment left the phone at 30 FPS for the rest of the
