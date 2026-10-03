@@ -1,9 +1,10 @@
 {
 	"about": "Receitas dos robôs: brick = peça do tijolo temático que defende a muralha; peças do kit (art/robots/kit.glb), cores por papel, escala do corpo e desgaste da pintura. Cores vazias usam a cor da equipa. eye_style: capsule, dots, bars, square, slant, monocle, visor, equalizer, single, rings, stars, arcs, slits (um rasgo num casco, sem ecrã).",
 	"heads": {
-		"batida12_head": {"top": 1.826, "center": 1.7200000286102295, "aspect": 5.897},
+		"rosca12_hull": {"top": 1.69, "center": 1.47, "aspect": 1.833},
+		"batida12_head": {"top": 2.0, "center": 1.72, "aspect": 1.857},
 		"rosca12_head": {"top": 1.61, "center": 1.42, "aspect": 3.8},
-		"eclipse12_head": {"top": 2.278, "center": 2.105, "aspect": 4.889},
+		"eclipse12_head": {"top": 2.013, "center": 1.84, "aspect": 4.889},
 		"head_box": {"top": 1.8, "center": 1.44, "aspect": 1.44},
 		"head_wide": {"top": 1.71, "center": 1.4, "aspect": 2.095},
 		"head_tall": {"top": 1.93, "center": 1.5, "aspect": 1.0},
@@ -103,16 +104,16 @@
 				1.0,
 				1.0
 			],
-			"wear": 0.3,
+			"wear": 0.25,
 			"hip": [
-				0.195,
-				0.96,
+				0.2,
+				0.88,
 				0.0
 			],
 			"muzzle": [
-				0.4,
-				1.23,
-				-1.13
+				0.52,
+				1.0,
+				-1.12
 			],
 			"parts": {
 				"head": "eclipse12_head",
@@ -126,19 +127,19 @@
 				"spin": ""
 			},
 			"palette": {
-				"shell": "2c2c43",
-				"trim": "695280",
-				"dark": "101621",
-				"metal": "9da9bd",
-				"glow": "ad46ee",
+				"shell": "3c3b51",
+				"trim": "aea1be",
+				"dark": "14151c",
+				"metal": "7e8096",
+				"glow": "b95cff",
 				"team": "",
 				"screen": "070b14",
-				"rubber": "090e15",
-				"hazard": "deac53",
-				"label": "bfc7db",
-				"eyes": "ff3164"
+				"rubber": "101014",
+				"hazard": "c78c57",
+				"label": "c8c0d6",
+				"eyes": "ff315d"
 			},
-			"design_note": "Vilão orbital alto e esguio: sensor circular negro com olhar rubro estreito, pala angular, núcleo abissal violeta, escudo peitoral em ponta, ombros assimétricos e pernas longas articuladas.",
+			"design_note": "Vilão executor no desenho original: peito em cunha e núcleo eclipse violeta, gola alta, ombreiras maciças, garra e grevas angulosas. Cabeça orbital nova ajustada à gola, com pala e visor rubro estreito; bacia sólida compacta e acabamento metálico mais definido.",
 			"callouts": [
 				[
 					"PESCOÇO E HALO",
@@ -301,48 +302,46 @@
 			"name": "ROSCA",
 			"brick": "brick_gear",
 			"brick_top": "top_rods",
-			"eye_style": "visor",
+			"eye_style": "monocle",
 			"scale": [
-				1.0,
-				1.0,
-				1.0
+				0.97,
+				0.97,
+				0.97
 			],
-			"wear": 0.5,
+			"wear": 0.38,
 			"hip": [
-				0.22,
-				0.6,
+				0.21,
+				0.66,
 				0.0
 			],
 			"muzzle": [
-				0.47,
-				0.81,
-				-1.01
+				0.45,
+				0.78,
+				-0.93
 			],
 			"parts": {
-				"head": "rosca12_head",
-				"torso": "rosca12_torso",
+				"head": "",
+				"torso": "rosca12_hull",
 				"shoulders": "rosca12_shoulders",
 				"arm": "rosca12_arm",
 				"gun": "rosca12_gun",
 				"legs": "rosca12_leg",
-				"legs_l": "rosca12_leg_l",
-				"legs_r": "rosca12_leg_r",
 				"back": "",
 				"top": "",
 				"spin": ""
 			},
 			"palette": {
-				"shell": "24556b",
-				"trim": "d8ded9",
-				"dark": "12232d",
-				"metal": "ba9c60",
-				"glow": "ffd26a",
-				"screen": "07141c",
+				"shell": "c35e2e",
+				"trim": "dfd5bd",
+				"dark": "30272b",
+				"metal": "b99a68",
+				"glow": "ffc15a",
+				"screen": "100d12",
 				"team": "",
-				"rubber": "101922",
-				"eyes": "ffd375"
+				"rubber": "171419",
+				"eyes": "ffd27a"
 			},
-			"design_note": "Marinheiro robótico, irmão afastado do Gancho: pipa naval azul-petróleo e cúpula integrada off-white, vigia âmbar, gola de marinheiro, hélice peitoral, pinça articulada, guincho de corda e lança-arpão de proa. Anca compacta sólida, membros curvos uniformes.",
+			"design_note": "Mecânica original de bancada: casco e tronco em tambor fundido sem pescoço, óculos de soldador e lupa articulada, garra esquerda, rebitadora e caixa de ferramentas. Silhueta recuperada com fixações legíveis, acabamento cobre/latão e bacia central compacta fechada.",
 			"callouts": [
 				[
 					"CASCO SEM PESCOÇO",
@@ -516,43 +515,43 @@
 			"brick_top": "top_mohawk",
 			"eye_style": "equalizer",
 			"scale": [
-				0.99,
-				0.99,
-				0.99
+				0.95,
+				0.95,
+				0.95
 			],
-			"wear": 0.2,
+			"wear": 0.22,
 			"hip": [
-				0.20000000298023224,
-				0.699999988079071,
+				0.2,
+				0.7,
 				0.0
 			],
 			"muzzle": [
-				0.4399999976158142,
-				0.8600000143051147,
+				0.44,
+				0.86,
 				-1.0
 			],
 			"parts": {
 				"head": "batida12_head",
-				"top": "",
-				"spin": "",
 				"torso": "batida12_torso",
 				"shoulders": "batida12_shoulders",
-				"back": "",
 				"arm": "batida12_arm",
+				"gun": "batida12_gun",
 				"legs": "batida12_leg",
-				"gun": "batida12_gun"
+				"top": "",
+				"back": "",
+				"spin": ""
 			},
 			"palette": {
-				"shell": "7e164c",
-				"trim": "293344",
-				"dark": "101821",
-				"metal": "75889b",
-				"glow": "00dcf0",
+				"shell": "be377b",
+				"trim": "d4cad9",
+				"dark": "20192c",
+				"metal": "919bb0",
+				"glow": "ff4fb8",
 				"team": "",
-				"eyes": "00e5ed",
-				"rubber": "090f17"
+				"eyes": "ff8ad6",
+				"rubber": "17121e"
 			},
-			"design_note": "Engenho de combate sonico: cabeca larga e achatada com barra equalizadora, carapaca triangular magenta e grafite, subwoofer toracico grande e inclinado com grade, dois pods sonoros circulares assimetricos suspensos em suportes, disco percussivo no braco esquerdo, canhao de ressonancia largo, hub de anca compacto sem saia em U e pernas digitigradas com amortecedores.",
+			"design_note": "DJ original do circuito: cabeça de rádio em tambor com colunas nas pontas, pega e antena; tronco em pipo com subwoofer e gira-discos às costas, ombreiras-coluna e megafone. Mesma silhueta com magenta mais encorpado, metal definido, grelha protetora e bacia fechada.",
 			"callouts": [
 				[
 					"CASCO SEM PESCOÇO",

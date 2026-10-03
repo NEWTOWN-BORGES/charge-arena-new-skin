@@ -4,6 +4,11 @@ const CONFIG_PATH = "user://game_settings.cfg"
 const DIFFICULTIES = ["FÁCIL", "NORMAL", "DIFÍCIL"]
 const SENSITIVITY_NAMES = ["MUITO LENTA", "LENTA", "NORMAL", "RÁPIDA", "MUITO RÁPIDA"]
 const SENSITIVITY_SCALES = [0.55, 0.75, 1.0, 1.2, 1.45]
+const VIEW_OVERVIEW = 0
+const VIEW_CLOSE = 1
+const VIEW_CHASE = 2
+const VIEW_NAMES = ["Vista geral", "Vista próxima", "3.ª pessoa"]
+const CLOSE_ZOOM = 1.8
 var config_path = CONFIG_PATH
 var difficulty = 1
 var aim_guide = true
@@ -25,6 +30,7 @@ var view_yaw = 0.0
 var view_zoom = 1.0
 # The player ended in third person last time: the next match starts there too.
 var view_chase = false
+var view_mode = VIEW_OVERVIEW
 # Tutorials already seen on this device: the lobby tour and the first quick match.
 var tutorial_lobby = false
 var tutorial_match = false
@@ -60,6 +66,9 @@ func load_preferences() -> void:
 	view_yaw = 0.0
 	view_zoom = clampf(float(config.get_value("game", "view_zoom_v2", 1.0)), 0.8, 2.4)
 	view_chase = bool(config.get_value("game", "view_chase", false))
+	var previous_view = VIEW_CHASE if view_chase else (VIEW_CLOSE if view_zoom > 1.35 else VIEW_OVERVIEW)
+	view_mode = clampi(int(config.get_value("game", "view_mode", previous_view)), VIEW_OVERVIEW, VIEW_CHASE)
+	view_chase = view_mode == VIEW_CHASE
 	tutorial_lobby = bool(config.get_value("game", "tutorial_lobby", false))
 	tutorial_match = bool(config.get_value("game", "tutorial_match", false))
 	tutorial_shop = bool(config.get_value("game", "tutorial_shop", false))
@@ -78,6 +87,7 @@ func save_preferences() -> Error:
 	config.set_value("game", "sfx_volume", sfx_volume)
 	config.set_value("game", "view_zoom_v2", view_zoom)
 	config.set_value("game", "view_chase", view_chase)
+	config.set_value("game", "view_mode", view_mode)
 	config.set_value("game", "tutorial_lobby", tutorial_lobby)
 	config.set_value("game", "tutorial_match", tutorial_match)
 	config.set_value("game", "tutorial_shop", tutorial_shop)

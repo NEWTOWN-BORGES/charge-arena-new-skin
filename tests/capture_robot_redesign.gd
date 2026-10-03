@@ -4,7 +4,7 @@ const View = preload("res://scripts/presentation/arena_view.gd")
 const Robots = preload("res://scripts/presentation/robots.gd")
 const SKINS = [5, 6, 8]
 const NAMES = ["ECLIPSE", "ROSCA", "BATIDA"]
-const THEMES = ["VILÃO · NÚCLEO GRAVITACIONAL · BLINDAGEM ORBITAL", "MARINHEIRO · HÉLICE · GUINCHO · LANÇA-ARPÃO", "SUBWOOFER · RESSONÂNCIA · AMORTECEDORES"]
+const THEMES = ["CORPO ORIGINAL · CABEÇA ORBITAL · VILÃO", "OFICINA · ÓCULOS · LUPA · REBITADORA", "DJ · RÁDIO · COLUNAS · MEGAFONE"]
 var view
 var camera: Camera3D
 var units: Array = []
@@ -102,7 +102,7 @@ func run() -> void:
 	captions("ECLIPSE / ROSCA / BATIDA")
 	for i in range(3):
 		label_at(NAMES[i], Vector2(36 + i * 468, 762), 432, 28, Color("edf4fa"))
-		label_at(["GRAVIDADE", "MARINHEIRO", "SOM"][i], Vector2(36 + i * 468, 808), 432, 17, Color("75caff"))
+		label_at(["GRAVIDADE", "OFICINA", "SOM"][i], Vector2(36 + i * 468, 808), 432, 17, Color("75caff"))
 	await grab("-elenco")
 	# Each character has three real viewing angles, at the same size and lighting.
 	for i in range(3):

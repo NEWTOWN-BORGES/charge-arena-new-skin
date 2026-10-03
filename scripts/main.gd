@@ -110,6 +110,7 @@ func configure_test_access(enabled: bool) -> void:
 	campaign.unlock_all = true
 
 func _ready() -> void:
+	fit_desktop_window()
 	arena = ArenaView.new()
 	feel.load_values()
 	arena.feel = feel
@@ -183,6 +184,7 @@ func _ready() -> void:
 	hud.difficulty_changed.connect(change_difficulty)
 	hud.guide_changed.connect(change_guide)
 	hud.sensitivity_changed.connect(change_sensitivity)
+	hud.camera_view_changed.connect(change_camera_view)
 	hud.feedback_changed.connect(change_feedback)
 	hud.effects_changed.connect(change_effects)
 	hud.feel_tuning_requested.connect(open_feel_tuning)
@@ -225,7 +227,7 @@ func _ready() -> void:
 	# First visit: a written tour of the lobby (not in automated runs without a screen).
 	get_tree().create_timer(1.2).timeout.connect(maybe_lobby_tutorial)
 	hud.show_menu()
-	get_window().focus_exited.connect(func(): hud.reset_touch(); mouse_firing = false)
+	get_window().focus_exited.connect(func(): hud.reset_touch(); mouse_firing = false; reset_desktop_camera_input())
 	get_window().focus_exited.connect(pause_pve)
 	get_window().focus_exited.connect(stop_haptics)
 	multiplayer.peer_connected.connect(peer_connected)
@@ -852,6 +854,7 @@ func show_levels() -> void:
 
 func close_network() -> void:
 	clear_shots()
+	reset_desktop_camera_input()
 	pending_events.clear()
 	network_tick = 0.0
 	remote_backgrounded = false
@@ -1041,6 +1044,17 @@ func replay() -> void:
 
 func _input(event: InputEvent) -> void:
 	last_input_ms = Time.get_ticks_msec()
+	# A captured drag/key must release even if it ends over a button or a new overlay.
+	if event is InputEventMouseButton and not event.pressed and event.button_index == camera_mouse_button:
+		camera_mouse_button = 0
+	if event is InputEventKey and not event.pressed:
+		camera_keys.erase(event.keycode)
+	if event is InputEventMouseMotion and camera_mouse_button != 0:
+		if camera_input_allowed():
+			camera_mouse_drag += event.relative
+			get_viewport().set_input_as_handled()
+		else:
+			reset_desktop_camera_input()
 	# Release even if the pointer ends over a UI button.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
@@ -1048,6 +1062,9 @@ func _input(event: InputEvent) -> void:
 		mouse_firing = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if desktop_camera_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		# Touch is emulated into mouse clicks so the menu buttons work on a phone.
 		# The HUD already reads the real touches, so ignore the emulated copies.
@@ -1058,6 +1075,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			pending_clicks += 1
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and camera_key_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_pressed() and event is InputEventKey and mode == "menu" and not hud.menu_overlay_open():
 		if event.keycode == KEY_LEFT or event.keycode == KEY_RIGHT:
 			step_menu_level(-1 if event.keycode == KEY_LEFT else 1)
@@ -1169,12 +1189,35 @@ func fit_content_scale() -> void:
 	var window = get_window()
 	window.content_scale_size = Vector2i(720, 1280) if window.size.y > window.size.x else Vector2i(1280, 720)
 
+static func desktop_window_rect(content_size: Vector2i, usable: Rect2i) -> Rect2i:
+	# Leave room for the native frame/title bar inside the work area (which already
+	# excludes the taskbar). Shrink proportionally, keeping the logical HUD resolution.
+	var available = Vector2i(maxi(1, usable.size.x - 32), maxi(1, usable.size.y - 56))
+	var factor = minf(1.0, minf(float(available.x) / maxf(content_size.x, 1), float(available.y) / maxf(content_size.y, 1)))
+	var fitted = Vector2i(maxi(1, floori(content_size.x * factor)), maxi(1, floori(content_size.y * factor)))
+	return Rect2i(usable.position + (usable.size - fitted) / 2, fitted)
+
+func fit_desktop_window() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+		return
+	var window = get_window()
+	if window.mode != Window.MODE_WINDOWED:
+		return
+	var usable = DisplayServer.screen_get_usable_rect(window.current_screen)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return
+	var fitted = desktop_window_rect(window.size, usable)
+	window.size = fitted.size
+	window.position = fitted.position
+
 func preview_world(world: String) -> void:
 	# The map picker shows the world it would play in, the camera touring it.
 	use_map(Rules.quick_map(world))
 	arena.start_tour()
 
 func frame_arena() -> void:
+	var preserve_chase = arena.chase and hud.mode != "menu"
+	var chase_pose: Transform3D = arena.camera.global_transform
 	arena.unsteer()
 	if hud.mode == "menu" and hud.map_overlay.visible:
 		arena.start_tour()
@@ -1187,14 +1230,97 @@ func frame_arena() -> void:
 	arena.match_seat = hud.mode != "menu"
 	arena.remember_seat()
 	arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
-	if game_settings.view_chase and arena.match_seat and not arena.chase:
+	if game_settings.view_chase and arena.match_seat:
 		arena.set_chase(true)
+		if preserve_chase:
+			arena.camera.global_transform = chase_pose
+		arena.place_chase_camera(rules, local_team, 0.0)
+	elif arena.match_seat:
+		arena.place_match_seat(Vector3.ZERO)
 
 # How far the player keeps pulling in past the closest zoom before the camera drops behind
 # the pilot (third person), and how far it has to be pushed back out to leave it.
 const CHASE_PAST = 1.35
 const CHASE_LEAVE = 0.72
 var chase_push = 1.0
+var camera_mouse_button = 0
+var camera_mouse_drag = Vector2.ZERO
+var camera_mouse_zoom = 1.0
+var camera_keys: Dictionary = {}
+
+func reset_desktop_camera_input() -> void:
+	camera_mouse_button = 0
+	camera_mouse_drag = Vector2.ZERO
+	camera_mouse_zoom = 1.0
+	camera_keys.clear()
+
+func camera_input_allowed() -> bool:
+	return mode != "menu" and not backgrounded and not hud.video_overlay.visible and not hud.pause_overlay.visible and not hud.powers_overlay.visible and not hud.skins_overlay.visible and not hud.levels_overlay.visible and not hud.pvp_overlay.visible and not hud.map_overlay.visible
+
+func desktop_camera_input(event: InputEvent) -> bool:
+	if not camera_input_allowed() or event.device == InputEvent.DEVICE_ID_EMULATION:
+		return false
+	if event is InputEventMouseButton and event.pressed and hud.on_map(event.position) and hud.power_at(event.position) < 0:
+		if event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+			camera_mouse_button = event.button_index
+			return true
+		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			var amount: float = event.factor if event.factor > 0.0 else 1.0
+			camera_mouse_zoom *= exp(0.12 * amount * (1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -1.0))
+			return true
+	if event is InputEventMagnifyGesture and hud.on_map(event.position):
+		camera_mouse_zoom *= clampf(event.factor, 0.25, 4.0)
+		return true
+	if event is InputEventPanGesture and hud.on_map(event.position):
+		camera_mouse_drag += event.delta * 20.0
+		return true
+	return false
+
+func camera_key_input(event: InputEventKey) -> bool:
+	if not camera_input_allowed() or not event.pressed:
+		return false
+	if event.keycode == KEY_C:
+		if not event.echo:
+			change_camera_view((game_settings.view_mode + 1) % GameSettings.VIEW_NAMES.size())
+		return true
+	if event.keycode == KEY_HOME:
+		if not event.echo:
+			change_camera_view(GameSettings.VIEW_OVERVIEW)
+		return true
+	if event.keycode in [KEY_Q, KEY_E]:
+		camera_keys[event.keycode] = true
+		return true
+	if event.keycode in [KEY_PLUS, KEY_EQUAL, KEY_KP_ADD, KEY_MINUS, KEY_KP_SUBTRACT]:
+		camera_mouse_zoom *= exp(-0.12 if event.keycode in [KEY_MINUS, KEY_KP_SUBTRACT] else 0.12)
+		return true
+	return false
+
+func sync_camera_view_mode() -> void:
+	game_settings.view_mode = GameSettings.VIEW_CHASE if game_settings.view_chase else (GameSettings.VIEW_CLOSE if game_settings.view_zoom > 1.35 else GameSettings.VIEW_OVERVIEW)
+	hud.sync_camera_view(game_settings.view_mode)
+
+func save_camera_settings() -> void:
+	# Camera gestures also run while a movement finger is held: saving the view must not
+	# reset those controls or relayout the entire HUD.
+	sync_camera_view_mode()
+	if game_settings.save_preferences() != OK:
+		hud.video_note.text = "Aplicado nesta sessão. Não foi possível guardar as opções."
+
+func change_camera_view(index: int) -> void:
+	index = clampi(index, GameSettings.VIEW_OVERVIEW, GameSettings.VIEW_CHASE)
+	reset_desktop_camera_input()
+	game_settings.view_yaw = 0.0
+	game_settings.view_zoom = GameSettings.CLOSE_ZOOM if index == GameSettings.VIEW_CLOSE else 1.0
+	game_settings.view_chase = index == GameSettings.VIEW_CHASE
+	game_settings.view_mode = index
+	chase_push = 1.0
+	arena.set_chase(game_settings.view_chase and mode != "menu")
+	arena.chase_look = 0.0
+	arena.chase_zoom = 1.0
+	if game_settings.view_chase:
+		arena.chase_ready = false
+	frame_arena()
+	save_camera_settings()
 
 func steer_camera(dt: float) -> void:
 	# Steered on the map itself: a finger dragged sideways turns round the arena, up pulls
@@ -1210,26 +1336,32 @@ func steer_camera(dt: float) -> void:
 		game_settings.view_chase = false
 		leave_chase()
 		arena.steer_view(0.0, 1.0)
-		save_game_settings()
+		save_camera_settings()
 		return
-	var drag: Vector2 = hud.camera_drag
-	var pinch: float = hud.camera_zoom
+	if not camera_input_allowed():
+		reset_desktop_camera_input()
+	var drag: Vector2 = hud.camera_drag + camera_mouse_drag
+	var pinch: float = hud.camera_zoom * camera_mouse_zoom
+	var key_turn = float(camera_keys.has(KEY_E)) - float(camera_keys.has(KEY_Q))
+	drag.x += key_turn * dt * 220.0
+	camera_mouse_drag = Vector2.ZERO
+	camera_mouse_zoom = 1.0
 	hud.camera_drag = Vector2.ZERO
 	hud.camera_zoom = 1.0
-	arena.chase_held = not hud.camera_touches.is_empty()
+	var camera_held = not hud.camera_touches.is_empty() or camera_mouse_button != 0 or not camera_keys.is_empty()
+	arena.chase_held = camera_held
 	# The turn is a look, not a setting: let go and the view swings back to its seat
 	# (the zoom stays where it was left).
-	if not arena.chase and hud.camera_touches.is_empty() and game_settings.view_yaw != 0.0:
+	if not arena.chase and not camera_held and game_settings.view_yaw != 0.0:
 		game_settings.view_yaw = lerpf(game_settings.view_yaw, 0.0, 1.0 - exp(-dt * 5.0))
 		if absf(game_settings.view_yaw) < 0.002:
 			game_settings.view_yaw = 0.0
 		arena.steer_view(game_settings.view_yaw, game_settings.view_zoom)
 	if drag == Vector2.ZERO and is_equal_approx(pinch, 1.0):
-		# Saved once the finger lifts: saving syncs the HUD, which drops every touch, and a
-		# held look (or stick) would snap back as if let go.
-		if hud.camera_moved and hud.camera_touches.is_empty():
+		# Save once the camera gesture ends, keeping the movement controls held.
+		if hud.camera_moved and not camera_held:
 			hud.camera_moved = false
-			save_game_settings()
+			save_camera_settings()
 		return
 	hud.camera_moved = true
 	var step: float = exp(-drag.y * 0.006) * pinch
@@ -1239,6 +1371,7 @@ func steer_camera(dt: float) -> void:
 		arena.chase_look = clampf(arena.chase_look - drag.x * 0.006, -arena.CHASE_LOOK_MAX, arena.CHASE_LOOK_MAX)
 		if is_zero_approx(drag.y) and is_equal_approx(pinch, 1.0):
 			return
+		arena.chase_zoom = clampf(arena.chase_zoom * step, arena.CHASE_ZOOM_MIN, arena.CHASE_ZOOM_MAX)
 		chase_push = chase_push * step if step < 1.0 else 1.0
 		if chase_push < CHASE_LEAVE:
 			game_settings.view_zoom = arena.VIEW_ZOOM_MAX * 0.9
@@ -1252,6 +1385,7 @@ func steer_camera(dt: float) -> void:
 			chase_push = 1.0
 			game_settings.view_chase = true
 			arena.set_chase(true)
+			sync_camera_view_mode()
 	else:
 		chase_push = 1.0
 	game_settings.view_zoom = clampf(wanted, arena.VIEW_ZOOM_MIN, arena.VIEW_ZOOM_MAX)
@@ -1263,6 +1397,7 @@ func leave_chase() -> void:
 	if arena.chase:
 		arena.set_chase(false)
 		frame_arena()
+	sync_camera_view_mode()
 
 func change_difficulty(level: int) -> void:
 	game_settings.configure(level, game_settings.aim_guide)
@@ -1870,14 +2005,24 @@ func idle_frame_rate() -> void:
 
 # Automated runs without a screen (the tests) never see a tutorial; a test can force it.
 var force_tutorials = false
+var lobby_tutorial_pending = false
 
 func tutorials_allowed() -> bool:
 	return force_tutorials or DisplayServer.get_name() != "headless"
 
 func maybe_lobby_tutorial() -> void:
 	# The lobby tour, once per device, when the lobby is really on screen.
-	if game_settings.tutorial_lobby or mode != "menu" or hud.tutorial_running() or not tutorials_allowed():
+	if game_settings.tutorial_lobby:
+		lobby_tutorial_pending = false
 		return
+	if not tutorials_allowed():
+		return
+	# The startup timer may finish after the player has opened the hangar, another
+	# overlay or a match. Keep the tour pending until they return to the actual lobby.
+	lobby_tutorial_pending = true
+	if mode != "menu" or hud.tutorial_running() or hud.menu_overlay_open() or (is_instance_valid(cup_screen) and cup_screen.visible):
+		return
+	lobby_tutorial_pending = false
 	hud.start_tutorial("lobby")
 
 func maybe_shop_tutorial() -> void:
@@ -1935,6 +2080,7 @@ func go_background(away: bool) -> void:
 
 func clear_session_input() -> void:
 	stop_haptics()
+	reset_desktop_camera_input()
 	clear_shots()
 	mouse_firing = false
 	held_power = -1
@@ -1958,6 +2104,8 @@ func receive_peer_suspension(away: bool) -> void:
 func _process(dt: float) -> void:
 	if backgrounded:
 		return
+	if lobby_tutorial_pending:
+		maybe_lobby_tutorial()
 	idle_frame_rate()
 	if remote_backgrounded:
 		return
