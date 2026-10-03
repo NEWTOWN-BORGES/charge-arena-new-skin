@@ -1441,15 +1441,24 @@ var chase = false
 var chase_look = 0.0
 var chase_held = false
 const CHASE_LOOK_MAX = 1.9
+const CHASE_ZOOM_MIN = 0.75
+const CHASE_ZOOM_MAX = 1.35
+var chase_zoom = 1.0
+var chase_ready = false
 
 func set_chase(on: bool) -> void:
+	if chase == on:
+		return
 	chase = on
+	chase_look = 0.0
+	chase_zoom = 1.0
+	chase_ready = false
 	if not on:
 		camera_home = Vector3.ZERO
 		view_bounds = Rect2()
 
 func place_chase_camera(rules, team: int, dt: float) -> void:
-	if team >= units.size() or not is_instance_valid(units[team]):
+	if rules == null or team < 0 or team >= units.size() or team >= rules.players.size() or not is_instance_valid(units[team]):
 		return
 	var aim: Vector2 = rules.players[team].aim
 	var forward = Vector3(aim.x, 0.0, aim.y)
@@ -1458,14 +1467,17 @@ func place_chase_camera(rules, team: int, dt: float) -> void:
 		chase_look = lerpf(chase_look, 0.0, 1.0 - exp(-dt * 5.0))
 	forward = forward.rotated(Vector3.UP, chase_look)
 	var pilot: Vector3 = units[team].global_position
-	var eye = pilot - forward * 4.4 + Vector3.UP * 3.2
+	var eye = pilot - forward * (4.4 / chase_zoom) + Vector3.UP * (3.2 / chase_zoom)
 	var look = pilot + forward * 6.0 + Vector3.UP * 0.5
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	camera.fov = 62.0
 	camera.h_offset = 0.0
 	camera.v_offset = 0.0
 	var target = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
-	camera.global_transform = camera.global_transform.interpolate_with(target, 1.0 - exp(-dt * 8.0))
+	# Enter close to the pilot immediately, including when selected while paused. Later
+	# frames follow smoothly; reframing the HUD must not send this camera back to the sky.
+	camera.global_transform = target if not chase_ready else camera.global_transform.interpolate_with(target, 1.0 - exp(-dt * 8.0))
+	chase_ready = true
 
 func steer_view(yaw: float, zoom: float) -> void:
 	view_yaw = clampf(yaw, -VIEW_YAW_MAX, VIEW_YAW_MAX)

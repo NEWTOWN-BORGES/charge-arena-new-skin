@@ -1,25 +1,17 @@
-# Eclipse, Rosca e Batida — revisão 3.44.0
+# Robôs 3.44.0 — recuperação dos desenhos anteriores
 
-Os três modelos foram construídos no Blender 5.2.2 LTS, exportados em GLB e capturados com os materiais reais do Godot 4.7.1.
+Revisão de 3 de outubro de 2026, a pedido do jogador. Base: charge-arena-new-skin. Os modelos foram construídos no Blender 5.2.2 LTS e capturados com os materiais reais do Godot 4.7.1.
 
-- Eclipse é um vilão orbital alto e esguio: armadura negra, visor rubro estreito, núcleo de singularidade, escudo lateral assimétrico e canhão magnético.
-- Rosca é um marinheiro de estaleiro e irmão afastado do pirata Gancho. A referência de Gancho orienta a pipa arredondada e a cúpula integrada. Rosca tem azul naval, metal claro e latão, vigia, hélice peitoral, guincho de corda, pinça e lança-arpão.
-- Batida tem peito triangular com subwoofer protegido, visor em barra, ombros circulares, canhão de ressonância e pernas digitígradas.
+- Eclipse recupera o corpo E8 anterior: peito em cunha, gola alta, ombreiras maciças, garra e grevas. Conserva a cabeça orbital nova, ajustada à gola e com visor rubro. Continua a ser um vilão.
+- Rosca recupera o mecânico R2/R3: casco fundido em tambor, óculos de soldador, lupa articulada, garra, rebitadora, rodas e ferramentas.
+- Batida recupera o DJ B11: cabeça de rádio, auscultadores, colunas, tronco em pipo, subwoofer, gira-discos e megafone.
 
-As três ancas são sólidas/compactas, sem a armação em U rejeitada. As proporções, pernas, cabeças e armas são distintas. Triângulos medidos no Godot, incluindo auxiliares: Eclipse 11 772; Rosca 23 422; Batida 18 966.
+As melhorias são discretas: fixações e guardas, leitura de metal/tinta/borracha, cores mais encorpadas e bacias compactas sólidas sem a armação em U. Os corpos e temas anteriores são conservados. Triângulos medidos no Godot (incluindo auxiliares): Eclipse 17 668; Rosca 28 192; Batida 33 550.
 
-As habilidades e ultimates continuam a nascer no centro da armadura animada de cada personagem, incluindo companheiros em 3v3. O teste de origem usa explicitamente Eclipse, Rosca e Batida como líderes e companheiros, nos perfis Refinado e Leve.
+As receitas 5/6/8 usam o GLB adicional. O kit original e os restantes robôs permanecem disponíveis. Rosca usa rosca12_hull para a face do casco fundido, sem cabeça separada; os metadados e joelhos são exportados com as peças.
 
-Exportações Android: 3.44.0-robos-variados-lab/alfa, versionCode 73. LAB mantém org.chargearena.sentinellab; ALFA mantém org.chargearena.prototype. As assinaturas são verificadas com apksigner e a identificação com aapt. A versão LAB é entregue primeiro.
+Validação final: 96 lançamentos e 24 verificações de origem de habilidades/ultimates, zero falhas; 177 verificações de gráficos/áudio, zero falhas. Os dois processos Godot terminaram com código 0. O runner genérico marca reprovação pelas mensagens ambientais de certificados e limpeza de recursos do helper; não houve falhas nas asserções nem erros de scripts. Os testes usam projetos/saves descartáveis.
 
-Resultados finais: tests/test_abilities_heroic.gd aprovou 96 lançamentos e 24 verificações de origem, com zero falhas; tests/test_premium.gd aprovou 177 verificações, com zero falhas. O smoke da versão Windows também terminou sem falhas.
+As imagens robos-recuperados mostram os modelos reais antes dos builds. robos-redesenhados.blend preserva as peças e os três robôs montados. Reconstrução: blender --background --python tools/blender/heroic_cast.py.
 
-Validação dos gráficos inclui geometria finita/articulações de 22 skins, reversibilidade dos perfis, limites de VFX, textura e reflexos conforme o orçamento GPU e cobertura/variações de áudio. As expectativas antigas que proibiam texturas/clearcoat e exigiam um total fixo de 83 sons foram atualizadas para verificar o comportamento atual.
-
-As imagens robos-finais mostram a geometria real antes dos APKs. O ficheiro robos-redesenhados.blend preserva as peças e os três robôs montados para edição. O ZIP de fontes é complementar ao repositório, não um projeto independente.
-
-Para reconstruir: blender --background --python tools/blender/heroic_cast.py. O exportador usa detalhe 0.75 e atualiza apenas as receitas 5/6/8, os metadados e art/robots/heroic_cast.glb. O kit original permanece disponível para os restantes personagens.
-
-O helper de habilidades também emite três avisos de warmup sobre nós fora da árvore e avisos de recursos no encerramento; as asserções funcionais passam.
-
-O ambiente Windows emite um aviso local sobre a loja de certificados; não é uma falha de script. Não se mediu desempenho nem instalação em telemóvel.
+Esta revisão é distribuída em Android LAB/ALFA, versionCode 74, e Windows. Não foi medida a taxa de FPS nem instalada a app num telemóvel real.

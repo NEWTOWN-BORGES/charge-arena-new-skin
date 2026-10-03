@@ -4,7 +4,10 @@
 !include "x64.nsh"
 
 Name "Charge Arena 3.44 - New Skin"
-OutFile "..\builds\Charge-Arena-3.44-NewSkin-Windows-Setup.exe"
+!ifndef PACKAGE_FILE
+  !define PACKAGE_FILE "..\builds\Charge-Arena-3.44.0-Windows-Setup.exe"
+!endif
+OutFile "${PACKAGE_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\Charge Arena"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
@@ -38,6 +41,9 @@ FunctionEnd
 Section "Charge Arena"
   SetOutPath "$INSTDIR"
   File "..\builds\windows\ChargeArena.exe"
+  !if /FileExists "..\builds\windows\ChargeArena.pck"
+    File "..\builds\windows\ChargeArena.pck"
+  !endif
   File "..\builds\windows\LEIA-ME.txt"
   File "..\builds\windows\GODOT-LICENSE.txt"
   File "..\builds\windows\GODOT-COPYRIGHT.txt"
@@ -62,6 +68,7 @@ SectionEnd
 
 Section "Uninstall"
   Delete "$INSTDIR\ChargeArena.exe"
+  Delete "$INSTDIR\ChargeArena.pck"
   Delete "$INSTDIR\LEIA-ME.txt"
   Delete "$INSTDIR\GODOT-LICENSE.txt"
   Delete "$INSTDIR\GODOT-COPYRIGHT.txt"

@@ -1,7 +1,7 @@
 extends SceneTree
 ## Actual imported Blender geometry, assembled with the game's robot shaders.
-const View = preload("res://scripts/indie_arena_view.gd")
-const Robots = preload("res://scripts/robots.gd")
+const View = preload("res://scripts/presentation/arena_view.gd")
+const Robots = preload("res://scripts/presentation/robots.gd")
 const SKINS = [9, 9, 9]
 const NAMES = ["GANCHO", "GANCHO", "GANCHO"]
 const THEMES = ["NÚCLEO GRAVITACIONAL · BLINDAGEM ORBITAL", "TRANSMISSÃO · PINÇA HIDRÁULICA · REBITADORA", "SUBWOOFER · RESSONÂNCIA · AMORTECEDORES"]

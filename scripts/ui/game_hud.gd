@@ -46,6 +46,7 @@ var skin_music_note: Label
 signal difficulty_changed(level: int)
 signal guide_changed(on: bool)
 signal sensitivity_changed(level: int)
+signal camera_view_changed(index: int)
 signal feedback_changed(camera: int, haptics: bool, automatic: bool, volume: float)
 signal effects_changed(full: bool)
 signal feel_tuning_requested
@@ -58,6 +59,7 @@ signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
 signal story_recap_requested(hard: bool)
 var camera_choice: OptionButton
+var camera_view_choice: OptionButton
 var effects_choice: OptionButton
 var haptic_choice: CheckButton
 var automatic_choice: CheckButton
@@ -225,6 +227,7 @@ var swipe_start = Vector2.INF
 const SWIPE_DISTANCE = 70.0
 var skins_overlay: ColorRect
 var skins_panel: PanelContainer
+var skin_layout_pending = false
 var skins_button: Button
 var powers_button: Button
 var news_text = ""
@@ -373,6 +376,7 @@ func build_skins_menu() -> void:
 	skins_panel = PanelContainer.new()
 	skins_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
 	skins_overlay.add_child(skins_panel)
+	skins_panel.minimum_size_changed.connect(queue_skin_layout)
 	var list = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 10)
 	skins_panel.add_child(list)
@@ -382,7 +386,10 @@ func build_skins_menu() -> void:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
 	titles.add_child(label("HANGAR · PILOTOS", 28, WHITE, true))
-	titles.add_child(label("Arrasta para girar · dois dedos para zoom.", 17, MUTED))
+	var viewer_help = "Arrasta para girar · dois dedos para zoom." if OS.has_feature("mobile") else "Arrasta com o rato para girar · roda do rato para zoom."
+	var viewer_caption = label(viewer_help, 17, MUTED)
+	viewer_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	titles.add_child(viewer_caption)
 	skins_total = label("", 16, CYAN, true)
 	titles.add_child(skins_total)
 	skins_body = BoxContainer.new()
@@ -934,6 +941,7 @@ func open_skins() -> void:
 	if is_instance_valid(viewer_viewport) and arena_view != null:
 		viewer_viewport.msaa_3d = preload("res://scripts/settings/video_settings.gd").antialiasing(arena_view.quality_level)
 	skins_overlay.show()
+	queue_skin_layout()
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
 
 func close_skins() -> void:
@@ -2532,6 +2540,12 @@ func build_video_menu() -> void:
 	var game: VBoxContainer = option_pages[1]
 	var image: VBoxContainer = option_pages[2]
 	# CONTROLOS: how you shoot, where the button sits, how fast you turn.
+	camera_view_choice = video_option(controls, "Vista da câmara", GameSettings.VIEW_NAMES)
+	camera_view_choice.item_selected.connect(func(index): camera_view_changed.emit(index))
+	var desktop_help = label("PC: C muda a vista · roda do rato aproxima · botão direito e arrastar roda · Home repõe.", 16, MUTED)
+	desktop_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desktop_help.visible = not OS.has_feature("mobile")
+	controls.add_child(desktop_help)
 	fire_control_choice = video_option(controls, "Modo de disparo", ["Automático", "Botão", "No joystick"])
 	fire_preview = Control.new()
 	fire_preview.custom_minimum_size = Vector2(0, 190)
@@ -2573,7 +2587,7 @@ func build_video_menu() -> void:
 	credits.add_theme_font_size_override("font_size", 18)
 	credits.pressed.connect(open_credits)
 	game.add_child(credits)
-	var camera_help = label("Câmara: arrasta no mapa para rodar e aproximar; a tua vista fica guardada. Toca duas vezes no mapa para voltar à vista normal.", 16, MUTED)
+	var camera_help = label("Câmara: escolhe a vista em CONTROLOS. No mapa, arrasta para rodar e aproximar; dois toques repõem a vista. No PC, usa C, a roda do rato, arrastar com o botão direito e Home.", 16, MUTED)
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	game.add_child(camera_help)
 	if OS.has_feature("open_test") or OS.has_feature("editor"):
@@ -2810,6 +2824,7 @@ func emit_feedback() -> void:
 	feedback_changed.emit(camera_choice.selected, haptic_choice.button_pressed, automatic_choice.button_pressed, sfx_slider.value / 100.0)
 
 func sync_game(settings) -> void:
+	sync_camera_view(settings.view_mode)
 	camera_choice.select(settings.camera_feedback)
 	effects_choice.select(1 if settings.effects_full else 0)
 	haptic_choice.set_pressed_no_signal(settings.haptics)
@@ -2837,6 +2852,11 @@ func sync_game(settings) -> void:
 	if is_instance_valid(sensitivity_choice):
 		sensitivity_choice.select(settings.joystick_sensitivity)
 	refresh_option_chips()
+
+func sync_camera_view(index: int) -> void:
+	if is_instance_valid(camera_view_choice):
+		camera_view_choice.select(index)
+		refresh_option_chips()
 
 func sync_audio(settings) -> void:
 	music_choice.set_pressed_no_signal(settings.enabled)
@@ -2895,30 +2915,7 @@ func layout() -> void:
 		back.add_theme_font_size_override("font_size", 17)
 		back.position = Vector2(size.x - 130, 27 + safe_top)
 		back.size = Vector2(100, 46)
-	skins_body.vertical = size.y > size.x
-	var skin_room = size.y - safe_top - safe_bottom - 48
-	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
-	# Reserve the real header, collection strip and action footer before sizing the model.
-	# A fixed fraction of screen height pushed EQUIPAR/VOLTAR below the phone's edge.
-	var column: VBoxContainer = skins_panel.get_child(0)
-	var chrome = skins_panel.get_theme_stylebox("panel").get_minimum_size().y
-	chrome += column.get_theme_constant("separation") * (column.get_child_count() - 1)
-	for child in column.get_children():
-		if child != skins_body:
-			chrome += (child as Control).get_combined_minimum_size().y
-	var body_room = maxf(180, skin_room - chrome)
-	var zoom_row: Control = viewer_column.get_child(1)
-	var zoom_room = zoom_row.get_combined_minimum_size().y + viewer_column.get_theme_constant("separation")
-	var detail_room = clampf(body_room * 0.20, 110, 160) if skins_body.vertical else 120.0
-	var model_room = body_room - zoom_room
-	if skins_body.vertical:
-		model_room -= detail_room + skins_body.get_theme_constant("separation")
-	var model_width = 0.0 if skins_body.vertical else minf(560, (skins_size.x - 60) * 0.52)
-	viewer.custom_minimum_size = Vector2(model_width, maxf(140, model_room))
-	viewer_column.custom_minimum_size.x = model_width
-	skins_scroll.custom_minimum_size.y = detail_room
-	skins_panel.size = skins_size
-	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
+	layout_skins()
 	layout_bosses()
 	# Nearly the whole screen: the options are for thumbs, not for a small floating card.
 	var options_width = minf(size.x - 28.0, 640.0)
@@ -3010,6 +3007,46 @@ func layout() -> void:
 		lobby.arrange()
 	queue_redraw()
 	layout_changed.emit()
+
+func queue_skin_layout() -> void:
+	# Wrapping captions and container minima settle after the first layout pass.
+	# Recalculate the model budget so the fixed action footer never moves off-screen.
+	if skin_layout_pending or not is_instance_valid(skins_body):
+		return
+	skin_layout_pending = true
+	refresh_skin_layout.call_deferred()
+
+func refresh_skin_layout() -> void:
+	skin_layout_pending = false
+	layout_skins()
+
+func layout_skins() -> void:
+	if not is_instance_valid(viewer_column) or not is_instance_valid(skins_scroll):
+		return
+	skins_body.vertical = size.y > size.x
+	var skin_room = size.y - safe_top - safe_bottom - 48
+	var skins_size = Vector2(minf(size.x - 48, 680 if skins_body.vertical else 1140), skin_room)
+	# Reserve the real header, collection strip and action footer before sizing the model.
+	# A fixed fraction of screen height pushed EQUIPAR/VOLTAR below the phone's edge.
+	var column: VBoxContainer = skins_panel.get_child(0)
+	var chrome = skins_panel.get_theme_stylebox("panel").get_minimum_size().y
+	chrome += column.get_theme_constant("separation") * (column.get_child_count() - 1)
+	for child in column.get_children():
+		if child != skins_body:
+			chrome += (child as Control).get_combined_minimum_size().y
+	var body_room = maxf(180, skin_room - chrome)
+	var zoom_row: Control = viewer_column.get_child(1)
+	var zoom_room = zoom_row.get_combined_minimum_size().y + viewer_column.get_theme_constant("separation")
+	var detail_room = clampf(body_room * 0.20, 110, 160) if skins_body.vertical else 120.0
+	var model_room = body_room - zoom_room
+	if skins_body.vertical:
+		model_room -= detail_room + skins_body.get_theme_constant("separation")
+	var model_width = 0.0 if skins_body.vertical else minf(560, (skins_size.x - 60) * 0.52)
+	viewer.custom_minimum_size = Vector2(model_width, maxf(140, model_room))
+	viewer_column.custom_minimum_size.x = model_width
+	skins_scroll.custom_minimum_size.y = detail_room
+	skins_panel.size = skins_size
+	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
 
 func layout_vertical(menu_height: float) -> void:
 	var mid = size.x * 0.5
