@@ -10,14 +10,7 @@ const Skins = preload("res://scripts/progression/skins.gd")
 const PowerShop = preload("res://scripts/gameplay/powers.gd")
 const GameSettings = preload("res://scripts/settings/game_settings.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
-const Cup = preload("res://scripts/story/cup.gd")
-const Press = preload("res://scripts/story/story_press.gd")
-const CupScreen = preload("res://scripts/story/story_hub.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
-var cup = Cup.new()
-var cup_screen
-var cup_active = false
-var cup_resolved = false
 var skin_music_return = ""
 const PORT = 27940
 var rules = Rules.new()
@@ -166,11 +159,9 @@ func _ready() -> void:
 	hud.team_skins = arena.unit_skins
 	hud.team_tints = arena.unit_tints
 	hud.arena_view = arena
-	hud.world_visibility_allowed = func(): return not (mode == "menu" and is_instance_valid(cup_screen) and cup_screen.visible)
 	hud.skin_selected.connect(select_skin)
 	hud.skin_previewed.connect(preview_skin_music)
 	hud.skin_preview_closed.connect(restore_skin_music)
-	hud.cup_requested.connect(open_cup)
 	hud.sync_skins(skins)
 	dress_pilots(0)
 	game_settings.load_preferences()
@@ -186,9 +177,6 @@ func _ready() -> void:
 	hud.feedback_changed.connect(change_feedback)
 	hud.effects_changed.connect(change_effects)
 	hud.feel_tuning_requested.connect(open_feel_tuning)
-	hud.story_play_requested.connect(func():
-		open_cup()
-		cup_screen.open_versus())
 	hud.fire_layout_changed.connect(change_fire_layout)
 	hud.bosses_requested.connect(open_bosses)
 	hud.tutorial_finished.connect(tutorial_done)
@@ -234,30 +222,14 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(func(): return_to_menu.call_deferred("Não foi possível ligar. Confirma o IP e a rede."))
 	multiplayer.server_disconnected.connect(func(): return_to_menu.call_deferred("O anfitrião saiu da partida."))
 	build_audio()
-	cup.restore()
-	# Reconcile earned rewards when upgrading an older tournament save.
-	for reward in cup.defeated_bosses():
-		skins.defeat(reward)
-	if cup.wins == Cup.FULL_MATCHES:
-		skins.defeat(11)
-	save_skins()
-	sync_story()
-	cup_screen = CupScreen.new()
-	cup_screen.cup = cup
-	cup_screen.player_skin_provider = func(): return skins.selected
-	hud.add_child(cup_screen)
-	hud.move_child(cup_screen, hud.menu.get_index() + 1)
-	cup_screen.action.connect(cup_action)
-	cup_screen.refresh()
-	cup_screen.hide()
 	var scroll_gestures = preload("res://scripts/ui/ui_scroll.gd").new()
 	scroll_gestures.name = "ScrollGestures"
 	scroll_gestures.surface = func():
-		# Topmost first: the shop can open over the story, both over the lobby. The story
-		# screen and the quick-play map strip were missing, so their lists would not drag.
+		# Topmost first: the shop can open over the story, both over the lobby. The
+		# quick-play map strip was missing, so its list would not drag.
 		for overlay in [hud.powers_overlay, hud.pause_overlay, hud.video_overlay, hud.bosses_overlay, hud.skins_overlay, hud.levels_overlay, hud.pvp_overlay, hud.map_overlay]:
 			if is_instance_valid(overlay) and overlay.visible: return overlay
-		return cup_screen if cup_screen.visible else hud.menu
+		return hud.menu
 	hud.add_child(scroll_gestures)
 	arena.show()
 	for arg in OS.get_cmdline_user_args():
@@ -289,7 +261,7 @@ func charge_ultimates() -> void:
 			rules.powers[team].charge[2] = cost
 
 func start_pve(layout: Dictionary = {}) -> void:
-	close_cup_screen()
+	close_menu_overlays()
 	# Quick play opens on the tall arena, which fills a phone held upright instead of
 	# sitting in a band across the middle of it. Campaign levels bring their own.
 	if layout.is_empty():
@@ -350,7 +322,7 @@ const SQUAD_ABILITIES = ["blast", "rapid", "air", "laser", "pierce", "sniper", "
 func start_level(index: int) -> void:
 	story_run = {}
 	arena.angry = [false, false]
-	close_cup_screen()
+	close_menu_overlays()
 	if not campaign.is_unlocked(index):
 		return
 	var level: Dictionary = Campaign.LEVELS[index]
@@ -677,7 +649,7 @@ func begin_training() -> void:
 	# Chapter 3: a friendly match with BATIDA at the training arena, the written tutorial
 	# walking through it. She keeps her ultimate to herself and goes easy.
 	var index = 0
-	close_cup_screen()
+	close_menu_overlays()
 	pve_paused = false
 	close_network()
 	mode = "pve"
@@ -725,7 +697,7 @@ func begin_story(step: int, hard: bool) -> void:
 	var order = story_bosses(hard)
 	var boss: int = order[step]
 	var index = story_level_of(boss, hard)
-	close_cup_screen()
+	close_menu_overlays()
 	pve_paused = false
 	close_network()
 	mode = "pve"
@@ -873,7 +845,6 @@ func close_network() -> void:
 func return_to_menu(message: String = "") -> void:
 	if hud.skins_overlay.visible:
 		hud.close_skins()
-	cup_active = false
 	pve_paused = false
 	close_network()
 	chase_push = 1.0
@@ -892,12 +863,8 @@ func return_to_menu(message: String = "") -> void:
 	refresh_showroom()
 	hud.sync_skins(skins)
 	hud.show_menu(message)
-	# Back in the lobby: the story card says where the run stands and whether there is news.
-	sync_story()
 	music.play("menu")
-	if is_instance_valid(cup_screen):
-		cup_screen.hide()
-		arena.show()
+	arena.show()
 
 func request_menu() -> void:
 	if mode == "pve":
@@ -942,7 +909,7 @@ func _notification(what: int) -> void:
 		request_menu()
 
 func host_game() -> void:
-	close_cup_screen()
+	close_menu_overlays()
 	close_network()
 	mode = "host"
 	local_team = 0
@@ -971,7 +938,7 @@ func host_game() -> void:
 	print("HOST_READY port=", PORT)
 
 func join_game(address: String) -> void:
-	close_cup_screen()
+	close_menu_overlays()
 	if address.is_empty():
 		hud.show_menu("Escreve o IP do telemóvel ou PC que criou a partida.")
 		return
@@ -1021,9 +988,6 @@ func peer_disconnected(_id: int) -> void:
 		return_to_menu.call_deferred("O outro jogador desligou-se. Podes criar uma nova partida.")
 
 func replay() -> void:
-	if cup_active:
-		start_cup()
-		return
 	if mode == "pve" and bool(story_run.get("training", false)):
 		begin_training()
 		return
@@ -1269,8 +1233,6 @@ func change_difficulty(level: int) -> void:
 	rules.ai_level = game_settings.difficulty
 	if level_index >= 0 and story_run.is_empty():
 		rules.ai_profile = Campaign.ai_profile(level_index, game_settings.difficulty)
-	if cup_active:
-		rules.ai_profile = cup.profile(game_settings.difficulty)
 	save_game_settings()
 
 func sync_assist() -> void:
@@ -1964,8 +1926,6 @@ func _process(dt: float) -> void:
 	update_sustained_haptics()
 	update_feedback_mix(dt)
 	hud.fps_label.visible = video.show_fps and mode != "menu"
-	if mode == "menu" and is_instance_valid(cup_screen) and cup_screen.visible:
-		return
 	if mode == "menu" and menu_preview_timer >= 0:
 		menu_preview_timer -= dt
 		if menu_preview_timer < 0:
@@ -1993,9 +1953,6 @@ func _process(dt: float) -> void:
 		if mode != "menu" and video.adapt(get_viewport(), measured):
 			hud.video_note.text = "Ajuste automático ativo: limite %d FPS." % video.runtime_fps
 		hud.fps_label.text = "%d FPS  /  alvo %d" % [measured, video.runtime_fps]
-	if rules.phase == "finished" and cup_active and not cup_resolved:
-		cup_resolved = true
-		finish_cup.call_deferred()
 	if rules.phase != last_phase:
 		if rules.phase == "finished" and mode == "pve" and level_index >= 0:
 			finish_level()
@@ -2116,118 +2073,10 @@ func capture_preview(path: String) -> void:
 	print("CAPTURE_RESULT ", error, " ", path)
 	get_tree().quit(error)
 
-func close_cup_screen() -> void:
+func close_menu_overlays() -> void:
 	if hud.skins_overlay.visible:
 		hud.close_skins()
-	cup_active = false
 	arena.show()
-	if is_instance_valid(cup_screen):
-		cup_screen.hide()
-
-func cup_action(id: String) -> void:
-	match id:
-		"play": start_cup()
-		"menu": return_to_menu()
-		"practice": start_pve()
-		"arenas": hud.open_levels()
-		"settings_open": hud.open_video()
-		"skins": hud.open_skins()
-		"powers": hud.open_powers()
-		"settings": hud.open_video()
-		"pvp": hud.open_pvp()
-
-func start_cup() -> void:
-	# A Taça match is the campaign level for that round, played exactly as the campaign
-	# plays it: its arena, its boss in its own colours, its kit, its pace and its theme.
-	if cup.confirmed_match().is_empty():
-		return
-	var index: int = cup.level_index()
-	var level: Dictionary = cup.level()
-	arena.show()
-	close_network()
-	pve_paused = false
-	mode = "pve"
-	local_team = 0
-	network_status = ""
-	level_index = -1
-	menu_level = index
-	use_map(level.map)
-	rules.ai_profile = cup.profile(game_settings.difficulty)
-	use_loadouts(cup.kit(), int(level.boss), Campaign.level_ultimate(index))
-	rules.reset_match()
-	dress_pilots(0)
-	arena.set_skin(1, int(level.boss), Campaign.is_minor(index), Campaign.level_hue(index))
-	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": cup.step(), "cup": true, "round": cup.round_name().to_upper(), "name": level.name, "challenge": level.get("challenge", ""), "boss_name": cup.opponent().to_upper(), "has_next": false}
-	hud.level_result = ""
-	hud.level_skin = ""
-	# Compile what the match can draw during the countdown, not at its first shot.
-	arena.warm_shaders.call_deferred()
-	hud.show_game(mode, 0)
-	sync_assist()
-	cup_screen.hide()
-	cup_active = true
-	cup_resolved = false
-	last_phase = ""
-	music.play_skin(Campaign.level_music(index))
-
-func finish_cup() -> void:
-	# The result becomes part of the story: a win moves the draw on and prints the next
-	# edition; a defeat is remembered by the kiosk and nothing else. Either way the run
-	# comes back to the hub, never to a generic menu.
-	var won = rules.winner == 0
-	var step: int = cup.step()
-	var rival: String = cup.opponent()
-	var boss: int = cup.boss_id()
-	var index: int = cup.level_index()
-	var score = Array(rules.scores).duplicate()
-	bank_bricks()
-	var rewards: Array = []
-	if won:
-		cup.complete(score)
-		open_arena(index)
-		if step > 0 and boss > 0 and skins.defeat(boss):
-			rewards.append(Skins.CATALOG[boss].name)
-		if cup.champion() and skins.defeat(11):
-			rewards.append(Skins.CATALOG[11].name)
-		save_skins()
-	else:
-		cup.lose(score)
-	if cup.save() != OK:
-		push_warning("Não foi possível guardar a Taça.")
-	sync_story()
-	return_to_menu()
-	open_cup()
-	cup_screen.show_after({"won": won, "score": score, "rival": rival, "step": step, "reward": " · ".join(rewards)})
-
-func open_arena(index: int) -> void:
-	# A round won opens its arena for free play in ARENAS, whatever the build.
-	if not campaign.completed.has(index):
-		campaign.completed.append(index)
-	campaign.unlocked = clampi(maxi(campaign.unlocked, index + 2), 1, Campaign.LEVELS.size())
-	campaign.save_preferences()
-	hud.sync_campaign(campaign)
-
-func sync_story() -> void:
-	# What the lobby says about the story: the round to play and who waits in it.
-	if cup.champion():
-		hud.lobby.story_line = "Campeão da Taça Aurora"
-		hud.lobby.story_boss = -1
-	else:
-		var m: Dictionary = cup.confirmed_match()
-		hud.lobby.story_round = String(m.round_name).to_upper()
-		hud.lobby.story_line = "vs " + String(m.name).to_upper()
-		hud.lobby.story_boss = int(m.boss)
-	hud.lobby.story_news = Press.has_new_edition(cup)
-	hud.lobby.refresh()
-
-func open_cup() -> void:
-	# The hub takes the whole screen: the lobby's own top bar and rail step aside.
-	hud.lobby.hide()
-	hud.lobby.close_sheet()
-	cup_screen.show()
-	cup_screen.refresh()
-	arena.hide()
 
 func preview_skin_music(index: int) -> void:
 	if skin_music_return.is_empty():

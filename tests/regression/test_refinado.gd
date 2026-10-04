@@ -1,5 +1,4 @@
 extends SceneTree
-const Cup = preload("res://scripts/story/cup.gd")
 const View = preload("res://scripts/presentation/arena_view.gd")
 const Video = preload("res://scripts/settings/video_settings.gd")
 func _initialize() -> void: call_deferred("run")
@@ -21,17 +20,5 @@ func run() -> void:
 		var outward = (vertices[i+2]-vertices[i]).cross(vertices[i+1]-vertices[i])
 		assert(outward.dot(normals[i]) > 0)
 	view.free()
-	# The Taça's admission still opens the story and survives a restart.
-	var cup = Cup.new()
-	cup.path = "user://refinado-admission-test.cfg"
-	assert(cup.opponent() == "Bit" and cup.level().boss == 0)
-	assert(cup.complete([2, 1]) and cup.wins == 0 and cup.rounds_played() == 0)
-	assert(cup.opponent() == "Salvo" and cup.entrance_score == [2, 1])
-	assert(cup.save() == OK)
-	var restored = Cup.new()
-	restored.path = cup.path
-	restored.restore()
-	assert(restored.entrance_passed and restored.entrance_score == [2, 1] and restored.wins == 0 and restored.opponent() == "Salvo")
-	DirAccess.remove_absolute(cup.path)
-	print("PASS REFINADO: outward smooth geometry, caching, and admission persistence")
+	print("PASS REFINADO: outward smooth geometry, and caching")
 	quit()

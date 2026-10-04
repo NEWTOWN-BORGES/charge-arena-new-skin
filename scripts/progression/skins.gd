@@ -31,7 +31,7 @@ const CATALOG = [
 		"body": "c2472e", "light": "ffcf5a", "shot": "ffc84a"},
 	{"name": "HÉLIO", "ultimate": "sun_ray", "weapon": "Cetro Solar", "bricks": "Obeliscos solares", "about": "Senhor do circuito: coroa de raios a girar, asas nos ombros, núcleo solar e cetro com um sol.", "level": 11,
 		"body": "f0b429", "light": "ffe36a", "shot": "fff06a"},
-	{"name": "MAGNUS", "ultimate": "b_forge", "weapon": "Manopla Imperial", "bricks": "Bastiões imperiais", "about": "Quatro títulos, um nome nas capas: armadura azul-real e ouro, louros a girar e capa de campeão.", "level": 0, "cup_reward": true,
+	{"name": "MAGNUS", "ultimate": "b_forge", "weapon": "Manopla Imperial", "bricks": "Bastiões imperiais", "about": "Quatro títulos, um nome nas capas: armadura azul-real e ouro, louros a girar e capa de campeão.", "level": 0,
 		"body": "27387c", "light": "ffd477", "shot": "ffd477"},
 	# Modo difícil da história: o mesmo chefe, outra cor e alguns adereços. "hard_of" é o
 	# chefe; vencê-lo no difícil desbloqueia esta skin.

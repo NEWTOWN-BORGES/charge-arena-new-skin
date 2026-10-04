@@ -1,6 +1,5 @@
 extends Control
 var cup_difficulty: OptionButton
-var world_visibility_allowed: Callable
 var options_scroll: ScrollContainer
 const Skins = preload("res://scripts/progression/skins.gd")
 const Robots = preload("res://scripts/presentation/robots.gd")
@@ -40,7 +39,6 @@ signal layout_changed
 signal skin_selected(index: int)
 signal skin_previewed(index: int)
 signal skin_preview_closed
-signal cup_requested
 var skin_strip: ScrollContainer
 var skin_music_note: Label
 signal difficulty_changed(level: int)
@@ -50,7 +48,6 @@ signal feedback_changed(camera: int, haptics: bool, automatic: bool, volume: flo
 signal effects_changed(full: bool)
 signal feel_tuning_requested
 # JOGAR in the story mode: straight to the next round's versus card.
-signal story_play_requested
 signal bosses_requested
 signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
@@ -856,8 +853,6 @@ func refresh_skins() -> void:
 	if entry.has("hard_of"):
 		var base_name = String(Skins.CATALOG[int(entry.hard_of)].name)
 		skin_state.text = ("DESBLOQUEADA  ·  SKIN DIFÍCIL DE " + base_name) if open else ("BLOQUEADA  ·  VENCE " + base_name + " NO MODO HISTÓRIA DIFÍCIL")
-	elif entry.get("cup_reward", false):
-		skin_state.text = "PRÉMIO DA TAÇA · DESBLOQUEADO" if open else "SKIN DE PRÉMIO · CONQUISTA A TAÇA"
 	elif level == 0:
 		skin_state.text = "DE SÉRIE"
 	elif open:
@@ -875,7 +870,7 @@ func refresh_skins() -> void:
 	elif open:
 		skin_action.text = "EQUIPAR"
 	else:
-		skin_action.text = "CONQUISTA A TAÇA" if entry.get("cup_reward", false) else "VENCE ESTE PILOTO"
+		skin_action.text = "VENCE ESTE PILOTO"
 	skin_action.disabled = skins_progress.selected == preview_index or not open
 	for index in range(skin_thumbs.size()):
 		var thumb: Button = skin_thumbs[index]
@@ -916,7 +911,7 @@ func draw_thumb(canvas: Control, index: int) -> void:
 	var color = MUTED
 	if locked:
 		canvas.draw_circle(Vector2(canvas.size.x * 0.5, 56), 47, Color(0.02, 0.05, 0.06, 0.45), true, -1, smooth)
-		caption = "PRÉMIO DA TAÇA" if Skins.CATALOG[index].get("cup_reward", false) else ("HISTÓRIA · DIFÍCIL" if Skins.CATALOG[index].has("hard_of") else "HISTÓRIA · NORMAL")
+		caption = "HISTÓRIA · DIFÍCIL" if Skins.CATALOG[index].has("hard_of") else "HISTÓRIA · NORMAL"
 	elif skins_progress.selected == index:
 		caption = "EQUIPADA"
 		color = SUN
@@ -1005,7 +1000,7 @@ func _process(dt: float) -> void:
 		animate_viewer(dt)
 	# The hangar covers the whole screen: drawing the arena underneath it every frame was half
 	# of what a weaker phone spent in there.
-	var hide_world = skins_overlay.visible or levels_overlay.visible or (world_visibility_allowed.is_valid() and not world_visibility_allowed.call())
+	var hide_world = skins_overlay.visible or levels_overlay.visible
 	if arena_view != null and is_instance_valid(arena_view) and arena_view.visible == hide_world:
 		# The stadium is hidden, not the whole 3D of the window: switching the window's 3D
 		# off could take the hangar's own viewer with it on a phone.
@@ -1186,8 +1181,6 @@ func play_chosen_mode() -> void:
 	match lobby.mode_id:
 		"quick":
 			open_map_picker()
-		"story":
-			story_play_requested.emit()
 		"bosses":
 			bosses_requested.emit()
 		"pvp":
@@ -3410,7 +3403,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 	UiKit.box(self, Rect2(at.x + (18.0 if is_left else rect.size.x - 58.0), at.y - 4, 40, 7), color, Color.TRANSPARENT, true)
 	var role = "TU" if side == 0 else ("ADVERSÁRIO / IA" if mode == "pve" else "ADVERSÁRIO")
 	if side == 1 and not level_info.is_empty():
-		role = ("FINALISTA" if level_info.number == 11 else "QUALIFICATÓRIA") if level_info.get("cup", false) else "BOSS · NÍVEL %d" % level_info.number
+		role = "BOSS · NÍVEL %d" % level_info.number
 	var pilot = "NOVA" if t == 0 else "EMBER"
 	if side == 1 and not level_info.is_empty():
 		pilot = level_info.boss_name
@@ -3588,7 +3581,7 @@ func draw_hud() -> void:
 	if vertical:
 		var round_text = "1º A %d GOLOS" % Rules.WIN_SCORE
 		if not level_info.is_empty():
-			round_text = ("FINAL" if level_info.number == 11 else "JOGO %d" % level_info.number) if level_info.get("cup", false) else "NÍVEL %d" % level_info.number
+			round_text = "NÍVEL %d" % level_info.number
 		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, UiKit.SUN_INK, true)
 		centered(digits, Vector2(score_rect.get_center().x, s.y + 52), 32, WHITE, true)
 		# The match clock, counting up while the ball is in play.

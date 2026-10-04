@@ -36,7 +36,7 @@ A proposta assenta em cinco escolhas:
 4. **Consentimento separado por finalidade**: estatísticas de jogo, relatórios de erros, publicidade e marketing. As duas últimas ficam sempre desligadas, porque não existem.
 5. **Localização nativa do Godot** (CSV para `.translation`) em pt, en, fr, es e it. O texto passa a usar chaves `tr("CHAVE")`.
 
-O volume de texto foi medido: cerca de **1 950 literais, 1 470 únicos e cerca de 10 800 palavras**. Uma parte não é texto visível (nomes de nós, metadados). Cerca de **3 700 palavras** pertencem à Taça Aurora, um modo que existe no código mas **não está acessível no lobby** (ver §1.6). A proposta é traduzir em duas ondas (§9).
+O volume de texto foi medido: cerca de **1 950 literais, 1 470 únicos e cerca de 10 800 palavras**. Uma parte não é texto visível (nomes de nós, metadados). Cerca de **3 700 palavras** pertenciam à Taça Aurora, que **foi retirada do jogo** (decisão do dono do jogo: os dois modos história chegam). Ficam cerca de 7 000 palavras, traduzidas numa só onda (§9).
 
 ---
 
@@ -74,7 +74,6 @@ Verificado no motor desta máquina: `Logger`, `OS.add_logger`, `ScriptBacktrace`
 | `begin_story(step, hard)` | 724 | Partida contra o chefe da ronda |
 | `finish_story()` | 770 | Resultado, desbloqueio de skin e conversa pós-partida |
 | `finish_level()` | 825 | Fim de partida em campanha ou história (chamado quando `phase` passa a `finished`) |
-| `start_cup()` / `finish_cup()` | 2139 / 2174 | Taça Aurora (inacessível, §1.6) |
 | `host_game()` / `join_game(ip)` | 944 / 973 | PvP em rede local (ENet, porta 27940) |
 | `peer_connected` / `joined_server` / `peer_disconnected` | 997–1019 | Ligação e desligação |
 | `return_to_menu(msg)` | 873 | Saída de qualquer modo, incluindo **abandono** a meio de partida |
@@ -97,7 +96,6 @@ Variáveis de estado relevantes:
 - `local_team`.
 - `level_index`.
 - `story_run`: `{step, hard, boss, training}`.
-- `cup_active`.
 - `backgrounded`.
 - `rules.phase`: `countdown`, `play`, `goal` ou `finished`.
 - `rules.winner`.
@@ -148,11 +146,10 @@ Variáveis de estado relevantes:
 | **Modo história NORMAL**: a aventura do BIT, Taça Charge Arena | `story_script.gd` `INTRO` (capítulos 1–2), treino com a BATIDA (capítulo 3, o tutorial da partida), `OPENING` (capítulo 4); depois 11 rondas `ORDER` (ROSCA … ECLIPSE). HÉLIO é o "professor" (avança mesmo perdendo) | **`story_1`**. Capítulo = `ch1_fine`, `ch2_call`, `ch3_training`, `ch4_opening`, `round_01` … `round_11`. Chefe = robô da ronda. Checkpoint = ronda vencida (`skins.story_won`) |
 | **Modo história DIFÍCIL**: Temporada 2 | `ORDER_HARD` (MAGNUS … HÉLIO), `S2_INTRO`, abre depois de acabar o NORMAL | **`story_2`**, rondas `round_01` … `round_11` |
 | **ARENAS**: campanha livre | `campaign.gd` `LEVELS` (11 arenas: `treino`, `farol`, … `coroa`, com chefes e "postos") | modo `campaign`, `map_id` = `level.map.id` |
-| **Taça Aurora**: modo antigo | `cup.gd`, `tournament.gd`, `story_hub/kiosk/press/paper/bracket/route/after` | **Inacessível:** o lobby já não tem a entrada `story`. Instrumentação mínima (`cup_*`) porque o código existe; tradução na onda 2 |
 
 - Save das histórias: `skins.story_won` (`n<skin>`, `h<skin>`, `p<skin>`, `treino`).
 - Save da campanha: `user://campaign.cfg`.
-- Save da Taça: `user://taca_v5.cfg`.
+- A Taça Aurora foi retirada; o antigo `user://taca_v5.cfg` fica esquecido no telemóvel (as skins que deu já estão guardadas em `skins`).
 - Não há checkpoints *dentro* de uma partida: cada ronda é uma partida curta.
 - **"Fases do chefe"** (Fase 16) não existem como mecânica. O equivalente mensurável é o **estado da partida**: placar, muralha restante e golo sofrido. Proponho `boss_phase_reached` com `phase` = `goal_conceded_1`, `goal_scored_1`, `wall_below_50` e `wall_down`, registado uma vez por tentativa.
 
@@ -170,8 +167,8 @@ Variáveis de estado relevantes:
 | `story_1` | `begin_story` (`hard=false`) |
 | `story_2` | `begin_story` (`hard=true`) |
 | `story_training` | `begin_training` |
-| `cup` | `start_cup` |
 | `pvp_lan` | `host_game` / `join_game` (`role` = `host`/`client`) |
+| `pvp_online` | PvP pela internet (§13), quando existir |
 | `test_arena` | só no LAB |
 
 **PvP:**
@@ -266,7 +263,7 @@ AnalyticsManager (autoload "Analytics")
 | `systems/analytics/BuildInfo.gd` | Versão, build, variante e loja, a partir de `ProjectSettings` e *feature tags* |
 | `systems/analytics/analytics_config.json` | `provider`, `host` UE, `api_key` pública, intervalos. Sem segredos |
 | `systems/localization/Localization.gd` | Deteção de idioma, preferência (`user://locale.cfg`), `language_changed`, utilitários de formatação |
-| `localization/translations.csv`, `story.csv`, `content.csv`, `press.csv` | `KEY,pt,en,fr,es,it` (UI; diálogos das histórias; poderes, skins, arenas e mapas; Taça Aurora) |
+| `localization/translations.csv`, `story.csv`, `content.csv` | `KEY,pt,en,fr,es,it` (UI; diálogos das histórias; poderes, skins, arenas e mapas) |
 | `ui/privacy` (no HUD) | Ecrã de consentimento na primeira abertura e secção Privacidade nas Opções |
 | `tools/i18n/extract_strings.py`, `tools/i18n/check_translations.py` | Inventário de literais e validação do CSV (chaves em falta, placeholders `%d`/`%s` coerentes, colunas vazias) |
 | `tests/regression/test_analytics_*.gd`, `test_localization.gd` | Testes automáticos (§10) |
@@ -292,7 +289,6 @@ As alterações são pequenas: chamadas de *tracking* e troca de literais por ch
 | `scripts/ui/lobby.gd`, `ui_kit.gd`, `unlock_notice.gd`, `feel_panel.gd` | Interface | Textos por chave | — |
 | `scripts/story/story_script.gd`, `story_talk.gd`, `story_versus.gd` | Histórias | Diálogos por chave (`tr` ao mostrar) | — |
 | `scripts/gameplay/powers.gd`, `progression/skins.gd`, `progression/campaign.gd`, `presentation/arena_theme.gd`, `settings/game_settings.gd` | Catálogos | Funções de nome visível por chave (`display_name(id)`). **Os catálogos e os IDs não mudam** | — |
-| Taça Aurora (`story_*`, `tournament.gd`, `news_scene.gd`, `cup.gd`) | Modo inacessível | Onda 2: textos por chave e `cup_*` mínimos | `cup_match_start` / `end` |
 
 ---
 
@@ -366,15 +362,13 @@ Nunca se envia posição, bala, HP a cada alteração, nem dados por frame.
 ## 9. Localização
 
 - **Formato.** CSV nativo (`KEY,pt,en,fr,es,it`), importado pelo Godot para `.translation` e registado em `internationalization/locale/translations`.
-- **Ficheiros.** Divididos por domínio para manutenção: `translations.csv` (UI), `story.csv`, `content.csv`, `press.csv`. Todos usam as mesmas colunas.
+- **Ficheiros.** Divididos por domínio para manutenção: `translations.csv` (UI), `story.csv`, `content.csv`. Todos usam as mesmas colunas.
 - **Chaves.** Prefixo por domínio, por exemplo:
   - `MENU_PLAY`, `HUD_WALL`, `SETTINGS_LANGUAGE`, `TUTORIAL_LOBBY_01_TITLE`;
   - `STORY1_INTRO_003`, `POWER_BLAST_NAME`, `SKIN_SALVO_ABOUT`, `LEVEL_FAROL_CHALLENGE`.
 - **Formatação.** Placeholders `%d`/`%s` na mesma ordem em todos os idiomas, validados por script. Sem plurais (o CSV não os suporta); quando é preciso, usam-se chaves separadas.
 - **Deteção.** Na primeira abertura, `OS.get_locale_language()`: se for pt, en, fr, es ou it usa esse; senão `en`. A escolha manual em Opções › Jogo › Idioma (Português, English, Français, Español, Italiano) é guardada em `user://locale.cfg`.
-- **Ondas.**
-  1. Tudo o que é acessível: menus, HUD, opções, tutoriais, loja, hangar, poderes, skins, arenas, mapas, avisos, Modo história NORMAL e DIFÍCIL. São cerca de 1 050 literais.
-  2. Taça Aurora (inacessível no lobby): cerca de 740 literais.
+- **Âmbito.** Uma só onda: menus, HUD, opções, tutoriais, loja, hangar, poderes, skins, arenas, mapas, avisos, Modo história NORMAL e DIFÍCIL. São cerca de 1 050 literais.
 - **Não se traduzem** IDs, ficheiros, URLs nem nomes técnicos. Os nomes próprios dos robôs (BIT, SALVO…) mantêm-se; as variantes descritivas ("SALVO BLINDADO") traduzem-se.
 
 ---
@@ -414,7 +408,7 @@ Manuais:
 | D2 | Consentimento | Estatísticas **opt-in** (ecrã no primeiro arranque); relatórios de erros ligados com aviso e opção de desligar |
 | D3 | Dados do LAB | Enviar para o projeto *dev*, nunca para o de produção |
 | D4 | Loja de origem | Um APK por loja com etiqueta (`store_galaxy`…) |
-| D5 | Taça Aurora | Traduzir na onda 2 (está fora do lobby) |
+| D5 | Taça Aurora | **Decidido:** retirada do jogo |
 
 A arquitetura, os eventos, o ID, as sessões, a privacidade e a localização avançam já, em modo local. Só o envio real depende da chave do PostHog (D1).
 
@@ -431,4 +425,37 @@ Cada passo é implementado, testado e guardado no GitHub antes do seguinte:
 5. Instrumentação: tutorial, História 1, História 2, chefes, partidas (incluindo metadados `src`/`by`), personagens, poderes, ultimates, mapas, skins, economia, PvP e desempenho.
 6. Localização: infraestrutura, extração e chaves (onda 1), PT/EN/FR/ES/IT, seletor de idioma, ecrã de consentimento, eventos de idioma.
 7. Testes completos, offline e Android (APK LAB), medição de desempenho.
-8. Documentação (`ANALYTICS_EVENTS`, `ANALYTICS_SETUP`, `PUBLISHER_DASHBOARD`), relatório final e onda 2 de tradução.
+8. Documentação (`ANALYTICS_EVENTS`, `ANALYTICS_SETUP`, `PUBLISHER_DASHBOARD`), e relatório final.
+
+---
+
+## 13. PvP online gratuito (pedido antes do lançamento)
+
+**Objetivo.** Quem acaba o Modo história da demo continua a jogar contra pessoas, sem custos para o jogo nem para o jogador.
+
+**Porque não chega o Firebase.** O Firebase não corre servidores de jogo em tempo real. O Cloud Run exige o plano Blaze (com cartão) e cobra por tempo ligado. Serve, isso sim, para:
+- alojar a política de privacidade (Firebase Hosting, plano Spark grátis), exigida pela Galaxy Store;
+- mais tarde, se for útil, identidade anónima ou tabelas de classificação.
+
+**Proposta: servidor dedicado grátis, com o próprio Godot.**
+- Um Godot *headless* corre as mesmas regras (`arena_rules.gd`) num servidor e os dois telemóveis ligam-se a ele por ENet (UDP), o protocolo que o PvP local já usa.
+- Não há "anfitrião com vantagem": o servidor é o árbitro. Funciona através de dados móveis e de routers (sem abrir portas).
+- **Alojamento:** Oracle Cloud *Always Free*, numa região europeia. Dá uma máquina ARM com 4 núcleos e 24 GB e 10 TB de tráfego por mês, a custo zero.
+  - Pede um cartão só para verificação; não cobra enquanto se ficar nos recursos grátis.
+  - Uma máquina parada pode ser recuperada pela Oracle. Os jogos e um processo de manutenção mantêm-na ativa; passar a conta a *Pay As You Go* sem sair do grátis evita isso.
+- **Alternativa:** Google Cloud e2-micro, grátis só nos EUA. Tem mais latência para a Europa.
+
+**O que muda no jogo:**
+1. Servidor: um processo que emparelha jogadores (fila) e abre um jogo por partida. A capacidade fica medida em teste; não há números estimados aqui.
+2. Cliente: um botão "ONLINE" no PvP com "Partida rápida" e "Sala com código" (para amigos). Usa o caminho de cliente que já existe (*snapshots*). O PvP local mantém-se.
+3. **Pouca gente online na demo:** se ninguém aparecer em 20–30 s, o jogo propõe jogar contra a IA, sempre identificada como IA. Nunca se finge que um bot é uma pessoa.
+4. Versão do protocolo: um cliente desatualizado recebe um aviso para atualizar.
+5. Analytics: os eventos `matchmaking_*` passam a medir a fila real (`mode = pvp_online`).
+
+**O que o dono do jogo tem de fazer:**
+- criar a conta Oracle Cloud;
+- criar a máquina com um guia passo a passo que será escrito;
+- correr um único comando de instalação preparado no repositório;
+- mais tarde, publicar a política de privacidade no Firebase Hosting.
+
+Nunca há chaves de administração dentro do APK.

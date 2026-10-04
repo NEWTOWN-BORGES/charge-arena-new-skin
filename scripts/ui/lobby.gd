@@ -27,10 +27,6 @@ const NAV_HEIGHT = 96.0
 var hud
 var mode_id = "quick"
 # What the story says right now, filled in by main.sync_story().
-var story_round = ""
-var story_line = ""
-var story_boss = -1
-var story_news = false
 var profile: Button
 var gear: Button
 var rail: VBoxContainer
@@ -336,25 +332,7 @@ func draw_mode_card() -> void:
 	var name: String = entry.name
 	var about: String = entry.about
 	var room = mode_card.size.x - 84
-	if entry.id == "story" and story_line != "":
-		name = story_round if story_round != "" else "TAÇA AURORA"
-		about = story_line
-		if story_boss >= 0:
-			var skins_s = hud.skins_progress
-			var beaten_s: bool = skins_s != null and story_boss < Skins.CATALOG.size() and skins_s.is_unlocked(story_boss)
-			var boss_at_s = Vector2(mode_card.size.x - 42, 38 + sink)
-			UiKit.disc(mode_card, boss_at_s, 30, UiKit.FIELD)
-			var picture_s: Texture2D = hud.robot_portrait(story_boss, false)
-			if picture_s != null:
-				mode_card.draw_texture_rect(picture_s, Rect2(boss_at_s - Vector2(36, 40), Vector2(72, 72)), false, Color.WHITE if beaten_s else Color(UiKit.CORAL.darkened(0.55), 1.0))
-			UiKit.ring(mode_card, boss_at_s, 30, UiKit.CORAL)
-			room -= 80
-		if story_news:
-			# A new edition is out: the paper has something to say about the last match.
-			var tag = Rect2(mode_card.size.x - (190 if story_boss >= 0 else 110), 8, 96, 20)
-			UiKit.box(mode_card, tag, UiKit.SUN, Color.TRANSPARENT, true)
-			mode_card.draw_string(f, tag.position + Vector2(8, 15), "NOVA EDIÇÃO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.INK)
-	elif entry.id == "campaign" and hud.campaign_state != null:
+	if entry.id == "campaign" and hud.campaign_state != null:
 		var level: Dictionary = Campaign.LEVELS[hud.menu_level]
 		var rival = String(level.name).to_upper() if int(level.boss) >= 100 else String(Skins.CATALOG[int(level.boss)].name)
 		about = ("Posto · " if int(level.boss) >= 100 else "Boss · ") + rival

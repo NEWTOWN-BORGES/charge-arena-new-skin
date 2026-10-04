@@ -13,7 +13,7 @@ func run() -> void:
 	assert(notice.close.size.x >= 44)
 	game.hud.announce_unlock([game.Skins.CATALOG[5].name])
 	assert(notice.pending.size() == 1)
-	game.open_cup()
+	game.hud.open_powers()
 	assert(notice.card.is_visible_in_tree() and notice.get_parent().layer == 20)
 	notice.dismiss()
 	assert(notice.current.id == 10)

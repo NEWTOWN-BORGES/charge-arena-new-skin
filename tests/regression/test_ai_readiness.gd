@@ -1,7 +1,6 @@
 extends SceneTree
 const Rules = preload("res://scripts/gameplay/arena_rules.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
-const Cup = preload("res://scripts/story/cup.gd")
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var human = Rules.new()
@@ -46,7 +45,7 @@ func run() -> void:
 			r = Rules.new()
 			r.phase = "play"
 			r.ai_level = difficulty
-			r.ai_profile = Cup.new().profile(difficulty) if story else Campaign.ai_profile(1, difficulty)
+			r.ai_profile = Campaign.ai_profile(0, difficulty) if story else Campaign.ai_profile(1, difficulty)
 			r.loadouts[1] = ["blast", "air", "meteors"]
 			r.power_rng.seed = 50924
 			var first = -1.0
