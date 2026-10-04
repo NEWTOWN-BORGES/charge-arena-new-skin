@@ -2,7 +2,7 @@
 
 Jogo de arena 3D em Godot: disparos com ricochete, muralhas destrutíveis, poderes por piloto, campanha, PvP e batalhas 3 contra 3.
 
-Este é o repositório **NEWTOWN-BORGES/charge-arena-new-skin**. A base desta revisão é `a820bad`, da branch `claude/charge-arena-new-skin`, usada na auditoria da versão **3.44.0 LAB**. O histórico do projeto antigo está em [docs/archive](docs/archive/README-3.44-original.md).
+Este é o repositório **NEWTOWN-BORGES/charge-arena-new-skin**. A base desta revisão é `a820bad`, da branch `claude/charge-arena-new-skin`, usada na auditoria da versão 3.44.0 LAB; a versão atual é a **3.45.0** (código 74), que junta a atualização heroica 3.44.0 e as batalhas 3 contra 3 desta ramificação. O histórico do projeto antigo está em [docs/archive](docs/archive/README-3.44-original.md).
 
 ## Abrir e jogar
 
@@ -51,7 +51,7 @@ Capturas e testes que leem MultiMesh precisam de um renderizador gráfico; `--he
 
 ## Android e saves
 
-Os presets são Alfa, Teste e LAB. O LAB usa `org.chargearena.newskinlab`, correspondente ao APK 3.44.0 inspecionado; os outros identificadores existentes são preservados. Instalar uma atualização sobre uma app existente exige **o mesmo pacote e a mesma assinatura**. Não desinstalar a app para testar uma atualização se quiser preservar os saves.
+Os presets são Alfa, Teste e LAB. O LAB usa `org.chargearena.newskinlab`, correspondente aos APK 3.44.0 e 3.45.0; os outros identificadores existentes são preservados. Instalar uma atualização sobre uma app existente exige **o mesmo pacote e a mesma assinatura**. Não desinstalar a app para testar uma atualização se quiser preservar os saves.
 
 O script `tools/export_apk.sh` exporta **o commit atual**, numa pasta temporária, usando o ambiente preparado por `tools/setup_env.sh --android`. Falhas de importação ou exportação interrompem o build. A publicação de uma release continua a ser um passo separado: alterar o código ou os presets não substitui um APK já instalado nem publicado.
 
