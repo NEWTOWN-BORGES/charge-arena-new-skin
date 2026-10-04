@@ -27,7 +27,7 @@ LAN_LOCK = threading.Lock()
 
 def mirror(destination: Path) -> None:
     destination.mkdir(parents=True)
-    for directory in ("scripts", "scenes", "shaders", "art", "audio", "tests", ".godot"):
+    for directory in ("scripts", "systems", "localization", "scenes", "shaders", "art", "audio", "tests", ".godot"):
         source = ROOT / directory
         for path in source.rglob("*"):
             if not path.is_file() or "editor" in path.relative_to(source).parts:

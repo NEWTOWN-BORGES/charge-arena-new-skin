@@ -12,6 +12,7 @@ const GameSettings = preload("res://scripts/settings/game_settings.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
 const Online = preload("res://scripts/network/online.gd")
+const Analytics = preload("res://systems/analytics/AnalyticsManager.gd")
 var skin_music_return = ""
 const PORT = 27940
 var rules = Rules.new()
@@ -45,6 +46,7 @@ var online_state = ""
 # What was asked for: "" quick match, Online.NEW_ROOM, or a friend's room code.
 var online_room = ""
 var online_wait = 0.0
+var analytics
 var pause_ai = false
 var tones: Dictionary = {}
 var audio: AudioStreamPlayer
@@ -110,6 +112,8 @@ func configure_test_access(enabled: bool) -> void:
 	campaign.unlock_all = true
 
 func _ready() -> void:
+	# Statistics and error reports, with the player's consent (nothing before it).
+	analytics = Analytics.install(self)
 	arena = ArenaView.new()
 	feel.load_values()
 	arena.feel = feel
@@ -144,6 +148,8 @@ func _ready() -> void:
 	hud.resume_requested.connect(resume_pve)
 	hud.quit_requested.connect(return_to_menu)
 	hud.replay_requested.connect(replay)
+	hud.privacy_chosen.connect(choose_privacy)
+	hud.video_opened.connect(sync_privacy)
 	hud.online_requested.connect(join_online)
 	hud.video_changed.connect(change_video)
 	hud.video_opened.connect(func(): mouse_firing = false)
@@ -219,6 +225,8 @@ func _ready() -> void:
 	hud.sync_menu_level(menu_level)
 	show_menu_preview()
 	# First visit: a written tour of the lobby (not in automated runs without a screen).
+	maybe_privacy_prompt()
+	sync_privacy()
 	get_tree().create_timer(1.2).timeout.connect(maybe_lobby_tutorial)
 	hud.show_menu()
 	get_window().focus_exited.connect(func(): hud.reset_touch(); mouse_firing = false)
@@ -1952,9 +1960,23 @@ var force_tutorials = false
 func tutorials_allowed() -> bool:
 	return force_tutorials or DisplayServer.get_name() != "headless"
 
+func maybe_privacy_prompt() -> void:
+	# First launch (or a changed policy): the privacy question comes before any tour.
+	if analytics.needs_prompt() and tutorials_allowed() and not hud.privacy_prompt_open():
+		hud.show_privacy_prompt()
+
+func choose_privacy(allow_analytics: bool, allow_errors: bool, source: String) -> void:
+	analytics.set_consent(allow_analytics, allow_errors, source)
+	sync_privacy()
+	if source == "first_launch":
+		maybe_lobby_tutorial()
+
+func sync_privacy() -> void:
+	hud.sync_privacy(analytics.privacy.analytics_allowed(), analytics.privacy.errors_allowed() or not analytics.privacy.decided, analytics.anonymous_id)
+
 func maybe_lobby_tutorial() -> void:
 	# The lobby tour, once per device, when the lobby is really on screen.
-	if game_settings.tutorial_lobby or mode != "menu" or hud.tutorial_running() or not tutorials_allowed():
+	if game_settings.tutorial_lobby or mode != "menu" or hud.tutorial_running() or hud.privacy_prompt_open() or not tutorials_allowed():
 		return
 	hud.start_tutorial("lobby")
 

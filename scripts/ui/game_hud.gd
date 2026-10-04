@@ -53,6 +53,8 @@ signal feel_tuning_requested
 signal bosses_requested
 signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
+# The player's privacy choice: gameplay statistics and error reports, each on its own.
+signal privacy_chosen(analytics: bool, errors: bool, source: String)
 signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
 signal story_recap_requested(hard: bool)
@@ -103,6 +105,7 @@ signal map_orbited(dx: float, dy: float)
 signal map_zoomed(factor: float)
 const UiKit = preload("res://scripts/ui/ui_kit.gd")
 const Online = preload("res://scripts/network/online.gd")
+const AnalyticsConfig = preload("res://systems/analytics/AnalyticsConfig.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
 const CERAMIC = Color("e6e3f5")
@@ -120,6 +123,11 @@ var level_strip: HBoxContainer
 var level_label: Control
 var ip: LineEdit
 var room_code: LineEdit
+var privacy_overlay: ColorRect
+var privacy_panel: PanelContainer
+var analytics_choice: CheckButton
+var errors_choice: CheckButton
+var privacy_id_label: Label
 # Set by main: this match is online, and the queue has waited long enough to offer the AI.
 var online = false
 var offer_ai = false
@@ -342,6 +350,7 @@ func _ready() -> void:
 	build_levels_menu()
 	build_powers_menu()
 	build_map_picker()
+	build_privacy_prompt()
 	resized.connect(layout)
 	layout()
 
@@ -1037,8 +1046,6 @@ Feito com o motor Godot Engine (godotengine.org), licença MIT:
 Tipos de letra, licença SIL Open Font License 1.1 (scripts.sil.org/OFL):
 - Rubik - Copyright 2015 The Rubik Project Authors
 - Lilita One - Copyright 2011 Juan Montoreano
-- Lora - Copyright 2011 The Lora Project Authors
-- Playfair Display - Copyright 2017 The Playfair Display Project Authors
 
 Componentes de terceiros incluídos no Godot Engine:
 %s"""
@@ -2613,6 +2620,21 @@ func build_video_menu() -> void:
 	credits.add_theme_font_size_override("font_size", 18)
 	credits.pressed.connect(open_credits)
 	game.add_child(credits)
+	# PRIVACIDADE: the same two choices as the first-launch screen, changeable any time.
+	game.add_child(label("PRIVACIDADE", 19, WHITE, true))
+	analytics_choice = big_toggle(game, "Estatísticas de jogo anónimas")
+	errors_choice = big_toggle(game, "Relatórios de erros")
+	analytics_choice.toggled.connect(func(_v): privacy_chosen.emit(analytics_choice.button_pressed, errors_choice.button_pressed, "options"))
+	errors_choice.toggled.connect(func(_v): privacy_chosen.emit(analytics_choice.button_pressed, errors_choice.button_pressed, "options"))
+	privacy_id_label = label("", 14, MUTED)
+	privacy_id_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	game.add_child(privacy_id_label)
+	if AnalyticsConfig.PRIVACY_URL != "":
+		var policy = make_button("POLÍTICA DE PRIVACIDADE", false)
+		policy.custom_minimum_size.y = 64
+		policy.add_theme_font_size_override("font_size", 18)
+		policy.pressed.connect(func(): OS.shell_open(AnalyticsConfig.PRIVACY_URL))
+		game.add_child(policy)
 	var camera_help = label("Câmara: arrasta no mapa para rodar e aproximar; a tua vista fica guardada. Toca duas vezes no mapa para voltar à vista normal.", 16, MUTED)
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	game.add_child(camera_help)
@@ -2897,6 +2919,65 @@ func sync_video(settings) -> void:
 	video_note.text = "Se o jogo travar, escolhe Leve ou baixa o limite de FPS."
 	refresh_option_chips()
 
+func sync_privacy(analytics: bool, errors: bool, anonymous_id: String) -> void:
+	if not is_instance_valid(analytics_choice):
+		return
+	analytics_choice.set_pressed_no_signal(analytics)
+	errors_choice.set_pressed_no_signal(errors)
+	# Shown so a player can ask for their data to be deleted (see the privacy policy).
+	privacy_id_label.text = "O teu identificador anónimo: %s" % anonymous_id if anonymous_id != "" else ""
+
+func build_privacy_prompt() -> void:
+	# First launch: one plain question, two equal answers. Nothing is counted until the
+	# player answers yes; the game is the same either way.
+	privacy_overlay = ColorRect.new()
+	privacy_overlay.color = Color(UiKit.NIGHT, 0.96)
+	privacy_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(privacy_overlay)
+	privacy_panel = PanelContainer.new()
+	privacy_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
+	privacy_overlay.add_child(privacy_panel)
+	var list = VBoxContainer.new()
+	list.add_theme_constant_override("separation", 14)
+	privacy_panel.add_child(list)
+	list.add_child(label("ANTES DE JOGAR", 25, WHITE, true))
+	var about = label("Podemos contar, de forma anónima, como o jogo é jogado (modos, progresso, desempenho do telemóvel)? Ajuda-nos a melhorar o Charge Arena. Não há contas nem publicidade, e o jogo é igual com ou sem isto.", 16, Color(WHITE, 0.9))
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	about.custom_minimum_size.x = 400
+	list.add_child(about)
+	var errors_note = label("Os relatórios de erros técnicos estão ligados para podermos corrigir falhas. Podes mudar as duas coisas a qualquer momento em Opções › Jogo › Privacidade.", 14, MUTED)
+	errors_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	errors_note.custom_minimum_size.x = 400
+	list.add_child(errors_note)
+	var yes = make_button("SIM, PODEM CONTAR", true)
+	yes.custom_minimum_size.y = 60
+	list.add_child(yes)
+	yes.pressed.connect(func(): answer_privacy(true))
+	# The refusal is as big and as easy as the yes.
+	var no = make_button("NÃO, OBRIGADO", true)
+	no.custom_minimum_size.y = 60
+	list.add_child(no)
+	no.pressed.connect(func(): answer_privacy(false))
+	if AnalyticsConfig.PRIVACY_URL != "":
+		var policy = make_button("LER A POLÍTICA DE PRIVACIDADE", false)
+		policy.custom_minimum_size.y = 52
+		list.add_child(policy)
+		policy.pressed.connect(func(): OS.shell_open(AnalyticsConfig.PRIVACY_URL))
+	privacy_overlay.hide()
+
+func show_privacy_prompt() -> void:
+	reset_touch()
+	move_child(privacy_overlay, -1)
+	privacy_overlay.show()
+	layout()
+
+func privacy_prompt_open() -> bool:
+	return is_instance_valid(privacy_overlay) and privacy_overlay.visible
+
+func answer_privacy(analytics: bool) -> void:
+	privacy_overlay.hide()
+	privacy_chosen.emit(analytics, true, "first_launch")
+
 func emit_video() -> void:
 	video_changed.emit([30, 45, 60, 90][fps_choice.selected], quality_choice.selected, sync_choice.button_pressed, counter_choice.button_pressed, shadow_choice.button_pressed)
 
@@ -2989,6 +3070,9 @@ func layout() -> void:
 	levels_panel.position = Vector2((size.x - levels_width) * 0.5, safe_top + 16)
 	pvp_panel.size = pvp_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 	pvp_panel.position = thumb_panel_position(pvp_panel.size)
+	if is_instance_valid(privacy_panel):
+		privacy_panel.size = privacy_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
+		privacy_panel.position = ((size - privacy_panel.size) * 0.5).floor()
 	var shop_grid: GridContainer = shop_scroll.get_child(0)
 	# Three columns whenever the panel is wide enough: twenty-four powers in two left half
 	# the window empty.

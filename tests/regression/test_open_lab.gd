@@ -18,8 +18,9 @@ func run() -> void:
 	var lab_package = config.get_value("preset.2.options", "package/unique_name")
 	assert(lab_package != config.get_value("preset.0.options", "package/unique_name"))
 	assert(lab_package != config.get_value("preset.1.options", "package/unique_name"))
-	assert(config.get_value("preset.0", "custom_features") == "")
-	assert(config.get_value("preset.1", "custom_features") == "")
+	# The store and test builds carry their own tags for analytics, never the LAB's.
+	assert(config.get_value("preset.0", "custom_features") == "store_galaxy")
+	assert(config.get_value("preset.1", "custom_features") == "playtest")
 	game.free()
 	print("OPEN_LAB_PASS: all skins, powers and maps; no invented wins; isolated package and export flag")
 	quit()
