@@ -24,6 +24,8 @@ const Powers = preload("res://scripts/gameplay/powers.gd")
 signal test_arena_requested
 signal powers_opened
 signal pvp_ai_requested
+# Online PvP: "" quick match, Online.NEW_ROOM a room for a friend, or a room code.
+signal online_requested(room: String)
 signal squad_requested(watch: bool)
 signal play_requested
 signal host_requested
@@ -100,6 +102,7 @@ signal map_picker_closed
 signal map_orbited(dx: float, dy: float)
 signal map_zoomed(factor: float)
 const UiKit = preload("res://scripts/ui/ui_kit.gd")
+const Online = preload("res://scripts/network/online.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
 const CERAMIC = Color("e6e3f5")
@@ -116,6 +119,10 @@ var lobby
 var level_strip: HBoxContainer
 var level_label: Control
 var ip: LineEdit
+var room_code: LineEdit
+# Set by main: this match is online, and the queue has waited long enough to offer the AI.
+var online = false
+var offer_ai = false
 var back: Button
 var host_ai_button: Button
 var replay: Button
@@ -1328,6 +1335,46 @@ func build_pvp_menu() -> void:
 	list.add_theme_constant_override("separation", 14)
 	pvp_panel.add_child(list)
 	list.add_child(label("PvP · DOIS JOGADORES", 25, WHITE, true))
+	# Online: anyone, anywhere, through the game's server.
+	var online_ready = Online.available()
+	list.add_child(label("ONLINE", 17, WHITE, true))
+	var online_about = label("Joga contra qualquer pessoa pela internet, ou cria uma sala e dá o código a um amigo." if online_ready else "Brevemente: o servidor online ainda não está ligado.", 14, MUTED)
+	online_about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	online_about.custom_minimum_size.x = 400
+	list.add_child(online_about)
+	var quick = make_button("PARTIDA RÁPIDA ONLINE", true)
+	quick.custom_minimum_size.y = 58
+	quick.disabled = not online_ready
+	list.add_child(quick)
+	quick.pressed.connect(func(): close_pvp(); online_requested.emit(""))
+	var room_row = HBoxContainer.new()
+	room_row.add_theme_constant_override("separation", 8)
+	list.add_child(room_row)
+	room_code = LineEdit.new()
+	room_code.placeholder_text = "Código da sala"
+	room_code.max_length = Online.CODE_LENGTH
+	room_code.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	room_code.custom_minimum_size = Vector2(150, 52)
+	room_code.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.CARD_EDGE))
+	room_code.add_theme_color_override("font_color", WHITE)
+	room_code.add_theme_font_size_override("font_size", 16)
+	room_code.editable = online_ready
+	room_row.add_child(room_code)
+	var enter_room = make_button("ENTRAR NA SALA", false)
+	enter_room.custom_minimum_size.y = 52
+	enter_room.disabled = not online_ready
+	room_row.add_child(enter_room)
+	enter_room.pressed.connect(func():
+		var code = Online.clean_code(room_code.text)
+		if code.length() == Online.CODE_LENGTH:
+			close_pvp()
+			online_requested.emit(code))
+	var make_room = make_button("CRIAR SALA PARA UM AMIGO", false)
+	make_room.custom_minimum_size.y = 52
+	make_room.disabled = not online_ready
+	room_row.add_sibling(make_room)
+	make_room.pressed.connect(func(): close_pvp(); online_requested.emit(Online.NEW_ROOM))
+	list.add_child(label("REDE LOCAL (WI-FI)", 17, WHITE, true))
 	var about = label("Os dois aparelhos na mesma rede Wi-Fi e com esta versão. Um cria a sala; o outro escreve o IP que aparece e entra.", 14, MUTED)
 	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	about.custom_minimum_size.x = 400
@@ -3336,11 +3383,12 @@ func update_match(rules, status: String) -> void:
 		wall_health[t] = hp
 	network_status = status
 	if is_instance_valid(host_ai_button):
-		host_ai_button.visible = mode == "host" and (network_status.begins_with("IP:") or network_status == "À espera do rival…")
-	var finished = mode != "menu" and rules.phase == "finished" and mode != "client"
+		host_ai_button.visible = (mode == "host" and (network_status.begins_with("IP:") or network_status == "À espera do rival…")) or offer_ai
+	# An online guest gets the buttons too: there is no host to restart the match.
+	var finished = mode != "menu" and rules.phase == "finished" and (mode != "client" or online)
 	var in_campaign = not level_info.is_empty()
 	replay.visible = finished
-	replay.text = ("REPETIR NÍVEL" if level_result == "won" else "TENTAR DE NOVO") if in_campaign else "JOGAR NOVAMENTE"
+	replay.text = ("REPETIR NÍVEL" if level_result == "won" else "TENTAR DE NOVO") if in_campaign else ("NOVA PARTIDA ONLINE" if online else "JOGAR NOVAMENTE")
 	# In the story a lost match can still move on (HÉLIO's lesson): has_next says so.
 	next_button.visible = finished and in_campaign and (level_result == "won" or level_info.get("story", false)) and level_info.get("has_next", false)
 	# Only one bright button at a time: replay steps back when a next level is offered.

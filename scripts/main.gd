@@ -11,6 +11,7 @@ const PowerShop = preload("res://scripts/gameplay/powers.gd")
 const GameSettings = preload("res://scripts/settings/game_settings.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
+const Online = preload("res://scripts/network/online.gd")
 var skin_music_return = ""
 const PORT = 27940
 var rules = Rules.new()
@@ -38,6 +39,12 @@ var remote_age = 0.0
 var network_tick = 0.0
 var connection_timer = 0.0
 var network_status = ""
+# Online PvP: "" (not online), "connecting", "waiting" (queue or room), "playing", or
+# "ended" (the final whistle: the result stays on screen, the connection is gone).
+var online_state = ""
+# What was asked for: "" quick match, Online.NEW_ROOM, or a friend's room code.
+var online_room = ""
+var online_wait = 0.0
 var pause_ai = false
 var tones: Dictionary = {}
 var audio: AudioStreamPlayer
@@ -137,6 +144,7 @@ func _ready() -> void:
 	hud.resume_requested.connect(resume_pve)
 	hud.quit_requested.connect(return_to_menu)
 	hud.replay_requested.connect(replay)
+	hud.online_requested.connect(join_online)
 	hud.video_changed.connect(change_video)
 	hud.video_opened.connect(func(): mouse_firing = false)
 	hud.audio_changed.connect(change_audio)
@@ -219,8 +227,11 @@ func _ready() -> void:
 	multiplayer.peer_connected.connect(peer_connected)
 	multiplayer.peer_disconnected.connect(peer_disconnected)
 	multiplayer.connected_to_server.connect(joined_server)
-	multiplayer.connection_failed.connect(func(): return_to_menu.call_deferred("Não foi possível ligar. Confirma o IP e a rede."))
-	multiplayer.server_disconnected.connect(func(): return_to_menu.call_deferred("O anfitrião saiu da partida."))
+	multiplayer.connection_failed.connect(func(): return_to_menu.call_deferred("Não foi possível ligar ao servidor online. Confirma a ligação à internet." if online_state != "" else "Não foi possível ligar. Confirma o IP e a rede."))
+	multiplayer.server_disconnected.connect(func():
+		if online_state == "ended":
+			return
+		return_to_menu.call_deferred("A ligação ao servidor online caiu." if online_state != "" else "O anfitrião saiu da partida."))
 	build_audio()
 	var scroll_gestures = preload("res://scripts/ui/ui_scroll.gd").new()
 	scroll_gestures.name = "ScrollGestures"
@@ -841,6 +852,11 @@ func close_network() -> void:
 	packets_received = 0
 	client_boosted_ids.clear()
 	client_blast_spots.clear()
+	online_state = ""
+	online_wait = 0.0
+	if is_instance_valid(hud):
+		hud.online = false
+		hud.offer_ai = false
 
 func return_to_menu(message: String = "") -> void:
 	if hud.skins_overlay.visible:
@@ -961,6 +977,82 @@ func join_game(address: String) -> void:
 	hud.show_game(mode, local_team)
 	music.play_skin(skins.selected)
 
+func join_online(room: String = "") -> void:
+	# Online PvP through the game's server: "" a quick match against anyone,
+	# Online.NEW_ROOM a room for a friend, or the code of a friend's room.
+	close_menu_overlays()
+	var address: Dictionary = Online.server_address()
+	if String(address.host) == "":
+		hud.show_menu("O PvP online chega em breve.")
+		return
+	close_network()
+	var peer = ENetMultiplayerPeer.new()
+	if peer.create_client(String(address.host), int(address.port)) != OK:
+		hud.show_menu("Não foi possível ligar ao servidor online.")
+		return
+	multiplayer.multiplayer_peer = peer
+	mode = "client"
+	online_state = "connecting"
+	online_room = room
+	online_wait = 0.0
+	hud.online = true
+	local_team = 0
+	arena.set_view_team(local_team)
+	connection_timer = 10.0
+	network_status = "A ligar ao servidor online…"
+	leave_campaign(Rules.pvp_map())
+	use_loadouts(PowerShop.STARTER_KIT.duplicate())
+	rules.reset_match()
+	dress_pilots(local_team)
+	hud.show_game(mode, local_team)
+	music.play_skin(skins.selected)
+
+func finish_online(reason: String) -> void:
+	if online_state == "playing" and reason == "":
+		# The final whistle: the result stays up with its buttons; the link is closed.
+		close_network()
+		online_state = "ended"
+		hud.online = true
+		network_status = ""
+		return
+	return_to_menu(reason if reason != "" else "O servidor online não aceitou a ligação.")
+
+@rpc("any_peer", "call_remote", "reliable")
+func online_hello(_protocol: int, _skin: int, _first: String, _second: String, _room: String) -> void:
+	# Handled by the server (scripts/network/online_server.gd); declared here so that both
+	# sides list the same remote calls.
+	pass
+
+@rpc("authority", "call_remote", "reliable")
+func online_waiting(code: String) -> void:
+	if mode != "client" or online_state != "waiting":
+		return
+	online_wait = 0.0
+	network_status = ("SALA %s · dá este código ao teu amigo" % code) if code != "" else "À procura de rival…"
+
+@rpc("authority", "call_remote", "reliable")
+func online_matched(team: int) -> void:
+	if mode != "client" or online_state != "waiting" or (team != 0 and team != 1):
+		return
+	online_state = "playing"
+	hud.offer_ai = false
+	local_team = team
+	arena.set_view_team(local_team)
+	use_loadouts(PowerShop.STARTER_KIT.duplicate())
+	rules.reset_match()
+	dress_pilots(local_team)
+	hud.show_game(mode, local_team)
+	connected = true
+	network_status = ""
+	print("ONLINE_MATCHED team=", team)
+
+@rpc("authority", "call_remote", "reliable")
+func online_closed(reason: String) -> void:
+	if mode != "client" or online_state == "":
+		return
+	# Deferred: the connection is closed outside the call that brought the news.
+	finish_online.call_deferred(reason)
+
 func peer_connected(id: int) -> void:
 	if mode == "host":
 		remote_id = id
@@ -976,6 +1068,13 @@ func peer_connected(id: int) -> void:
 		print("HOST_PEER_CONNECTED ", id)
 
 func joined_server() -> void:
+	if mode == "client" and online_state == "connecting":
+		# Online: say who we are and what we want; the server answers with a queue or a room.
+		online_state = "waiting"
+		online_wait = 0.0
+		network_status = "À procura de rival…" if online_room == "" else "A abrir a sala…"
+		online_hello.rpc_id(1, Online.PROTOCOL, skins.selected, String(power_shop.kit[0]), String(power_shop.kit[1]), online_room)
+		return
 	if mode == "client":
 		connected = true
 		network_status = ""
@@ -984,10 +1083,22 @@ func joined_server() -> void:
 		print("CLIENT_CONNECTED")
 
 func peer_disconnected(_id: int) -> void:
+	if online_state != "":
+		# The server says how an online match ends (online_closed) or drops the link.
+		return
 	if mode == "host" or mode == "client":
 		return_to_menu.call_deferred("O outro jogador desligou-se. Podes criar uma nova partida.")
 
 func replay() -> void:
+	if mode == "client" and online_state == "ended":
+		# Another online match: a quick match queues again; a room game goes back to the
+		# PvP menu, where a new room (and a new code) can be made.
+		if online_room == "":
+			join_online("")
+		else:
+			return_to_menu()
+			hud.open_pvp()
+		return
 	if mode == "pve" and bool(story_run.get("training", false)):
 		begin_training()
 		return
@@ -1682,6 +1793,11 @@ func _physics_process(dt: float) -> void:
 	if backgrounded or remote_backgrounded or mode == "menu":
 		return
 	if mode == "pve" and (hud.video_overlay.visible or pve_paused):
+		return
+	if mode == "client" and not connected and online_state in ["waiting", "ended"]:
+		online_wait += dt
+		# Nobody in the queue for a while: the AI is offered, always named as the AI.
+		hud.offer_ai = online_state == "waiting" and online_room == "" and online_wait >= Online.OFFER_AI_AFTER
 		return
 	if mode == "client" and not connected:
 		connection_timer -= dt
