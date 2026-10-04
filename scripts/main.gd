@@ -13,6 +13,8 @@ const Campaign = preload("res://scripts/progression/campaign.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
 const Online = preload("res://scripts/network/online.gd")
 const Analytics = preload("res://systems/analytics/AnalyticsManager.gd")
+const Localization = preload("res://systems/localization/Localization.gd")
+const EventSchema = preload("res://systems/analytics/EventSchema.gd")
 var skin_music_return = ""
 const PORT = 27940
 var rules = Rules.new()
@@ -114,6 +116,8 @@ func configure_test_access(enabled: bool) -> void:
 func _ready() -> void:
 	# Statistics and error reports, with the player's consent (nothing before it).
 	analytics = Analytics.install(self)
+	# The saved language, or the phone's on first launch (Portuguese in automated runs).
+	Localization.apply_startup()
 	arena = ArenaView.new()
 	feel.load_values()
 	arena.feel = feel
@@ -149,6 +153,7 @@ func _ready() -> void:
 	hud.quit_requested.connect(return_to_menu)
 	hud.replay_requested.connect(replay)
 	hud.privacy_chosen.connect(choose_privacy)
+	hud.language_chosen.connect(choose_language)
 	hud.video_opened.connect(sync_privacy)
 	hud.online_requested.connect(join_online)
 	hud.video_changed.connect(change_video)
@@ -1036,7 +1041,7 @@ func online_waiting(code: String) -> void:
 	if mode != "client" or online_state != "waiting":
 		return
 	online_wait = 0.0
-	network_status = ("SALA %s · dá este código ao teu amigo" % code) if code != "" else "À procura de rival…"
+	network_status = (tr("SALA %s · dá este código ao teu amigo") % code) if code != "" else "À procura de rival…"
 
 @rpc("authority", "call_remote", "reliable")
 func online_matched(team: int) -> void:
@@ -1970,6 +1975,13 @@ func choose_privacy(allow_analytics: bool, allow_errors: bool, source: String) -
 	sync_privacy()
 	if source == "first_launch":
 		maybe_lobby_tutorial()
+
+func choose_language(code: String) -> void:
+	var before = Localization.choose(code)
+	if before != code:
+		Analytics.track(EventSchema.LANGUAGE_CHANGED, {"from": before, "to": code, "source": "options"})
+	sync_privacy()
+	hud.language_changed()
 
 func sync_privacy() -> void:
 	hud.sync_privacy(analytics.privacy.analytics_allowed(), analytics.privacy.errors_allowed() or not analytics.privacy.decided, analytics.anonymous_id)

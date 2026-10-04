@@ -99,7 +99,7 @@ func run() -> void:
 	var code = a.network_status.substr(5, Online.CODE_LENGTH)
 	check(code.length() == Online.CODE_LENGTH and Online.clean_code(code) == code, "the code is readable")
 	b.join_online("ZZZZ")
-	check(await wait_until(func(): return b.mode == "menu" and b.hud.menu_status.text.contains("ZZZZ"), 5.0), "a wrong code is refused")
+	check(await wait_until(func(): return b.mode == "menu" and b.hud.menu_status.text == "Não há nenhuma sala com esse código.", 5.0), "a wrong code is refused")
 	b.join_online(code.to_lower())
 	check(await wait_until(func(): return a.connected and b.connected, 5.0), "a friend joins with the code")
 	check(server.rooms.is_empty(), "the room closes once full")

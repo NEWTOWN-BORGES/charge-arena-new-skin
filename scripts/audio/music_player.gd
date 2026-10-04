@@ -110,6 +110,12 @@ func _process(dt: float) -> void:
 			player.play()
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE:
+		# Stopped before the players go: a track still playing at exit kept its decoder
+		# alive past the engine's shutdown (the "resources still in use" in test runs).
+		for player in players.values():
+			player.stop()
+		return
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_RESUMED:
 		suspended = what == NOTIFICATION_APPLICATION_PAUSED
 		for player in players.values():

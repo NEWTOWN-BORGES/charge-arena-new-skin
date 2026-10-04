@@ -187,7 +187,7 @@ func welcome(id: int, protocol: int, skin: int, first: String, second: String, r
 		var code = Online.clean_code(room)
 		var host: int = rooms.get(code, 0)
 		if host == 0 or host == id or not peers.has(host):
-			refuse(id, "Não há nenhuma sala com o código %s." % code if code != "" else "Escreve o código da sala.")
+			refuse(id, "Não há nenhuma sala com esse código." if code != "" else "Escreve o código da sala.")
 			return
 		if matches.size() >= MAX_MATCHES:
 			refuse(id, "O servidor está cheio. Tenta daqui a pouco.")

@@ -55,6 +55,7 @@ signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
 # The player's privacy choice: gameplay statistics and error reports, each on its own.
 signal privacy_chosen(analytics: bool, errors: bool, source: String)
+signal language_chosen(code: String)
 signal notice_shown(kind: String)
 signal story_boss_chosen(step: int, hard: bool)
 signal story_recap_requested(hard: bool)
@@ -106,6 +107,7 @@ signal map_zoomed(factor: float)
 const UiKit = preload("res://scripts/ui/ui_kit.gd")
 const Online = preload("res://scripts/network/online.gd")
 const AnalyticsConfig = preload("res://systems/analytics/AnalyticsConfig.gd")
+const Localization = preload("res://systems/localization/Localization.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
 const CERAMIC = Color("e6e3f5")
@@ -128,6 +130,7 @@ var privacy_panel: PanelContainer
 var analytics_choice: CheckButton
 var errors_choice: CheckButton
 var privacy_id_label: Label
+var language_choice: OptionButton
 # Set by main: this match is online, and the queue has waited long enough to offer the AI.
 var online = false
 var offer_ai = false
@@ -2601,7 +2604,9 @@ func build_video_menu() -> void:
 	automatic_choice = CheckButton.new()
 	automatic_choice.hide()
 	controls.add_child(automatic_choice)
-	# JOGO: the opponent and how hard the game hits back.
+	# JOGO: the language first, then the opponent and how hard the game hits back.
+	language_choice = video_option(game, "Idioma", Localization.LANGUAGES.map(func(code): return Localization.NAMES[code]))
+	language_choice.item_selected.connect(func(index): language_chosen.emit(Localization.LANGUAGES[index]))
 	cup_difficulty = video_option(game, "Dificuldade da IA", ["Fácil", "Normal", "Difícil"])
 	cup_difficulty.item_selected.connect(func(index): difficulty_changed.emit(index))
 	camera_choice = video_option(game, "Tremor da câmara", ["Desligado", "Suave", "Completo"])
@@ -2925,7 +2930,18 @@ func sync_privacy(analytics: bool, errors: bool, anonymous_id: String) -> void:
 	analytics_choice.set_pressed_no_signal(analytics)
 	errors_choice.set_pressed_no_signal(errors)
 	# Shown so a player can ask for their data to be deleted (see the privacy policy).
-	privacy_id_label.text = "O teu identificador anónimo: %s" % anonymous_id if anonymous_id != "" else ""
+	privacy_id_label.text = tr("O teu identificador anónimo: %s") % anonymous_id if anonymous_id != "" else ""
+	if is_instance_valid(language_choice):
+		language_choice.select(maxi(0, Localization.LANGUAGES.find(Localization.current())))
+		refresh_option_chips()
+
+func language_changed() -> void:
+	# Labels and buttons follow the new language on their own; what is drawn by hand is
+	# painted again.
+	layout()
+	queue_redraw()
+	if is_instance_valid(lobby):
+		lobby.queue_redraw()
 
 func build_privacy_prompt() -> void:
 	# First launch: one plain question, two equal answers. Nothing is counted until the
@@ -3760,7 +3776,7 @@ func draw_moment() -> void:
 	var sub = ""
 	var detail = ""
 	if network_status != "":
-		message = network_status
+		message = tr(network_status)
 	elif match_data.phase == "countdown":
 		message = str(maxi(1, ceili(match_data.timer)))
 		sub = "AZUIS CONTRA VERMELHOS" if spectating else "PREPARA O TEU DISPARO"
