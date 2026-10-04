@@ -157,6 +157,7 @@ func _ready() -> void:
 	hud.video_opened.connect(sync_privacy)
 	hud.online_requested.connect(join_online)
 	hud.video_changed.connect(change_video)
+	hud.battery_saver_changed.connect(change_battery_saver)
 	hud.video_opened.connect(func(): mouse_firing = false)
 	hud.audio_changed.connect(change_audio)
 	video.load_preferences()
@@ -452,7 +453,7 @@ func use_map(layout: Dictionary) -> void:
 	arena = ArenaView.new()
 	add_child(arena)
 	# The world is dressed for the chosen profile (richer on the nicer ones).
-	arena.quality_level = video.quality
+	arena.quality_level = video.effective_quality()
 	arena.build(layout)
 	# A new stadium starts on team 0's side. The PvP guest joins on the PvP map, which
 	# rebuilds the stadium after its seat was turned round: without this the guest saw its
@@ -1476,6 +1477,10 @@ func change_audio(on: bool, volume: float) -> void:
 	hud.sync_audio(music)
 	if error != OK:
 		hud.video_note.text = "Aplicado nesta sessão. Não foi possível guardar as opções."
+
+func change_battery_saver(on: bool) -> void:
+	video.battery_saver = on
+	change_video(video.fps, video.quality, video.vsync, video.show_fps, video.shadows)
 
 func change_video(fps: int, quality: int, sync: bool, counter: bool, shadows: bool = false) -> void:
 	video.configure(fps, quality, sync, counter, 1 if shadows else 0)

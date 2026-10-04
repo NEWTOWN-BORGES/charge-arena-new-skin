@@ -27,6 +27,10 @@ var show_fps = false
 # Real shadows from the sun (robots and the court furniture). They draw the lit scene again,
 # so a phone starts without them and can switch them on in Options; a computer has them.
 var shadows = false
+# Battery saver: 30 FPS and the light picture whatever was chosen above, which stays
+# remembered for when it is switched off.
+const SAVER_FPS = 30
+var battery_saver = false
 var runtime_scale = 1.0
 var runtime_fps = 60
 var smooth_hud = true
@@ -73,6 +77,7 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 		saved_quality = 0
 		saved_fps = 30
 	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)), int(bool(config.get_value("video", "shadows", false))))
+	battery_saver = bool(config.get_value("video", "battery_saver", false))
 
 static func antialiasing(profile: int, mobile: bool = OS.has_feature("mobile")) -> int:
 	# All viewports share the same policy. A menu must not silently override the choice.
@@ -101,30 +106,39 @@ func save_preferences(path: String = CONFIG_PATH) -> Error:
 	config.set_value("video", "vsync", vsync)
 	config.set_value("video", "show_fps", show_fps)
 	config.set_value("video", "shadows", shadows)
+	config.set_value("video", "battery_saver", battery_saver)
 	config.set_value("video", "performance_version", 2)
 	config.set_value("video", "presentation_version", 3)
 	config.set_value("video", "low_end_version", 1)
 	return config.save(path)
 
+# The frame limit and picture actually used: the battery saver overrides the choices.
+func target_fps() -> int:
+	return SAVER_FPS if battery_saver else fps
+
+func effective_quality() -> int:
+	return 0 if battery_saver else quality
+
 func apply(viewport: Viewport, arena) -> void:
-	runtime_fps = fps
-	runtime_scale = RENDER_SCALES[quality]
+	var level = effective_quality()
+	runtime_fps = target_fps()
+	runtime_scale = RENDER_SCALES[level]
 	Engine.max_fps = runtime_fps
-	viewport.msaa_3d = antialiasing(quality)
-	viewport.screen_space_aa = SCREEN_AA[quality]
-	viewport.use_debanding = quality > 0
+	viewport.msaa_3d = antialiasing(level)
+	viewport.screen_space_aa = SCREEN_AA[level]
+	viewport.use_debanding = level > 0
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 	viewport.scaling_3d_scale = runtime_scale
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
-	arena.effect_limit = EFFECT_LIMITS[quality]
+	arena.effect_limit = EFFECT_LIMITS[level]
 	arena.ArenaFinish.lean = OS.has_feature("mobile") and weak_gpu()
 	# The light profile drops per-primitive antialiasing in the HUD: on a mid-range phone
 	# those 182 soft edges were more than half of the draw calls in a frame.
-	smooth_hud = quality > 0
-	arena.trail_interval = [0.11, 0.06, 0.035][quality]
-	arena.set_quality(quality)
-	arena.set_shadows(shadows)
+	smooth_hud = level > 0
+	arena.trail_interval = [0.11, 0.06, 0.035][level]
+	arena.set_quality(level)
+	arena.set_shadows(shadows and not battery_saver)
 
 func step_up(current: int) -> int:
 	# The next rate up the panel's own ladder, never above the chosen limit.
@@ -136,7 +150,7 @@ func step_up(current: int) -> int:
 	return fps
 
 func adapt(viewport: Viewport, measured_fps: float, force_mobile: bool = false) -> bool:
-	if (not OS.has_feature("mobile") and not force_mobile) or fps < 60:
+	if (not OS.has_feature("mobile") and not force_mobile) or target_fps() < 60:
 		return false
 	var expected = float(runtime_fps)
 	if measured_fps < expected * 0.84:

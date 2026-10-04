@@ -35,6 +35,7 @@ signal resume_requested
 signal quit_requested
 signal replay_requested
 signal video_changed(fps: int, quality: int, sync: bool, counter: bool, shadows: bool)
+signal battery_saver_changed(on: bool)
 signal video_opened
 signal audio_changed(enabled: bool, volume: float)
 signal layout_changed
@@ -131,6 +132,7 @@ var analytics_choice: CheckButton
 var errors_choice: CheckButton
 var privacy_id_label: Label
 var language_choice: OptionButton
+var battery_choice: CheckButton
 # Set by main: this match is online, and the queue has waited long enough to offer the AI.
 var online = false
 var offer_ai = false
@@ -2650,7 +2652,12 @@ func build_video_menu() -> void:
 		tuning.add_theme_font_size_override("font_size", 18)
 		tuning.pressed.connect(func(): feel_tuning_requested.emit())
 		game.add_child(tuning)
-	# IMAGEM E SOM.
+	# IMAGEM E SOM. The battery saver first: one switch that overrides the two below.
+	battery_choice = big_toggle(image, "Poupança de bateria")
+	battery_choice.toggled.connect(func(on): battery_saver_changed.emit(on))
+	var saver_note = label("30 FPS e qualidade Leve: o telemóvel aquece menos e a bateria dura mais.", 15, MUTED)
+	saver_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	image.add_child(saver_note)
 	quality_choice = video_option(image, "Qualidade", ["Leve", "Médio", "Alto"])
 	fps_choice = video_option(image, "Limite de FPS", ["30", "45", "60", "90"])
 	sync_choice = big_toggle(image, "VSync")
@@ -2920,6 +2927,7 @@ func sync_video(settings) -> void:
 	sync_choice.set_pressed_no_signal(settings.vsync)
 	counter_choice.set_pressed_no_signal(settings.show_fps)
 	shadow_choice.set_pressed_no_signal(settings.shadows)
+	battery_choice.set_pressed_no_signal(settings.battery_saver)
 	fps_label.visible = settings.show_fps
 	video_note.text = "Se o jogo travar, escolhe Leve ou baixa o limite de FPS."
 	refresh_option_chips()
