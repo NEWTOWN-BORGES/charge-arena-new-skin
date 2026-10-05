@@ -16,6 +16,7 @@ const MODES = [
 	# code stays behind the "story" id.
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
 	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "A aventura do BIT na Taça"},
+	{"id": "marathon", "name": "MARATONA", "about": "Rivais seguidos até perderes"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
 	{"id": "test", "name": "ARENA DE TESTE", "about": "Mais comprida, mais tijolos, bumpers dourados"},
@@ -316,6 +317,11 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 			UiKit.box(c, Rect2(at + Vector2(-8, -11), Vector2(16, 12)), color, Color.TRANSPARENT, true)
 			UiKit.fill(c, Rect2(at + Vector2(-1.5, 1), Vector2(3, 6)), color)
 			UiKit.box(c, Rect2(at + Vector2(-7, 7), Vector2(14, 4)), color, Color.TRANSPARENT, true)
+		"marathon":
+			# Three chevrons climbing: one rival after another.
+			for step in range(3):
+				var y = 9.0 - step * 8.0
+				c.draw_polyline(PackedVector2Array([at + Vector2(-9, y + 4), at + Vector2(0, y - 3), at + Vector2(9, y + 4)]), color, 3.0, true)
 		"test":
 			UiKit.ring(c, at, 11, UiKit.SUN)
 			UiKit.disc(c, at, 6, UiKit.SUN)
@@ -349,15 +355,17 @@ func draw_mode_card() -> void:
 		UiKit.ring(mode_card, boss_at, 30, UiKit.CORAL if not beaten else UiKit.SUN)
 		mode_card.draw_string(f, boss_at + Vector2(-16, 40), "POSTO" if station else "BOSS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UiKit.CORAL)
 		room -= 80
-	mode_card.draw_string(UiKit.title_font(), Vector2(80, 56 + sink), name, HORIZONTAL_ALIGNMENT_LEFT, room, 24, UiKit.WHITE)
-	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), about, HORIZONTAL_ALIGNMENT_LEFT, room, 14, UiKit.MUTED)
+	if entry.id == "marathon" and hud.marathon_record > 0:
+		about = tr("Recorde: %d vitórias") % hud.marathon_record
+	mode_card.draw_string(UiKit.title_font(), Vector2(80, 56 + sink), tr(name), HORIZONTAL_ALIGNMENT_LEFT, room, 24, UiKit.WHITE)
+	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), tr(about), HORIZONTAL_ALIGNMENT_LEFT, room, 14, UiKit.MUTED)
 
 func draw_sheet_card(card: Button, entry: Dictionary) -> void:
 	var chosen: bool = entry.id == mode_id
 	if chosen:
 		UiKit.box(card, Rect2(0, 8, 6, card.size.y - 21), UiKit.SUN, Color.TRANSPARENT, true)
 	mode_glyph(card, Vector2(44, 38), entry.id, UiKit.SUN if chosen else UiKit.WHITE)
-	card.draw_string(UiKit.title_font(), Vector2(84, 38), entry.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.WHITE)
-	card.draw_string(UiKit.body_font(), Vector2(84, 60), entry.about, HORIZONTAL_ALIGNMENT_LEFT, card.size.x - 170, 13, UiKit.MUTED)
+	card.draw_string(UiKit.title_font(), Vector2(84, 38), tr(entry.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.WHITE)
+	card.draw_string(UiKit.body_font(), Vector2(84, 60), tr(entry.about), HORIZONTAL_ALIGNMENT_LEFT, card.size.x - 170, 13, UiKit.MUTED)
 	if chosen:
 		card.draw_string(UiKit.strong_font(), Vector2(card.size.x - 92, 24), "ESCOLHIDO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.SUN)

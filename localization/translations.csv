@@ -45,3 +45,18 @@ A ligação ao servidor online caiu.,A ligação ao servidor online caiu.,The co
 Não foi possível ligar ao servidor online. Confirma a ligação à internet.,Não foi possível ligar ao servidor online. Confirma a ligação à internet.,Could not connect to the online server. Check your internet connection.,Impossible de se connecter au serveur en ligne. Vérifie ta connexion Internet.,No se pudo conectar con el servidor en línea. Comprueba tu conexión a internet.,Impossibile connettersi al server online. Controlla la connessione a internet.
 Poupança de bateria,Poupança de bateria,Battery saver,Économie de batterie,Ahorro de batería,Risparmio batteria
 30 FPS e qualidade Leve: o telemóvel aquece menos e a bateria dura mais.,30 FPS e qualidade Leve: o telemóvel aquece menos e a bateria dura mais.,30 FPS and Light quality: the phone runs cooler and the battery lasts longer.,30 FPS et qualité Légère : le téléphone chauffe moins et la batterie dure plus longtemps.,30 FPS y calidad Ligera: el teléfono se calienta menos y la batería dura más.,30 FPS e qualità Leggera: il telefono si scalda meno e la batteria dura di più.
+MARATONA,MARATONA,MARATHON,MARATHON,MARATÓN,MARATONA
+Rivais seguidos até perderes,Rivais seguidos até perderes,Rival after rival until you lose,Adversaire après adversaire jusqu'à la défaite,Rival tras rival hasta que pierdas,Un avversario dopo l'altro finché perdi
+Recorde: %d vitórias,Recorde: %d vitórias,Record: %d wins,Record : %d victoires,Récord: %d victorias,Record: %d vittorie
+RIVAL %d,RIVAL %d,RIVAL %d,ADVERSAIRE %d,RIVAL %d,AVVERSARIO %d
+MARATONA · RIVAL %d,MARATONA · RIVAL %d,MARATHON · RIVAL %d,MARATHON · ADVERSAIRE %d,MARATÓN · RIVAL %d,MARATONA · AVVERSARIO %d
+%s · recorde: %d vitórias,%s · recorde: %d vitórias,%s · record: %d wins,%s · record : %d victoires,%s · récord: %d victorias,%s · record: %d vittorie
+RIVAL %d VENCIDO · SEGUE-SE OUTRO,RIVAL %d VENCIDO · SEGUE-SE OUTRO,RIVAL %d BEATEN · NEXT ONE UP,ADVERSAIRE %d BATTU · AU SUIVANT,RIVAL %d VENCIDO · A POR EL SIGUIENTE,AVVERSARIO %d BATTUTO · AVANTI IL PROSSIMO
+FIM DA MARATONA,FIM DA MARATONA,MARATHON OVER,FIN DU MARATHON,FIN DEL MARATÓN,FINE DELLA MARATONA
+%d VITÓRIAS SEGUIDAS,%d VITÓRIAS SEGUIDAS,%d WINS IN A ROW,%d VICTOIRES D'AFFILÉE,%d VICTORIAS SEGUIDAS,%d VITTORIE DI FILA
+NOVO RECORDE!,NOVO RECORDE!,NEW RECORD!,NOUVEAU RECORD !,¡NUEVO RÉCORD!,NUOVO RECORD!
+NOVA MARATONA,NOVA MARATONA,NEW MARATHON,NOUVEAU MARATHON,NUEVO MARATÓN,NUOVA MARATONA
+PRÓXIMO RIVAL  →,PRÓXIMO RIVAL  →,NEXT RIVAL  →,ADVERSAIRE SUIVANT  →,SIGUIENTE RIVAL  →,PROSSIMO AVVERSARIO  →
+BOSS · NÍVEL %d,BOSS · NÍVEL %d,BOSS · LEVEL %d,BOSS · NIVEAU %d,JEFE · NIVEL %d,BOSS · LIVELLO %d
+NÍVEL %d,NÍVEL %d,LEVEL %d,NIVEAU %d,NIVEL %d,LIVELLO %d
+CAMPANHA · NÍVEL %d,CAMPANHA · NÍVEL %d,CAMPAIGN · LEVEL %d,CAMPAGNE · NIVEAU %d,CAMPAÑA · NIVEL %d,CAMPAGNA · LIVELLO %d

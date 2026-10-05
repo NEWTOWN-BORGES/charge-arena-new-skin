@@ -52,6 +52,7 @@ signal effects_changed(full: bool)
 signal feel_tuning_requested
 # JOGAR in the story mode: straight to the next round's versus card.
 signal bosses_requested
+signal marathon_requested
 signal tutorial_finished(kind: String, skipped: bool)
 signal tutorials_reset
 # The player's privacy choice: gameplay statistics and error reports, each on its own.
@@ -220,6 +221,8 @@ var pause_overlay: ColorRect
 var campaign_state = null
 # Level being played ({} outside the campaign) and how it ended: "", "won" or "lost".
 var level_info: Dictionary = {}
+# The best MARATONA run, shown on the lobby card.
+var marathon_record = 0
 var level_result = ""
 var level_opened = false
 # Name of the skin this win unlocked, for the result card.
@@ -1202,6 +1205,8 @@ func play_chosen_mode() -> void:
 			open_map_picker()
 		"bosses":
 			bosses_requested.emit()
+		"marathon":
+			marathon_requested.emit()
 		"pvp":
 			open_pvp()
 		"test":
@@ -3495,13 +3500,17 @@ func update_match(rules, status: String) -> void:
 	# An online guest gets the buttons too: there is no host to restart the match.
 	var finished = mode != "menu" and rules.phase == "finished" and (mode != "client" or online)
 	var in_campaign = not level_info.is_empty()
-	replay.visible = finished
+	var marathon = level_info.get("marathon", false)
+	replay.visible = finished and not (marathon and level_result == "won")
 	replay.text = ("REPETIR NÍVEL" if level_result == "won" else "TENTAR DE NOVO") if in_campaign else ("NOVA PARTIDA ONLINE" if online else "JOGAR NOVAMENTE")
+	if marathon:
+		replay.text = "NOVA MARATONA"
 	# In the story a lost match can still move on (HÉLIO's lesson): has_next says so.
 	next_button.visible = finished and in_campaign and (level_result == "won" or level_info.get("story", false)) and level_info.get("has_next", false)
 	# Only one bright button at a time: replay steps back when a next level is offered.
 	paint_button(replay, not next_button.visible)
-	levels_button.visible = finished and in_campaign
+	next_button.text = "PRÓXIMO RIVAL  →" if marathon else "PRÓXIMO NÍVEL  →"
+	levels_button.visible = finished and in_campaign and not marathon
 	# In the story the second button is the shop: lost to a boss, buy the powers to beat it.
 	levels_button.text = "LOJA DE PODERES" if level_info.get("story", false) else "NÍVEIS"
 	place_result_buttons()
@@ -3559,7 +3568,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 	UiKit.box(self, Rect2(at.x + (18.0 if is_left else rect.size.x - 58.0), at.y - 4, 40, 7), color, Color.TRANSPARENT, true)
 	var role = "TU" if side == 0 else ("ADVERSÁRIO / IA" if mode == "pve" else "ADVERSÁRIO")
 	if side == 1 and not level_info.is_empty():
-		role = "BOSS · NÍVEL %d" % level_info.number
+		role = (tr("RIVAL %d") % level_info.number) if level_info.get("marathon", false) else (tr("BOSS · NÍVEL %d") % level_info.number)
 	var pilot = "NOVA" if t == 0 else "EMBER"
 	if side == 1 and not level_info.is_empty():
 		pilot = level_info.boss_name
@@ -3737,7 +3746,7 @@ func draw_hud() -> void:
 	if vertical:
 		var round_text = "1º A %d GOLOS" % Rules.WIN_SCORE
 		if not level_info.is_empty():
-			round_text = "NÍVEL %d" % level_info.number
+			round_text = (tr("RIVAL %d") % level_info.number) if level_info.get("marathon", false) else (tr("NÍVEL %d") % level_info.number)
 		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, UiKit.SUN_INK, true)
 		centered(digits, Vector2(score_rect.get_center().x, s.y + 52), 32, WHITE, true)
 		# The match clock, counting up while the ball is in play.
@@ -3751,7 +3760,7 @@ func draw_hud() -> void:
 		var mode_at = Vector2(38, 142)
 		var mode_name = "TREINO / PvE" if mode == "pve" else "DUELO / PvP"
 		if not level_info.is_empty():
-			mode_name = "CAMPANHA · NÍVEL %d" % level_info.number
+			mode_name = (tr("MARATONA · RIVAL %d") % level_info.number) if level_info.get("marathon", false) else (tr("CAMPANHA · NÍVEL %d") % level_info.number)
 		write(mode_name, mode_at, 12, UiKit.SUN_INK, true, 4)
 		write("PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE, mode_at + Vector2(0, 23), 10, MUTED, true, 4)
 		centered(clock_text(), Vector2(score_rect.get_center().x, s.y + 15), 11, UiKit.SUN_INK, true)
@@ -3791,6 +3800,9 @@ func draw_moment() -> void:
 		if not level_info.is_empty():
 			sub = "NÍVEL %d · %s" % [level_info.number, level_info.name.to_upper()]
 			detail = level_info.challenge
+			if level_info.get("marathon", false):
+				sub = tr("MARATONA · RIVAL %d") % level_info.number
+				detail = tr("%s · recorde: %d vitórias") % [level_info.boss_name, int(level_info.get("record", 0))]
 	elif match_data.phase == "goal":
 		message = "GOLO!" if match_data.winner == team else "GOLO DO RIVAL"
 		sub = "NOVA RONDA A SEGUIR"
@@ -3801,7 +3813,16 @@ func draw_moment() -> void:
 		sub = "PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE
 		if spectating:
 			message = "OS AZUIS VENCEM!" if match_data.winner == 0 else "OS VERMELHOS VENCEM!"
-		if level_result == "won":
+		if level_info.get("marathon", false) and level_result != "":
+			# MARATONA: a win moves on to the next rival; the first defeat ends the run.
+			var wins = int(level_info.get("wins", 0))
+			if level_result == "won":
+				sub = tr("RIVAL %d VENCIDO · SEGUE-SE OUTRO") % level_info.number
+			else:
+				message = tr("FIM DA MARATONA")
+				sub = tr("%d VITÓRIAS SEGUIDAS") % wins
+			detail = tr("NOVO RECORDE!") if level_info.get("new_record", false) else tr("Recorde: %d vitórias") % int(level_info.get("record", 0))
+		elif level_result == "won":
 			sub = "NÍVEL %d CONCLUÍDO" % level_info.number
 			if not level_info.has_next:
 				sub = "A TAÇA É TUA!" if level_info.get("story", false) else "CAMPANHA CONCLUÍDA!"

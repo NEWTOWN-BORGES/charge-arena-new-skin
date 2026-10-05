@@ -12,6 +12,7 @@ const GameSettings = preload("res://scripts/settings/game_settings.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
 const Online = preload("res://scripts/network/online.gd")
+const Marathon = preload("res://scripts/progression/marathon.gd")
 const Analytics = preload("res://systems/analytics/AnalyticsManager.gd")
 const Localization = preload("res://systems/localization/Localization.gd")
 const EventSchema = preload("res://systems/analytics/EventSchema.gd")
@@ -48,6 +49,7 @@ var online_state = ""
 # What was asked for: "" quick match, Online.NEW_ROOM, or a friend's room code.
 var online_room = ""
 var online_wait = 0.0
+var marathon = Marathon.new()
 var analytics
 var pause_ai = false
 var tones: Dictionary = {}
@@ -216,8 +218,14 @@ func _ready() -> void:
 	sync_boss_skins()
 	hud.sync_campaign(campaign)
 	hud.level_selected.connect(start_level)
+	marathon.load_record()
+	hud.marathon_record = marathon.record
+	hud.marathon_requested.connect(start_marathon)
 	hud.next_level_requested.connect(func():
-		if not story_run.is_empty():
+		if marathon_live():
+			marathon.advance()
+			begin_marathon_round()
+		elif not story_run.is_empty():
 			start_story(int(story_run.step) + 1, bool(story_run.hard))
 		else:
 			start_level(Campaign.menu_level(level_index + 1)))
@@ -386,6 +394,58 @@ func start_level(index: int) -> void:
 		music.play_bot(Campaign.level_music(index))
 	else:
 		music.play_skin(Campaign.level_music(index))
+
+# --- MARATONA -------------------------------------------------------------------------
+
+func marathon_live() -> bool:
+	# The HUD's level card says which run is on screen; any other mode replaces it.
+	return hud.level_info.get("marathon", false)
+
+func start_marathon() -> void:
+	marathon.start()
+	begin_marathon_round()
+
+func begin_marathon_round() -> void:
+	var boss: int = marathon.rival()
+	var index: int = Marathon.level_of(boss)
+	var level: Dictionary = Campaign.LEVELS[index]
+	story_run = {}
+	arena.angry = [false, false]
+	close_menu_overlays()
+	pve_paused = false
+	close_network()
+	mode = "pve"
+	local_team = 0
+	arena.set_view_team(local_team)
+	network_status = ""
+	level_index = -1
+	use_map(level.map)
+	rules.ai_profile = marathon.ai_profile(game_settings.difficulty)
+	use_loadouts(marathon.kit(), boss)
+	rules.reset_match()
+	dress_pilots(local_team)
+	arena.set_skin(1, boss, false)
+	hud.team_hues = arena.unit_hues
+	hud.level_info = {"number": marathon.round_number, "name": level.name, "challenge": "", "boss_name": String(Skins.CATALOG[boss].name),
+		"has_next": true, "marathon": true, "record": marathon.record, "wins": marathon.wins}
+	hud.level_result = ""
+	hud.level_skin = ""
+	hud.level_opened = false
+	# A new round is always noticed as a new match, however quickly it follows the last.
+	last_phase = ""
+	arena.warm_shaders.call_deferred()
+	hud.show_game(mode, local_team)
+	sync_assist()
+	music.play_skin(boss)
+
+func finish_marathon() -> void:
+	var won = rules.winner == local_team
+	var beaten = marathon.finish(won)
+	hud.marathon_record = marathon.record
+	hud.level_info["wins"] = marathon.wins
+	hud.level_info["record"] = marathon.record
+	hud.level_info["new_record"] = beaten
+	hud.level_result = "won" if won else "lost"
 
 func leave_campaign(layout: Dictionary = {}) -> void:
 	story_run = {}
@@ -1104,6 +1164,9 @@ func peer_disconnected(_id: int) -> void:
 		return_to_menu.call_deferred("O outro jogador desligou-se. Podes criar uma nova partida.")
 
 func replay() -> void:
+	if mode == "pve" and marathon_live():
+		start_marathon()
+		return
 	if mode == "client" and online_state == "ended":
 		# Another online match: a quick match queues again; a room game goes back to the
 		# PvP menu, where a new room (and a new code) can be made.
@@ -2111,6 +2174,8 @@ func _process(dt: float) -> void:
 	if rules.phase != last_phase:
 		if rules.phase == "finished" and mode == "pve" and level_index >= 0:
 			finish_level()
+		elif rules.phase == "finished" and mode == "pve" and marathon_live():
+			finish_marathon()
 		if rules.phase == "goal" or rules.phase == "finished":
 			# The goal: a hit of the blast under the chime, and the strongest pulse of the match.
 			play_tone("blast", -3.0)
