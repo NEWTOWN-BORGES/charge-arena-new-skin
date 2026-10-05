@@ -29,7 +29,7 @@ LANGS = {
 ("Estatísticas de jogo (só com o teu consentimento)", [
  "Servem para perceber como o jogo é jogado e torná-lo melhor: que modos se jogam, onde os jogadores desistem, que níveis são difíceis demais.",
  "O que é enviado: um identificador aleatório criado no telemóvel (não está ligado ao teu nome, e-mail, conta Google nem ao identificador de publicidade); eventos de jogo (início e fim de partidas, modo, mapa, personagem, poderes usados, resultados, progresso nas histórias, tutorial, idioma, opções); dados técnicos (modelo e sistema do telemóvel, versão do jogo, desempenho em FPS).",
- "Quem recebe: PostHog, na região da União Europeia (Frankfurt, Alemanha), como subcontratante. O país é estimado a partir do endereço IP no momento do envio; o endereço IP não é guardado.",
+ "Quem recebe: PostHog, na região da União Europeia (Frankfurt, Alemanha), como subcontratante. O jogo apaga o endereço IP de cada evento antes de o enviar, por isso o endereço IP não é guardado nem usado para localizar o jogador. A região vem apenas da definição de idioma e região do telemóvel.",
  "Base legal: o teu consentimento (art. 6.º, n.º 1, alínea a) do RGPD). Os dados são apagados ao fim de 24 meses.",
 ]),
 ("Relatórios de erros", [
@@ -67,7 +67,7 @@ LANGS = {
 ("Gameplay statistics (only with your consent)", [
  "They help us understand how the game is played and make it better: which modes are played, where players give up, which levels are too hard.",
  "What is sent: a random identifier created on the phone (not linked to your name, email, Google account or advertising ID); gameplay events (match start and end, mode, map, character, powers used, results, story progress, tutorial, language, settings); technical data (phone model and system, game version, performance in FPS).",
- "Who receives it: PostHog, in its European Union region (Frankfurt, Germany), as a processor. Your country is estimated from your IP address when data is sent; the IP address is not stored.",
+ "Who receives it: PostHog, in its European Union region (Frankfurt, Germany), as a processor. The game blanks the IP address on every event before sending it, so the IP address is neither stored nor used to locate you. The region comes only from the phone's language and region setting.",
  "Legal basis: your consent (GDPR art. 6(1)(a)). The data is deleted after 24 months.",
 ]),
 ("Error reports", [
@@ -105,7 +105,7 @@ LANGS = {
 ("Statistiques de jeu (uniquement avec ton consentement)", [
  "Elles servent à comprendre comment le jeu est joué et à l'améliorer : quels modes sont joués, où les joueurs abandonnent, quels niveaux sont trop difficiles.",
  "Ce qui est envoyé : un identifiant aléatoire créé sur le téléphone (sans lien avec ton nom, ton e-mail, ton compte Google ou l'identifiant publicitaire) ; des événements de jeu (début et fin des parties, mode, carte, personnage, pouvoirs utilisés, résultats, progression des histoires, tutoriel, langue, options) ; des données techniques (modèle et système du téléphone, version du jeu, performances en FPS).",
- "Qui les reçoit : PostHog, dans sa région de l'Union européenne (Francfort, Allemagne), en tant que sous-traitant. Le pays est estimé à partir de l'adresse IP au moment de l'envoi ; l'adresse IP n'est pas conservée.",
+ "Qui les reçoit : PostHog, dans sa région de l'Union européenne (Francfort, Allemagne), en tant que sous-traitant. Le jeu efface l'adresse IP de chaque événement avant l'envoi : elle n'est ni conservée ni utilisée pour te localiser. La région provient uniquement du réglage de langue et de région du téléphone.",
  "Base légale : ton consentement (art. 6, paragraphe 1, point a) du RGPD). Les données sont supprimées au bout de 24 mois.",
 ]),
 ("Rapports d'erreurs", [
@@ -143,7 +143,7 @@ LANGS = {
 ("Estadísticas de juego (solo con tu consentimiento)", [
  "Sirven para entender cómo se juega y mejorar el juego: qué modos se juegan, dónde abandonan los jugadores, qué niveles son demasiado difíciles.",
  "Qué se envía: un identificador aleatorio creado en el teléfono (sin relación con tu nombre, correo, cuenta de Google ni identificador de publicidad); eventos de juego (inicio y fin de partidas, modo, mapa, personaje, poderes usados, resultados, progreso en las historias, tutorial, idioma, opciones); datos técnicos (modelo y sistema del teléfono, versión del juego, rendimiento en FPS).",
- "Quién los recibe: PostHog, en su región de la Unión Europea (Fráncfort, Alemania), como encargado del tratamiento. El país se estima a partir de la dirección IP en el momento del envío; la dirección IP no se guarda.",
+ "Quién los recibe: PostHog, en su región de la Unión Europea (Fráncfort, Alemania), como encargado del tratamiento. El juego borra la dirección IP de cada evento antes de enviarlo, así que no se guarda ni se usa para localizarte. La región procede solo del ajuste de idioma y región del teléfono.",
  "Base jurídica: tu consentimiento (art. 6.1.a del RGPD). Los datos se eliminan a los 24 meses.",
 ]),
 ("Informes de errores", [
@@ -181,7 +181,7 @@ LANGS = {
 ("Statistiche di gioco (solo con il tuo consenso)", [
  "Servono a capire come si gioca e a migliorare il gioco: quali modalità vengono giocate, dove i giocatori si arrendono, quali livelli sono troppo difficili.",
  "Cosa viene inviato: un identificativo casuale creato sul telefono (non collegato a nome, e-mail, account Google o ID pubblicitario); eventi di gioco (inizio e fine delle partite, modalità, mappa, personaggio, poteri usati, risultati, progressi nelle storie, tutorial, lingua, opzioni); dati tecnici (modello e sistema del telefono, versione del gioco, prestazioni in FPS).",
- "Chi li riceve: PostHog, nella sua regione dell'Unione europea (Francoforte, Germania), come responsabile del trattamento. Il paese è stimato dall'indirizzo IP al momento dell'invio; l'indirizzo IP non viene conservato.",
+ "Chi li riceve: PostHog, nella sua regione dell'Unione europea (Francoforte, Germania), come responsabile del trattamento. Il gioco cancella l'indirizzo IP da ogni evento prima di inviarlo, quindi non viene conservato né usato per localizzarti. La regione deriva solo dall'impostazione di lingua e regione del telefono.",
  "Base giuridica: il tuo consenso (art. 6, par. 1, lett. a) del GDPR). I dati vengono cancellati dopo 24 mesi.",
 ]),
 ("Segnalazioni di errori", [

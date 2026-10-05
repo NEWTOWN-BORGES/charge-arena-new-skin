@@ -31,6 +31,12 @@ func payload(batch: Array) -> Dictionary:
 		properties["distinct_id"] = event.distinct_id
 		properties["$process_person_profile"] = false
 		properties["$lib"] = "charge-arena-godot"
+		# The phone's address never reaches PostHog's records: PostHog takes the request's
+		# address unless the event names one, so every event names a blank one, and no
+		# location is looked up from it. The region comes from the phone's own locale
+		# (system_locale), which is all the game needs.
+		properties["$ip"] = "0.0.0.0"
+		properties["$geoip_disable"] = true
 		items.append({"event": event.event, "properties": properties, "timestamp": event.timestamp, "uuid": event.uuid})
 	return {"api_key": api_key, "batch": items}
 
