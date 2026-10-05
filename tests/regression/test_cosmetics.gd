@@ -3,6 +3,7 @@ extends SceneTree
 # brick wallet, the hangar workshop, and the looks worn in a match.
 const Cosmetics = preload("res://scripts/progression/cosmetics.gd")
 const Skins = preload("res://scripts/progression/skins.gd")
+const Robots = preload("res://scripts/presentation/robots.gd")
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -35,11 +36,15 @@ func run() -> void:
 	assert(not c.equip_paint(1, "carbono", Skins.CATALOG), "not owned")
 	assert(c.award("ouro") and not c.award("ouro"))
 	assert(c.buy("toxico", wallet) and c.equip_shot("toxico") and c.shot_color() == "6dff5a")
+	# Brick styles: ten of them, each a wall part; bought and worn like the rest.
+	assert(Cosmetics.BRICKS.size() >= 10)
+	assert(not c.equip_brick("tijolo_torre"), "not owned")
+	assert(c.buy("tijolo_torre", wallet) and c.equip_brick("tijolo_torre") and c.brick_part() == "brickstyle_torre")
 	assert(c.save_preferences() == OK)
 	var again = Cosmetics.new()
 	again.path = c.path
 	again.load_preferences()
-	assert(again.owns("lava") and again.paint_of(1) == "lava" and again.shot == "toxico" and again.owns("ouro"))
+	assert(again.owns("lava") and again.paint_of(1) == "lava" and again.shot == "toxico" and again.owns("ouro") and again.brick == "tijolo_torre")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.path))
 
 	# In the game: the hangar workshop, the wallet, the pedestal, the match.
@@ -65,6 +70,11 @@ func run() -> void:
 	game.hud.pick_workshop("shot", "arco_iris")
 	game.hud.workshop_act()
 	assert(game.cosmetics.shot == "arco_iris" and game.power_shop.bricks == 0)
+	game.power_shop.bricks = 150
+	game.hud.pick_workshop("brick", "tijolo_cofre")
+	assert(game.hud.viewer_brick_style == "brickstyle_cofre", "the pedestal shows the brick being looked at")
+	game.hud.workshop_act()
+	assert(game.cosmetics.brick == "tijolo_cofre" and game.power_shop.bricks == 0, "brick style bought and worn")
 	game.hud.close_skins()
 	assert(not game.hud.workshop_mode)
 	game.skins.selected = 0
@@ -75,10 +85,13 @@ func run() -> void:
 	await create_timer(0.4).timeout
 	assert(game.arena.shot_colors[0] != first, "rainbow shots turn through the colours")
 	assert(game.arena.unit_skins[0] == 0)
+	assert(game.arena.unit_bricks[0] == "brickstyle_cofre" and game.arena.unit_bricks[1] == "", "only the player's wall wears the style")
+	for part in Cosmetics.BRICKS.map(func(e): return String(e.part)):
+		assert(not Robots.part(part).is_empty() and not Robots.part("lo_" + part).is_empty(), part + " is in the kit")
 	for path in [game.cosmetics.path, game.power_shop.config_path]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	game.queue_free()
 	await process_frame
 	await process_frame
-	print("PASS COSMETICS: paints, corrupted set, shots, wallet, workshop, match looks")
+	print("PASS COSMETICS: paints, corrupted set, shots, brick styles, wallet, workshop, match looks")
 	quit()

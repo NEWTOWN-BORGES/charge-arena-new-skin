@@ -1257,8 +1257,10 @@ func dress_pilots(team: int) -> void:
 	# until PvP shares theirs.
 	arena.unit_paints[team] = cosmetics.palette_for(worn_skin())
 	arena.unit_shots[team] = cosmetics.shot_color()
+	arena.unit_bricks[team] = cosmetics.brick_part()
 	arena.unit_paints[1 - team] = {}
 	arena.unit_shots[1 - team] = ""
+	arena.unit_bricks[1 - team] = ""
 	arena.set_skin(team, worn_skin())
 	arena.set_skin(1 - team, 0)
 
@@ -1294,7 +1296,13 @@ func buy_cosmetic(id: String) -> void:
 	hud.sync_powers(power_shop)
 
 func equip_cosmetic(kind: String, id: String, skin: int) -> void:
-	var done = cosmetics.equip_shot(id) if kind == "shot" else cosmetics.equip_paint(skin, id, Skins.CATALOG)
+	var done = false
+	if kind == "shot":
+		done = cosmetics.equip_shot(id)
+	elif kind == "brick":
+		done = cosmetics.equip_brick(id)
+	else:
+		done = cosmetics.equip_paint(skin, id, Skins.CATALOG)
 	if not done:
 		return
 	save_cosmetics()

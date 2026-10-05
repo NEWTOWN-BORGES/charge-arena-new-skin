@@ -50,11 +50,26 @@ const SHOTS = [
 	{"id": "arco_iris", "name": "Arco-íris", "price": 300, "color": "rainbow"},
 ]
 
+# Brick styles for the player's wall, in the pilot's own colours (tools/blender/brick_styles.py).
+const BRICKS = [
+	{"id": "tijolo_cofre", "name": "Cofre", "price": 150, "part": "brickstyle_cofre"},
+	{"id": "tijolo_barril", "name": "Barris", "price": 150, "part": "brickstyle_barril"},
+	{"id": "tijolo_piramide", "name": "Pirâmide", "price": 200, "part": "brickstyle_piramide"},
+	{"id": "tijolo_torre", "name": "Torre", "price": 200, "part": "brickstyle_torre"},
+	{"id": "tijolo_pneus", "name": "Pneus", "price": 250, "part": "brickstyle_pneus"},
+	{"id": "tijolo_iglu", "name": "Iglu", "price": 250, "part": "brickstyle_iglu"},
+	{"id": "tijolo_hexagono", "name": "Hexágono", "price": 300, "part": "brickstyle_hexagono"},
+	{"id": "tijolo_bateria", "name": "Bateria", "price": 350, "part": "brickstyle_bateria"},
+	{"id": "tijolo_cristal", "name": "Cristais", "price": 400, "part": "brickstyle_cristal"},
+	{"id": "tijolo_neon", "name": "Néon", "price": 500, "part": "brickstyle_neon"},
+]
+
 var path = "user://cosmetics.cfg"
 var owned: Array = []
 # skin index (as a string, ConfigFile keys) -> paint id
 var paints: Dictionary = {}
 var shot = ""
+var brick = ""
 var unlock_all = false
 
 static func paint_entry(id: String) -> Dictionary:
@@ -68,6 +83,21 @@ static func shot_entry(id: String) -> Dictionary:
 		if entry.id == id:
 			return entry
 	return {}
+
+static func brick_entry(id: String) -> Dictionary:
+	for entry in BRICKS:
+		if entry.id == id:
+			return entry
+	return {}
+
+# Any look by its id: a paint, a shot colour or a brick style.
+static func entry_of(id: String) -> Dictionary:
+	var entry = paint_entry(id)
+	if entry.is_empty():
+		entry = shot_entry(id)
+	if entry.is_empty():
+		entry = brick_entry(id)
+	return entry
 
 static func is_corrupted_skin(skin: int, catalog: Array) -> bool:
 	# The hard-mode skins of the story's second season (BIT DE ELITE and MAGNUS IMPERADOR
@@ -86,15 +116,11 @@ func owns(id: String) -> bool:
 	return unlock_all or owned.has(id)
 
 func price(id: String) -> int:
-	var entry = paint_entry(id)
-	if entry.is_empty():
-		entry = shot_entry(id)
+	var entry = entry_of(id)
 	return int(entry.get("price", 0)) if not entry.is_empty() else -1
 
 func can_buy(id: String) -> bool:
-	var entry = paint_entry(id)
-	if entry.is_empty():
-		entry = shot_entry(id)
+	var entry = entry_of(id)
 	return not entry.is_empty() and not owns(id) and not entry.has("earn")
 
 # Pays from the brick wallet (the power shop's). Returns true when bought.
@@ -110,7 +136,7 @@ func buy(id: String, wallet) -> bool:
 
 # An earned look: given once, free.
 func award(id: String) -> bool:
-	if owns(id) or (paint_entry(id).is_empty() and shot_entry(id).is_empty()):
+	if owns(id) or entry_of(id).is_empty():
 		return false
 	owned.append(id)
 	return true
@@ -129,6 +155,16 @@ func equip_shot(id: String) -> bool:
 		return false
 	shot = id
 	return true
+
+func equip_brick(id: String) -> bool:
+	if id != "" and (not owns(id) or brick_entry(id).is_empty()):
+		return false
+	brick = id
+	return true
+
+# The wall part of the worn brick style ("" = the robot's own brick).
+func brick_part() -> String:
+	return String(brick_entry(brick).get("part", "")) if brick != "" else ""
 
 func paint_of(skin: int) -> String:
 	return String(paints.get(str(skin), ""))
@@ -152,10 +188,14 @@ func load_preferences() -> void:
 	shot = String(config.get_value("cosmetics", "shot", ""))
 	if shot != "" and not owns(shot):
 		shot = ""
+	brick = String(config.get_value("cosmetics", "brick", ""))
+	if brick != "" and (not owns(brick) or brick_entry(brick).is_empty()):
+		brick = ""
 
 func save_preferences() -> int:
 	var config = ConfigFile.new()
 	config.set_value("cosmetics", "owned", owned)
 	config.set_value("cosmetics", "paints", paints)
 	config.set_value("cosmetics", "shot", shot)
+	config.set_value("cosmetics", "brick", brick)
 	return config.save(path)

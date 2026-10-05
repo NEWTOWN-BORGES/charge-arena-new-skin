@@ -120,6 +120,8 @@ var shot_colors: Array = [CYAN, CORAL]
 var unit_paints: Array = [{}, {}]
 var unit_shots: Array = ["", ""]
 var unit_looks: Array = ["", ""]
+# The OFICINA brick style each side's wall is built in ("" = the robot's own brick).
+var unit_bricks: Array = ["", ""]
 var showroom_paint: Dictionary = {}
 var aim_guide: Node3D
 var guide_dots: MultiMeshInstance3D
@@ -994,7 +996,7 @@ func brick_skin(skin: int) -> int:
 	# carry up to two thousand triangles each.
 	return -1 if map.get("squad", false) else skin
 
-func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false) -> Node3D:
+func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false, style = null) -> Node3D:
 	# Every theme keeps the same footprint, the soft shadow and three team-coloured life lights.
 	var team_color = CYAN if data.team == 0 else CORAL
 	var brick = Node3D.new()
@@ -1016,7 +1018,9 @@ func make_brick(parent: Node3D, data: Dictionary, skin: int, tint: bool = false)
 	brick.set_meta("hp", int(map.get("lives", Rules.BRICK_LIVES)))
 	brick.set_meta("skin", skin)
 	soft_disc(brick, Vector3(0.035, 0.018, 0.06), Vector2(0.92, 0.58), Color(0.006, 0.015, 0.022, 0.70))
-	if Robots.brick(self, brick, brick_skin(skin), team_color, tint):
+	# Its side's OFICINA style unless the caller names one (the hangar previews them).
+	var worn_style: String = String(style) if style != null else (String(unit_bricks[data.team]) if int(data.team) < unit_bricks.size() else "")
+	if Robots.brick(self, brick, brick_skin(skin), team_color, tint, worn_style):
 		# A themed brick is tall and busy on top: its three life lights sit on the plinth,
 		# front and back, where they are always in sight.
 		for i in range(3):
@@ -1271,7 +1275,7 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 	# `tint`: dress the skin in a single colour instead of its own palette. `hue`: which
 	# colour, when it is not the team's - that is how the station pilots each get a look of
 	# their own out of hulls that already exist.
-	var look = str(unit_paints[team]) + String(unit_shots[team])
+	var look = str(unit_paints[team]) + String(unit_shots[team]) + String(unit_bricks[team])
 	if unit_skins[team] == skin and unit_tints[team] == tint and unit_hues[team] == hue and unit_looks[team] == look:
 		return
 	unit_looks[team] = look

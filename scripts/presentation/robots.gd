@@ -13,6 +13,8 @@ const ECLIPSE_KIT = preload("res://art/robots/eclipse16.glb")
 const BATIDA_KIT = preload("res://art/robots/batida13.glb")
 # ROSCA 13: the workshop engineer (tools/blender/rosca_engineer.py).
 const ROSCA_KIT = preload("res://art/robots/rosca13.glb")
+# OFICINA brick styles for the player's wall (tools/blender/brick_styles.py).
+const BRICK_STYLES_KIT = preload("res://art/robots/bricks13.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -148,7 +150,7 @@ static func colors(skin: int, team: Color, tint: bool = false, override: Diction
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT, BATIDA_KIT, ROSCA_KIT]:
+		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT, BATIDA_KIT, ROSCA_KIT, BRICK_STYLES_KIT]:
 			var scene: Node = library.instantiate()
 			for root in scene.get_children():
 				var items: Array = []
@@ -342,13 +344,16 @@ static func brick_part(skin: int, tint: bool = false) -> String:
 	var base = int(ROSTER.data.cast[skin].get("base", skin))
 	return String(BRICKS[base]) if base >= 0 and base < BRICKS.size() else ""
 
-static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false) -> bool:
+static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false, style: String = "") -> bool:
 	# The wall of whoever defends it: that robot's mechanical brick in its own colours, with
 	# the team's colour on the lid and the band of the plinth (blue near, red far) so the two
 	# walls always read as the two teams. A hard skin adds its neon. Returns false when the
 	# soft arena brick was used instead (station pilots): a rubbery block in the team colour
 	# with a cream cushion on top.
 	var part = brick_part(skin, tint)
+	# An OFICINA brick style replaces the robot's own brick, still in the robot's colours.
+	if style != "" and part != "" and not part(style).is_empty():
+		part = style
 	var strong = Color.from_hsv(team.h, maxf(team.s * 1.6, 0.76), team.v * 0.88)
 	if part != "":
 		var themed = colors(skin, team, tint)

@@ -303,6 +303,8 @@ var workshop_title: Label
 var workshop_wallet: Label
 var workshop_paints: HFlowContainer
 var workshop_shots: HFlowContainer
+var workshop_bricks: HFlowContainer
+var viewer_brick_style = ""
 var workshop_action: Button
 var workshop_note: Label
 var workshop_button: Button
@@ -647,9 +649,11 @@ func build_viewer_pilot() -> void:
 		return
 	var locked = skins_progress != null and not skins_progress.is_unlocked(preview_index)
 	var paint: Dictionary = {} if locked else workshop_preview_paint()
-	if viewer_skin == preview_index and viewer_locked == locked and viewer_paint == paint and is_instance_valid(viewer_pilot):
+	var brick_style: String = "" if locked else workshop_preview_brick()
+	if viewer_skin == preview_index and viewer_locked == locked and viewer_paint == paint and viewer_brick_style == brick_style and is_instance_valid(viewer_pilot):
 		return
 	viewer_paint = paint
+	viewer_brick_style = brick_style
 	if viewer_turntable.get_child_count() == 0:
 		# Pedestal with brass studs, so the turn is visible even on a symmetric pose.
 		arena_view.cylinder(viewer_turntable, Vector3(0, -0.1, 0), 1.08, 0.2, arena_view.DARK)
@@ -687,7 +691,7 @@ func build_viewer_pilot() -> void:
 		var data = {"team": 1 if locked else 0, "p": Vector2(side * 0.6, -0.36), "rotation": side * 0.6}
 		# Its own themed brick; locked, a dark shape like the pilot (a hard skin keeps its neon).
 		Robots.shadow_build = locked
-		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index))
+		viewer_bricks.append(arena_view.make_brick(viewer_turntable, data, preview_index, false, brick_style))
 		Robots.shadow_build = false
 		# Standing on the pedestal's top, not sunk into it.
 		viewer_bricks[-1].position.y = 0.02
@@ -914,6 +918,11 @@ func build_workshop() -> void:
 	workshop_shots.add_theme_constant_override("h_separation", 8)
 	workshop_shots.add_theme_constant_override("v_separation", 8)
 	column.add_child(workshop_shots)
+	column.add_child(label("TIJOLOS DA MURALHA", 18, WHITE, true))
+	workshop_bricks = HFlowContainer.new()
+	workshop_bricks.add_theme_constant_override("h_separation", 8)
+	workshop_bricks.add_theme_constant_override("v_separation", 8)
+	column.add_child(workshop_bricks)
 	workshop_note = label("", 15, MUTED)
 	workshop_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	workshop_note.custom_minimum_size.x = 300
@@ -943,6 +952,14 @@ func workshop_preview_paint() -> Dictionary:
 		return Cosmetics.paint_entry(String(workshop_pick.id)).get("palette", {})
 	return cosmetics_state.palette_for(preview_index)
 
+func workshop_preview_brick() -> String:
+	# The brick style beside the pilot: the one being looked at in the workshop, else the worn one.
+	if cosmetics_state == null:
+		return ""
+	if workshop_mode and workshop_pick.kind == "brick":
+		return String(Cosmetics.brick_entry(String(workshop_pick.id)).get("part", ""))
+	return cosmetics_state.brick_part()
+
 func workshop_chip(text: String, colors: Array, chosen: bool, on_press: Callable) -> Button:
 	var chip = Button.new()
 	chip.text = text
@@ -967,9 +984,7 @@ func workshop_status(id: String) -> String:
 	# What a chip says under its name: worn, owned, earned elsewhere, or its price.
 	if id == "" or cosmetics_state.owns(id):
 		return tr("TEU")
-	var entry = Cosmetics.paint_entry(id)
-	if entry.is_empty():
-		entry = Cosmetics.shot_entry(id)
+	var entry = Cosmetics.entry_of(id)
 	if entry.has("earn"):
 		return tr("MARATONA 15")
 	return tr("%d tijolos") % int(entry.price)
@@ -980,7 +995,7 @@ func refresh_workshop() -> void:
 	var skin = preview_index
 	workshop_title.text = tr("OFICINA · %s") % String(Skins.CATALOG[skin].name)
 	workshop_wallet.text = tr("Tijolos: %d") % (int(power_shop.bricks) if power_shop != null else 0)
-	for holder in [workshop_paints, workshop_shots]:
+	for holder in [workshop_paints, workshop_shots, workshop_bricks]:
 		for child in holder.get_children():
 			child.queue_free()
 	var worn_paint = cosmetics_state.paint_of(skin)
@@ -1003,10 +1018,20 @@ func refresh_workshop() -> void:
 		var status = tr("EQUIPADA") if worn_shot == id else workshop_status(id)
 		workshop_shots.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, tones,
 			workshop_pick.kind == "shot" and workshop_pick.id == id, func(): pick_workshop("shot", id)))
+	var worn_brick = cosmetics_state.brick
+	var own_colors = Robots.colors(skin, CYAN)
+	workshop_bricks.add_child(workshop_chip(tr("Original") + "\n" + (tr("EQUIPADA") if worn_brick == "" else tr("TEU")),
+		[own_colors.shell, own_colors.trim], workshop_pick.kind == "brick" and workshop_pick.id == "", func(): pick_workshop("brick", "")))
+	for entry in Cosmetics.BRICKS:
+		var id: String = entry.id
+		var status = tr("EQUIPADA") if worn_brick == id else workshop_status(id)
+		workshop_bricks.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, [own_colors.shell, own_colors.glow],
+			workshop_pick.kind == "brick" and workshop_pick.id == id, func(): pick_workshop("brick", id)))
 	# The action under the rows: buy what is picked, wear it, or say it is worn.
 	var id: String = String(workshop_pick.id)
 	var kind: String = String(workshop_pick.kind)
-	var worn = (worn_paint if kind == "paint" else worn_shot) == id
+	var worn_id = worn_paint if kind == "paint" else (worn_shot if kind == "shot" else worn_brick)
+	var worn = worn_id == id
 	workshop_note.text = ""
 	if worn:
 		workshop_action.text = tr("EQUIPADA")
@@ -1027,6 +1052,8 @@ func refresh_workshop() -> void:
 			workshop_note.text = tr("Faltam %d tijolos. Ganha-os a destruir tijolos nas partidas.") % (cost - money)
 	if kind == "shot" and id != "":
 		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("A cor dos disparos vale para todos os pilotos.")
+	if kind == "brick" and id != "":
+		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("O tijolo da muralha vale para todos os pilotos, nas cores de cada um.")
 
 func pick_workshop(kind: String, id: String) -> void:
 	workshop_pick = {"kind": kind, "id": id}
