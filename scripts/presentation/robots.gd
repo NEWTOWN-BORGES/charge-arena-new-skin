@@ -6,6 +6,9 @@ extends RefCounted
 ## an ink outline per group and a face screen of its own.
 const KIT = preload("res://art/robots/kit.glb")
 const HEROIC_KIT = preload("res://art/robots/heroic_cast.glb")
+# ECLIPSE 16: the executor, built joint by joint like BIT
+# (tools/blender/eclipse_mech.py).
+const ECLIPSE_KIT = preload("res://art/robots/eclipse16.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -141,7 +144,7 @@ static func colors(skin: int, team: Color, tint: bool = false, override: Diction
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		for library in [KIT, HEROIC_KIT]:
+		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT]:
 			var scene: Node = library.instantiate()
 			for root in scene.get_children():
 				var items: Array = []
