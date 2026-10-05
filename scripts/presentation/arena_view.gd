@@ -2034,13 +2034,11 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 		gun.rotation.x = recoil * 0.22 - ready_pose * 0.32 + sin(phase) * 0.05 * run * ready_pose
 		gun.rotation.z = -side * 0.06 * run * ready_pose
 		var kick = recoil * feel.get_value("fire_body_kick")
-		# The rules fire every round down the pilot's centre line; the robot stands a little to
-		# the side of it so its muzzle is on that line and the round flies straight out of the
-		# barrel instead of curving in to it.
-		var flash_local: Vector3 = gun.get_meta("rest", gun.position) + gun.get_node("Flash").position
-		var muzzle_shift = -right_of_body * flash_local.x
-		body.position.x = body.basis.z.x * kick + muzzle_shift.x
-		body.position.z = body.basis.z.z * kick + muzzle_shift.z
+		# The robot stands on its own spot, centred on its ring and aim line. The rules fire
+		# every round down that centre line; a fresh round leaves the muzzle and blends onto
+		# it over LAUNCH_BLEND (see projectile_launch), so nothing has to shift the body aside.
+		body.position.x = body.basis.z.x * kick
+		body.position.z = body.basis.z.z * kick
 		body.rotation.x += -recoil * 0.05
 		gun.get_node("Flash").scale = Vector3.ONE * maxf(0.001, 0.42 * (1.0 - age / feel.get_value("muzzle_flash_duration")))
 		emote(team, rules, body, legs, head, arm, gun)
