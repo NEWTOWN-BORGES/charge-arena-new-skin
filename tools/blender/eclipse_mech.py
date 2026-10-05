@@ -36,7 +36,7 @@ import mech_kit as mk  # noqa: E402
 from mech_cast import T, extruded, profile_radius, rev_panel, rev_point, scaled, screen_well  # noqa: E402
 from mech_kit import (axis_frame, bearing, bolts, cable, capsule, cyl_panel, frame, hand, lathe,  # noqa: E402
                       mbox, mring, mtube, plane, screw, serial, sphere_panel, sub)
-from mech_parts import leg, neck, pelvis, round_shin, round_thigh, shoulder, upper_arm, waist, wrist  # noqa: E402
+from mech_parts import leg, neck, round_shin, round_thigh, shoulder, upper_arm, waist, wrist  # noqa: E402
 
 OUTPUT = kit.ROOT / "art" / "robots" / "eclipse16.glb"
 PREFIX = "eclipse16_"
@@ -146,9 +146,32 @@ def eclipse16_torso(p):
         mtube(p, "glow", sub(stack, 0, 0.14, 0), 0.034, 0.02, 12)
         bolts(p, sub(stack, 0, -0.12, 0), 0.056, 4, size=0.009)
     waist(p, 0.97, c.y + bottom + 0.02, 0.12)
-    pelvis(p, (0, 0.88, 0.0), (0.3, 0.16, 0.27), E["hip"].x, E["hip"].y, 0.09)
+    hips(p)
     for side in (-1, 1):
         cable(p, [(side * 0.24, c.y + 0.2, 0.18), (side * 0.36, c.y + 0.22, 0.17), (side * 0.43, c.y + 0.04, 0.1)], 0.011)
+
+
+HIPS = [(-0.09, 0.15), (-0.04, 0.19), (0.02, 0.205), (0.07, 0.19), (0.1, 0.16)]
+
+
+def hips(p):
+    """Pelvis turned like the trunk: a dark core, front and back plates, a trim band, and the
+    hip bearings bolted on the open sides with their axles out to the legs."""
+    hip = E["hip"]
+    m = T(0, 0.9, 0.0) @ Matrix.Diagonal((1.0, 1.0, 0.85, 1.0))
+    lathe(p, "dark", m, [(0.0, HIPS[0][0])] + [(r - 0.03, y) for y, r in HIPS] + [(0.0, HIPS[-1][0])], 24)
+    rev_panel(p, "shell", m, HIPS, (-0.09, 0.09), (-140, -40), 0.034, (10, 6), gap=0.012)
+    rev_panel(p, "shell", m, HIPS, (-0.09, 0.09), (40, 140), 0.034, (10, 6), gap=0.012)
+    mring(p, "trim", sub(m, 0, 0.085, 0), profile_radius(HIPS, 0.085) + 0.004, 0.014, 24, 5)
+    q, n = rev_point(Vector((0, 0.9, 0.0)), HIPS, 0.85, -90, 0.01)
+    mbox(p, "team", frame(q, n, front=(0, 1, 0)), (0.1, 0.006, 0.024), 0.003, 1)
+    for side in (-1, 1):
+        x0 = 0.17
+        house = axis_frame((side * x0, hip.y, 0.0), "x" if side > 0 else "-x")
+        mtube(p, "dark", house, 0.09, 0.04, 20, bevel=0.006)
+        mring(p, "trim", sub(house, 0, 0.02, 0), 0.09, 0.012, 20, 4)
+        bolts(p, sub(house, 0, 0.022, 0), 0.072, 6, size=0.01)
+        mtube(p, "metal", sub(house, 0, 0.02 + (hip.x - x0) / 2 + 0.03, 0), 0.04, hip.x - x0 + 0.07, 12)
 
 
 # --- Shoulders and arms -------------------------------------------------------------------
@@ -225,13 +248,52 @@ def eclipse16_gun(p):
     mtube(p, "dark", sub(brake, 0, 0.044, 0), 0.056, 0.006, 18)
 
 
-# --- Legs: thick round thighs, flared calves, knees folding forward -----------------------
+# --- Legs: round like the trunk, knees folding forward, heavy domed boots -------------------
+def sabaton(p, m, out):
+    """Heavy boot: rubber sole, metal plate, a domed toe cap and heel, three talons in front
+    and a flared cuff around the ankle."""
+    g = m.translation.y
+    mbox(p, "rubber", T(0, g + 0.018, -0.05), (0.3, 0.036, 0.5), 0.014, 2)
+    mbox(p, "metal", T(0, g + 0.046, -0.045), (0.28, 0.024, 0.46), 0.01, 1)
+    toe = T(0, g + 0.058, -0.12) @ Matrix.Diagonal((0.15, 0.1, 0.22, 1.0))
+    lathe(p, "dark", toe @ Matrix.Diagonal((0.92, 0.92, 0.92, 1.0)), [(1.0, 0.0), (0.92, 0.4), (0.7, 0.72), (0.35, 0.94), (0.0, 1.0)], 18, cap_bottom=True)
+    sphere_panel(p, "shell", toe, 1.0, (4, 88), (-170, -10), 0.18, (12, 5))
+    sphere_panel(p, "trim", toe, 1.03, (2, 22), (-160, -20), 0.15, (12, 2), gap=0.01)
+    heel = T(0, g + 0.058, 0.11) @ Matrix.Diagonal((0.13, 0.11, 0.1, 1.0))
+    sphere_panel(p, "shell", heel, 1.0, (4, 88), (10, 170), 0.2, (10, 5))
+    for i in (-1, 0, 1):
+        base = Vector((i * 0.085, g + 0.05, -0.33 + abs(i) * 0.03))
+        lathe(p, "metal", frame(base, (i * 0.25, -0.15, -1.0)), [(0.0, 0.0), (0.034, 0.0), (0.02, 0.05), (0.0, 0.1)], 6)
+    for side in (-1, 1):
+        screw(p, frame((side * 0.151, g + 0.046, 0.02), (side, 0, 0)), 0, 0, 0.008)
+
+
 def eclipse16_leg(p, out):
+    knee_y = -0.36
+    thigh = round_thigh(k=1.25, radius=0.135)
+    shin = round_shin(k=1.15, r_bottom=0.095, r_top=0.14)
+
+    def thigh_fn(q, o, top, bottom):
+        thigh(q, o, top, bottom)
+        mring(q, "trim", T(0, top - 0.02, 0.0), 0.135 * 1.25 + 0.006, 0.012, 24, 4)
+        mbox(q, "glow", T(0, (top + bottom) / 2, -0.135 * 1.25 - 0.012), (0.014, (top - bottom) * 0.5, 0.006), 0.002, 1)
+
+    def shin_fn(q, o, top, bottom, mid):
+        shin(q, o, top, bottom, mid)
+        h = top - bottom
+        cyl_panel(q, "shell", T(0, bottom + h / 2, 0.0), 0.11 * 1.15, h * 0.8, (38, 142), 0.035, (8, 2), gap=0.01, radius_top=0.155 * 1.15)
+        mring(q, "trim", T(0, bottom + 0.02, 0.0), 0.095 * 1.15 + 0.016, 0.014, 22, 4)
+        # Domed knee cap riding on the shin, just under the hinge.
+        cap = T(0, knee_y - 0.06, -0.07)
+        sphere_panel(q, "shell", cap, 0.1, (-60, 34), (-160, -20), 0.03, (10, 6))
+        sphere_panel(q, "trim", cap, 0.103, (-70, -48), (-150, -30), 0.025, (10, 2))
+
     def boots(q, m, o, ankle):
-        mk.foot(q, m, length=0.5, width=0.3, out=o, toes=3, armor="shell", heel="trim")
-        extruded(q, "metal", side_plane(0, m.translation.y + 0.03, 0.17), [(0.0, 0.0), (0.0, 0.07), (-0.12, 0.0)], 0.06)
-    leg(p, out, E["hip"].y, knee_y=-0.36, ankle_up=0.18, width=1.2, knee_w=0.14, knee_r=0.074, foot_fn=boots,
-        thigh_fn=round_thigh(k=1.25, radius=0.135), shin_fn=round_shin(k=1.15, r_bottom=0.095, r_top=0.14), thigh_top=0.02)
+        sabaton(q, m, o)
+        lathe(q, "trim", T(0, ankle.y - 0.02, 0.0), [(0.1, 0.0), (0.13, 0.0), (0.15, 0.06), (0.14, 0.075), (0.09, 0.075), (0.1, 0.0)], 22)
+
+    leg(p, out, E["hip"].y, knee_y=knee_y, ankle_up=0.2, width=1.2, knee_w=0.14, knee_r=0.074, foot_fn=boots,
+        thigh_fn=thigh_fn, shin_fn=shin_fn, thigh_top=0.02, guard=False, shin_top=knee_y - 0.11)
 
 
 def define():
