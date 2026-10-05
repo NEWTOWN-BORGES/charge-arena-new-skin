@@ -2108,6 +2108,11 @@ func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) 
 				var flash: Node3D = owner_unit.get_node_or_null("Body/Gun/Flash")
 				if flash != null and flash.is_inside_tree():
 					launch = flash.global_position - Vector3(ball.p.x, SHOT_HEIGHT, ball.p.y)
+					# Only the height and the distance ahead: the gun hangs at the robot's side,
+					# and a round that started there curved in to the centre line on its way out.
+					var ahead = Vector3(ball.v.x, 0, ball.v.y).normalized()
+					if ahead != Vector3.ZERO:
+						launch = ahead * launch.dot(ahead) + Vector3(0, launch.y, 0)
 			projectile_launch[ball.id] = [launch, 0.0]
 		var node: Node3D = projectiles[ball.id]
 		node.position = Vector3(ball.p.x, SHOT_HEIGHT, ball.p.y)
@@ -2760,7 +2765,7 @@ func sniper_fire(team: int) -> void:
 		return
 	var color = deep(Rules.power_color("sniper"))
 	var body: Node3D = units[team].get_node("Body")
-	var muzzle: Vector3 = body.get_node("Gun/Flash").global_position
+	var muzzle: Vector3 = to_global(on_centre_line(units[team], to_local(body.get_node("Gun/Flash").global_position)))
 	var ahead: Vector3 = -body.global_basis.z
 	if fx != null:
 		fx.star(muzzle, Color("fffbe0"), 1.6, 0.18)
@@ -3079,7 +3084,19 @@ func muzzle_of(team: int) -> Vector3:
 	var flash_node: Node3D = unit.get_node_or_null("Body/Gun/Flash")
 	if flash_node == null:
 		return unit.position + Vector3(0, 0.7, 0)
-	return to_local(flash_node.global_position)
+	return on_centre_line(unit, to_local(flash_node.global_position))
+
+func on_centre_line(unit: Node3D, point: Vector3) -> Vector3:
+	# A point by the gun brought onto the pilot's own line of fire: same height, same distance
+	# ahead, none of the gun's offset to the side - beams and blasts leave straight ahead of
+	# the robot instead of from its flank.
+	var body: Node3D = unit.get_node_or_null("Body")
+	var facing: Vector3 = -(body.global_basis.z if body != null else unit.global_basis.z)
+	var ahead = Vector3(facing.x, 0, facing.z).normalized()
+	var rel: Vector3 = point - unit.position
+	if ahead == Vector3.ZERO:
+		return unit.position + Vector3(0, rel.y, 0)
+	return unit.position + ahead * rel.dot(ahead) + Vector3(0, rel.y, 0)
 
 func sun_ray(from: Vector2, heading: Vector2, half_width: float) -> void:
 	# The beam itself is a standing node (see update_power_effects); this is the discharge:

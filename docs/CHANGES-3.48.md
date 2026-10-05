@@ -1,3 +1,8 @@
+# Charge Arena 3.48.1 (código 79)
+
+## Correções
+- **Balas e habilidades a direito:** saem em frente ao robô, na sua linha de mira, e seguem a direito. Antes saíam do cano, que fica ao lado do robô, e curvavam para o centro.
+
 # Charge Arena 3.48.0 (código 78)
 
 ## Novo
