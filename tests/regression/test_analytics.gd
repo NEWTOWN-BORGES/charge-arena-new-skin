@@ -135,6 +135,9 @@ func run() -> void:
 	posthog.api_key = "phc_test"
 	var body = posthog.payload([{"event": "game_open", "properties": {"a": 1}, "distinct_id": anon, "timestamp": "2026-01-01T00:00:00Z", "uuid": a}])
 	check(body.api_key == "phc_test" and body.batch[0].uuid == a and body.batch[0].properties.distinct_id == anon and body.batch[0].properties["$process_person_profile"] == false, "PostHog batch body")
+	var headless_choice = Manager.make_provider("")
+	check(headless_choice.provider_name() == "null", "automated runs never send to PostHog")
+	headless_choice.free()
 	var keyless = PostHog.new()
 	check(posthog.active() and not keyless.active(), "PostHog needs a key to send")
 	posthog.free()

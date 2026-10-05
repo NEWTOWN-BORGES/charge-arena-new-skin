@@ -68,6 +68,9 @@ static func install(parent: Node, provider_kind: String = "") -> Node:
 static func make_provider(kind: String) -> Node:
 	var key = AnalyticsConfig.API_KEY if BuildInfo.production() else AnalyticsConfig.DEV_API_KEY
 	if kind == "":
+		# Automated runs (no screen) never send anything anywhere.
+		if DisplayServer.get_name() == "headless":
+			return NullProvider.new()
 		if OS.get_cmdline_user_args().has("--analytics-debug"):
 			kind = "debug"
 		else:
