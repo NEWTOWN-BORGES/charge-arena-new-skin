@@ -115,6 +115,12 @@ var unit_tints: Array = [false, false]
 # A colour that replaces the team's on the pilot itself, for opponents with no palette.
 var unit_hues: Array = ["", ""]
 var shot_colors: Array = [CYAN, CORAL]
+# OFICINA looks per side: palette overrides and a shot colour ("" the skin's own, a hex
+# colour, or "rainbow").
+var unit_paints: Array = [{}, {}]
+var unit_shots: Array = ["", ""]
+var unit_looks: Array = ["", ""]
+var showroom_paint: Dictionary = {}
 var aim_guide: Node3D
 var guide_dots: MultiMeshInstance3D
 # How many guide dots the current prediction shows.
@@ -1177,7 +1183,7 @@ func build_barriers() -> void:
 			cylinder(self, end + Vector3.UP * 0.2, Rules.BARRIER_RADIUS, 0.4, theme.block_alt, false, 16)
 			cylinder(self, end + Vector3.UP * 0.43, Rules.BARRIER_RADIUS * 0.7, 0.06, theme.accent, false, 12)
 
-func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null, tint: bool = false) -> Node3D:
+func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null, tint: bool = false, paint: Dictionary = {}) -> Node3D:
 	# `parent` lets the skins viewer build the same model inside its own 3D world.
 	var root = Node3D.new()
 	(parent if parent != null else self).add_child(root)
@@ -1190,7 +1196,7 @@ func build_player(color: Color, team: int, skin: int = 0, parent: Node3D = null,
 	root.add_child(body)
 	# Robots come from the Blender kit; each provides LegL, LegR, Gun and Gun/Flash for
 	# the shared animation code.
-	Robots.build(self, body, skin, color, tint)
+	Robots.build(self, body, skin, color, tint, paint)
 	# Frost: a block of ice around the pilot with crystals standing off it, and a ring of
 	# spikes grown out of the floor. It is the heaviest of the worn effects on purpose -
 	# being frozen is the worst thing that happens to you in a match.
@@ -1265,23 +1271,36 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 	# `tint`: dress the skin in a single colour instead of its own palette. `hue`: which
 	# colour, when it is not the team's - that is how the station pilots each get a look of
 	# their own out of hulls that already exist.
-	if unit_skins[team] == skin and unit_tints[team] == tint and unit_hues[team] == hue:
+	var look = str(unit_paints[team]) + String(unit_shots[team])
+	if unit_skins[team] == skin and unit_tints[team] == tint and unit_hues[team] == hue and unit_looks[team] == look:
 		return
+	unit_looks[team] = look
 	var old: Node3D = units[team]
 	var team_color: Color = Color(hue) if hue != "" else (CYAN if team == 0 else CORAL)
 	unit_hues[team] = hue
-	var fresh = build_player(team_color, team, skin, null, tint)
+	var fresh = build_player(team_color, team, skin, null, tint, {} if tint else unit_paints[team])
 	fresh.transform = old.transform
 	fresh.set_meta("last_cooldown", old.get_meta("last_cooldown"))
 	units[team] = fresh
 	unit_skins[team] = skin
 	unit_tints[team] = tint
 	shot_colors[team] = Skins.colors(skin, team_color, tint).shot
+	var own_shot = String(unit_shots[team])
+	if own_shot != "" and own_shot != "rainbow" and not tint:
+		shot_colors[team] = Color(own_shot)
 	# The wall keeps the team colour whatever the pilot is wearing: whose bricks are whose
 	# has to stay unmistakable, and make_brick works that out for itself.
 	set_brick_theme(team, skin, tint)
 	old.queue_free()
 	refresh_ultimate_colors()
+
+# Dress side `team` in OFICINA looks. Rebuilds the pilot only when something changed.
+func set_look(team: int, paint: Dictionary, shot: String) -> void:
+	if team > 1:
+		return
+	unit_paints[team] = paint
+	unit_shots[team] = shot
+	set_skin(team, unit_skins[team], unit_tints[team], unit_hues[team])
 
 func set_pilot_skin(index: int, skin: int) -> void:
 	# Dress pilot `index` in another robot: a leader like set_skin, a 3 v 3 wingman here.
@@ -1603,15 +1622,16 @@ func build_showroom() -> void:
 	rim.omni_range = 7.0
 	showroom.add_child(rim)
 
-func show_showroom(skin: int, boss: int, boss_dark: bool) -> void:
+func show_showroom(skin: int, boss: int, boss_dark: bool, paint: Dictionary = {}) -> void:
 	# Rebuilt only when the pilot or the boss changes.
 	if not is_instance_valid(showroom):
 		build_showroom()
 		showroom_skins = [-1, -1, false]
-	if showroom_skins[0] != skin:
+	if showroom_skins[0] != skin or showroom_paint != paint:
+		showroom_paint = paint
 		if is_instance_valid(showroom_pilot):
 			showroom_pilot.queue_free()
-		showroom_pilot = build_player(CYAN, 0, skin, showroom)
+		showroom_pilot = build_player(CYAN, 0, skin, showroom, false, paint)
 		showroom_pilot.position = Vector3(0, PEDESTAL_TOP, 0)
 	if showroom_skins[1] != boss or showroom_skins[2] != boss_dark:
 		if is_instance_valid(showroom_boss):
@@ -1778,6 +1798,10 @@ func frame_rect(rect: Rect2, screen: Vector2, is_menu: bool = false) -> void:
 
 func update_state(rules, local_team: int, dt: float, motion_alpha: float = 1.0) -> void:
 	clock += dt
+	# A rainbow shot colour turns through the hues as the match goes on.
+	for side in range(2):
+		if String(unit_shots[side]) == "rainbow" and not bool(unit_tints[side]):
+			shot_colors[side] = Color.from_hsv(fposmod(clock * 0.35 + side * 0.5, 1.0), 0.7, 1.0)
 	if rules != null and rules.get("caster") != null:
 		for team in range(2):
 			casters[team] = clampi(int(rules.caster[team]), 0, units.size() - 1)

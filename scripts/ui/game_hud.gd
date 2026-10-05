@@ -40,6 +40,9 @@ signal video_opened
 signal audio_changed(enabled: bool, volume: float)
 signal layout_changed
 signal skin_selected(index: int)
+# OFICINA: buy a look with bricks, or wear one ("paint" for the previewed skin, "shot").
+signal cosmetic_bought(id: String)
+signal cosmetic_equipped(kind: String, id: String, skin: int)
 signal skin_previewed(index: int)
 signal skin_preview_closed
 var skin_strip: ScrollContainer
@@ -110,6 +113,7 @@ const UiKit = preload("res://scripts/ui/ui_kit.gd")
 const Online = preload("res://scripts/network/online.gd")
 const AnalyticsConfig = preload("res://systems/analytics/AnalyticsConfig.gd")
 const Localization = preload("res://systems/localization/Localization.gd")
+const Cosmetics = preload("res://scripts/progression/cosmetics.gd")
 const INK = UiKit.INK
 const BRASS = UiKit.GOLD
 const CERAMIC = Color("e6e3f5")
@@ -290,6 +294,19 @@ var viewer_turntable: Node3D
 var viewer_pilot: Node3D
 var viewer_skin = -1
 var viewer_locked = false
+# OFICINA state: the looks owned (set by main), the item being looked at, the open mode.
+var cosmetics_state = null
+var workshop_mode = false
+var workshop_pick = {"kind": "paint", "id": ""}
+var workshop_scroll: ScrollContainer
+var workshop_title: Label
+var workshop_wallet: Label
+var workshop_paints: HFlowContainer
+var workshop_shots: HFlowContainer
+var workshop_action: Button
+var workshop_note: Label
+var workshop_button: Button
+var viewer_paint: Dictionary = {}
 var viewer_camera: Camera3D
 var viewer_viewport: SubViewport
 var viewer_shadow: MeshInstance3D
@@ -450,6 +467,7 @@ func build_skins_menu() -> void:
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.add_theme_constant_override("separation", 6)
 	skins_scroll.add_child(details)
+	build_workshop()
 	skin_name = label("", 32, WHITE, true)
 	details.add_child(skin_name)
 	skin_weapon = label("", 16, UiKit.SUN_INK, true)
@@ -524,9 +542,26 @@ func build_skins_menu() -> void:
 	skin_action.add_theme_color_override("font_disabled_color", MUTED)
 	skin_action.pressed.connect(func(): skin_selected.emit(preview_index))
 	actions.add_child(skin_action)
+	# In the workshop the big button buys or wears the look being shown instead.
+	workshop_action = make_button("", true)
+	workshop_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	workshop_action.add_theme_stylebox_override("disabled", style(UiKit.FIELD, UiKit.CARD_EDGE))
+	workshop_action.add_theme_color_override("font_disabled_color", MUTED)
+	workshop_action.pressed.connect(workshop_act)
+	workshop_action.hide()
+	actions.add_child(workshop_action)
+	# OFICINA: paints for this pilot and the colour of every shot, bought with bricks.
+	workshop_button = make_button("OFICINA", false)
+	workshop_button.custom_minimum_size.x = 140
+	workshop_button.pressed.connect(func(): set_workshop(not workshop_mode))
+	actions.add_child(workshop_button)
 	var done = make_button("VOLTAR", false)
-	done.custom_minimum_size.x = 140
-	done.pressed.connect(close_skins)
+	done.custom_minimum_size.x = 120
+	done.pressed.connect(func():
+		if workshop_mode:
+			set_workshop(false)
+		else:
+			close_skins())
 	actions.add_child(done)
 	skins_overlay.hide()
 
@@ -607,8 +642,10 @@ func build_viewer_pilot() -> void:
 	if not is_instance_valid(arena_view):
 		return
 	var locked = skins_progress != null and not skins_progress.is_unlocked(preview_index)
-	if viewer_skin == preview_index and viewer_locked == locked and is_instance_valid(viewer_pilot):
+	var paint: Dictionary = {} if locked else workshop_preview_paint()
+	if viewer_skin == preview_index and viewer_locked == locked and viewer_paint == paint and is_instance_valid(viewer_pilot):
 		return
+	viewer_paint = paint
 	if viewer_turntable.get_child_count() == 0:
 		# Pedestal with brass studs, so the turn is visible even on a symmetric pose.
 		arena_view.cylinder(viewer_turntable, Vector3(0, -0.1, 0), 1.08, 0.2, arena_view.DARK)
@@ -623,7 +660,7 @@ func build_viewer_pilot() -> void:
 		viewer_pilot.queue_free()
 	# A locked pilot is a dark silhouette: only a hard skin's neon glows faintly through.
 	Robots.shadow_build = locked
-	viewer_pilot = arena_view.build_player(CYAN, 0, preview_index, viewer_turntable, false)
+	viewer_pilot = arena_view.build_player(CYAN, 0, preview_index, viewer_turntable, false, paint)
 	Robots.shadow_build = false
 	viewer_pilot.position = Vector3(0, 0.02, 0)
 	if not is_instance_valid(viewer_shadow):
@@ -732,7 +769,7 @@ func animate_viewer(dt: float) -> void:
 		if viewer_sound_pending:
 			# Only the first demo shot after choosing a skin is heard, so the loop stays quiet.
 			viewer_sound_pending = false
-			viewer_audio.stream = load(Skins.SHOT_SOUND % viewer_skin)
+			viewer_audio.stream = load(Skins.SHOT_SOUND % Skins.base_of(viewer_skin))
 			viewer_audio.play()
 	gun.position.z = lerpf(gun.position.z, 0, minf(dt * 18, 1))
 	flash.scale = flash.scale.lerp(Vector3.ONE * 0.001, minf(dt * 22, 1))
@@ -847,6 +884,159 @@ func tint_backdrop() -> void:
 func viewer_palette() -> Dictionary:
 	return Skins.colors(viewer_skin, CORAL, true) if viewer_locked else Skins.colors(viewer_skin, CYAN)
 
+func build_workshop() -> void:
+	workshop_scroll = ScrollContainer.new()
+	workshop_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	workshop_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	workshop_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	skins_body.add_child(workshop_scroll)
+	var column = VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 10)
+	workshop_scroll.add_child(column)
+	workshop_title = label("OFICINA", 26, WHITE, true)
+	column.add_child(workshop_title)
+	workshop_wallet = label("", 17, UiKit.SUN_INK, true)
+	column.add_child(workshop_wallet)
+	column.add_child(label("PINTURA", 18, WHITE, true))
+	workshop_paints = HFlowContainer.new()
+	workshop_paints.add_theme_constant_override("h_separation", 8)
+	workshop_paints.add_theme_constant_override("v_separation", 8)
+	column.add_child(workshop_paints)
+	column.add_child(label("COR DOS DISPAROS", 18, WHITE, true))
+	workshop_shots = HFlowContainer.new()
+	workshop_shots.add_theme_constant_override("h_separation", 8)
+	workshop_shots.add_theme_constant_override("v_separation", 8)
+	column.add_child(workshop_shots)
+	workshop_note = label("", 15, MUTED)
+	workshop_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	workshop_note.custom_minimum_size.x = 300
+	column.add_child(workshop_note)
+	workshop_scroll.hide()
+
+func set_workshop(on: bool) -> void:
+	# The workshop takes the details column; the pilot stays on its pedestal above.
+	workshop_mode = on and skins_progress != null and skins_progress.is_unlocked(preview_index)
+	skins_scroll.visible = not workshop_mode
+	workshop_scroll.visible = workshop_mode
+	skin_action.visible = not workshop_mode
+	workshop_action.visible = workshop_mode
+	workshop_button.text = "PILOTO" if workshop_mode else "OFICINA"
+	if workshop_mode:
+		var current = cosmetics_state.paint_of(preview_index) if cosmetics_state != null else ""
+		workshop_pick = {"kind": "paint", "id": current}
+	refresh_workshop()
+	build_viewer_pilot()
+	layout()
+
+func workshop_preview_paint() -> Dictionary:
+	# In the workshop the pedestal shows the paint being looked at; elsewhere the one worn.
+	if cosmetics_state == null:
+		return {}
+	if workshop_mode and workshop_pick.kind == "paint":
+		return Cosmetics.paint_entry(String(workshop_pick.id)).get("palette", {})
+	return cosmetics_state.palette_for(preview_index)
+
+func workshop_chip(text: String, colors: Array, chosen: bool, on_press: Callable) -> Button:
+	var chip = Button.new()
+	chip.text = text
+	chip.custom_minimum_size = Vector2(132, 74)
+	chip.focus_mode = Control.FOCUS_NONE
+	chip.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.vertical_icon_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	chip.add_theme_font_override("font", font_title)
+	chip.add_theme_font_size_override("font_size", 14)
+	UiKit.paint_key(chip, "primary" if chosen else "secondary")
+	# The colours themselves, as dots along the top of the chip.
+	chip.draw.connect(func():
+		for i in range(colors.size()):
+			var c: Color = colors[i]
+			var at = Vector2(chip.size.x * 0.5 + (i - (colors.size() - 1) * 0.5) * 20.0, 14)
+			chip.draw_circle(at, 7.5, c)
+			chip.draw_arc(at, 7.5, 0, TAU, 20, Color(0, 0, 0, 0.5), 1.5, true))
+	chip.pressed.connect(on_press)
+	return chip
+
+func workshop_status(id: String) -> String:
+	# What a chip says under its name: worn, owned, earned elsewhere, or its price.
+	if id == "" or cosmetics_state.owns(id):
+		return tr("TEU")
+	var entry = Cosmetics.paint_entry(id)
+	if entry.is_empty():
+		entry = Cosmetics.shot_entry(id)
+	if entry.has("earn"):
+		return tr("MARATONA 15")
+	return tr("%d tijolos") % int(entry.price)
+
+func refresh_workshop() -> void:
+	if not is_instance_valid(workshop_scroll) or cosmetics_state == null:
+		return
+	var skin = preview_index
+	workshop_title.text = tr("OFICINA · %s") % String(Skins.CATALOG[skin].name)
+	workshop_wallet.text = tr("Tijolos: %d") % (int(power_shop.bricks) if power_shop != null else 0)
+	for holder in [workshop_paints, workshop_shots]:
+		for child in holder.get_children():
+			child.queue_free()
+	var worn_paint = cosmetics_state.paint_of(skin)
+	var original = Robots.colors(skin, CYAN)
+	workshop_paints.add_child(workshop_chip(tr("Original") + "\n" + (tr("EQUIPADA") if worn_paint == "" else tr("TEU")),
+		[original.shell, original.trim, original.glow], workshop_pick.kind == "paint" and workshop_pick.id == "",
+		func(): pick_workshop("paint", "")))
+	for entry in Cosmetics.paints_for(skin, Skins.CATALOG):
+		var id: String = entry.id
+		var tones = [Color(entry.palette.shell), Color(entry.palette.trim), Color(entry.palette.glow)]
+		var status = tr("EQUIPADA") if worn_paint == id else workshop_status(id)
+		workshop_paints.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, tones,
+			workshop_pick.kind == "paint" and workshop_pick.id == id, func(): pick_workshop("paint", id)))
+	var worn_shot = cosmetics_state.shot
+	workshop_shots.add_child(workshop_chip(tr("Original") + "\n" + (tr("EQUIPADA") if worn_shot == "" else tr("TEU")),
+		[Robots.colors(skin, CYAN).glow], workshop_pick.kind == "shot" and workshop_pick.id == "", func(): pick_workshop("shot", "")))
+	for entry in Cosmetics.SHOTS:
+		var id: String = entry.id
+		var tones = [Color("ff4a4a"), Color("ffe14a"), Color("4adfff")] if entry.color == "rainbow" else [Color(entry.color)]
+		var status = tr("EQUIPADA") if worn_shot == id else workshop_status(id)
+		workshop_shots.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, tones,
+			workshop_pick.kind == "shot" and workshop_pick.id == id, func(): pick_workshop("shot", id)))
+	# The action under the rows: buy what is picked, wear it, or say it is worn.
+	var id: String = String(workshop_pick.id)
+	var kind: String = String(workshop_pick.kind)
+	var worn = (worn_paint if kind == "paint" else worn_shot) == id
+	workshop_note.text = ""
+	if worn:
+		workshop_action.text = tr("EQUIPADA")
+		workshop_action.disabled = true
+	elif id == "" or cosmetics_state.owns(id):
+		workshop_action.text = tr("EQUIPAR")
+		workshop_action.disabled = false
+	elif not cosmetics_state.can_buy(id):
+		workshop_action.text = tr("BLOQUEADA")
+		workshop_action.disabled = true
+		workshop_note.text = tr("Ganha-se com 15 vitórias seguidas na MARATONA.")
+	else:
+		var cost = cosmetics_state.price(id)
+		var money = int(power_shop.bricks) if power_shop != null else 0
+		workshop_action.text = tr("COMPRAR · %d TIJOLOS") % cost
+		workshop_action.disabled = money < cost
+		if money < cost:
+			workshop_note.text = tr("Faltam %d tijolos. Ganha-os a destruir tijolos nas partidas.") % (cost - money)
+	if kind == "shot" and id != "":
+		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("A cor dos disparos vale para todos os pilotos.")
+
+func pick_workshop(kind: String, id: String) -> void:
+	workshop_pick = {"kind": kind, "id": id}
+	refresh_workshop()
+	build_viewer_pilot()
+
+func workshop_act() -> void:
+	var id: String = String(workshop_pick.id)
+	var kind: String = String(workshop_pick.kind)
+	if id != "" and not cosmetics_state.owns(id):
+		cosmetic_bought.emit(id)
+	if id == "" or cosmetics_state.owns(id):
+		cosmetic_equipped.emit(kind, id, preview_index)
+	refresh_workshop()
+	build_viewer_pilot()
+
 func preview_skin(index: int) -> void:
 	preview_index = clampi(index, 0, Skins.CATALOG.size() - 1)
 	if skins_overlay.visible:
@@ -854,6 +1044,13 @@ func preview_skin(index: int) -> void:
 		skin_previewed.emit(preview_index)
 	viewer_sound_pending = true
 	refresh_skins()
+	if workshop_mode:
+		# Another pilot on the pedestal: its own paints (and its own corrupted set).
+		if skins_progress.is_unlocked(preview_index):
+			workshop_pick = {"kind": "paint", "id": cosmetics_state.paint_of(preview_index) if cosmetics_state != null else ""}
+			refresh_workshop()
+		else:
+			set_workshop(false)
 	build_viewer_pilot()
 
 func refresh_skins() -> void:
@@ -956,6 +1153,8 @@ func open_skins() -> void:
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
 
 func close_skins() -> void:
+	if workshop_mode:
+		set_workshop(false)
 	skins_overlay.hide()
 	skin_preview_closed.emit()
 	clear_viewer_shots()
@@ -976,6 +1175,10 @@ func announce_unlock(names: Array) -> void:
 			if Skins.CATALOG[index].name == item_name:
 				unlock_notice.enqueue({"kind": "skin", "id": index, "name": item_name})
 				break
+
+func announce_look(item_name: String, color: String) -> void:
+	prepare_unlock_notice()
+	unlock_notice.enqueue({"kind": "look", "id": "", "name": item_name, "color": color})
 
 func announce_power(id: String, item_name: String) -> void:
 	prepare_unlock_notice()
@@ -3060,6 +3263,9 @@ func layout() -> void:
 	var zoom_row: Control = viewer_column.get_child(1)
 	var zoom_room = zoom_row.get_combined_minimum_size().y + viewer_column.get_theme_constant("separation")
 	var detail_room = clampf(body_room * 0.20, 110, 160) if skins_body.vertical else 120.0
+	if workshop_mode and skins_body.vertical:
+		# The workshop needs room for its rows of paints and shots; the model gives some up.
+		detail_room = clampf(body_room * 0.5, 240, 460)
 	var model_room = body_room - zoom_room
 	if skins_body.vertical:
 		model_room -= detail_room + skins_body.get_theme_constant("separation")
@@ -3067,6 +3273,8 @@ func layout() -> void:
 	viewer.custom_minimum_size = Vector2(model_width, maxf(140, model_room))
 	viewer_column.custom_minimum_size.x = model_width
 	skins_scroll.custom_minimum_size.y = detail_room
+	if is_instance_valid(workshop_scroll):
+		workshop_scroll.custom_minimum_size.y = detail_room
 	skins_panel.size = skins_size
 	skins_panel.position = Vector2((size.x - skins_size.x)*0.5, safe_top + 24)
 	layout_bosses()

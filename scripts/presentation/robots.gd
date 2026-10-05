@@ -90,7 +90,7 @@ static func head(name: String) -> Dictionary:
 static var shadow_build = false
 const SHADOW_BLACK = Color("050507")
 
-static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
+static func colors(skin: int, team: Color, tint: bool = false, override: Dictionary = {}) -> Dictionary:
 	# Every role resolved to a colour. Empty entries in the roster follow the team colour.
 	var palette: Dictionary = recipe(skin).palette
 	var out = {}
@@ -124,6 +124,12 @@ static func colors(skin: int, team: Color, tint: bool = false) -> Dictionary:
 		return out
 	if ArtStyle.current != "":
 		ArtStyle.robot(out, team)
+	# A paint from the OFICINA: hull, trim, metal and lights in other colours. Seals and
+	# labels follow the new darks.
+	if not tint and not override.is_empty():
+		for role in override:
+			out[role] = Color(String(override[role]))
+		out.rubber = Color(out.dark).darkened(0.45)
 	if tint:
 		# A boss not yet beaten fights in gunmetal and its team's colour.
 		out.shell = Color("3d404a")
@@ -221,10 +227,10 @@ static func merged(key: String, placed: Array, paint: Dictionary, outline: bool 
 	_merged[key] = out
 	return out
 
-static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false) -> void:
+static func build(view, body: Node3D, skin: int, team: Color, tint: bool = false, override: Dictionary = {}) -> void:
 	var plan = recipe(skin)
 	var parts: Dictionary = plan.parts
-	var paint = colors(skin, team, tint)
+	var paint = colors(skin, team, tint, override)
 	paint["wear"] = float(plan.wear)
 	body.set_meta("design_signature", plan.key)
 	body.set_meta("robot_skin", skin)

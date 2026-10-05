@@ -17,6 +17,7 @@ const KINDS = {
 	"skin": ["SKIN DESBLOQUEADA", "Vê-a e veste-a no HANGAR", "NOVO!"],
 	"power": ["PODER COMPRADO", "Equipa-o em PODERES", "NOVO!"],
 	"afford": ["JÁ PODES COMPRAR", "Vai a PODERES", "LOJA"],
+	"look": ["NOVO VISUAL", "Equipa-o na OFICINA (hangar)", "OFICINA"],
 }
 const CARD_HEIGHT = 104.0
 
@@ -135,6 +136,10 @@ func draw_item() -> void:
 	UiKit.disc(icon, Vector2(30, 30), 30, UiKit.FIELD)
 	if current.kind == "skin":
 		painter.portrait(Vector2(30, 31), UiKit.SUN, false, int(current.id), icon, false, 0.6)
+	elif current.kind == "look":
+		# A paint pot: the colour of the look itself.
+		UiKit.ring(icon, Vector2(30, 30), 30, UiKit.SUN)
+		UiKit.disc(icon, Vector2(30, 30), 16, Color(String(current.get("color", "ffd23f"))))
 	else:
 		UiKit.ring(icon, Vector2(30, 30), 30, UiKit.SUN)
 		painter.power_icon(current.id, Vector2(30, 30), UiKit.SUN, icon, 1.0)

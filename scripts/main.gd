@@ -13,6 +13,7 @@ const Campaign = preload("res://scripts/progression/campaign.gd")
 const GameFeel = preload("res://scripts/settings/game_feel.gd")
 const Online = preload("res://scripts/network/online.gd")
 const Marathon = preload("res://scripts/progression/marathon.gd")
+const Cosmetics = preload("res://scripts/progression/cosmetics.gd")
 const Analytics = preload("res://systems/analytics/AnalyticsManager.gd")
 const Localization = preload("res://systems/localization/Localization.gd")
 const EventSchema = preload("res://systems/analytics/EventSchema.gd")
@@ -50,6 +51,7 @@ var online_state = ""
 var online_room = ""
 var online_wait = 0.0
 var marathon = Marathon.new()
+var cosmetics = Cosmetics.new()
 var analytics
 var pause_ai = false
 var tones: Dictionary = {}
@@ -114,6 +116,7 @@ func configure_test_access(enabled: bool) -> void:
 	power_shop.owned = PowerShop.all_ids()
 	power_shop.bricks = PowerShop.TEST_WALLET
 	campaign.unlock_all = true
+	cosmetics.unlock_all = true
 
 func _ready() -> void:
 	# Statistics and error reports, with the player's consent (nothing before it).
@@ -174,6 +177,7 @@ func _ready() -> void:
 	music.play("menu")
 	configure_test_access(OS.has_feature("open_test"))
 	skins.load_preferences()
+	cosmetics.load_preferences()
 	power_shop.load_preferences()
 	hud.sync_powers(power_shop)
 	hud.power_bought.connect(buy_power)
@@ -220,6 +224,9 @@ func _ready() -> void:
 	hud.level_selected.connect(start_level)
 	marathon.load_record()
 	hud.marathon_record = marathon.record
+	hud.cosmetics_state = cosmetics
+	hud.cosmetic_bought.connect(buy_cosmetic)
+	hud.cosmetic_equipped.connect(equip_cosmetic)
 	hud.marathon_requested.connect(start_marathon)
 	hud.next_level_requested.connect(func():
 		if marathon_live():
@@ -446,6 +453,10 @@ func finish_marathon() -> void:
 	hud.level_info["record"] = marathon.record
 	hud.level_info["new_record"] = beaten
 	hud.level_result = "won" if won else "lost"
+	# Fifteen in a row earns the gold paint.
+	if marathon.wins >= 15 and cosmetics.award("ouro"):
+		save_cosmetics()
+		hud.announce_look(tr("Pintura Ouro"), "e6b53c")
 
 func leave_campaign(layout: Dictionary = {}) -> void:
 	story_run = {}
@@ -480,7 +491,7 @@ func refresh_showroom() -> void:
 	var level: Dictionary = Campaign.LEVELS[menu_level]
 	var boss: int = int(level.boss)
 	var beaten: bool = boss < Skins.CATALOG.size() and skins.is_unlocked(boss)
-	arena.show_showroom(skins.selected, boss, not beaten)
+	arena.show_showroom(skins.selected, boss, not beaten, cosmetics.palette_for(skins.selected))
 
 func show_menu_boss() -> void:
 	# The previewed rival is shown in its own colours, like it fights: a boss in its skin's
@@ -1242,7 +1253,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			request_menu()
 
 func dress_pilots(team: int) -> void:
-	# The local pilot wears the chosen skin; the rival stays default until PvP shares theirs.
+	# The local pilot wears the chosen skin and its OFICINA looks; the rival stays default
+	# until PvP shares theirs.
+	arena.unit_paints[team] = cosmetics.palette_for(worn_skin())
+	arena.unit_shots[team] = cosmetics.shot_color()
+	arena.unit_paints[1 - team] = {}
+	arena.unit_shots[1 - team] = ""
 	arena.set_skin(team, worn_skin())
 	arena.set_skin(1 - team, 0)
 
@@ -1268,6 +1284,27 @@ func bank_bricks() -> void:
 	for entry in power_shop.affordable():
 		if not could.has(String(entry.id)):
 			hud.announce_affordable(String(entry.id), String(entry.name), int(entry.price))
+
+func buy_cosmetic(id: String) -> void:
+	# OFICINA: paid from the same brick wallet as the powers.
+	if not cosmetics.buy(id, power_shop):
+		return
+	save_powers()
+	save_cosmetics()
+	hud.sync_powers(power_shop)
+
+func equip_cosmetic(kind: String, id: String, skin: int) -> void:
+	var done = cosmetics.equip_shot(id) if kind == "shot" else cosmetics.equip_paint(skin, id, Skins.CATALOG)
+	if not done:
+		return
+	save_cosmetics()
+	if mode == "menu":
+		refresh_showroom()
+		dress_pilots(0)
+
+func save_cosmetics() -> void:
+	if cosmetics.save_preferences() != OK:
+		push_warning("Could not save the OFICINA looks to " + cosmetics.path)
 
 func save_powers() -> void:
 	if power_shop.save_preferences() != OK:

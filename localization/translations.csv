@@ -60,3 +60,46 @@ PRÓXIMO RIVAL  →,PRÓXIMO RIVAL  →,NEXT RIVAL  →,ADVERSAIRE SUIVANT  →,
 BOSS · NÍVEL %d,BOSS · NÍVEL %d,BOSS · LEVEL %d,BOSS · NIVEAU %d,JEFE · NIVEL %d,BOSS · LIVELLO %d
 NÍVEL %d,NÍVEL %d,LEVEL %d,NIVEAU %d,NIVEL %d,LIVELLO %d
 CAMPANHA · NÍVEL %d,CAMPANHA · NÍVEL %d,CAMPAIGN · LEVEL %d,CAMPAGNE · NIVEAU %d,CAMPAÑA · NIVEL %d,CAMPAGNA · LIVELLO %d
+OFICINA,OFICINA,WORKSHOP,ATELIER,TALLER,OFFICINA
+PILOTO,PILOTO,PILOT,PILOTE,PILOTO,PILOTA
+PINTURA,PINTURA,PAINT,PEINTURE,PINTURA,VERNICE
+COR DOS DISPAROS,COR DOS DISPAROS,SHOT COLOUR,COULEUR DES TIRS,COLOR DE LOS DISPAROS,COLORE DEI COLPI
+TEU,TEU,OWNED,À TOI,TUYO,TUO
+EQUIPADA,EQUIPADA,EQUIPPED,ÉQUIPÉE,EQUIPADA,EQUIPAGGIATA
+EQUIPAR,EQUIPAR,EQUIP,ÉQUIPER,EQUIPAR,EQUIPAGGIA
+BLOQUEADA,BLOQUEADA,LOCKED,VERROUILLÉE,BLOQUEADA,BLOCCATA
+MARATONA 15,MARATONA 15,MARATHON 15,MARATHON 15,MARATÓN 15,MARATONA 15
+%d tijolos,%d tijolos,%d bricks,%d briques,%d ladrillos,%d mattoni
+OFICINA · %s,OFICINA · %s,WORKSHOP · %s,ATELIER · %s,TALLER · %s,OFFICINA · %s
+Tijolos: %d,Tijolos: %d,Bricks: %d,Briques : %d,Ladrillos: %d,Mattoni: %d
+Original,Original,Original,Original,Original,Originale
+COMPRAR · %d TIJOLOS,COMPRAR · %d TIJOLOS,BUY · %d BRICKS,ACHETER · %d BRIQUES,COMPRAR · %d LADRILLOS,COMPRA · %d MATTONI
+Faltam %d tijolos. Ganha-os a destruir tijolos nas partidas.,Faltam %d tijolos. Ganha-os a destruir tijolos nas partidas.,%d bricks short. Earn them by breaking bricks in matches.,Il manque %d briques. Gagne-les en cassant des briques en match.,Faltan %d ladrillos. Gánalos rompiendo ladrillos en las partidas.,Mancano %d mattoni. Guadagnali distruggendo mattoni nelle partite.
+Ganha-se com 15 vitórias seguidas na MARATONA.,Ganha-se com 15 vitórias seguidas na MARATONA.,Earned with 15 wins in a row in the MARATHON.,S'obtient avec 15 victoires d'affilée au MARATHON.,Se gana con 15 victorias seguidas en el MARATÓN.,Si ottiene con 15 vittorie di fila nella MARATONA.
+A cor dos disparos vale para todos os pilotos.,A cor dos disparos vale para todos os pilotos.,The shot colour applies to every pilot.,La couleur des tirs vaut pour tous les pilotes.,El color de los disparos vale para todos los pilotos.,Il colore dei colpi vale per tutti i piloti.
+Carbono,Carbono,Carbon,Carbone,Carbono,Carbonio
+Ártico,Ártico,Arctic,Arctique,Ártico,Artico
+Camuflagem,Camuflagem,Camo,Camouflage,Camuflaje,Mimetico
+Oceano,Oceano,Ocean,Océan,Océano,Oceano
+Lava,Lava,Lava,Lave,Lava,Lava
+Néon rosa,Néon rosa,Neon pink,Néon rose,Neón rosa,Neon rosa
+Real,Real,Royal,Royal,Real,Reale
+Ouro,Ouro,Gold,Or,Oro,Oro
+Veneno,Veneno,Venom,Venin,Veneno,Veleno
+Sangue,Sangue,Blood,Sang,Sangre,Sangue
+Vazio,Vazio,Void,Néant,Vacío,Vuoto
+Gelo morto,Gelo morto,Dead ice,Glace morte,Hielo muerto,Ghiaccio morto
+Brasa,Brasa,Ember,Braise,Brasa,Brace
+Espectro,Espectro,Spectre,Spectre,Espectro,Spettro
+Azul elétrico,Azul elétrico,Electric blue,Bleu électrique,Azul eléctrico,Blu elettrico
+Verde tóxico,Verde tóxico,Toxic green,Vert toxique,Verde tóxico,Verde tossico
+Laranja,Laranja,Orange,Orange,Naranja,Arancione
+Rosa,Rosa,Pink,Rose,Rosa,Rosa
+Roxo,Roxo,Purple,Violet,Morado,Viola
+Branco puro,Branco puro,Pure white,Blanc pur,Blanco puro,Bianco puro
+Dourado,Dourado,Golden,Doré,Dorado,Dorato
+Arco-íris,Arco-íris,Rainbow,Arc-en-ciel,Arcoíris,Arcobaleno
+Pintura Ouro,Pintura Ouro,Gold paint,Peinture Or,Pintura Oro,Vernice Oro
+NOVO VISUAL,NOVO VISUAL,NEW LOOK,NOUVEAU LOOK,NUEVO ASPECTO,NUOVO LOOK
+Equipa-o na OFICINA (hangar),Equipa-o na OFICINA (hangar),Equip it in the WORKSHOP (hangar),Équipe-le à l'ATELIER (hangar),Equípalo en el TALLER (hangar),Equipalo nell'OFFICINA (hangar)
+VOLTAR,VOLTAR,BACK,RETOUR,VOLVER,INDIETRO
