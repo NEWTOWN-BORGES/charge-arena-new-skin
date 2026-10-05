@@ -2,9 +2,9 @@
 
 Every style stands on the common plinth of the mechanical bricks (brick_socle: dark plate,
 team band, corner screws, the side joints), keeps their footprint (0.54 x 0.29) and height
-(about half a unit), and leaves the plinth's faces free for the three life lights. They are
-painted in the pilot's own colours (shell, trim, dark, metal, glow) with the team's colour on
-top, like the themed bricks.
+(from under half a unit to over it), and leaves the plinth's faces free for the three life
+lights. Each style has colours of its own (scripts/progression/cosmetics.gd, "palette"); the
+team's colour stays on top, as on the themed bricks.
 
 python3 tools/blender/brick_styles.py
 Writes art/robots/bricks13.glb: parts "brickstyle_<id>" and their half-detail "lo_" copies.
@@ -20,7 +20,7 @@ import bpy  # noqa: E402
 from mathutils import Matrix, Vector  # noqa: E402
 
 import robot_kit as kit  # noqa: E402  (sets up mech_kit)
-from mech_cast import T, both_faces, brick_socle, extruded  # noqa: E402
+from mech_cast import T, ball, both_faces, brick_socle, extruded  # noqa: E402
 from mech_kit import axis_frame, bolts, lathe, mbox, mring, mtube, rod, screw, sub  # noqa: E402
 
 OUTPUT = kit.ROOT / "art" / "robots" / "bricks13.glb"
@@ -58,24 +58,28 @@ def safe(p):
 
 @style("barril")
 def barrels(p):
-    """Two standing drums with steel hoops and lids in the team's colour."""
+    """A big drum lying along the wall in a cradle, a small one standing at its end."""
     brick_socle(p)
-    for x in (-0.13, 0.13):
-        drum = T(x, 0.27, 0)
-        mtube(p, "shell", drum, 0.125, 0.34, 20, bevel=0.01)
-        for y in (-0.12, 0.0, 0.12):
-            mring(p, "metal", sub(drum, 0, y, 0), 0.126, 0.01, 22, 4)
-        mtube(p, "team", sub(drum, 0, 0.175, 0), 0.11, 0.012, 18)
-        mtube(p, "dark", sub(drum, 0.05, 0.18, 0.0), 0.02, 0.012, 8)
-    mbox(p, "trim", T(0, 0.27, 0), (0.06, 0.06, 0.2), 0.01, 1)
-
+    for x in (-0.15, 0.08):
+        mbox(p, "dark", T(x, 0.12, 0), (0.05, 0.05, 0.24), 0.01, 1)
+    drum = axis_frame((-0.05, 0.25, 0), "x")
+    mtube(p, "shell", drum, 0.14, 0.36, 22, bevel=0.012)
+    for y in (-0.12, 0.0, 0.12):
+        mring(p, "metal", sub(drum, 0, y, 0), 0.141, 0.01, 22, 4)
+    mtube(p, "trim", sub(drum, 0, -0.18, 0), 0.12, 0.012, 20)
+    mtube(p, "dark", sub(drum, 0.0, -0.186, 0.06), 0.022, 0.012, 8)
+    small = T(0.2, 0.2, 0)
+    mtube(p, "trim", small, 0.07, 0.2, 16, bevel=0.008)
+    for y in (-0.06, 0.06):
+        mring(p, "metal", sub(small, 0, y, 0), 0.071, 0.008, 16, 4)
+    mtube(p, "team", sub(small, 0, 0.102, 0), 0.06, 0.01, 14)
 
 @style("cristal")
 def crystals(p):
     """A cluster of lit crystal prisms out of a dark rock."""
     brick_socle(p)
     mbox(p, "dark", T(0, 0.13, 0), (0.48, 0.07, 0.25), 0.03, 1)
-    shards = [(0.0, 0.0, 0.42, 0.075, 0.0), (-0.14, 0.03, 0.3, 0.06, -18), (0.14, -0.03, 0.32, 0.06, 16),
+    shards = [(0.0, 0.0, 0.52, 0.08, 0.0), (-0.14, 0.03, 0.3, 0.06, -18), (0.14, -0.03, 0.32, 0.06, 16),
               (-0.06, -0.06, 0.24, 0.045, -8), (0.07, 0.07, 0.22, 0.045, 10), (-0.21, -0.04, 0.16, 0.04, -30),
               (0.21, 0.05, 0.18, 0.04, 28)]
     for i, (x, z, h, r, tilt) in enumerate(shards):
@@ -88,9 +92,9 @@ def crystals(p):
 def pyramid(p):
     """A stepped pyramid with a lit eye on each face and a cap in the team's colour."""
     brick_socle(p)
-    for i, (w, d, h) in enumerate(((0.5, 0.27, 0.11), (0.38, 0.22, 0.1), (0.26, 0.17, 0.1))):
+    for i, (w, d, h) in enumerate(((0.5, 0.27, 0.11), (0.4, 0.23, 0.1), (0.3, 0.19, 0.1), (0.2, 0.15, 0.1))):
         mbox(p, "shell" if i % 2 == 0 else "trim", T(0, 0.15 + i * 0.105, 0), (w, h, d), 0.012, 1)
-    lathe(p, "team", T(0, 0.405, 0) @ Matrix.Rotation(math.radians(45), 4, "Y"), [(0.0, 0.0), (0.11, 0.0), (0.0, 0.1)], 4)
+    lathe(p, "team", T(0, 0.51, 0) @ Matrix.Rotation(math.radians(45), 4, "Y"), [(0.0, 0.0), (0.1, 0.0), (0.0, 0.12)], 4)
 
     def face(z):
         mbox(p, "glow", T(0, 0.27, z * 0.111), (0.06, 0.025, 0.006), 0.004, 1)
@@ -100,20 +104,14 @@ def pyramid(p):
 
 @style("hexagono")
 def hexagon(p):
-    """A hexagonal column laid along the wall, with lit honeycomb edges and capped ends."""
+    """A honeycomb: hexagonal columns of three heights, each capped and lit."""
     brick_socle(p)
-    hexa = axis_frame((0, 0.27, 0), "x")
-    mtube(p, "shell", hexa @ Matrix.Rotation(math.radians(30), 4, "Y"), 0.17, 0.46, 6)
-    for x in (-0.235, 0.235):
-        cap = axis_frame((x, 0.27, 0), "x" if x > 0 else "-x") @ Matrix.Rotation(math.radians(30), 4, "Y")
-        mtube(p, "team", cap, 0.15, 0.02, 6)
-        mtube(p, "glow", sub(cap, 0, 0.012, 0), 0.06, 0.006, 6)
-    for k in range(6):
-        a = math.radians(k * 60)
-        y, z = 0.27 + math.sin(a) * 0.168, math.cos(a) * 0.168 * 0.84
-        if abs(z) < 0.15:
-            rod(p, "trim", Vector((-0.2, y, z)), Vector((0.2, y, z)), 0.007, 6)
-
+    cells = [(-0.15, -0.05, 0.42), (0.0, 0.04, 0.3), (0.15, -0.05, 0.36), (-0.07, 0.07, 0.22), (0.08, -0.07, 0.26), (0.21, 0.06, 0.18), (-0.21, 0.06, 0.2)]
+    for x, z, h in cells:
+        col = T(x, 0.09 + h / 2, z) @ Matrix.Rotation(math.radians(30), 4, "Y")
+        mtube(p, "shell", col, 0.075, h, 6)
+        mtube(p, "team" if h > 0.35 else "trim", sub(col, 0, h / 2 + 0.006, 0), 0.07, 0.012, 6)
+        mtube(p, "glow", sub(col, 0, h / 2 + 0.014, 0), 0.03, 0.006, 6)
 
 @style("iglu")
 def igloo(p):
@@ -151,20 +149,24 @@ def tyres(p):
 
 @style("torre")
 def tower(p):
-    """A castle tower: stone body, battlements in the team's colour and lit arrow slits."""
+    """A tall round castle tower: stone body, a corbelled top, battlements in the team's
+    colour, a pointed roof and lit arrow slits."""
     brick_socle(p)
-    mbox(p, "shell", T(0, 0.25, 0), (0.48, 0.3, 0.25), 0.012, 1)
-    mbox(p, "trim", T(0, 0.405, 0), (0.52, 0.03, 0.28), 0.008, 1)
-    for x in (-0.2, -0.067, 0.067, 0.2):
-        mbox(p, "team", T(x, 0.45, 0), (0.08, 0.06, 0.26), 0.008, 1)
-
-    def face(z):
-        for x in (-0.12, 0.12):
-            mbox(p, "glow", T(x, 0.27, z * 0.126), (0.02, 0.09, 0.006), 0.002, 1)
-        for y in (0.17, 0.33):
-            mbox(p, "dark", T(0, y, z * 0.126), (0.46, 0.006, 0.004), 0.0, 1)
-    both_faces(face)
-
+    body = T(0, 0.3, 0)
+    mtube(p, "shell", body, 0.13, 0.42, 18)
+    for y in (-0.12, 0.04):
+        mring(p, "dark", sub(body, 0, y, 0), 0.131, 0.004, 18, 3)
+    mtube(p, "trim", T(0, 0.535, 0), 0.155, 0.05, 18)
+    for k in range(8):
+        a = math.radians(k * 45)
+        mbox(p, "team", T(math.cos(a) * 0.14, 0.58, math.sin(a) * 0.14), (0.045, 0.05, 0.045), 0.006, 1)
+    lathe(p, "trim", T(0, 0.56, 0), [(0.0, 0.0), (0.11, 0.0), (0.0, 0.2)], 12)
+    for a in (-90, 90, 0, 180):
+        r = math.radians(a)
+        mbox(p, "glow", T(math.cos(r) * 0.131, 0.33, math.sin(r) * 0.131), (0.02, 0.08, 0.02), 0.002, 1)
+    for x in (-0.2, 0.2):
+        mbox(p, "shell", T(x, 0.17, 0), (0.1, 0.15, 0.22), 0.01, 1)
+        mbox(p, "team", T(x, 0.255, 0), (0.1, 0.02, 0.22), 0.004, 1)
 
 @style("bateria")
 def battery(p):
@@ -187,24 +189,15 @@ def battery(p):
 
 @style("neon")
 def neon(p):
-    """A dark block in a cage of lit edges, the team's colour along the top edges."""
+    """A lit orb held in three rings on a dark stand, the team's colour on the stand's rim."""
     brick_socle(p)
-    mbox(p, "dark", T(0, 0.27, 0), (0.46, 0.32, 0.24), 0.02, 1)
-    w, h, d = 0.48, 0.34, 0.26
-    y0, y1 = 0.27 - h / 2, 0.27 + h / 2
-    for x in (-w / 2, w / 2):
-        for z in (-d / 2, d / 2):
-            rod(p, "glow", Vector((x, y0, z)), Vector((x, y1, z)), 0.012, 6)
-    for y, role in ((y0, "glow"), (y1, "team")):
-        for z in (-d / 2, d / 2):
-            rod(p, role, Vector((-w / 2, y, z)), Vector((w / 2, y, z)), 0.012, 6)
-        for x in (-w / 2, w / 2):
-            rod(p, role, Vector((x, y, -d / 2)), Vector((x, y, d / 2)), 0.012, 6)
-
-    def face(z):
-        extruded(p, "glow", T(0, 0.27, z * 0.122), [(-0.05, 0.0), (0.0, 0.08), (0.05, 0.0), (0.0, -0.08)], 0.006)
-    both_faces(face)
-
+    lathe(p, "dark", T(0, 0.09, 0), [(0.16, 0.0), (0.12, 0.05), (0.06, 0.09), (0.0, 0.1)], 18)
+    mring(p, "team", T(0, 0.1, 0), 0.15, 0.012, 22, 4)
+    bm_center = (0, 0.32, 0)
+    ball(p, "glow", bm_center, 0.13, 18)
+    for k, rot in enumerate(((0, 0, 0), (90, 0, 0), (0, 0, 90))):
+        mring(p, "trim", sub(T(*bm_center), rot=rot), 0.17, 0.01, 28, 4)
+    rod(p, "metal", Vector((0, 0.18, 0)), Vector((0, 0.2, 0)), 0.03, 10)
 
 def define():
     kit.PARTS.clear()

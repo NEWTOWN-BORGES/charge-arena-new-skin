@@ -15,6 +15,7 @@ const BATIDA_KIT = preload("res://art/robots/batida13.glb")
 const ROSCA_KIT = preload("res://art/robots/rosca13.glb")
 # OFICINA brick styles for the player's wall (tools/blender/brick_styles.py).
 const BRICK_STYLES_KIT = preload("res://art/robots/bricks13.glb")
+const COSMETICS = preload("res://scripts/progression/cosmetics.gd")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -351,12 +352,18 @@ static func brick(view, node: Node3D, skin: int, team: Color, tint: bool = false
 	# soft arena brick was used instead (station pilots): a rubbery block in the team colour
 	# with a cream cushion on top.
 	var part = brick_part(skin, tint)
-	# An OFICINA brick style replaces the robot's own brick, still in the robot's colours.
+	# An OFICINA brick style replaces the robot's own brick.
 	if style != "" and part != "" and not part(style).is_empty():
 		part = style
 	var strong = Color.from_hsv(team.h, maxf(team.s * 1.6, 0.76), team.v * 0.88)
 	if part != "":
 		var themed = colors(skin, team, tint)
+		if part == style:
+			# A brick style wears its own colours, whoever's wall it is.
+			for entry in COSMETICS.BRICKS:
+				if entry.part == style:
+					for role in entry.palette:
+						themed[role] = Color(entry.palette[role])
 		themed["wear"] = 0.15
 		themed["team"] = strong
 		var placed = [[detail_name(view, part), Transform3D.IDENTITY]]

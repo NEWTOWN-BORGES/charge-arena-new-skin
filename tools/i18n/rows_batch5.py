@@ -1,7 +1,9 @@
 # Batch 5: OFICINA brick styles. (pt, en, fr, es, it)
 ROWS = [
+("DISPAROS", "SHOTS", "TIRS", "DISPAROS", "COLPI"),
+("TIJOLOS", "BRICKS", "BRIQUES", "LADRILLOS", "MATTONI"),
 ("TIJOLOS DA MURALHA", "WALL BRICKS", "BRIQUES DU MUR", "LADRILLOS DEL MURO", "MATTONI DEL MURO"),
-("O tijolo da muralha vale para todos os pilotos, nas cores de cada um.", "The wall brick applies to every pilot, in each one's colours.", "La brique du mur vaut pour tous les pilotes, aux couleurs de chacun.", "El ladrillo del muro vale para todos los pilotos, con los colores de cada uno.", "Il mattone del muro vale per tutti i piloti, nei colori di ognuno."),
+("O tijolo da muralha vale para todos os pilotos.", "The wall brick applies to every pilot.", "La brique du mur vaut pour tous les pilotes.", "El ladrillo del muro vale para todos los pilotos.", "Il mattone del muro vale per tutti i piloti."),
 ("Cofre", "Safe", "Coffre-fort", "Caja fuerte", "Cassaforte"),
 ("Barris", "Barrels", "Barils", "Barriles", "Barili"),
 ("Pirâmide", "Pyramid", "Pyramide", "Pirámide", "Piramide"),

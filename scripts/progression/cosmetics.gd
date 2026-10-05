@@ -50,18 +50,29 @@ const SHOTS = [
 	{"id": "arco_iris", "name": "Arco-íris", "price": 300, "color": "rainbow"},
 ]
 
-# Brick styles for the player's wall, in the pilot's own colours (tools/blender/brick_styles.py).
+# Brick styles for the player's wall, each with a shape, a height and colours of its own
+# (tools/blender/brick_styles.py); only the lid keeps the team's colour.
 const BRICKS = [
-	{"id": "tijolo_cofre", "name": "Cofre", "price": 150, "part": "brickstyle_cofre"},
-	{"id": "tijolo_barril", "name": "Barris", "price": 150, "part": "brickstyle_barril"},
-	{"id": "tijolo_piramide", "name": "Pirâmide", "price": 200, "part": "brickstyle_piramide"},
-	{"id": "tijolo_torre", "name": "Torre", "price": 200, "part": "brickstyle_torre"},
-	{"id": "tijolo_pneus", "name": "Pneus", "price": 250, "part": "brickstyle_pneus"},
-	{"id": "tijolo_iglu", "name": "Iglu", "price": 250, "part": "brickstyle_iglu"},
-	{"id": "tijolo_hexagono", "name": "Hexágono", "price": 300, "part": "brickstyle_hexagono"},
-	{"id": "tijolo_bateria", "name": "Bateria", "price": 350, "part": "brickstyle_bateria"},
-	{"id": "tijolo_cristal", "name": "Cristais", "price": 400, "part": "brickstyle_cristal"},
-	{"id": "tijolo_neon", "name": "Néon", "price": 500, "part": "brickstyle_neon"},
+	{"id": "tijolo_cofre", "name": "Cofre", "price": 150, "part": "brickstyle_cofre",
+		"palette": {"shell": "5d6670", "trim": "e2b84a", "dark": "22262c", "metal": "b8c0c8", "glow": "ffd36a"}},
+	{"id": "tijolo_barril", "name": "Barris", "price": 150, "part": "brickstyle_barril",
+		"palette": {"shell": "c23a2b", "trim": "f2c230", "dark": "2a1a14", "metal": "9aa3ab", "glow": "ffb03a"}},
+	{"id": "tijolo_piramide", "name": "Pirâmide", "price": 200, "part": "brickstyle_piramide",
+		"palette": {"shell": "d9b77a", "trim": "f3dc9a", "dark": "5a4528", "metal": "c9a24f", "glow": "4fd0ff"}},
+	{"id": "tijolo_torre", "name": "Torre", "price": 200, "part": "brickstyle_torre",
+		"palette": {"shell": "8a8f99", "trim": "b23a3a", "dark": "3a3d44", "metal": "6d7280", "glow": "ffb84a"}},
+	{"id": "tijolo_pneus", "name": "Pneus", "price": 250, "part": "brickstyle_pneus",
+		"palette": {"shell": "2a2c30", "trim": "ffcc1a", "dark": "15161a", "metal": "c0c6cc", "glow": "ffcc1a", "rubber": "1a1b1f"}},
+	{"id": "tijolo_iglu", "name": "Iglu", "price": 250, "part": "brickstyle_iglu",
+		"palette": {"shell": "eaf6ff", "trim": "9fd4ff", "dark": "51606f", "metal": "c6ced8", "glow": "6fe3ff"}},
+	{"id": "tijolo_hexagono", "name": "Hexágono", "price": 300, "part": "brickstyle_hexagono",
+		"palette": {"shell": "4b2a7a", "trim": "9f6bff", "dark": "1b1440", "metal": "a48fd0", "glow": "4ff0ff"}},
+	{"id": "tijolo_bateria", "name": "Bateria", "price": 350, "part": "brickstyle_bateria",
+		"palette": {"shell": "2f9e4f", "trim": "1d1f22", "dark": "15161a", "metal": "c0c6cc", "glow": "7dff7a"}},
+	{"id": "tijolo_cristal", "name": "Cristais", "price": 400, "part": "brickstyle_cristal",
+		"palette": {"shell": "3a3448", "trim": "c04dff", "dark": "1e1a26", "metal": "7a6c9a", "glow": "ff5ad9"}},
+	{"id": "tijolo_neon", "name": "Néon", "price": 500, "part": "brickstyle_neon",
+		"palette": {"shell": "101418", "trim": "2a3238", "dark": "07090a", "metal": "2c332e", "glow": "3dff9a"}},
 ]
 
 var path = "user://cosmetics.cfg"

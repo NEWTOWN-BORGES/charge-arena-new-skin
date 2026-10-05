@@ -1,3 +1,15 @@
+# Charge Arena 3.47.1 (código 77)
+
+## Mudanças
+- **Visualizador de tijolos:** na OFICINA, o botão TIJOLOS mostra cada tijolo grande e sozinho no pedestal, a rodar como no hangar; dá para o girar com o dedo.
+- **Separadores na OFICINA:** PINTURA, DISPAROS e TIJOLOS levam logo à secção.
+- **Tijolos com cores próprias:** cada tijolo tem a sua cor e o seu formato, e já não usa as cores do piloto. Só a tampa fica na cor da equipa.
+  - Barris: um grande deitado e um pequeno de pé.
+  - Hexágono: favo de colunas de várias alturas.
+  - Torre: redonda e alta, com telhado.
+  - Néon: esfera de luz em três anéis.
+  - Pirâmide e Cristais ficaram mais altos.
+
 # Charge Arena 3.47.0 (código 76)
 
 ## Novo

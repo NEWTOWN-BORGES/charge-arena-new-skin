@@ -305,6 +305,11 @@ var workshop_paints: HFlowContainer
 var workshop_shots: HFlowContainer
 var workshop_bricks: HFlowContainer
 var viewer_brick_style = ""
+# The brick showcase: while the workshop browses wall bricks, the pedestal shows one big brick
+# turning on its own instead of the pilot.
+var viewer_brick_mode = false
+var viewer_showcase: Node3D
+const SHOWCASE_SCALE = 2.8
 var workshop_action: Button
 var workshop_note: Label
 var workshop_button: Button
@@ -632,6 +637,8 @@ func frame_viewer(tall: float) -> void:
 
 func measure_viewer_pilot() -> float:
 	# How tall the model standing on the turntable actually is, in world units.
+	if viewer_brick_mode and is_instance_valid(viewer_showcase):
+		return 0.82 * SHOWCASE_SCALE
 	if not is_instance_valid(viewer_pilot):
 		return 1.7
 	var tall := 0.0
@@ -650,10 +657,12 @@ func build_viewer_pilot() -> void:
 	var locked = skins_progress != null and not skins_progress.is_unlocked(preview_index)
 	var paint: Dictionary = {} if locked else workshop_preview_paint()
 	var brick_style: String = "" if locked else workshop_preview_brick()
-	if viewer_skin == preview_index and viewer_locked == locked and viewer_paint == paint and viewer_brick_style == brick_style and is_instance_valid(viewer_pilot):
+	var showcase = workshop_mode and workshop_pick.kind == "brick" and not locked
+	if viewer_skin == preview_index and viewer_locked == locked and viewer_paint == paint and viewer_brick_style == brick_style and viewer_brick_mode == showcase and is_instance_valid(viewer_pilot):
 		return
 	viewer_paint = paint
 	viewer_brick_style = brick_style
+	viewer_brick_mode = showcase
 	if viewer_turntable.get_child_count() == 0:
 		# Pedestal with brass studs, so the turn is visible even on a symmetric pose.
 		arena_view.cylinder(viewer_turntable, Vector3(0, -0.1, 0), 1.08, 0.2, arena_view.DARK)
@@ -671,6 +680,14 @@ func build_viewer_pilot() -> void:
 	viewer_pilot = arena_view.build_player(CYAN, 0, preview_index, viewer_turntable, false, paint)
 	Robots.shadow_build = false
 	viewer_pilot.position = Vector3(0, 0.02, 0)
+	viewer_pilot.visible = not showcase
+	if is_instance_valid(viewer_showcase):
+		viewer_showcase.queue_free()
+	if showcase:
+		# One big brick in the middle of the pedestal, standing on it.
+		viewer_showcase = arena_view.make_brick(viewer_turntable, {"team": 0, "p": Vector2.ZERO, "rotation": 0.0}, preview_index, false, brick_style)
+		viewer_showcase.scale = Vector3.ONE * SHOWCASE_SCALE
+		viewer_showcase.position.y = 0.02
 	if not is_instance_valid(viewer_shadow):
 		# A soft contact shadow, so the pilot stands on the plate instead of floating over it.
 		viewer_shadow = MeshInstance3D.new()
@@ -685,7 +702,7 @@ func build_viewer_pilot() -> void:
 		brick.queue_free()
 	viewer_bricks.clear()
 	# Two exhibition bricks of the skin's theme; the second shows a lost life.
-	for side in [-1, 1]:
+	for side in ([] if showcase else [-1, 1]):
 		# Beside the pilot and a step behind, so they never stand in front of it, and all of
 		# it on the pedestal (radius 0.99): out at 1.05 half the brick hung in the air.
 		var data = {"team": 1 if locked else 0, "p": Vector2(side * 0.6, -0.36), "rotation": side * 0.6}
@@ -695,10 +712,11 @@ func build_viewer_pilot() -> void:
 		Robots.shadow_build = false
 		# Standing on the pedestal's top, not sunk into it.
 		viewer_bricks[-1].position.y = 0.02
-	viewer_bricks[1].scale = Vector3.ONE * arena_view.Rules.brick_scale(2)
-	viewer_bricks[1].get_node("HP2").hide()
-	if viewer_bricks[1].has_node("HP2b"):
-		viewer_bricks[1].get_node("HP2b").hide()
+	if viewer_bricks.size() > 1:
+		viewer_bricks[1].scale = Vector3.ONE * arena_view.Rules.brick_scale(2)
+		viewer_bricks[1].get_node("HP2").hide()
+		if viewer_bricks[1].has_node("HP2b"):
+			viewer_bricks[1].get_node("HP2b").hide()
 	viewer_skin = preview_index
 	viewer_locked = locked
 	tint_backdrop()
@@ -754,7 +772,12 @@ func pinch_span() -> float:
 func animate_viewer(dt: float) -> void:
 	viewer_clock += dt
 	viewer_idle += dt
-	if viewer_idle > VIEWER_SETTLE:
+	if viewer_brick_mode:
+		# The brick turns on its own, like a showroom piece, until a finger turns it.
+		if viewer_idle > VIEWER_SETTLE:
+			viewer_yaw += dt * 0.6
+		viewer_fire_timer = 1.0
+	elif viewer_idle > VIEWER_SETTLE:
 		viewer_yaw = lerp_angle(viewer_yaw, VIEWER_FRONT, minf(dt * 2.5, 1.0))
 	viewer_turntable.rotation.y = viewer_yaw
 	var body: Node3D = viewer_pilot.get_node("Body")
@@ -908,6 +931,17 @@ func build_workshop() -> void:
 	column.add_child(workshop_title)
 	workshop_wallet = label("", 17, UiKit.SUN_INK, true)
 	column.add_child(workshop_wallet)
+	# Jumps to each section; TIJOLOS turns the pedestal into the brick showcase.
+	var tabs = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	column.add_child(tabs)
+	for tab in [["PINTURA", "paint"], ["DISPAROS", "shot"], ["TIJOLOS", "brick"]]:
+		var jump = make_button(tab[0], false)
+		jump.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		jump.custom_minimum_size.y = 52
+		var kind: String = tab[1]
+		jump.pressed.connect(func(): jump_workshop(kind))
+		tabs.add_child(jump)
 	column.add_child(label("PINTURA", 18, WHITE, true))
 	workshop_paints = HFlowContainer.new()
 	workshop_paints.add_theme_constant_override("h_separation", 8)
@@ -1025,7 +1059,7 @@ func refresh_workshop() -> void:
 	for entry in Cosmetics.BRICKS:
 		var id: String = entry.id
 		var status = tr("EQUIPADA") if worn_brick == id else workshop_status(id)
-		workshop_bricks.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, [own_colors.shell, own_colors.glow],
+		workshop_bricks.add_child(workshop_chip(tr(String(entry.name)) + "\n" + status, [Color(entry.palette.shell), Color(entry.palette.trim), Color(entry.palette.glow)],
 			workshop_pick.kind == "brick" and workshop_pick.id == id, func(): pick_workshop("brick", id)))
 	# The action under the rows: buy what is picked, wear it, or say it is worn.
 	var id: String = String(workshop_pick.id)
@@ -1053,7 +1087,17 @@ func refresh_workshop() -> void:
 	if kind == "shot" and id != "":
 		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("A cor dos disparos vale para todos os pilotos.")
 	if kind == "brick" and id != "":
-		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("O tijolo da muralha vale para todos os pilotos, nas cores de cada um.")
+		workshop_note.text = (workshop_note.text + " " if workshop_note.text != "" else "") + tr("O tijolo da muralha vale para todos os pilotos.")
+
+func jump_workshop(kind: String) -> void:
+	# Show the worn look of that kind and bring its row into view.
+	var worn = ""
+	if cosmetics_state != null:
+		worn = cosmetics_state.paint_of(preview_index) if kind == "paint" else (cosmetics_state.shot if kind == "shot" else cosmetics_state.brick)
+	pick_workshop(kind, worn)
+	var row: Control = workshop_paints if kind == "paint" else (workshop_shots if kind == "shot" else workshop_bricks)
+	await get_tree().process_frame
+	workshop_scroll.scroll_vertical = maxi(int(row.position.y) - 40, 0)
 
 func pick_workshop(kind: String, id: String) -> void:
 	workshop_pick = {"kind": kind, "id": id}
