@@ -19,7 +19,7 @@ const CATALOG = [
 		"body": "78bd57", "light": "d8ff8a", "shot": "b8f070"},
 	{"name": "BIGORNA", "ultimate": "plating", "weapon": "Perfuradora", "bricks": "Bigornas de forja", "about": "Pesado de estaleiro: cabeça-visor com pirilampo, faixas de perigo, lagartas de tanque e broca.", "level": 3,
 		"body": "f2b91c", "light": "ff9f2e", "shot": "ffb02e"},
-	{"name": "ECLIPSE", "ultimate": "singularity", "weapon": "Canhão Magnético", "bricks": "Monólitos do eclipse", "about": "Vilão orbital: armadura negra, visor rubro, núcleo de singularidade e canhão magnético. Controla a gravidade para dominar a arena.", "level": 10,
+	{"name": "ECLIPSE", "ultimate": "singularity", "weapon": "Canhão de Anel", "bricks": "Monólitos do eclipse", "about": "O executor: tronco blindado, ombreiras maciças, visor sob a sobrancelha em V e o núcleo do eclipse no peito. Fala pouco e não perdoa.", "level": 10,
 		"body": "27272f", "light": "ff3b4d", "shot": "ff4f5e"},
 	{"name": "ROSCA", "ultimate": "sentries", "weapon": "Lança-Arpão", "bricks": "Caixas de engrenagens", "about": "Marinheiro de estaleiro e irmão afastado do pirata Gancho: casco arredondado, vigia luminosa, hélice e guincho. Mantém os navios em marcha com ferramentas de combate naval.", "level": 5,
 		"body": "24556b", "light": "ffd370", "shot": "ffd370"},

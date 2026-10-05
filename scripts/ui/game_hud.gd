@@ -310,7 +310,11 @@ var viewer_paint: Dictionary = {}
 var viewer_camera: Camera3D
 var viewer_viewport: SubViewport
 var viewer_shadow: MeshInstance3D
-var viewer_yaw = 0.5
+# The pilot faces the camera (it looks down -Z, the camera sits on +Z), turned a little so
+# its shape reads; a drag turns it, and it comes back to face you when let go.
+const VIEWER_FRONT = PI - 0.45
+const VIEWER_SETTLE = 2.0
+var viewer_yaw = VIEWER_FRONT
 # Tilt of the hangar camera (drag up and down) and the fingers on the viewer, for the pinch.
 var viewer_pitch = 0.0
 var viewer_touches: Dictionary = {}
@@ -746,6 +750,8 @@ func pinch_span() -> float:
 func animate_viewer(dt: float) -> void:
 	viewer_clock += dt
 	viewer_idle += dt
+	if viewer_idle > VIEWER_SETTLE:
+		viewer_yaw = lerp_angle(viewer_yaw, VIEWER_FRONT, minf(dt * 2.5, 1.0))
 	viewer_turntable.rotation.y = viewer_yaw
 	var body: Node3D = viewer_pilot.get_node("Body")
 	body.position.y = sin(viewer_clock * 2.2) * 0.02
@@ -1150,6 +1156,7 @@ func open_skins() -> void:
 	if is_instance_valid(viewer_viewport) and arena_view != null:
 		viewer_viewport.msaa_3d = preload("res://scripts/settings/video_settings.gd").antialiasing(arena_view.quality_level)
 	skins_overlay.show()
+	viewer_yaw = VIEWER_FRONT
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
 
 func close_skins() -> void:
