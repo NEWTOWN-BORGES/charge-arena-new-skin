@@ -11,6 +11,8 @@ const HEROIC_KIT = preload("res://art/robots/heroic_cast.glb")
 const ECLIPSE_KIT = preload("res://art/robots/eclipse16.glb")
 # BATIDA 13: the circuit's medic (tools/blender/batida_medic.py).
 const BATIDA_KIT = preload("res://art/robots/batida13.glb")
+# ROSCA 13: the workshop engineer (tools/blender/rosca_engineer.py).
+const ROSCA_KIT = preload("res://art/robots/rosca13.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -146,7 +148,7 @@ static func colors(skin: int, team: Color, tint: bool = false, override: Diction
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT, BATIDA_KIT]:
+		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT, BATIDA_KIT, ROSCA_KIT]:
 			var scene: Node = library.instantiate()
 			for root in scene.get_children():
 				var items: Array = []

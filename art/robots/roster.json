@@ -1,6 +1,7 @@
 {
 	"about": "Receitas dos robôs: brick = peça do tijolo temático que defende a muralha; peças do kit (art/robots/kit.glb), cores por papel, escala do corpo e desgaste da pintura. Cores vazias usam a cor da equipa. eye_style: capsule, dots, bars, square, slant, monocle, visor, equalizer, single, rings, stars, arcs, slits (um rasgo num casco, sem ecrã).",
 	"heads": {
+		"rosca13_head": {"top": 1.72, "center": 1.44, "aspect": 2.75},
 		"batida13_head": {"top": 1.93, "center": 1.67, "aspect": 2.2},
 		"eclipse16_head": {"top": 2.12, "center": 1.89, "aspect": 2.857},
 		"batida12_head": {"top": 1.826, "center": 1.7200000286102295, "aspect": 5.897},
@@ -126,30 +127,30 @@
 				-1.01
 			],
 			"parts": {
-				"head": "rosca12_head",
-				"torso": "rosca12_torso",
-				"shoulders": "rosca12_shoulders",
-				"arm": "rosca12_arm",
-				"gun": "rosca12_gun",
-				"legs": "rosca12_leg",
-				"legs_l": "rosca12_leg_l",
-				"legs_r": "rosca12_leg_r",
+				"head": "rosca13_head",
+				"torso": "rosca13_torso",
+				"shoulders": "rosca13_shoulders",
+				"arm": "rosca13_arm",
+				"gun": "rosca13_gun",
+				"legs": "rosca13_leg",
+				"legs_l": "rosca13_leg_l",
+				"legs_r": "rosca13_leg_r",
 				"back": "",
 				"top": "",
 				"spin": ""
 			},
 			"palette": {
-				"shell": "24556b",
-				"trim": "d8ded9",
-				"dark": "12232d",
-				"metal": "ba9c60",
-				"glow": "ffd26a",
+				"shell": "2b5d8a",
+				"trim": "ffc21a",
+				"dark": "1c2530",
+				"metal": "aab3bb",
+				"glow": "ffb21a",
 				"screen": "07141c",
 				"team": "",
 				"rubber": "101922",
 				"eyes": "ffd375"
 			},
-			"design_note": "Marinheiro robótico, irmão afastado do Gancho: pipa naval azul-petróleo e cúpula integrada off-white, vigia âmbar, gola de marinheiro, hélice peitoral, pinça articulada, guincho de corda e lança-arpão de proa. Anca compacta sólida, membros curvos uniformes.",
+			"design_note": "Engenheiro da oficina: capacete de obra amarelo com crista, lanterna e óculos de soldar levantados, ecrã-visor largo e protetores de ouvidos; tronco em barril com fato-macaco, alças com fivelas, bolso e faixas refletoras, cinto de ferramentas com bolsas e martelo; sentinela dobrada às costas com a minigun de seis canos; ombreiras com faixas de perigo e pirilampo; chave inglesa na mão e minigun no braço; pernas curtas e botas de biqueira de aço.",
 			"callouts": [
 				[
 					"CASCO SEM PESCOÇO",
@@ -555,7 +556,7 @@
 			"palette": {"shell": "3a3d44", "trim": "ff5a1f", "dark": "18191c", "metal": "8e939b", "glow": "ff6a1a", "eyes": "ff8a3a", "rubber": "101113", "team": ""}},
 		{"name": "ECLIPSE RUBRO", "base": 5, "hard": true, "parts_add": {"extra": "eclipse_x_extra", "hat": "eclipse_x_hat"},
 			"palette": {"shell": "5a1a24", "trim": "ff8a8a", "dark": "140a0d", "metal": "7a5058", "glow": "ff2a3c", "eyes": "ff6a6a", "rubber": "0e0709", "team": ""}},
-		{"name": "ROSCA TURBO", "base": 6, "hard": true, "parts_add": {"extra": "rosca_x_extra"},
+		{"name": "ROSCA TURBO", "base": 6, "hard": true, "parts_add": {"extra": "rosca13_x_extra"},
 			"palette": {"shell": "3f6f8f", "trim": "f2c230", "dark": "1a2630", "metal": "c0c6cc", "glow": "ffd34a", "eyes": "ffe07a", "rubber": "11171c", "team": ""}},
 		{"name": "FAÍSCA TEMPESTADE", "base": 7, "hard": true, "parts_add": {"extra": "faisca_x_extra", "hat": "faisca_x_hat"},
 			"palette": {"shell": "2a2f3a", "trim": "ffd23f", "dark": "12151c", "metal": "8d96a6", "glow": "fff04a", "eyes": "fff59a", "rubber": "0d0f14", "team": ""}},
