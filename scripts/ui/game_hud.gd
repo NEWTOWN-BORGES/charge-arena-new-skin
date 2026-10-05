@@ -1622,6 +1622,8 @@ func pick_world(world: String) -> void:
 	map_previewed.emit(world)
 
 func build_pvp_menu() -> void:
+	# Three tabs, one question each: play a friend on the same Wi-Fi, play the AI, or play
+	# online. Each page shows only what that choice needs, in the order it is done.
 	pvp_overlay = ColorRect.new()
 	pvp_overlay.color = Color(UiKit.NIGHT, 0.93)
 	pvp_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1632,34 +1634,102 @@ func build_pvp_menu() -> void:
 	var list = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 14)
 	pvp_panel.add_child(list)
-	list.add_child(label("PvP · DOIS JOGADORES", 25, WHITE, true))
-	# Online: anyone, anywhere, through the game's server.
+	list.add_child(label("PvP", 28, WHITE, true))
+	var tabs = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	list.add_child(tabs)
+	var pages: Array = []
+	var tab_buttons: Array = []
+	var show_page = func(index: int):
+		for k in range(pages.size()):
+			pages[k].visible = k == index
+			paint_button(tab_buttons[k], k == index)
+	for title in ["AMIGO · WI-FI", "CONTRA A IA", "ONLINE"]:
+		var tab = make_button(title, false)
+		tab.custom_minimum_size.y = 56
+		tab.add_theme_font_size_override("font_size", 18)
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(tab)
+		tab_buttons.append(tab)
+		var page = VBoxContainer.new()
+		page.add_theme_constant_override("separation", 12)
+		list.add_child(page)
+		pages.append(page)
+	for k in range(tab_buttons.size()):
+		var index = k
+		tab_buttons[k].pressed.connect(func(): show_page.call(index))
+	# 1. A friend on the same Wi-Fi: one creates, the other joins with the IP shown.
+	var wifi: VBoxContainer = pages[0]
+	wifi.add_child(pvp_note("Os dois telemóveis na mesma rede Wi-Fi e com esta versão do jogo."))
+	wifi.add_child(pvp_step("1", "Um de vocês cria a partida e vê o seu IP no ecrã."))
+	var host = make_button("CRIAR PARTIDA", true)
+	host.custom_minimum_size.y = 64
+	wifi.add_child(host)
+	host.pressed.connect(func(): close_pvp(); host_requested.emit())
+	wifi.add_child(pvp_step("2", "O outro escreve esse IP aqui e entra."))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	wifi.add_child(row)
+	ip = LineEdit.new()
+	ip.placeholder_text = "IP (ex.: 192.168.1.20)"
+	ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ip.custom_minimum_size = Vector2(210, 60)
+	ip.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.CARD_EDGE))
+	ip.add_theme_color_override("font_color", WHITE)
+	ip.add_theme_font_size_override("font_size", 18)
+	row.add_child(ip)
+	var join = make_button("ENTRAR", false)
+	join.custom_minimum_size = Vector2(140, 60)
+	row.add_child(join)
+	join.pressed.connect(func(): close_pvp(); join_requested.emit(ip.text.strip_edges()))
+	wifi.add_child(pvp_step("3", "A partida começa quando os dois estiverem ligados."))
+	# 2. Against the AI: the colosseum duel, and the 3 v 3 arena in the LAB build.
+	var ai: VBoxContainer = pages[1]
+	var duel = make_button("COLISEU · 1 CONTRA 1", true)
+	duel.custom_minimum_size.y = 64
+	ai.add_child(duel)
+	ai.add_child(pvp_note("Um duelo contra a IA na arena do PvP."))
+	duel.pressed.connect(func(): close_pvp(); pvp_ai_requested.emit())
+	if OS.has_feature("open_test") or OS.has_feature("editor"):
+		var squad_play = make_button("3 CONTRA 3 · JOGAR", true)
+		squad_play.custom_minimum_size.y = 64
+		ai.add_child(squad_play)
+		ai.add_child(pvp_note("Tu e duas IA contra três IA, num estádio cheio."))
+		squad_play.pressed.connect(func(): close_pvp(); squad_requested.emit(false))
+		var squad = make_button("3 CONTRA 3 · VER", false)
+		squad.custom_minimum_size.y = 60
+		ai.add_child(squad)
+		ai.add_child(pvp_note("Seis IA jogam umas contra as outras; tu assistes."))
+		squad.pressed.connect(func(): close_pvp(); squad_requested.emit(true))
+	# 3. Online, through the game's server.
+	var online: VBoxContainer = pages[2]
 	var online_ready = Online.available()
-	list.add_child(label("ONLINE", 17, WHITE, true))
-	var online_about = label("Joga contra qualquer pessoa pela internet, ou cria uma sala e dá o código a um amigo." if online_ready else "Brevemente: o servidor online ainda não está ligado.", 14, MUTED)
-	online_about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	online_about.custom_minimum_size.x = 400
-	list.add_child(online_about)
+	online.add_child(pvp_note("Joga contra qualquer pessoa pela internet, ou cria uma sala e dá o código a um amigo." if online_ready else "Brevemente: o servidor online ainda não está ligado."))
 	var quick = make_button("PARTIDA RÁPIDA ONLINE", true)
-	quick.custom_minimum_size.y = 58
+	quick.custom_minimum_size.y = 64
 	quick.disabled = not online_ready
-	list.add_child(quick)
+	online.add_child(quick)
 	quick.pressed.connect(func(): close_pvp(); online_requested.emit(""))
+	var make_room = make_button("CRIAR SALA PARA UM AMIGO", false)
+	make_room.custom_minimum_size.y = 56
+	make_room.disabled = not online_ready
+	online.add_child(make_room)
+	make_room.pressed.connect(func(): close_pvp(); online_requested.emit(Online.NEW_ROOM))
 	var room_row = HBoxContainer.new()
 	room_row.add_theme_constant_override("separation", 8)
-	list.add_child(room_row)
+	online.add_child(room_row)
 	room_code = LineEdit.new()
 	room_code.placeholder_text = "Código da sala"
 	room_code.max_length = Online.CODE_LENGTH
 	room_code.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	room_code.custom_minimum_size = Vector2(150, 52)
+	room_code.custom_minimum_size = Vector2(150, 56)
 	room_code.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.CARD_EDGE))
 	room_code.add_theme_color_override("font_color", WHITE)
-	room_code.add_theme_font_size_override("font_size", 16)
+	room_code.add_theme_font_size_override("font_size", 18)
 	room_code.editable = online_ready
 	room_row.add_child(room_code)
 	var enter_room = make_button("ENTRAR NA SALA", false)
-	enter_room.custom_minimum_size.y = 52
+	enter_room.custom_minimum_size.y = 56
 	enter_room.disabled = not online_ready
 	room_row.add_child(enter_room)
 	enter_room.pressed.connect(func():
@@ -1667,51 +1737,36 @@ func build_pvp_menu() -> void:
 		if code.length() == Online.CODE_LENGTH:
 			close_pvp()
 			online_requested.emit(code))
-	var make_room = make_button("CRIAR SALA PARA UM AMIGO", false)
-	make_room.custom_minimum_size.y = 52
-	make_room.disabled = not online_ready
-	room_row.add_sibling(make_room)
-	make_room.pressed.connect(func(): close_pvp(); online_requested.emit(Online.NEW_ROOM))
-	list.add_child(label("REDE LOCAL (WI-FI)", 17, WHITE, true))
-	var about = label("Os dois aparelhos na mesma rede Wi-Fi e com esta versão. Um cria a sala; o outro escreve o IP que aparece e entra.", 14, MUTED)
-	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	about.custom_minimum_size.x = 400
-	list.add_child(about)
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	list.add_child(row)
-	ip = LineEdit.new()
-	ip.placeholder_text = "IP do outro jogador"
-	ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ip.custom_minimum_size = Vector2(210, 52)
-	ip.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.CARD_EDGE))
-	ip.add_theme_color_override("font_color", WHITE)
-	ip.add_theme_font_size_override("font_size", 16)
-	row.add_child(ip)
-	var join = make_button("ENTRAR", false)
-	join.custom_minimum_size.y = 52
-	row.add_child(join)
-	join.pressed.connect(func(): close_pvp(); join_requested.emit(ip.text.strip_edges()))
-	var host = make_button("CRIAR PARTIDA", true)
-	host.custom_minimum_size.y = 58
-	list.add_child(host)
-	host.pressed.connect(func(): close_pvp(); host_requested.emit())
-	var pvp_ai = make_button("JOGAR CONTRA IA (COLISEU)", false)
-	pvp_ai.custom_minimum_size.y = 56
-	list.add_child(pvp_ai)
-	pvp_ai.pressed.connect(func(): close_pvp(); pvp_ai_requested.emit())
-	var squad_play = make_button("3 CONTRA 3 · JOGAR COM AS IA", true)
-	squad_play.custom_minimum_size.y = 56
-	list.add_child(squad_play)
-	squad_play.pressed.connect(func(): close_pvp(); squad_requested.emit(false))
-	var squad = make_button("3 CONTRA 3 · VER AS IA A JOGAR", false)
-	squad.custom_minimum_size.y = 56
-	list.add_child(squad)
-	squad.pressed.connect(func(): close_pvp(); squad_requested.emit(true))
 	var leave = make_button("VOLTAR", false)
 	list.add_child(leave)
 	leave.pressed.connect(close_pvp)
+	show_page.call(0)
 	pvp_overlay.hide()
+
+func pvp_note(text: String) -> Label:
+	var note = label(text, 15, MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.x = 400
+	return note
+
+func pvp_step(number: String, text: String) -> Control:
+	# A numbered step: a gold disc with the number, then the instruction.
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var disc = label(number, 18, UiKit.INK, true)
+	disc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	disc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	disc.custom_minimum_size = Vector2(34, 34)
+	var badge = PanelContainer.new()
+	badge.add_theme_stylebox_override("panel", style(SUN, SUN))
+	badge.add_child(disc)
+	row.add_child(badge)
+	var text_label = label(text, 16, WHITE)
+	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_label.custom_minimum_size.x = 340
+	row.add_child(text_label)
+	return row
 
 func open_pvp() -> void:
 	reset_touch()

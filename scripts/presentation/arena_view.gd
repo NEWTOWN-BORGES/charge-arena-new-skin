@@ -18,6 +18,7 @@ const GameFeel = preload("res://scripts/settings/game_feel.gd")
 const Robots = preload("res://scripts/presentation/robots.gd")
 const ArenaTheme = preload("res://scripts/presentation/arena_theme.gd")
 const ArenaDressing = preload("res://scripts/presentation/arena_dressing.gd")
+const ArenaStadium = preload("res://scripts/presentation/arena_stadium.gd")
 const ArenaSky = preload("res://scripts/presentation/arena_sky.gd")
 const ArenaGround = preload("res://scripts/presentation/arena_ground.gd")
 const ArenaSea = preload("res://scripts/presentation/arena_sea.gd")
@@ -591,6 +592,9 @@ func build(new_map: Dictionary = {}) -> void:
 	match dressing:
 		"bare":
 			build_wall_segments()
+			if map.get("squad", false) and not bake_export:
+				# The 3 v 3 arena plays in a stadium: stands all round, boards, screens, a crowd.
+				ArenaStadium.build(self, quality_level)
 		"baked":
 			ArenaDiorama.build(self, theme, baked_world)
 		"sky":
@@ -614,7 +618,7 @@ func build(new_map: Dictionary = {}) -> void:
 			ArenaDressing.perimeter(self, theme)
 			ArenaDressing.stadium(self, theme, quality_level)
 	# Life on top of the world: trees, flowers, mountains on the horizon, drifting clouds.
-	if not bake_export:
+	if not bake_export and not map.get("squad", false):
 		ArenaLife.build(self, theme, String(theme.get("dressing", "")))
 	# Decorative curb and service markers stay outside the collision outline; all opaque
 	# pieces are merged with the architecture below, with no physics or per-frame work.
@@ -631,6 +635,7 @@ func build(new_map: Dictionary = {}) -> void:
 			var wing = build_player(CYAN if index % 2 == 0 else CORAL, index % 2, SQUAD_SKINS[index - 2])
 			var at: Vector2 = Rules.pilot_spot(map, index, 0.0)
 			wing.position = Vector3(at.x, 0, at.y)
+			lighten_wing(wing)
 			units.append(wing)
 		while stuns_before.size() < units.size():
 			stuns_before.append(0.0)
@@ -1271,6 +1276,17 @@ func refresh_ultimate_colors() -> void:
 		if paint != "" and not bool(unit_tints[team]):
 			Rules.color_overrides[String(Skins.CATALOG[skin].ultimate)] = Color(paint)
 
+func lighten_wing(root: Node) -> void:
+	# The 3 v 3 wingmen, four more robots on a phone: no ink outline (a second copy of every
+	# mesh) and no cast shadow. The two leaders keep both.
+	for child in root.get_children():
+		if child is GeometryInstance3D:
+			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if child.is_in_group(Robots.OUTLINE_GROUP):
+				child.remove_from_group(Robots.OUTLINE_GROUP)
+				child.visible = false
+		lighten_wing(child)
+
 func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> void:
 	# `tint`: dress the skin in a single colour instead of its own palette. `hue`: which
 	# colour, when it is not the team's - that is how the station pilots each get a look of
@@ -1286,6 +1302,8 @@ func set_skin(team: int, skin: int, tint: bool = false, hue: String = "") -> voi
 	fresh.transform = old.transform
 	fresh.set_meta("last_cooldown", old.get_meta("last_cooldown"))
 	units[team] = fresh
+	if team >= 2:
+		lighten_wing(fresh)
 	unit_skins[team] = skin
 	unit_tints[team] = tint
 	shot_colors[team] = Skins.colors(skin, team_color, tint).shot

@@ -2887,7 +2887,9 @@ func predict_path(team: int, angle: float) -> Dictionary:
 # The squad map's pilots look at one place on their rail every SQUAD_SCAN seconds, and
 # forecast a shot in steps of SQUAD_TICK: the sweeps are exact, so a coarse step only
 # costs the moving bumpers a little accuracy, and six pilots can afford it on a phone.
-const SQUAD_SCAN = 0.07
+# Every look is a full forecast through up to seven ricochets: on a phone six pilots looking
+# every 0.07 s ate most of a frame, so each one looks a little less often.
+const SQUAD_SCAN = 0.11
 const SQUAD_TICK = 0.2
 const SQUAD_TICKS = 18
 
@@ -2949,7 +2951,7 @@ func squad_command(index: int) -> Dictionary:
 		return {"move": Vector2(clampf(dodge, -1, 1), 0), "fire": false, "power": power}
 	var fire := false
 	if pilot.cooldown <= 0 and elapsed >= plan.next_fire:
-		plan.next_fire = elapsed + 0.12
+		plan.next_fire = elapsed + 0.16
 		fire = squad_value(team, squad_forecast(index, pilot.angle, 0.0)) > 0.0
 		if fire:
 			move = Vector2.ZERO
