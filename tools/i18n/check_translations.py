@@ -6,7 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LANGS = ["pt", "en", "fr", "es", "it"]
-SPEC = re.compile(r"%(?:\d+\$)?[-+ 0#]*\d*(?:\.\d+)?[sdif%]")
+# No space flag: "15% de" in a sentence is a percentage, not a placeholder.
+SPEC = re.compile(r"%(?:\d+\$)?[-+0#]*\d*(?:\.\d+)?[sdif%]")
 problems = 0
 for path in sorted((ROOT / "localization").glob("*.csv")):
     with path.open(encoding="utf-8") as f:

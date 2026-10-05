@@ -107,10 +107,10 @@ func show_next() -> void:
 		return
 	current = pending.pop_front()
 	var words: Array = KINDS.get(String(current.kind), KINDS.power)
-	heading.text = words[0]
-	title.text = current.name
-	where.text = "›  " + String(current.get("where", words[1]))
-	badge.text = words[2]
+	heading.text = tr(String(words[0]))
+	title.text = tr(String(current.name))
+	where.text = "›  " + tr(String(current.get("where", words[1])))
+	badge.text = tr(String(words[2]))
 	remaining = 4.5
 	arrange()
 	icon.queue_redraw()

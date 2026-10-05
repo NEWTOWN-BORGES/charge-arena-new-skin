@@ -385,8 +385,8 @@ func start_level(index: int) -> void:
 	# you know at a glance that there is no skin to win here.
 	arena.set_skin(1, level.boss, Campaign.is_minor(index), Campaign.level_hue(index))
 	hud.team_hues = arena.unit_hues
-	var rival_name: String = String(level.name).to_upper() if Campaign.is_minor(index) else String(Skins.CATALOG[level.boss].name)
-	hud.level_info = {"number": Campaign.menu_levels().find(Campaign.menu_level(index)) + 1, "name": level.name, "challenge": level.challenge, "boss_name": rival_name, "has_next": index + 1 < Campaign.LEVELS.size()}
+	var rival_name: String = tr(String(level.name)).to_upper() if Campaign.is_minor(index) else String(Skins.CATALOG[level.boss].name)
+	hud.level_info = {"number": Campaign.menu_levels().find(Campaign.menu_level(index)) + 1, "name": tr(String(level.name)), "challenge": tr(String(level.challenge)), "boss_name": rival_name, "has_next": index + 1 < Campaign.LEVELS.size()}
 	hud.level_result = ""
 	hud.level_skin = ""
 	# Compile what the match can draw during the countdown, not at its first shot.
@@ -433,7 +433,7 @@ func begin_marathon_round() -> void:
 	dress_pilots(local_team)
 	arena.set_skin(1, boss, false)
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": marathon.round_number, "name": level.name, "challenge": "", "boss_name": String(Skins.CATALOG[boss].name),
+	hud.level_info = {"number": marathon.round_number, "name": tr(String(level.name)), "challenge": "", "boss_name": String(Skins.CATALOG[boss].name),
 		"has_next": true, "marathon": true, "record": marathon.record, "wins": marathon.wins}
 	hud.level_result = ""
 	hud.level_skin = ""
@@ -670,7 +670,7 @@ func story_recap(hard: bool = false) -> Array:
 		elif skins.unlock_all or story_beaten(boss, false):
 			lines += StoryScript.lines(boss, "won")
 		else:
-			lines.append([StoryScript.NARRADOR, "Continua no Modo história: vence o %s para veres o resto." % StoryScript.speaker_name(boss)])
+			lines.append([StoryScript.NARRADOR, tr("Continua no Modo história: vence o %s para veres o resto.") % StoryScript.speaker_name(boss)])
 			break
 	return lines
 
@@ -693,7 +693,7 @@ func story_recap_hard() -> Array:
 		if skins.unlock_all or story_beaten(boss, true):
 			lines += StoryScript.S2_AFTER_MAGNUS if boss == StoryScript.MAGNUS else StoryScript.hard_lines(boss, "won")
 		else:
-			lines.append([StoryScript.NARRADOR, "Continua no Modo história DIFÍCIL: vence o %s para veres o resto." % StoryScript.speaker_name(boss)])
+			lines.append([StoryScript.NARRADOR, tr("Continua no Modo história DIFÍCIL: vence o %s para veres o resto.") % StoryScript.speaker_name(boss)])
 			break
 	return lines
 
@@ -763,7 +763,7 @@ func begin_training() -> void:
 	dress_pilots(local_team)
 	arena.set_skin(1, StoryScript.BATIDA, false)
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": 0, "name": "TREINO · " + String(Campaign.LEVELS[index].name),
+	hud.level_info = {"number": 0, "name": tr("TREINO · ") + String(Campaign.LEVELS[index].name),
 		"challenge": "Treino com a BATIDA: aprende a jogar.", "boss_name": "BATIDA", "has_next": true, "story": true}
 	hud.level_result = ""
 	hud.level_skin = ""
@@ -819,8 +819,8 @@ func begin_story(step: int, hard: bool) -> void:
 	# Season two: the corrupted friend fights in its hard skin, as it already is in the game.
 	arena.set_skin(1, wear, false)
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": step + 1, "name": ("TEMPORADA 2 · " if hard else "") + String(Campaign.LEVELS[index].name),
-		"challenge": "O campeão chega com a COROA SOLAR carregada. Aguenta o sol!" if teacher else "Trava o MAGNUS antes que destrua a cidade!" if wear != story_prize(boss, hard) else "Vence para ganhar a skin %s." % String(Skins.CATALOG[wear].name),
+	hud.level_info = {"number": step + 1, "name": (tr("TEMPORADA 2 · ") if hard else "") + String(Campaign.LEVELS[index].name),
+		"challenge": tr("O campeão chega com a COROA SOLAR carregada. Aguenta o sol!") if teacher else tr("Trava o MAGNUS antes que destrua a cidade!") if wear != story_prize(boss, hard) else tr("Vence para ganhar a skin %s.") % String(Skins.CATALOG[wear].name),
 		"boss_name": String(Skins.CATALOG[wear].name), "has_next": step + 1 < order.size(), "story": true}
 	hud.level_result = ""
 	hud.level_skin = ""
@@ -1032,10 +1032,10 @@ func host_game() -> void:
 	for address in IP.get_local_addresses():
 		if ":" not in address and not address.begins_with("127.") and not address.begins_with("169.254."):
 			addresses.append(address)
-	hud.menu_status.text = "IP desta sala: " + ", ".join(addresses)
+	hud.menu_status.text = tr("IP desta sala: ") + ", ".join(addresses)
 	# Host address stays visible while waiting, in the status panel.
 	if addresses.size() > 0:
-		network_status = "IP: " + addresses[0]
+		network_status = tr("IP: ") + addresses[0]
 	print("HOST_READY port=", PORT)
 
 func join_game(address: String) -> void:
@@ -1113,7 +1113,7 @@ func online_waiting(code: String) -> void:
 	if mode != "client" or online_state != "waiting":
 		return
 	online_wait = 0.0
-	network_status = (tr("SALA %s · dá este código ao teu amigo") % code) if code != "" else "À procura de rival…"
+	network_status = (tr("SALA %s · dá este código ao teu amigo") % code) if code != "" else tr("À procura de rival…")
 
 @rpc("authority", "call_remote", "reliable")
 func online_matched(team: int) -> void:
@@ -1285,7 +1285,7 @@ func bank_bricks() -> void:
 	# A power the wallet has just reached gets a notice, once, pointing at the shop.
 	for entry in power_shop.affordable():
 		if not could.has(String(entry.id)):
-			hud.announce_affordable(String(entry.id), String(entry.name), int(entry.price))
+			hud.announce_affordable(String(entry.id), tr(String(entry.name)), int(entry.price))
 
 func buy_cosmetic(id: String) -> void:
 	# OFICINA: paid from the same brick wallet as the powers.
@@ -2214,8 +2214,8 @@ func _process(dt: float) -> void:
 		fps_timer = 0
 		var measured = Engine.get_frames_per_second()
 		if mode != "menu" and video.adapt(get_viewport(), measured):
-			hud.video_note.text = "Ajuste automático ativo: limite %d FPS." % video.runtime_fps
-		hud.fps_label.text = "%d FPS  /  alvo %d" % [measured, video.runtime_fps]
+			hud.video_note.text = tr("Ajuste automático ativo: limite %d FPS.") % video.runtime_fps
+		hud.fps_label.text = tr("%d FPS  /  alvo %d") % [measured, video.runtime_fps]
 	if rules.phase != last_phase:
 		if rules.phase == "finished" and mode == "pve" and level_index >= 0:
 			finish_level()

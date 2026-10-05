@@ -239,11 +239,29 @@ def render(path):
     print("PORTRAIT", path)
 
 
+# Robots rebuilt in their own scripts, outside the kit (tools/blender/eclipse_mech.py,
+# batida_medic.py, rosca_engineer.py): their parts come from the exported glb.
+REDESIGNS = ("eclipse16.glb", "batida13.glb", "rosca13.glb")
+
+
+def import_redesigns():
+    found = {}
+    for name in REDESIGNS:
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=str(ROOT / "art" / "robots" / name))
+        for obj in set(bpy.data.objects) - before:
+            if obj.parent is None and obj.children:
+                obj.name = obj.name.split(".")[0]
+                found[obj.name] = obj
+    return found
+
+
 def main():
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     quick = "--quick" in args
     wanted = [a for a in args if not a.startswith("--")]
     objects = rk.build_kit()
+    objects.update(import_redesigns())
     for obj in objects.values():
         obj.hide_render = True
         for child in obj.children:

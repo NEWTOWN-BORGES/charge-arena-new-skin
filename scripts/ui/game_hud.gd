@@ -866,15 +866,15 @@ func refresh_news() -> void:
 	if not fresh_skins.is_empty():
 		var names: Array = fresh_skins.map(func(i): return String(Skins.CATALOG[i].name))
 		if crowded:
-			lines.append("Skin nova: %s" % String(names[0]) if names.size() == 1 else "%d skins novas" % names.size())
+			lines.append(tr("Skin nova: %s") % String(names[0]) if names.size() == 1 else tr("%d skins novas") % names.size())
 		else:
-			lines.append("Skin nova: %s — abre SKINS" % " · ".join(names))
+			lines.append(tr("Skin nova: %s — abre SKINS") % " · ".join(names))
 	if not buyable.is_empty():
 		if crowded:
-			lines.append("%d poderes ao teu alcance" % buyable.size() if buyable.size() > 1 else "%s ao teu alcance" % String(cheapest.name))
+			lines.append(tr("%d poderes ao teu alcance") % buyable.size() if buyable.size() > 1 else tr("%s ao teu alcance") % tr(String(cheapest.name)))
 		else:
-			var tail = "" if buyable.size() == 1 else " (e mais %d)" % (buyable.size() - 1)
-			lines.append("Podes comprar %s por %d tijolos%s — abre PODERES" % [String(cheapest.name), int(cheapest.price), tail])
+			var tail = "" if buyable.size() == 1 else tr(" (e mais %d)") % (buyable.size() - 1)
+			lines.append(tr("Podes comprar %s por %d tijolos%s — abre PODERES") % [tr(String(cheapest.name)), int(cheapest.price), tail])
 	news_text = "  ·  ".join(lines)
 	# Shown in the row the menu already keeps for its hint, so nothing grows and the
 	# main action stays where the thumb rests.
@@ -970,7 +970,7 @@ func set_workshop(on: bool) -> void:
 	workshop_scroll.visible = workshop_mode
 	skin_action.visible = not workshop_mode
 	workshop_action.visible = workshop_mode
-	workshop_button.text = "PILOTO" if workshop_mode else "OFICINA"
+	workshop_button.text = tr("PILOTO") if workshop_mode else tr("OFICINA")
 	if workshop_mode:
 		var current = cosmetics_state.paint_of(preview_index) if cosmetics_state != null else ""
 		workshop_pick = {"kind": "paint", "id": current}
@@ -1117,7 +1117,7 @@ func workshop_act() -> void:
 func preview_skin(index: int) -> void:
 	preview_index = clampi(index, 0, Skins.CATALOG.size() - 1)
 	if skins_overlay.visible:
-		skin_music_note.text = "PRÉ-ESCUTA · " + String(Skins.CATALOG[preview_index].name)
+		skin_music_note.text = tr("PRÉ-ESCUTA · ") + String(Skins.CATALOG[preview_index].name)
 		skin_previewed.emit(preview_index)
 	viewer_sound_pending = true
 	refresh_skins()
@@ -1137,30 +1137,30 @@ func refresh_skins() -> void:
 	var level: int = entry.level
 	var open: bool = skins_progress.is_unlocked(preview_index)
 	var bosses = Skins.CATALOG.size() - 1
-	skins_total.text = "COLEÇÃO: %d / %d" % [skins_progress.unlocked_count(), Skins.CATALOG.size()]
+	skins_total.text = tr("COLEÇÃO: %d / %d") % [skins_progress.unlocked_count(), Skins.CATALOG.size()]
 	skin_name.text = entry.name
-	skin_weapon.text = "ARMA  ·  " + entry.weapon.to_upper()
+	skin_weapon.text = tr("ARMA  ·  ") + tr(String(entry.weapon)).to_upper()
 	# The wall this pilot defends: its own themed brick (a hard skin's with neon).
-	var brick_name = String(Skins.CATALOG[preview_index].get("bricks", "")).to_upper()
-	skin_bricks.text = "TIJOLOS  ·  " + brick_name + ("  ·  COM NÉON" if Skins.CATALOG[preview_index].has("hard_of") else "")
-	skin_about.text = entry.about
+	var brick_name = tr(String(Skins.CATALOG[preview_index].get("bricks", ""))).to_upper()
+	skin_bricks.text = tr("TIJOLOS  ·  ") + brick_name + (tr("  ·  COM NÉON") if Skins.CATALOG[preview_index].has("hard_of") else "")
+	skin_about.text = tr(String(entry.about))
 	# The bar tracks the whole boss collection.
 	skin_progress.visible = level > 0
 	skin_progress.max_value = bosses
 	skin_progress.value = skins_progress.unlocked_count() - 1
 	if entry.has("hard_of"):
 		var base_name = String(Skins.CATALOG[int(entry.hard_of)].name)
-		skin_state.text = ("DESBLOQUEADA  ·  SKIN DIFÍCIL DE " + base_name) if open else ("BLOQUEADA  ·  VENCE " + base_name + " NO MODO HISTÓRIA DIFÍCIL")
+		skin_state.text = (tr("DESBLOQUEADA  ·  SKIN DIFÍCIL DE ") + base_name) if open else (tr("BLOQUEADA  ·  VENCE ") + base_name + tr(" NO MODO HISTÓRIA DIFÍCIL"))
 	elif level == 0:
 		skin_state.text = "DE SÉRIE"
 	elif open:
-		skin_state.text = "DESBLOQUEADA  ·  BOSS DO NÍVEL %d" % level
+		skin_state.text = tr("DESBLOQUEADA  ·  BOSS DO NÍVEL %d") % level
 	else:
 		skin_state.text = "BLOQUEADA  ·  VENCE ESTE CHEFE NO MODO HISTÓRIA"
 	skin_state.add_theme_color_override("font_color", UiKit.SUN_INK if open else MUTED)
 	var ultimate: Dictionary = Powers.entry(String(entry.ultimate))
-	skin_ultimate_name.text = ("ULTIMATE  ·  " + String(ultimate.name)) if not ultimate.is_empty() else "ULTIMATE  ·  EM BREVE"
-	skin_ultimate_about.text = String(ultimate.about) if not ultimate.is_empty() else "Esta skin ainda não tem ultimate; o terceiro slot fica por preencher."
+	skin_ultimate_name.text = (tr("ULTIMATE  ·  ") + tr(String(ultimate.name))) if not ultimate.is_empty() else tr("ULTIMATE  ·  EM BREVE")
+	skin_ultimate_about.text = tr(String(ultimate.about)) if not ultimate.is_empty() else tr("Esta skin ainda não tem ultimate; o terceiro slot fica por preencher.")
 	skin_ultimate_name.add_theme_color_override("font_color", BRASS if not ultimate.is_empty() else MUTED)
 	skin_ultimate_demo.queue_redraw()
 	if skins_progress.selected == preview_index:
@@ -1183,12 +1183,12 @@ func draw_swatches() -> void:
 	var entry: Dictionary = Skins.CATALOG[preview_index]
 	var locked = skins_progress != null and not skins_progress.is_unlocked(preview_index)
 	var palette = Skins.colors(preview_index, CORAL, true) if locked else Skins.colors(preview_index, CYAN)
-	var items = [["CORPO", palette.body], ["LUZ", palette.light], ["DISPARO", palette.shot]]
+	var items = [[tr("CORPO"), palette.body], [tr("LUZ"), palette.light], [tr("DISPARO"), palette.shot]]
 	for i in range(items.size()):
 		var at = Vector2(11 + i * 106, 13)
 		skin_swatches.draw_circle(at, 10, items[i][1], true, -1, smooth)
 		skin_swatches.draw_arc(at, 10, 0, TAU, 32, Color(WHITE, 0.3), 1, smooth)
-		skin_swatches.draw_string(font_bold, at + Vector2(17, 5), items[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, WHITE)
+		skin_swatches.draw_string(font_bold, at + Vector2(17, 5), tr(items[i][0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, WHITE)
 	var note = "Paleta própria · ombros na cor da equipa"
 	if locked:
 		note = "Roda o piloto para veres todos os detalhes"
@@ -1196,7 +1196,7 @@ func draw_swatches() -> void:
 		note = "Cores da equipa: jade ou coral"
 	elif entry.body == "":
 		note = "Casaco da equipa · luz e disparo próprios"
-	skin_swatches.draw_string(font, Vector2(0, 45), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MUTED)
+	skin_swatches.draw_string(font, Vector2(0, 45), tr(note), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MUTED)
 
 func draw_thumb(canvas: Control, index: int) -> void:
 	var locked = skins_progress != null and not skins_progress.is_unlocked(index)
@@ -1204,18 +1204,18 @@ func draw_thumb(canvas: Control, index: int) -> void:
 	if skins_progress == null:
 		return
 	var short_name = String(Skins.CATALOG[index].name).replace("PILOTO ", "")
-	canvas.draw_string(font_bold, Vector2(5, 113), short_name, HORIZONTAL_ALIGNMENT_CENTER, canvas.size.x - 10, 12, WHITE)
+	canvas.draw_string(font_bold, Vector2(5, 113), tr(short_name), HORIZONTAL_ALIGNMENT_CENTER, canvas.size.x - 10, 12, WHITE)
 	var caption = ""
 	var color = MUTED
 	if locked:
 		canvas.draw_circle(Vector2(canvas.size.x * 0.5, 56), 47, Color(0.02, 0.05, 0.06, 0.45), true, -1, smooth)
-		caption = "HISTÓRIA · DIFÍCIL" if Skins.CATALOG[index].has("hard_of") else "HISTÓRIA · NORMAL"
+		caption = tr("HISTÓRIA · DIFÍCIL") if Skins.CATALOG[index].has("hard_of") else tr("HISTÓRIA · NORMAL")
 	elif skins_progress.selected == index:
-		caption = "EQUIPADA"
+		caption = tr("EQUIPADA")
 		color = SUN
 	if caption != "":
 		var width = font_bold.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		canvas.draw_string(font_bold, Vector2((canvas.size.x - width) * 0.5, 129), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
+		canvas.draw_string(font_bold, Vector2((canvas.size.x - width) * 0.5, 129), tr(caption), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
 
 func open_skins() -> void:
 	reset_touch()
@@ -1265,7 +1265,7 @@ func announce_power(id: String, item_name: String) -> void:
 func announce_affordable(id: String, item_name: String, price: int) -> void:
 	# The wallet has just reached a power's price: say so, and where to buy it.
 	prepare_unlock_notice()
-	unlock_notice.enqueue({"kind": "afford", "id": id, "name": item_name, "where": "Compra em PODERES · %d tijolos" % price})
+	unlock_notice.enqueue({"kind": "afford", "id": id, "name": item_name, "where": tr("Compra em PODERES · %d tijolos") % price})
 
 func ask_redraw() -> void:
 	# Marks the HUD dirty; the repaint happens on the next slot of the redraw clock.
@@ -1473,12 +1473,12 @@ func draw_level_strip() -> void:
 	var open = campaign_state.is_unlocked(menu_level)
 	var done = campaign_state.is_completed(menu_level)
 	UiKit.box(c, Rect2(Vector2.ZERO, c.size), UiKit.FIELD, UiKit.CARD_EDGE)
-	var tag = "NÍVEL %02d / %02d" % [visible_levels.find(menu_level) + 1, visible_levels.size()]
-	c.draw_string(font_bold, Vector2(14, 21), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, SUN if done else (CYAN if open else CORAL))
-	var name = String(level.name).to_upper() + ("" if open else "  ·  BLOQUEADO")
-	c.draw_string(font_title, Vector2(14, 42), name, HORIZONTAL_ALIGNMENT_LEFT, c.size.x - 28, 18, WHITE if open else MUTED)
+	var tag = tr("NÍVEL %02d / %02d") % [visible_levels.find(menu_level) + 1, visible_levels.size()]
+	c.draw_string(font_bold, Vector2(14, 21), tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, SUN if done else (CYAN if open else CORAL))
+	var name = tr(String(level.name)).to_upper() + ("" if open else tr("  ·  BLOQUEADO"))
+	c.draw_string(font_title, Vector2(14, 42), tr(name), HORIZONTAL_ALIGNMENT_LEFT, c.size.x - 28, 18, WHITE if open else MUTED)
 	if done:
-		c.draw_string(font_bold, Vector2(c.size.x - 70, 21), "✓ VENCIDO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, SUN)
+		c.draw_string(font_bold, Vector2(c.size.x - 70, 21), tr("✓ VENCIDO"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, SUN)
 
 func play_chosen_mode() -> void:
 	match lobby.mode_id:
@@ -1792,7 +1792,7 @@ func build_powers_menu() -> void:
 	power_buy.pressed.connect(func(): power_bought.emit(String(shop_entries()[shop_index].id)))
 	actions.add_child(power_buy)
 	for slot in range(Powers.KIT_SIZE):
-		var equip = make_button("SLOT %d" % (slot + 1), false)
+		var equip = make_button(tr("SLOT %d") % (slot + 1), false)
 		equip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		equip.add_theme_stylebox_override("disabled", style(UiKit.FIELD, UiKit.CARD_EDGE))
 		equip.add_theme_color_override("font_disabled_color", MUTED)
@@ -1954,22 +1954,22 @@ func refresh_powers() -> void:
 	var entry: Dictionary = shop_entries()[shop_index]
 	var ultimate: bool = Powers.is_ultimate(String(entry.id))
 	var owned: bool = ultimate or power_shop.is_owned(entry.id)
-	powers_wallet.text = "TIJOLOS: %d" % power_shop.bricks
-	power_hero_name.text = String(entry.name)
-	power_hero_stats.text = "%s  ·  CARGA %d TIJOLOS  ·  RECARGA %d s" % [String(entry.kind).to_upper(), entry.charge, entry.wait]
-	powers_detail.text = String(entry.about).replace("**", "")
+	powers_wallet.text = tr("TIJOLOS: %d") % power_shop.bricks
+	power_hero_name.text = tr(String(entry.name))
+	power_hero_stats.text = tr("%s  ·  CARGA %d TIJOLOS  ·  RECARGA %d s") % [tr(String(entry.kind)).to_upper(), entry.charge, entry.wait]
+	powers_detail.text = tr(String(entry.about)).replace("**", "")
 	# Bought just now: the coin celebrates.
 	if owned and not shop_owned_seen.has(entry.id) and shop_owned_seen.size() > 0:
 		hero_party = 1.0
 		hero_pop = 1.0
 		hero_spin_speed = 22.0
 	shop_owned_seen = power_shop.owned.duplicate()
-	power_buy.text = "VEM COM A SKIN" if ultimate else ("COMPRADO" if owned else "COMPRAR · %d TIJOLOS" % entry.price)
+	power_buy.text = tr("VEM COM A SKIN") if ultimate else ("COMPRADO" if owned else tr("COMPRAR · %d TIJOLOS") % entry.price)
 	power_buy.disabled = ultimate or owned or not power_shop.can_buy(entry.id)
 	for slot in range(power_slot_buttons.size()):
 		var button: Button = power_slot_buttons[slot]
 		var here: bool = power_shop.kit[slot] == entry.id
-		button.text = "EQUIPADO" if here else "SLOT %d" % (slot + 1)
+		button.text = "EQUIPADO" if here else tr("SLOT %d") % (slot + 1)
 		button.disabled = ultimate or here or not owned
 	for index in range(power_cards.size()):
 		var card: Button = power_cards[index]
@@ -1992,23 +1992,23 @@ func draw_power_card(canvas: Control, index: int) -> void:
 	else:
 		power_icon(String(entry.id), medallion, color if owned else Color(color, 0.42), canvas)
 	var left = 76.0
-	canvas.draw_string(font_bold, Vector2(left, medallion.y - 14), String(entry.short), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, WHITE if owned else Color(WHITE, 0.55))
+	canvas.draw_string(font_bold, Vector2(left, medallion.y - 14), tr(String(entry.short)), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, WHITE if owned else Color(WHITE, 0.55))
 	# Type pill in the family colour: coral attacks, jade defends.
 	var attack: bool = entry.kind == "ataque"
 	var pill_color = BRASS if ultimate else (CORAL if attack else CYAN)
-	var pill_text = String(entry.kind).to_upper()
+	var pill_text = tr(String(entry.kind)).to_upper()
 	var pill_width = font_bold.get_string_size(pill_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 14
 	var pill = Rect2(Vector2(left, medallion.y + 1), Vector2(pill_width, 15))
 	canvas.draw_style_box(style(Color(pill_color, 0.16), Color(pill_color, 0.5), 7), pill)
-	canvas.draw_string(font_bold, pill.position + Vector2(7, 11), pill_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, pill_color)
+	canvas.draw_string(font_bold, pill.position + Vector2(7, 11), tr(pill_text), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, pill_color)
 	charge_glyph(canvas, Vector2(left + pill_width + 12, medallion.y + 8), entry.charge, Color(BRASS, 0.95 if owned else 0.5))
 	# Bottom line: where it sits in the kit, or what it costs.
-	var status = "NO SLOT %d" % (slot + 1) if slot >= 0 else ("NA MOCHILA" if owned else "%d TIJOLOS" % entry.price)
+	var status = tr("NO SLOT %d") % (slot + 1) if slot >= 0 else (tr("NA MOCHILA") if owned else tr("%d TIJOLOS") % entry.price)
 	var status_color = SUN if slot >= 0 else (CYAN if owned else MUTED)
 	if ultimate:
-		status = "SLOT 3 · %s" % skin_with_ultimate(String(entry.id))
+		status = tr("SLOT 3 · %s") % skin_with_ultimate(String(entry.id))
 		status_color = BRASS
-	canvas.draw_string(font_bold, Vector2(left, medallion.y + 32), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, status_color)
+	canvas.draw_string(font_bold, Vector2(left, medallion.y + 32), tr(status), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, status_color)
 	if slot >= 0:
 		canvas.draw_line(Vector2(left, medallion.y + 37), Vector2(left + 54, medallion.y + 37), Color(SUN, 0.5), 1.2, smooth)
 
@@ -2022,7 +2022,7 @@ func charge_glyph(canvas: CanvasItem, at: Vector2, charge: int, color: Color) ->
 	# A small brass bolt and the number of bricks it takes to charge.
 	var bolt = PackedVector2Array([at + Vector2(2, -8), at + Vector2(-3, -1), at + Vector2(0.5, -1), at + Vector2(-2, 6), at + Vector2(3, -1), at + Vector2(-0.5, -1)])
 	canvas.draw_colored_polygon(bolt, color)
-	canvas.draw_string(font_bold, at + Vector2(7, 4), str(charge), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)
+	canvas.draw_string(font_bold, at + Vector2(7, 4), tr(str(charge)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)
 
 const DEMO_LOOP = 3.2
 
@@ -2075,7 +2075,7 @@ func draw_lesson_steps(c: Control, id: String) -> void:
 	var color = Color(entry.color)
 	var x = 14.0
 	for step in range(TUTORIAL_STEPS.size()):
-		var text = "%d  %s" % [step + 1, TUTORIAL_STEPS[step]]
+		var text = "%d  %s" % [step + 1, tr(TUTORIAL_STEPS[step])]
 		var width = font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 18
 		var pill = Rect2(Vector2(x, 10), Vector2(width, 22))
 		var on = step == tutorial_step
@@ -2084,11 +2084,11 @@ func draw_lesson_steps(c: Control, id: String) -> void:
 			# The step's own clock runs along the bottom of its pill.
 			var run = clampf(step_clock / STEP_TIME[step], 0, 1)
 			c.draw_line(pill.position + Vector2(8, 19), pill.position + Vector2(8 + (width - 16) * run, 19), Color(INK, 0.45), 2.0, smooth)
-		c.draw_string(font_bold, pill.position + Vector2(9, 15), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK if on else MUTED)
+		c.draw_string(font_bold, pill.position + Vector2(9, 15), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK if on else MUTED)
 		x += width + 6
-	var captions = ["Parte %d tijolos do rival e o botão enche" % int(entry.charge), "Brilhou? Toca no botão!", "%s em ação" % String(entry.name)]
-	c.draw_string(font_bold, Vector2(x + 8, 26), captions[tutorial_step], HORIZONTAL_ALIGNMENT_LEFT, c.size.x - x - 22, 12, WHITE)
-	c.draw_string(font_bold, Vector2(c.size.x - 118, c.size.y - 10), "toca para avançar", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(MUTED, 0.7))
+	var captions = [tr("Parte %d tijolos do rival e o botão enche") % int(entry.charge), tr("Brilhou? Toca no botão!"), tr("%s em ação") % tr(String(entry.name))]
+	c.draw_string(font_bold, Vector2(x + 8, 26), tr(captions[tutorial_step]), HORIZONTAL_ALIGNMENT_LEFT, c.size.x - x - 22, 12, WHITE)
+	c.draw_string(font_bold, Vector2(c.size.x - 118, c.size.y - 10), tr("toca para avançar"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(MUTED, 0.7))
 
 func draw_lesson_key(c: Control, center: Vector2, r: float, id: String, fill: float, ready: bool, pressed: bool) -> void:
 	# A power key as the match shows it: the ring fills with the charge, lit when ready.
@@ -2528,11 +2528,11 @@ func draw_demo(panel: Control, id: String) -> void:
 			demo_bricks(c, area, CYAN, mine_y)
 	demo_pilot(c, their_pilot, CORAL, dazed)
 	demo_pilot(c, my_pilot, CYAN)
-	c.draw_string(font_bold, Vector2(area.position.x + 4, area.end.y - 2), "DEMONSTRAÇÃO", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(MUTED, 0.75))
+	c.draw_string(font_bold, Vector2(area.position.x + 4, area.end.y - 2), tr("DEMONSTRAÇÃO"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(MUTED, 0.75))
 
 func centered_on(c: CanvasItem, text: String, at: Vector2, font_size: int, color: Color) -> void:
 	var width = font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	c.draw_string(font_bold, at - Vector2(width * 0.5, -font_size * 0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+	c.draw_string(font_bold, at - Vector2(width * 0.5, -font_size * 0.35), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 func open_powers() -> void:
 	reset_touch()
@@ -2699,20 +2699,20 @@ func draw_level_card(canvas: Control, index: int) -> void:
 	# The words between them, sized to fit.
 	var x0 = map_rect.end.x + 14
 	var width = boss_c.x - 52 - x0
-	var number = "NÍVEL %02d" % (Campaign.menu_levels().find(index) + 1)
-	canvas.draw_string(font_bold, Vector2(x0, 30), number, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.SUN_INK if done else UiKit.MINT_LIP)
-	var name = String(level.name).to_upper()
-	canvas.draw_string(font_bold, Vector2(x0, 58), name, HORIZONTAL_ALIGNMENT_LEFT, width, fit_font_size(name, width, 21, 13), WHITE)
-	canvas.draw_string(font_bold, Vector2(x0, 80), String(level.tag), HORIZONTAL_ALIGNMENT_LEFT, width, 14, UiKit.GOLD)
-	var boss_name = "BOSS · " + String(Skins.CATALOG[level.boss].name) if level.boss < Skins.CATALOG.size() else ""
-	canvas.draw_string(font, Vector2(x0, 101), boss_name, HORIZONTAL_ALIGNMENT_LEFT, width, 13, MUTED)
+	var number = tr("NÍVEL %02d") % (Campaign.menu_levels().find(index) + 1)
+	canvas.draw_string(font_bold, Vector2(x0, 30), tr(number), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.SUN_INK if done else UiKit.MINT_LIP)
+	var name = tr(String(level.name)).to_upper()
+	canvas.draw_string(font_bold, Vector2(x0, 58), tr(name), HORIZONTAL_ALIGNMENT_LEFT, width, fit_font_size(name, width, 21, 13), WHITE)
+	canvas.draw_string(font_bold, Vector2(x0, 80), tr(String(level.tag)), HORIZONTAL_ALIGNMENT_LEFT, width, 14, UiKit.GOLD)
+	var boss_name = tr("BOSS · ") + String(Skins.CATALOG[level.boss].name) if level.boss < Skins.CATALOG.size() else ""
+	canvas.draw_string(font, Vector2(x0, 101), tr(boss_name), HORIZONTAL_ALIGNMENT_LEFT, width, 13, MUTED)
 	# Where you stand: done, next to play, or locked.
-	var chip_text = "✓ CONCLUÍDA" if done else ("JOGAR  ▶" if open else "BLOQUEADA")
+	var chip_text = tr("✓ CONCLUÍDA") if done else (tr("JOGAR  ▶") if open else tr("BLOQUEADA"))
 	var chip_color = SUN if done else (UiKit.MINT if open else UiKit.EMPTY)
 	var chip_w = font_bold.get_string_size(chip_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22
 	var chip = Rect2(Vector2(x0, size_c.y - 36), Vector2(chip_w, 26))
 	canvas.draw_style_box(style(chip_color, Color.TRANSPARENT, 13), chip)
-	canvas.draw_string(font_bold, chip.position + Vector2(11, 18), chip_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.INK)
+	canvas.draw_string(font_bold, chip.position + Vector2(11, 18), tr(chip_text), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.INK)
 	if not open:
 		canvas.draw_rect(Rect2(Vector2.ZERO, size_c), Color(UiKit.NIGHT, 0.35))
 
@@ -2786,8 +2786,8 @@ func draw_menu_level() -> void:
 	var entry: Dictionary = Skins.CATALOG[clampi(pilot_skin, 0, Skins.CATALOG.size() - 1)]
 	var x = stage.get_center().x
 	centered(String(entry.name), Vector2(x, stage.end.y + 36), 44, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
-	var tagline = String(entry.get("weapon", "")).to_upper()
-	centered("PILOTO EQUIPADO" + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 13, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
+	var tagline = tr(String(entry.get("weapon", ""))).to_upper()
+	centered(tr("PILOTO EQUIPADO") + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 13, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
 
 func open_levels() -> void:
 	reset_touch()
@@ -2803,7 +2803,7 @@ func sync_campaign(campaign) -> void:
 	var visible = Campaign.menu_levels()
 	var total = visible.size()
 	refresh_menu_level()
-	levels_progress.text = "%d/%d CONCLUÍDOS" % [visible.filter(func(i): return i in campaign.completed).size(), total]
+	levels_progress.text = tr("%d/%d CONCLUÍDOS") % [visible.filter(func(i): return i in campaign.completed).size(), total]
 	for card in level_cards:
 		card.get_child(0).queue_redraw()
 
@@ -3085,7 +3085,7 @@ func volume_slider(parent: VBoxContainer, title: String) -> HSlider:
 	var block = VBoxContainer.new()
 	block.add_theme_constant_override("separation", 4)
 	parent.add_child(block)
-	var row = option_title(block, title.replace(" (%)", ""))
+	var row = option_title(block, tr(title).replace(" (%)", ""))
 	# The value, so a slider is never a guess.
 	var readout = label("", 18, MUTED, true)
 	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -3134,7 +3134,7 @@ func draw_fire_preview() -> void:
 	var c = fire_preview
 	var bounds = Rect2(Vector2.ZERO, c.size)
 	c.draw_style_box(style(UiKit.FIELD, UiKit.CARD_EDGE, 14), bounds)
-	c.draw_string(font_bold, Vector2(14, 23), "PRÉ-VISUALIZAÇÃO EM TEMPO REAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, CYAN)
+	c.draw_string(font_bold, Vector2(14, 23), tr("PRÉ-VISUALIZAÇÃO EM TEMPO REAL"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, CYAN)
 	var scale_value = minf(125.0 / size.x, 148.0 / size.y)
 	var screen = Rect2(Vector2(20, 33), size * scale_value)
 	c.draw_style_box(style(UiKit.CARD, UiKit.MUTED, 7), screen)
@@ -3149,13 +3149,13 @@ func draw_fire_preview() -> void:
 	var radius = 46 * fire_size if not auto_fire and fire_control == 0 else 46.0
 	c.draw_circle(center, radius, CYAN.darkened(0.65))
 	c.draw_arc(center, radius, 0, TAU, 64, CYAN, 2, true)
-	var text_value = "AUTO" if auto_fire else ("TIRO" if fire_control == 0 else "JOY + TIRO")
+	var text_value = tr("AUTO") if auto_fire else (tr("TIRO") if fire_control == 0 else tr("JOY + TIRO"))
 	var text_width = font_bold.get_string_size(text_value, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 	# Light text on the dark key (WHITE is the kit's ink colour on these light panels).
-	c.draw_string(font_bold, center + Vector2(-text_width * 0.5, 5), text_value, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("f4fbff"))
-	var caption = "%d%% · tamanho do botão" % roundi(fire_size * 100) if not auto_fire and fire_control == 0 else ("Dispara sozinho" if auto_fire else "Mantém o dedo no joystick")
+	c.draw_string(font_bold, center + Vector2(-text_width * 0.5, 5), tr(text_value), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("f4fbff"))
+	var caption = tr("%d%% · tamanho do botão") % roundi(fire_size * 100) if not auto_fire and fire_control == 0 else (tr("Dispara sozinho") if auto_fire else tr("Mantém o dedo no joystick"))
 	var caption_width = font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-	c.draw_string(font, Vector2(center.x - caption_width * 0.5, minf(center.y + radius + 22, c.size.y - 8)), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MUTED)
+	c.draw_string(font, Vector2(center.x - caption_width * 0.5, minf(center.y + radius + 22, c.size.y - 8)), tr(caption), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MUTED)
 
 func select_fire_mode(index: int) -> void:
 	# One choice, so automatic fire cannot accidentally override joystick fire.
@@ -3732,8 +3732,8 @@ func write(text: String, pos: Vector2, font_size: int, color: Color, bold: bool 
 		text_queue[key].append([text, pos, font_size, color, outline, outline_color])
 		return
 	if outline > 0:
-		draw_string_outline(f, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline, outline_color)
-	draw_string(f, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+		draw_string_outline(f, pos, tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline, outline_color)
+	draw_string(f, pos, tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 func centered(text: String, pos: Vector2, font_size: int, color: Color, bold: bool = false, outline: int = 0, outline_color: Color = INK) -> void:
 	var f = face(font_size, bold)
@@ -3756,10 +3756,10 @@ func flush_batches() -> void:
 	for key in text_queue:
 		for item in text_queue[key]:
 			if item[4] > 0:
-				draw_string_outline(key[0], item[1], item[0], HORIZONTAL_ALIGNMENT_LEFT, -1, item[2], item[4], item[5])
+				draw_string_outline(key[0], item[1], tr(item[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, item[2], item[4], item[5])
 	for key in text_queue:
 		for item in text_queue[key]:
-			draw_string(key[0], item[1], item[0], HORIZONTAL_ALIGNMENT_LEFT, -1, item[2], item[3])
+			draw_string(key[0], item[1], tr(item[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, item[2], item[3])
 	text_queue.clear()
 
 func panel(rect: Rect2, color: Color = Color(UiKit.PANEL, 0.92), rim: Color = UiKit.PANEL_EDGE) -> void:
@@ -3788,17 +3788,17 @@ func update_match(rules, status: String) -> void:
 	var in_campaign = not level_info.is_empty()
 	var marathon = level_info.get("marathon", false)
 	replay.visible = finished and not (marathon and level_result == "won")
-	replay.text = ("REPETIR NÍVEL" if level_result == "won" else "TENTAR DE NOVO") if in_campaign else ("NOVA PARTIDA ONLINE" if online else "JOGAR NOVAMENTE")
+	replay.text = (tr("REPETIR NÍVEL") if level_result == "won" else tr("TENTAR DE NOVO")) if in_campaign else (tr("NOVA PARTIDA ONLINE") if online else tr("JOGAR NOVAMENTE"))
 	if marathon:
 		replay.text = "NOVA MARATONA"
 	# In the story a lost match can still move on (HÉLIO's lesson): has_next says so.
 	next_button.visible = finished and in_campaign and (level_result == "won" or level_info.get("story", false)) and level_info.get("has_next", false)
 	# Only one bright button at a time: replay steps back when a next level is offered.
 	paint_button(replay, not next_button.visible)
-	next_button.text = "PRÓXIMO RIVAL  →" if marathon else "PRÓXIMO NÍVEL  →"
+	next_button.text = tr("PRÓXIMO RIVAL  →") if marathon else tr("PRÓXIMO NÍVEL  →")
 	levels_button.visible = finished and in_campaign and not marathon
 	# In the story the second button is the shop: lost to a boss, buy the powers to beat it.
-	levels_button.text = "LOJA DE PODERES" if level_info.get("story", false) else "NÍVEIS"
+	levels_button.text = tr("LOJA DE PODERES") if level_info.get("story", false) else tr("NÍVEIS")
 	place_result_buttons()
 	ask_redraw()
 
@@ -3867,7 +3867,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 			count += 1
 		health += data.hp
 	var capacity = per_team * int(match_data.get("brick_lives", 3))
-	var status = "BALIZA ABERTA" if count == 0 else "%d TIJOLOS · %d/%d" % [count, health, capacity]
+	var status = tr("BALIZA ABERTA") if count == 0 else tr("%d TIJOLOS · %d/%d") % [count, health, capacity]
 	var status_color = UiKit.DANGER if count == 0 else MUTED
 	var stunned: bool = match_data.players[t].stun > 0
 	var tips = [["Move-te para apontar", WHITE, false], ["Dispara sozinho, sempre em frente" if auto_fire else ("Toca no joystick / Espaço / rato para disparar" if fire_control == 1 else "TIRO / Espaço / rato para disparar"), MUTED, false]]
@@ -3889,7 +3889,7 @@ func player_card(rect: Rect2, side: int, t: int) -> void:
 		# there is to say — a stun, the rival's charged powers — takes the line under it.
 		write(status, Vector2(content_x, at.y + 64), 11, status_color, true)
 		if stunned:
-			write("⚡ ATORDOADO %.1fs" % match_data.players[t].stun, Vector2(content_x, at.y + 84), 12, UiKit.SUN_INK, true)
+			write(tr("⚡ ATORDOADO %.1fs") % match_data.players[t].stun, Vector2(content_x, at.y + 84), 12, UiKit.SUN_INK, true)
 		elif side == 1 and match_data.has("powers") and t < match_data.powers.size():
 			power_pips(Vector2(content_x, at.y + 84), t)
 	else:
@@ -3941,7 +3941,7 @@ func wall_life_bar(rect: Rect2, t: int, hp: int, capacity: int, color: Color) ->
 	if wall_display[t] > capacity:
 		var bonus = inner.size.x * (wall_display[t] - capacity) / wall_display[t]
 		UiKit.fill(self, Rect2(Vector2(inner.position.x if mirrored else inner.end.x - bonus, inner.position.y + 2), Vector2(bonus, inner.size.y - 4)), UiKit.GOLD)
-	centered("MURALHA  %d / %d" % [hp, capacity], Vector2(rect.get_center().x, rect.position.y + 17), 12, WHITE, true, 6, Color(UiKit.LIP, 0.9))
+	centered(tr("MURALHA  %d / %d") % [hp, capacity], Vector2(rect.get_center().x, rect.position.y + 17), 12, WHITE, true, 6, Color(UiKit.LIP, 0.9))
 	if wall_delta_time[t] > 0:
 		var amount = int(wall_delta[t])
 		var lift = (1.35 - wall_delta_time[t]) * 5
@@ -4030,7 +4030,7 @@ func draw_hud() -> void:
 	panel(score_rect, Color(UiKit.PANEL, 0.94), Color(SUN, 0.5))
 	var digits = str(match_data.scores[0]) + "  :  " + str(match_data.scores[1])
 	if vertical:
-		var round_text = "1º A %d GOLOS" % Rules.WIN_SCORE
+		var round_text = tr("1º A %d GOLOS") % Rules.WIN_SCORE
 		if not level_info.is_empty():
 			round_text = (tr("RIVAL %d") % level_info.number) if level_info.get("marathon", false) else (tr("NÍVEL %d") % level_info.number)
 		centered(round_text, Vector2(score_rect.get_center().x, s.y + 20), 10, UiKit.SUN_INK, true)
@@ -4048,7 +4048,7 @@ func draw_hud() -> void:
 		if not level_info.is_empty():
 			mode_name = (tr("MARATONA · RIVAL %d") % level_info.number) if level_info.get("marathon", false) else (tr("CAMPANHA · NÍVEL %d") % level_info.number)
 		write(mode_name, mode_at, 12, UiKit.SUN_INK, true, 4)
-		write("PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE, mode_at + Vector2(0, 23), 10, MUTED, true, 4)
+		write(tr("PRIMEIRO A %d GOLOS") % Rules.WIN_SCORE, mode_at + Vector2(0, 23), 10, MUTED, true, 4)
 		centered(clock_text(), Vector2(score_rect.get_center().x, s.y + 15), 11, UiKit.SUN_INK, true)
 	for side in range(2):
 		player_card(card_rects[side], side, team if side == 0 else 1 - team)
@@ -4061,7 +4061,7 @@ func draw_hud() -> void:
 	if p.stun > 0:
 		var banner = stun_banner_rect()
 		panel(banner, Color(UiKit.PANEL, 0.95), Color(SUN, 0.7))
-		centered("PARALISADO   %.1f s" % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, UiKit.SUN_INK, true)
+		centered(tr("PARALISADO   %.1f s") % p.stun, Vector2(banner.get_center().x, banner.get_center().y + 6), 17, UiKit.SUN_INK, true)
 	draw_moment()
 	draw_stick()
 	if defense_notice_time > 0 and match_data.phase == "play":
@@ -4084,7 +4084,7 @@ func draw_moment() -> void:
 		message = str(maxi(1, ceili(match_data.timer)))
 		sub = "AZUIS CONTRA VERMELHOS" if spectating else "PREPARA O TEU DISPARO"
 		if not level_info.is_empty():
-			sub = "NÍVEL %d · %s" % [level_info.number, level_info.name.to_upper()]
+			sub = tr("NÍVEL %d · %s") % [level_info.number, level_info.name.to_upper()]
 			detail = level_info.challenge
 			if level_info.get("marathon", false):
 				sub = tr("MARATONA · RIVAL %d") % level_info.number
@@ -4096,7 +4096,7 @@ func draw_moment() -> void:
 			message = "GOLO DOS AZUIS!" if match_data.winner == 0 else "GOLO DOS VERMELHOS!"
 	elif match_data.phase == "finished":
 		message = "VITÓRIA!" if match_data.winner == team else "O RIVAL VENCEU"
-		sub = "PRIMEIRO A %d GOLOS" % Rules.WIN_SCORE
+		sub = tr("PRIMEIRO A %d GOLOS") % Rules.WIN_SCORE
 		if spectating:
 			message = "OS AZUIS VENCEM!" if match_data.winner == 0 else "OS VERMELHOS VENCEM!"
 		if level_info.get("marathon", false) and level_result != "":
@@ -4109,13 +4109,13 @@ func draw_moment() -> void:
 				sub = tr("%d VITÓRIAS SEGUIDAS") % wins
 			detail = tr("NOVO RECORDE!") if level_info.get("new_record", false) else tr("Recorde: %d vitórias") % int(level_info.get("record", 0))
 		elif level_result == "won":
-			sub = "NÍVEL %d CONCLUÍDO" % level_info.number
+			sub = tr("NÍVEL %d CONCLUÍDO") % level_info.number
 			if not level_info.has_next:
 				sub = "A TAÇA É TUA!" if level_info.get("story", false) else "CAMPANHA CONCLUÍDA!"
 			elif level_opened:
-				sub += " · NÍVEL %d DESBLOQUEADO" % (level_info.number + 1)
+				sub += tr(" · NÍVEL %d DESBLOQUEADO") % (level_info.number + 1)
 			if level_skin != "":
-				detail = "Skin %s desbloqueada na aba SKINS" % level_skin
+				detail = tr("Skin %s desbloqueada na aba SKINS") % level_skin
 		elif level_result == "lost":
 			message = "O BOSS VENCEU"
 			sub = "TENTA OUTRA VEZ"
@@ -4123,7 +4123,7 @@ func draw_moment() -> void:
 				# HÉLIO wins his match, and the story moves on anyway.
 				sub = "A HISTÓRIA CONTINUA"
 			if level_skin != "":
-				detail = "Skin %s desbloqueada na aba SKINS" % level_skin
+				detail = tr("Skin %s desbloqueada na aba SKINS") % level_skin
 	if message == "":
 		return
 	var c = message_center
@@ -4196,8 +4196,8 @@ func draw_stick() -> void:
 	UiKit.disc(self, knob, 27, SUN if held else UiKit.CARD_HI)
 	UiKit.ring(self, knob, 27, Color(WHITE, 0.35 if held else 0.18))
 	UiKit.disc(self, knob + Vector2(-7, -8), 7, Color(WHITE, 0.3 if held else 0.1))
-	centered("MOVER, APONTAR E DISPARAR" if not auto_fire and fire_control == 1 else "MOVER E APONTAR", stick + Vector2(0, 86), 10, CYAN, true, 4)
-	centered("DISPARO AUTOMÁTICO  ·  MIRA ASSISTIDA" if auto_fire else "MIRA ASSISTIDA", stick + Vector2(0, 101), 9, Color(UiKit.SUN_INK, 0.85), true, 4)
+	centered(tr("MOVER, APONTAR E DISPARAR") if not auto_fire and fire_control == 1 else tr("MOVER E APONTAR"), stick + Vector2(0, 86), 10, CYAN, true, 4)
+	centered(tr("DISPARO AUTOMÁTICO  ·  MIRA ASSISTIDA") if auto_fire else tr("MIRA ASSISTIDA"), stick + Vector2(0, 101), 9, Color(UiKit.SUN_INK, 0.85), true, 4)
 	if not auto_fire and fire_control == 0:
 		# TOUCH = SHOT: the key sinks the instant it fires, springs just past its size and
 		# settles, while a ring counts the gun back to ready.
@@ -4325,11 +4325,11 @@ func draw_power_coach(at: Vector2) -> void:
 	# over it says what to do, with an arrow bouncing at the key, until a power is used once.
 	var bounce = absf(sin(Time.get_ticks_msec() * 0.006)) * 10.0
 	var tip = at + Vector2(0, -POWER_RADIUS - 14 - bounce)
-	var text = "PODER PRONTO! TOCA AQUI"
+	var text = tr("PODER PRONTO! TOCA AQUI")
 	var width = font_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 32
 	var box = Rect2(Vector2(clampf(tip.x - width * 0.5, 12, size.x - width - 12), tip.y - 64), Vector2(width, 42))
 	draw_style_box(style(UiKit.SUN, Color(INK, 0.5), 14), box)
-	draw_string(font_bold, box.position + Vector2(16, 28), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	draw_string(font_bold, box.position + Vector2(16, 28), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 	draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-12, -22), tip + Vector2(12, -22)]), UiKit.SUN)
 	draw_arc(at, POWER_RADIUS + 6 + bounce * 0.6, 0, TAU, 48, Color(UiKit.SUN, 0.9 - bounce * 0.05), 4.0, smooth)
 
@@ -4690,7 +4690,7 @@ func build_bosses_menu() -> void:
 	bosses_tabs.clear()
 	for hard in [false, true]:
 		var tab = Button.new()
-		tab.text = "DIFÍCIL" if hard else "NORMAL"
+		tab.text = tr("DIFÍCIL") if hard else "NORMAL"
 		tab.custom_minimum_size = Vector2(0, 64)
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.add_theme_font_override("font", font_title)
@@ -4750,9 +4750,9 @@ func show_bosses_tab(hard: bool) -> void:
 		UiKit.paint_key(bosses_tabs[i], "primary" if (i == 1) == hard else "secondary")
 	var list: Array = bosses_entries.get("hard" if hard else "normal", [])
 	var won = list.filter(func(e): return e.beaten).size()
-	bosses_note.text = ("DIFÍCIL · %d/%d · os chefes lutam com as skins difíceis; vence um para ganhar a sua." if hard else "NORMAL · %d/%d · enfrenta os chefes por ordem. Vence um chefe para ganhar a sua skin.") % [won, list.size()]
+	bosses_note.text = (tr("DIFÍCIL · %d/%d · os chefes lutam com as skins difíceis; vence um para ganhar a sua.") if hard else tr("NORMAL · %d/%d · enfrenta os chefes por ordem. Vence um chefe para ganhar a sua skin.")) % [won, list.size()]
 	if hard and not bool(bosses_entries.get("hard_open", true)):
-		bosses_note.text = "DIFÍCIL · BLOQUEADO · acaba primeiro a história no NORMAL (os %d adversários) para abrir o DIFÍCIL." % list.size()
+		bosses_note.text = tr("DIFÍCIL · BLOQUEADO · acaba primeiro a história no NORMAL (os %d adversários) para abrir o DIFÍCIL.") % list.size()
 	for child in bosses_grid.get_children():
 		child.queue_free()
 	for step in range(list.size()):

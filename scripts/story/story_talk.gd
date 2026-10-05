@@ -270,7 +270,8 @@ func show_entry() -> void:
 	accent = accent_of(speaker)
 	shake = 0.35 if String(opts.get("fx", "")) == "shake" else 0.0
 	var narrator = speaker == Story.NARRADOR
-	var line = String(lines[index][1])
+	# The script is written in Portuguese; each line is translated as it is shown.
+	var line = tr(String(lines[index][1]))
 	if narrator:
 		caption.text = line
 		caption.visible_characters = 0
@@ -320,9 +321,9 @@ func begin_scene() -> void:
 	right_phone = false
 	left_face.texture = null
 	right_face.texture = null
-	title_chapter.text = String(opts.get("chapter", "")).to_upper()
-	title_name.text = String(lines[index][1])
-	title_place.text = String(opts.get("place", ""))
+	title_chapter.text = tr(String(opts.get("chapter", ""))).to_upper()
+	title_name.text = tr(String(lines[index][1]))
+	title_place.text = tr(String(opts.get("place", "")))
 	state = "title"
 	state_time = 0.0
 	fade = 1.0
@@ -591,21 +592,21 @@ func draw_versus(c: Control) -> void:
 	if pop > 0.0:
 		var vs_size = int(120 * pop)
 		var at = Vector2(size.x * 0.5, mid + vs_size * 0.35)
-		c.draw_string_outline(font, at - Vector2(vs_size * 0.62, 0), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, 18, Color("0b0a12"))
-		c.draw_string(font, at - Vector2(vs_size * 0.62, 0), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, UiKit.SUN)
+		c.draw_string_outline(font, at - Vector2(vs_size * 0.62, 0), tr("VS"), HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, 18, Color("0b0a12"))
+		c.draw_string(font, at - Vector2(vs_size * 0.62, 0), tr("VS"), HORIZONTAL_ALIGNMENT_LEFT, -1, vs_size, UiKit.SUN)
 	if t > 0.35 and t < 0.5:
 		c.draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, (0.5 - t) / 0.15 * 0.8))
 	# Names and the round.
 	var left_name = Story.speaker_name(left_skin)
 	var right_name = Story.speaker_name(right_skin)
-	c.draw_string_outline(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, 10, Color.BLACK)
-	c.draw_string(font, Vector2(24, mid + 56), left_name, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, left_col.lightened(0.3))
-	c.draw_string_outline(font, Vector2(size.x * 0.4 - 24, mid - 30), right_name, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, 10, Color.BLACK)
-	c.draw_string(font, Vector2(size.x * 0.4 - 24, mid - 30), right_name, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, right_col.lightened(0.3))
+	c.draw_string_outline(font, Vector2(24, mid + 56), tr(left_name), HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, 10, Color.BLACK)
+	c.draw_string(font, Vector2(24, mid + 56), tr(left_name), HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.6, 40, left_col.lightened(0.3))
+	c.draw_string_outline(font, Vector2(size.x * 0.4 - 24, mid - 30), tr(right_name), HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, 10, Color.BLACK)
+	c.draw_string(font, Vector2(size.x * 0.4 - 24, mid - 30), tr(right_name), HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.6, 40, right_col.lightened(0.3))
 	var bar = cinema_bar()
 	c.draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, safe_top + bar + 64)), Color(0, 0, 0, 0.85))
-	c.draw_string(UiKit.strong_font(), Vector2(0, safe_top + bar + 30), String(opts.get("round", "")), HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, UiKit.SUN)
-	c.draw_string(UiKit.body_font(), Vector2(0, safe_top + bar + 54), String(opts.get("place", "")), HORIZONTAL_ALIGNMENT_CENTER, size.x, 17, Color(1, 1, 1, 0.8))
+	c.draw_string(UiKit.strong_font(), Vector2(0, safe_top + bar + 30), tr(String(opts.get("round", ""))), HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, UiKit.SUN)
+	c.draw_string(UiKit.body_font(), Vector2(0, safe_top + bar + 54), tr(String(opts.get("place", ""))), HORIZONTAL_ALIGNMENT_CENTER, size.x, 17, Color(1, 1, 1, 0.8))
 	c.draw_rect(Rect2(Vector2(0, size.y - safe_bottom - bar), Vector2(size.x, safe_bottom + bar + 40)), Color.BLACK)
 
 func draw_over() -> void:
@@ -622,7 +623,7 @@ func draw_over() -> void:
 			c.draw_rect(Rect2(screen.position, Vector2(screen.size.x, 34)), Color(0.05, 0.06, 0.08, 0.9))
 			var seconds = int(scene_clock)
 			c.draw_circle(screen.position + Vector2(16, 17), 5, Color("34d399"))
-			c.draw_string(UiKit.strong_font(), screen.position + Vector2(28, 23), "CHAMADA · %d:%02d" % [seconds / 60, seconds % 60], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+			c.draw_string(UiKit.strong_font(), screen.position + Vector2(28, 23), tr("CHAMADA · %d:%02d") % [seconds / 60, seconds % 60], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 		if box.visible:
 			# A thin line in the speaker's colour along the top of the dialogue box.
 			c.draw_rect(Rect2(box.position + Vector2(20, 0), Vector2(box.size.x - 40, 3)), accent)

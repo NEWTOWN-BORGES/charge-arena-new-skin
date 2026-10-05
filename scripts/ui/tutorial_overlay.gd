@@ -74,10 +74,10 @@ func start(new_steps: Array) -> void:
 
 func show_step() -> void:
 	var step: Dictionary = steps[index]
-	counter.text = "PASSO %d DE %d" % [index + 1, steps.size()]
+	counter.text = tr("PASSO %d DE %d") % [index + 1, steps.size()]
 	heading.text = String(step.title)
 	body.text = String(step.text)
-	next_button.text = "COMEÇAR" if index == steps.size() - 1 else "SEGUINTE  →"
+	next_button.text = tr("COMEÇAR") if index == steps.size() - 1 else tr("SEGUINTE  →")
 	skip_button.visible = index < steps.size() - 1
 	arrange()
 	# Labels settle their wrapped height a frame later: arrange once more then.

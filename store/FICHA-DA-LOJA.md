@@ -53,9 +53,11 @@ endereço na Play Console. Antes, substitui `[O TEU E-MAIL DE CONTACTO]` pelo te
 
 ## Respostas aos formulários da Play Console
 
-**Segurança dos dados:** a app não recolhe nem partilha dados de utilizadores → "Não" a
-recolha e "Não" a partilha. Dados cifrados em trânsito: não se aplica (não há envio). Pedido de
-eliminação de dados: não se aplica (nada é guardado fora do telemóvel).
+**Segurança dos dados:** a app recolhe dados anónimos: "Falhas e diagnóstico" (relatórios de
+erro, ligados por omissão e desligáveis) e "Atividade na app" (estatísticas de jogo, só se o
+jogador as ligar), mais o identificador aleatório criado no telemóvel. Nada é partilhado com
+terceiros. Dados cifrados em trânsito: sim (HTTPS, PostHog UE). Pedido de eliminação: por
+e-mail, com o identificador mostrado em Opções › Jogo › Privacidade.
 
 **Classificação de conteúdo (questionário IARC):** categoria Jogo; violência: robôs a disparar
 contra tijolos e uns contra os outros, sem sangue nem pessoas (violência de fantasia ligeira);

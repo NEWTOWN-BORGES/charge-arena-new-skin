@@ -226,7 +226,7 @@ func _draw() -> void:
 	var chip = Rect2(gear.position.x - width - 12, gear.position.y + 12, width, 48)
 	UiKit.plate(self, chip, Color(UiKit.PANEL, 0.9), UiKit.PANEL_EDGE, 4.0)
 	brick_glyph(self, chip.position + Vector2(24, 24), 1.0)
-	draw_string(f, chip.position + Vector2(44, 33), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
+	draw_string(f, chip.position + Vector2(44, 33), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
 
 func brick_glyph(c: CanvasItem, at: Vector2, k: float) -> void:
 	UiKit.box(c, Rect2(at + Vector2(-11, -6) * k, Vector2(22, 14) * k), UiKit.SUN_LIP, Color.TRANSPARENT, true)
@@ -243,11 +243,11 @@ func draw_profile() -> void:
 		profile.draw_texture_rect(picture, Rect2(at - Vector2(36, 40), Vector2(72, 72)), false)
 	UiKit.ring(profile, at, 30, Color(UiKit.CYAN, 0.8))
 	var name = String(Skins.CATALOG[clampi(skin, 0, Skins.CATALOG.size() - 1)].name)
-	profile.draw_string(UiKit.title_font(), Vector2(82, 32), name, HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, UiKit.WHITE)
+	profile.draw_string(UiKit.title_font(), Vector2(82, 32), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, UiKit.WHITE)
 	var state = hud.campaign_state
 	var done: int = state.completed.size() if state != null else 0
 	var total: int = Campaign.menu_levels().size()
-	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), "CAMPANHA %d/%d" % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
+	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), tr("CAMPANHA %d/%d") % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
 	var bar = Rect2(82, 59, profile.size.x - 100, 7)
 	UiKit.box(profile, bar, UiKit.FIELD, Color.TRANSPARENT, true)
 	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxi(total, 1), 0, 1), bar.size.y)), UiKit.SUN, Color.TRANSPARENT, true)
@@ -299,7 +299,7 @@ func draw_rail_icon(key: Button, kind: String) -> void:
 		var count: String = key.get_meta("count")
 		var f = UiKit.strong_font()
 		var width = f.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		key.draw_string(f, Vector2((key.size.x - width) * 0.5, key.size.y - 12), count, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.MUTED)
+		key.draw_string(f, Vector2((key.size.x - width) * 0.5, key.size.y - 12), tr(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.MUTED)
 	if key.get_meta("dot", false):
 		UiKit.disc(key, Vector2(key.size.x - 12, 12), 7, UiKit.DANGER)
 		UiKit.ring(key, Vector2(key.size.x - 12, 12), 7, UiKit.WHITE)
@@ -334,14 +334,14 @@ func draw_mode_card() -> void:
 	var sink = 3.0 if mode_card.button_pressed else 0.0
 	mode_glyph(mode_card, Vector2(42, 46 + sink), entry.id, UiKit.SUN)
 	var f = UiKit.strong_font()
-	mode_card.draw_string(f, Vector2(80, 28 + sink), "MODO  ▾", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
-	var name: String = entry.name
-	var about: String = entry.about
+	mode_card.draw_string(f, Vector2(80, 28 + sink), tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
+	var name: String = tr(String(entry.name))
+	var about: String = tr(String(entry.about))
 	var room = mode_card.size.x - 84
 	if entry.id == "campaign" and hud.campaign_state != null:
 		var level: Dictionary = Campaign.LEVELS[hud.menu_level]
-		var rival = String(level.name).to_upper() if int(level.boss) >= 100 else String(Skins.CATALOG[int(level.boss)].name)
-		about = ("Posto · " if int(level.boss) >= 100 else "Boss · ") + rival
+		var rival = tr(String(level.name)).to_upper() if int(level.boss) >= 100 else String(Skins.CATALOG[int(level.boss)].name)
+		about = (tr("Posto · ") if int(level.boss) >= 100 else tr("Boss · ")) + rival
 		# The boss of the level waits at the right of the card.
 		var station: bool = int(level.boss) >= 100
 		var skins = hud.skins_progress
@@ -353,7 +353,7 @@ func draw_mode_card() -> void:
 			var tone = Color(UiKit.CORAL.darkened(0.55), 1.0) if station or not beaten else Color.WHITE
 			mode_card.draw_texture_rect(picture, Rect2(boss_at - Vector2(36, 40), Vector2(72, 72)), false, tone)
 		UiKit.ring(mode_card, boss_at, 30, UiKit.CORAL if not beaten else UiKit.SUN)
-		mode_card.draw_string(f, boss_at + Vector2(-16, 40), "POSTO" if station else "BOSS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UiKit.CORAL)
+		mode_card.draw_string(f, boss_at + Vector2(-16, 40), tr("POSTO" if station else "BOSS"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UiKit.CORAL)
 		room -= 80
 	if entry.id == "marathon" and hud.marathon_record > 0:
 		about = tr("Recorde: %d vitórias") % hud.marathon_record
@@ -368,4 +368,4 @@ func draw_sheet_card(card: Button, entry: Dictionary) -> void:
 	card.draw_string(UiKit.title_font(), Vector2(84, 38), tr(entry.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.WHITE)
 	card.draw_string(UiKit.body_font(), Vector2(84, 60), tr(entry.about), HORIZONTAL_ALIGNMENT_LEFT, card.size.x - 170, 13, UiKit.MUTED)
 	if chosen:
-		card.draw_string(UiKit.strong_font(), Vector2(card.size.x - 92, 24), "ESCOLHIDO", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.SUN)
+		card.draw_string(UiKit.strong_font(), Vector2(card.size.x - 92, 24), tr("ESCOLHIDO"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.SUN)

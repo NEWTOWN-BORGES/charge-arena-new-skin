@@ -471,7 +471,7 @@ static func hard_lines(boss: int, moment: String) -> Array:
 
 static func versus(left: int, right: int, step: int, total: int, place: String, rival_dark: bool = false) -> Array:
 	# The fight card: BIT on the left, the rival on the right, the round and the arena.
-	return [VERSUS, "", {"left": left, "right": right, "round": "RONDA %d DE %d" % [step + 1, total] if step >= 0 else "TREINO",
+	return [VERSUS, "", {"left": left, "right": right, "round": TranslationServer.translate("RONDA %d DE %d") % [step + 1, total] if step >= 0 else "TREINO",
 		"place": place, "dark": rival_dark}]
 
 static func voice_key(who: int) -> String:
@@ -493,7 +493,7 @@ static func lines(boss: int, moment: String) -> Array:
 
 static func round_card(step: int, boss: int, arena_name: String, bg: String = "") -> Array:
 	# The card that opens each round: the rival's name over its own arena.
-	return [SCENE, speaker_name(boss), {"bg": bg if bg != "" else "arena_%d" % boss, "chapter": "RONDA %d DE %d" % [step + 1, ORDER.size()], "place": arena_name}]
+	return [SCENE, speaker_name(boss), {"bg": bg if bg != "" else "arena_%d" % boss, "chapter": TranslationServer.translate("RONDA %d DE %d") % [step + 1, ORDER.size()], "place": arena_name}]
 
 static func face_key(who: int) -> String:
 	match who:
