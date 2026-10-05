@@ -81,8 +81,7 @@ Sem anúncios. Sem contas. Joga offline.
 
 `politica-de-privacidade.html` (português e inglês) tem de estar num endereço público. Como o
 repositório é privado, publica-a num sítio gratuito (por exemplo Google Sites: cola o texto) e
-mete esse endereço no Seller Portal. Antes, substitui `[O TEU E-MAIL DE CONTACTO]` /
-`[YOUR CONTACT E-MAIL]` pelo e-mail de contacto que escolheres.
+mete esse endereço no Seller Portal. E-mail de contacto: dev.nettuno@gmail.com.
 
 A política descreve o que o jogo envia de facto: relatórios de erro anónimos (ligados por
 omissão, desligáveis) e estatísticas de jogo anónimas (só se o jogador as ligar), para o
