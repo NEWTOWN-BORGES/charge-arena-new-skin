@@ -25,7 +25,7 @@ const CATALOG = [
 		"body": "2b5d8a", "light": "ffc21a", "shot": "ffc21a"},
 	{"name": "FAÍSCA", "ultimate": "thunder", "weapon": "Bobina de Tesla", "bricks": "Geradores de Tesla", "about": "Caçador de tempestades: espigões de raio na cabeça, pernas de pássaro, bobina às costas e visor que varre.", "level": 8,
 		"body": "2f7de0", "light": "7ff4ff", "shot": "8aeeff"},
-	{"name": "BATIDA", "ultimate": "surge", "weapon": "Seringa de Choque", "bricks": "Caixas de primeiros socorros", "about": "Enfermeira do circuito e amiga do BIT: touca com a cruz vermelha, espelho frontal, estetoscópio ao pescoço e mochila médica com dois frascos acesos. Dispara com uma seringa gigante e a SOBRECARGA é uma dose de adrenalina.", "level": 4,
+	{"name": "BATIDA", "ultimate": "surge", "weapon": "Seringa de Choque", "bricks": "Caixas de primeiros socorros", "about": "Enfermeira do circuito e amiga do BIT: cabeça de monitor de hospital num braço articulado, com a touca e a cruz vermelha, tronco em cápsula de comprimido, estetoscópio e mochila médica com dois frascos acesos. Dispara com uma seringa gigante e a SOBRECARGA é uma dose de adrenalina.", "level": 4,
 		"body": "e23a4e", "light": "4ff2c8", "shot": "4ff2c8"},
 	{"name": "GANCHO", "ultimate": "plunder", "weapon": "Bacamarte de Gancho", "bricks": "Baús de pirata", "about": "Pirata das rotas: capuz de lona, capa rasgada, um só olho e bacamarte com gancho.", "level": 7,
 		"body": "c2472e", "light": "ffcf5a", "shot": "ffc84a"},

@@ -2,7 +2,7 @@
 	"about": "Receitas dos robôs: brick = peça do tijolo temático que defende a muralha; peças do kit (art/robots/kit.glb), cores por papel, escala do corpo e desgaste da pintura. Cores vazias usam a cor da equipa. eye_style: capsule, dots, bars, square, slant, monocle, visor, equalizer, single, rings, stars, arcs, slits (um rasgo num casco, sem ecrã).",
 	"heads": {
 		"rosca13_head": {"top": 1.72, "center": 1.44, "aspect": 2.75},
-		"batida13_head": {"top": 1.93, "center": 1.67, "aspect": 2.2},
+		"batida13_head": {"top": 1.94, "center": 1.69, "aspect": 1.765},
 		"eclipse16_head": {"top": 2.12, "center": 1.89, "aspect": 2.857},
 		"batida12_head": {"top": 1.826, "center": 1.7200000286102295, "aspect": 5.897},
 		"rosca12_head": {"top": 1.61, "center": 1.42, "aspect": 3.8},
@@ -360,7 +360,7 @@
 				"eyes": "6effd8",
 				"rubber": "1a2028"
 			},
-			"design_note": "Enfermeira do circuito: capacete redondo com touca de enfermeira e cruz vermelha, espelho frontal e visor largo; tronco esguio branco com a cruz no peito e a linha do batimento na barriga, estetoscópio ao pescoço, mochila médica com dois frascos acesos, ombreiras pequenas com cruzes, saia curta de placas, pernas redondas e socas; a arma é uma seringa com o frasco aceso e a agulha na boca.",
+			"design_note": "Enfermeira do circuito: a cabeça é um monitor de hospital num braço articulado, com o rosto no ecrã, a touca com a cruz vermelha, pegas e botões; o tronco é uma cápsula de comprimido, vermelha em cima com a cruz e branca em baixo com a linha do batimento; estetoscópio, mochila médica com dois frascos acesos, ombreiras em cruz, saia curta de placas, pernas direitas e sapatos de enfermeira; a arma é uma seringa.",
 			"callouts": [
 				[
 					"CASCO SEM PESCOÇO",
