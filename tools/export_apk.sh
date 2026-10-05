@@ -62,7 +62,9 @@ put("launcher_icons/adaptive_monochrome_432x432", f'"res://art/icon/{icon}_monoc
 open(path, "w").write(head + "[preset.1]" + rest)
 EOF
 mkdir -p "$(dirname "$out")"
-(cd "$work" && godot --headless --editor --import)
+# The first import of a fresh copy now and then crashes on the way out; a second pass
+# picks up where it stopped.
+(cd "$work" && godot --headless --editor --import) || (cd "$work" && godot --headless --editor --import)
 (cd "$work" && GODOT_ANDROID_KEYSTORE_RELEASE_PATH="${STORE_KEYSTORE:-$keystore}" \
 	GODOT_ANDROID_KEYSTORE_RELEASE_USER="${STORE_ALIAS:-androiddebugkey}" \
 	GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="${STORE_PASS:-android}" \
