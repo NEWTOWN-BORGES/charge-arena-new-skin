@@ -144,7 +144,7 @@ const LINES = {
 		"before": [
 			[BATIDA, "Surpresa! Também me inscrevi. Se é para ganhar o prémio, que seja um de nós."],
 			[BIT, "Não quero lutar contigo…"],
-			[BATIDA, "Luta a sério. Se me venceres, sei que chegas à final. Solta o som!"],
+			[BATIDA, "Luta a sério. Se me venceres, sei que chegas à final. No fim, eu trato-te das mazelas!"],
 		],
 		"won": [
 			[BATIDA, "É assim mesmo! Fico feliz por perder para ti."],
@@ -411,7 +411,7 @@ const S2_LINES = {
 		"before": [
 			[BATIDA, "…", DARK],
 			[BIT_ELITE, "BATIDA?! Não… tu não!", {"mood": "hit", "fx": "shake"}],
-			[BATIDA, "Não conheço nenhum BIT. Solta o som… para te calar.", DARK],
+			[BATIDA, "Não conheço nenhum BIT. Fica quieto… isto não vai doer nada.", DARK],
 			[MAGNUS_IMP, "Ela não te reconhece, BIT. Vence-a: é a única maneira de a ajudar."],
 		],
 		"won": [

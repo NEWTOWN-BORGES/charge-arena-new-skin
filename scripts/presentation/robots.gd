@@ -9,6 +9,8 @@ const HEROIC_KIT = preload("res://art/robots/heroic_cast.glb")
 # ECLIPSE 16: the executor, built joint by joint like BIT
 # (tools/blender/eclipse_mech.py).
 const ECLIPSE_KIT = preload("res://art/robots/eclipse16.glb")
+# BATIDA 13: the circuit's medic (tools/blender/batida_medic.py).
+const BATIDA_KIT = preload("res://art/robots/batida13.glb")
 const ROSTER = preload("res://art/robots/roster.json")
 # Where each leg bends: the knee height in leg space (tools/blender/robot_kit.py writes it).
 const KNEES = preload("res://art/robots/knees.json")
@@ -24,7 +26,7 @@ const STATION_SKIN = 100
 # tools/blender/mech_cast.py). A hard skin uses its boss's brick in its own colours, with the
 # neon kit on top.
 const BRICKS = ["brick_bit_mech", "brick_salvo_mech", "brick_orbita_mech", "brick_broto", "brick_bigorna_mech",
-	"brick_eclipse_mech", "brick_rosca_mech", "brick_faisca_mech", "brick_batida_mech", "brick_gancho_mech",
+	"brick_eclipse_mech", "brick_rosca_mech", "brick_faisca_mech", "batida13_brick", "brick_gancho_mech",
 	"brick_helio_mech", "brick_magnus_mech"]
 const EYES = ["capsule", "dots", "bars", "square", "slant", "monocle", "visor", "equalizer", "single", "rings", "stars", "arcs", "slits"]
 # Tops and crests are modelled for a head whose top is at HEAD_TOP and centre at HEAD_CENTER;
@@ -144,7 +146,7 @@ static func colors(skin: int, team: Color, tint: bool = false, override: Diction
 static func part(name: String) -> Array:
 	# [mesh, role] pairs of one kit part, read once from the imported scene.
 	if _parts.is_empty():
-		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT]:
+		for library in [KIT, HEROIC_KIT, ECLIPSE_KIT, BATIDA_KIT]:
 			var scene: Node = library.instantiate()
 			for root in scene.get_children():
 				var items: Array = []

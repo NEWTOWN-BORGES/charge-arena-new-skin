@@ -1,6 +1,7 @@
 {
 	"about": "Receitas dos robôs: brick = peça do tijolo temático que defende a muralha; peças do kit (art/robots/kit.glb), cores por papel, escala do corpo e desgaste da pintura. Cores vazias usam a cor da equipa. eye_style: capsule, dots, bars, square, slant, monocle, visor, equalizer, single, rings, stars, arcs, slits (um rasgo num casco, sem ecrã).",
 	"heads": {
+		"batida13_head": {"top": 1.93, "center": 1.67, "aspect": 2.2},
 		"eclipse16_head": {"top": 2.12, "center": 1.89, "aspect": 2.857},
 		"batida12_head": {"top": 1.826, "center": 1.7200000286102295, "aspect": 5.897},
 		"rosca12_head": {"top": 1.61, "center": 1.42, "aspect": 3.8},
@@ -320,7 +321,7 @@
 			"name": "BATIDA",
 			"brick": "brick_speaker",
 			"brick_top": "top_mohawk",
-			"eye_style": "equalizer",
+			"eye_style": "capsule",
 			"scale": [
 				0.99,
 				0.99,
@@ -338,27 +339,27 @@
 				-1.0
 			],
 			"parts": {
-				"head": "batida12_head",
+				"head": "batida13_head",
 				"top": "",
 				"spin": "",
-				"torso": "batida12_torso",
-				"shoulders": "batida12_shoulders",
+				"torso": "batida13_torso",
+				"shoulders": "batida13_shoulders",
 				"back": "",
-				"arm": "batida12_arm",
-				"legs": "batida12_leg",
-				"gun": "batida12_gun"
+				"arm": "batida13_arm",
+				"legs": "batida13_leg",
+				"gun": "batida13_gun"
 			},
 			"palette": {
-				"shell": "7e164c",
-				"trim": "293344",
-				"dark": "101821",
-				"metal": "75889b",
-				"glow": "00dcf0",
+				"shell": "f2f5f7",
+				"trim": "e23a4e",
+				"dark": "26303c",
+				"metal": "a7b4c2",
+				"glow": "4ff2c8",
 				"team": "",
-				"eyes": "00e5ed",
-				"rubber": "090f17"
+				"eyes": "6effd8",
+				"rubber": "1a2028"
 			},
-			"design_note": "Engenho de combate sonico: cabeca larga e achatada com barra equalizadora, carapaca triangular magenta e grafite, subwoofer toracico grande e inclinado com grade, dois pods sonoros circulares assimetricos suspensos em suportes, disco percussivo no braco esquerdo, canhao de ressonancia largo, hub de anca compacto sem saia em U e pernas digitigradas com amortecedores.",
+			"design_note": "Enfermeira do circuito: capacete redondo com touca de enfermeira e cruz vermelha, espelho frontal e visor largo; tronco esguio branco com a cruz no peito e a linha do batimento na barriga, estetoscópio ao pescoço, mochila médica com dois frascos acesos, ombreiras pequenas com cruzes, saia curta de placas, pernas redondas e socas; a arma é uma seringa com o frasco aceso e a agulha na boca.",
 			"callouts": [
 				[
 					"CASCO SEM PESCOÇO",
@@ -558,7 +559,7 @@
 			"palette": {"shell": "3f6f8f", "trim": "f2c230", "dark": "1a2630", "metal": "c0c6cc", "glow": "ffd34a", "eyes": "ffe07a", "rubber": "11171c", "team": ""}},
 		{"name": "FAÍSCA TEMPESTADE", "base": 7, "hard": true, "parts_add": {"extra": "faisca_x_extra", "hat": "faisca_x_hat"},
 			"palette": {"shell": "2a2f3a", "trim": "ffd23f", "dark": "12151c", "metal": "8d96a6", "glow": "fff04a", "eyes": "fff59a", "rubber": "0d0f14", "team": ""}},
-		{"name": "BATIDA NEON", "base": 8, "hard": true, "parts_add": {"extra": "batida_x_extra", "hat": "batida_x_hat"},
+		{"name": "BATIDA NEON", "base": 8, "hard": true, "parts_add": {"extra": "batida13_x_extra", "hat": "batida13_x_hat"},
 			"palette": {"shell": "3a2a5c", "trim": "4ff0ff", "dark": "161022", "metal": "8a84a8", "glow": "4ff0ff", "eyes": "8afcff", "rubber": "0f0b18", "team": ""}},
 		{"name": "GANCHO NEGRO", "base": 9, "hard": true, "parts_add": {"extra": "gancho_x_extra", "torso": "gancho3x_hull"},
 			"palette": {"shell": "23262e", "trim": "d9b25a", "dark": "121318", "metal": "c9a24a", "glow": "ffcf5a", "eyes": "ffd36a", "rubber": "0c0d10", "team": ""}},
