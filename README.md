@@ -1,6 +1,6 @@
-# Charge Arena — nova pele (3.45.0)
+# Charge Arena — nova pele (LAB 3.46.0 · ALFA 3.45.0)
 
-Dois APKs de teste (Android arm64). Nesta versão não há APKs de 32 bits. Descarregar (link direto, abre no Chrome):
+APKs de teste (Android arm64). A LAB já é a 3.46.0; a ALFA continua na 3.45.0. Descarregar (link direto, abre no Chrome):
 
 - ALFA: https://github.com/NEWTOWN-BORGES/charge-arena-new-skin/raw/apk-direto/charge-arena-alfa.apk
 - LAB: https://github.com/NEWTOWN-BORGES/charge-arena-new-skin/raw/apk-direto/charge-arena-new-skin-lab.apk
@@ -17,6 +17,8 @@ Ou pela Release:
 
 - `charge-arena-new-skin-lab.apk` — **LAB**: tudo desbloqueado para testar, e em Opções o painel **AFINAR SENSAÇÃO (LAB)** para afinar o feel do tiro ao vivo (app "Charge Arena LAB"). Instala-se por cima da versão LAB anterior.
 - `charge-arena-alfa.apk` — **ALFA**: tudo fechado como para um jogador novo (skins, poderes e chefes por desbloquear), ícone do HÉLIO (app "Charge Arena ALFA"). Instala-se ao lado da LAB, não a substitui.
+
+3.46.0 (versionCode 75, só LAB) — MARATONA: rivais seguidos até perderes, cada um na sua arena com dois poderes ao acaso e a IA a subir; o recorde fica no lobby. OFICINA (no hangar, botão OFICINA): pinturas para cada piloto compradas com tijolos (Carbono, Ártico, Camuflagem, Oceano, Lava, Néon rosa, Real; Ouro ganha-se com 15 vitórias seguidas na Maratona), pinturas CORROMPIDAS para as skins do modo difícil (escuras com néon: Veneno, Sangue, Vazio, Gelo morto, Brasa, Espectro) e cor dos disparos (8 cores, com arco-íris). No hangar os pilotos ficam de frente. ECLIPSE volta ao executor robusto da 3.43. POUPANÇA DE BATERIA em Opções › Imagem e som (30 FPS e qualidade Leve). IDIOMA em Opções › Jogo (português, inglês, francês, espanhol, italiano; a tradução ainda está a meio). No primeiro arranque pergunta se pode contar estatísticas anónimas (pode dizer não; o jogo é igual). PvP online preparado (fica "brevemente" até o servidor estar ligado). A Taça Aurora saiu.
 
 3.45.0 (versionCode 74) — ATUALIZAÇÃO HEROICA + 3 CONTRA 3 (a 3.44.0 tinha sido usada para duas versões diferentes; esta junta as duas). Robôs e visual: ECLIPSE redesenhado como vilão orbital (armadura negra, visor rubro, núcleo de singularidade, canhão magnético); ROSCA passa a marinheiro de estaleiro, irmão do pirata GANCHO (azul naval, latão, hélice no peito, guincho e lança-arpão); BATIDA com peito triangular e subwoofer, visor em barra e pernas digitígradas. Arena e lobby com cores heroicas, luz de contorno e interface de combate nova; materiais de metal e pintura mais detalhados, balas com núcleo nítido, fumo, explosões, eletricidade e cura com formas próprias. 48 assinaturas visuais de habilidades, com aviso de carga no ecrã; habilidades e ultimates saem do centro da armadura de quem as lança. Exterior das arenas e silhuetas refinados (o chão de combate não mudou). 3 CONTRA 3 (painel PvP): arena com o dobro do comprimento e da largura no céu da Aurora, 3 trilhos por base, 300 tijolos por equipa, obstáculos, boosts e até 7 ricochetes por bala; os 6 robôs usam as suas habilidades e a sua ultimate; em cada partida as IA jogam com robôs escolhidos ao acaso. "JOGAR COM AS IA" ou "VER AS IA A JOGAR".
 
