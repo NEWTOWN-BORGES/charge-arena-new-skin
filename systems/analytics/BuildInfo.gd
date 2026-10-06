@@ -2,8 +2,8 @@ extends RefCounted
 # Which game this is: version, build, flavour and store. Kept in step with
 # export_presets.cfg (tests/regression/test_analytics.gd checks it).
 
-const VERSION = "3.48.1"
-const BUILD = 79
+const VERSION = "3.48.2"
+const BUILD = 80
 
 # lab (open_test), playtest, store (a store build) or dev (editor and tests).
 static func flavor() -> String:

@@ -9,13 +9,13 @@ Tudo o que o Galaxy Store Seller Portal pede para a primeira publicação. A cha
 |---|---|
 | Nome da app | Charge Arena |
 | Pacote (definitivo, não muda mais) | `org.chargearena.game` |
-| Versão | 3.48.1 (versionCode 79; sobe 1 em cada envio) |
+| Versão | 3.48.2 (versionCode 80; sobe 1 em cada envio) |
 | Categoria | Games · Action (ou Arcade) |
 | Gratuita | Sim |
 | Anúncios | Não |
 | Compras na app | Não |
 | Android mínimo | 7.0 (API 24) · alvo: API 36 |
-| Ficheiro a enviar | `charge-arena-galaxy-3.48.1.apk` (arm64 + 32 bits num só ficheiro, assinado com a tua chave) |
+| Ficheiro a enviar | `charge-arena-galaxy-3.48.2.apk` (arm64 + 32 bits num só ficheiro, assinado com a tua chave) |
 | Idiomas do jogo | Inglês, português, francês, espanhol, italiano |
 
 A versão da loja tem o seu próprio pacote; instala-se ao lado das versões LAB e ALFA de teste.

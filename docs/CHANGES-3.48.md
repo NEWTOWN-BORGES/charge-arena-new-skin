@@ -1,3 +1,9 @@
+# Charge Arena 3.48.2 (código 80)
+
+## Correções
+- **Hangar vazio:** ao voltar ao hangar o robô, o pedestal e os tijolos podiam desaparecer. O hangar mudava a suavização (MSAA) do visualizador a cada abertura; num telemóvel (OpenGL) isso podia deixá-lo a desenhar nada. Agora a suavização fica fixa, o robô é reconstruído sempre que o hangar abre, a câmara do visualizador é reativada e o zoom inválido é reposto.
+- **Retratos dos cartões:** os retratos pequenos do hangar e da partida mostram o ECLIPSE, o ROSCA e a BATIDA novos (a BATIDA antiga ainda aparecia nos cartões).
+
 # Charge Arena 3.48.1 (código 79)
 
 ## Correções

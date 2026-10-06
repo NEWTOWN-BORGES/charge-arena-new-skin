@@ -1224,8 +1224,19 @@ func open_skins() -> void:
 		skins_progress.mark_seen()
 		skins_progress.save_preferences()
 		refresh_news()
-	if is_instance_valid(viewer_viewport) and arena_view != null:
-		viewer_viewport.msaa_3d = preload("res://scripts/settings/video_settings.gd").antialiasing(arena_view.quality_level)
+	# The viewer's antialiasing is set once, when it is made, and never changed: on a phone
+	# (OpenGL) changing MSAA on a transparent viewport that has already drawn could leave it
+	# drawing nothing at all - the hangar came back with an empty pedestal.
+	if is_instance_valid(viewer_viewport):
+		viewer_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	if is_instance_valid(viewer_camera):
+		viewer_camera.current = true
+	if not (is_finite(viewer_zoom) and is_finite(viewer_pitch) and is_finite(viewer_yaw)):
+		viewer_zoom = 1.0
+		viewer_pitch = 0.0
+		viewer_yaw = VIEWER_FRONT
+	# Built afresh every time the hangar opens, whatever the last visit left on the turntable.
+	viewer_skin = -1
 	skins_overlay.show()
 	viewer_yaw = VIEWER_FRONT
 	preview_skin(skins_progress.selected if skins_progress != null else 0)
