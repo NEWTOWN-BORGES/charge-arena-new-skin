@@ -1,0 +1,46 @@
+# Publishes the game's site and privacy policy (hosting/public) on Firebase Hosting.
+#
+# Needs, in the repository's Settings › Secrets and variables › Actions:
+#   - secret   FIREBASE_SERVICE_ACCOUNT : the JSON key of a service account of the Firebase
+#                                         project (Firebase console › Project settings ›
+#                                         Service accounts › Generate new private key)
+#   - variable FIREBASE_PROJECT_ID      : the project's ID (e.g. charge-arena-12345)
+# Runs on every push that changes hosting/, or by hand from the Actions tab.
+name: Publicar site (Firebase Hosting)
+on:
+  push:
+    paths:
+      - "hosting/**"
+      - ".github/workflows/firebase-hosting.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: firebase-hosting
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Firebase settings
+        id: ready
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$PROJECT" ]; then
+            echo "::warning::Falta o segredo FIREBASE_SERVICE_ACCOUNT ou a variável FIREBASE_PROJECT_ID; nada publicado."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy to Firebase Hosting (live)
+        if: steps.ready.outputs.ok == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          channelId: live
+          entryPoint: hosting
