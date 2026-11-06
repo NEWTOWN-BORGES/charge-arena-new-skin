@@ -1715,7 +1715,28 @@ func build_pvp_menu() -> void:
 	# 3. Online, through the game's server.
 	var online: VBoxContainer = pages[2]
 	var online_ready = Online.available()
-	online.add_child(pvp_note("Joga contra qualquer pessoa pela internet, ou cria uma sala e dá o código a um amigo." if online_ready else "Brevemente: o servidor online ainda não está ligado."))
+	var server_addr = Online.server_address()
+	var server_status_text = ("Ligado a: %s:%d" % [server_addr.host, server_addr.port]) if online_ready else "Servidor online ainda não configurado."
+	var online_status_label = pvp_note(server_status_text if online_ready else "Joga online: insere o IP do servidor ou usa 127.0.0.1 para testar localmente.")
+	online.add_child(online_status_label)
+
+	var srv_row = HBoxContainer.new()
+	srv_row.add_theme_constant_override("separation", 8)
+	online.add_child(srv_row)
+	var srv_input = LineEdit.new()
+	srv_input.placeholder_text = "IP do servidor (ex.: 127.0.0.1)"
+	srv_input.text = String(server_addr.host) if String(server_addr.host) != "" else ""
+	srv_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	srv_input.custom_minimum_size = Vector2(180, 50)
+	srv_input.add_theme_stylebox_override("normal", style(UiKit.FIELD, UiKit.CARD_EDGE))
+	srv_input.add_theme_color_override("font_color", WHITE)
+	srv_input.add_theme_font_size_override("font_size", 16)
+	srv_row.add_child(srv_input)
+
+	var srv_btn = make_button("LIGAR IP", false)
+	srv_btn.custom_minimum_size = Vector2(110, 50)
+	srv_row.add_child(srv_btn)
+
 	var quick = make_button("PARTIDA RÁPIDA ONLINE", true)
 	quick.custom_minimum_size.y = 64
 	quick.disabled = not online_ready
@@ -1748,6 +1769,21 @@ func build_pvp_menu() -> void:
 		if code.length() == Online.CODE_LENGTH:
 			close_pvp()
 			online_requested.emit(code))
+
+	srv_btn.pressed.connect(func():
+		var target_ip = srv_input.text.strip_edges()
+		if target_ip == "":
+			target_ip = "127.0.0.1"
+			srv_input.text = target_ip
+		Online.save_custom_server(target_ip)
+		var fresh_ready = Online.available()
+		quick.disabled = not fresh_ready
+		make_room.disabled = not fresh_ready
+		room_code.editable = fresh_ready
+		enter_room.disabled = not fresh_ready
+		var fresh_addr = Online.server_address()
+		online_status_label.text = "Ligado a: %s:%d" % [fresh_addr.host, fresh_addr.port]
+	)
 	var leave = make_button("VOLTAR", false)
 	list.add_child(leave)
 	leave.pressed.connect(close_pvp)

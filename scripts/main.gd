@@ -51,6 +51,7 @@ var online_state = ""
 var online_room = ""
 var online_wait = 0.0
 var marathon = Marathon.new()
+var marathon_current_player_skin: int = -1
 var cosmetics = Cosmetics.new()
 var analytics
 var pause_ai = false
@@ -406,7 +407,16 @@ func start_level(index: int) -> void:
 
 func marathon_live() -> bool:
 	# The HUD's level card says which run is on screen; any other mode replaces it.
-	return hud.level_info.get("marathon", false)
+	return bool(hud.level_info.get("marathon", false))
+
+func marathon_pick_player_skin() -> int:
+	var pool: Array = []
+	for i in range(Skins.CATALOG.size()):
+		if skins.is_unlocked(i):
+			pool.append(i)
+	if pool.is_empty():
+		return 0
+	return int(pool[randi() % pool.size()])
 
 func start_marathon() -> void:
 	marathon.start()
@@ -428,13 +438,33 @@ func begin_marathon_round() -> void:
 	level_index = -1
 	use_map(level.map)
 	rules.ai_profile = marathon.ai_profile(game_settings.difficulty)
-	use_loadouts(marathon.kit(), boss)
+
+	# 1. Player: sorteio aleatório de personagem desbloqueado (incluindo skins neon)
+	marathon_current_player_skin = marathon_pick_player_skin()
+
+	# 2. Player: sorteio aleatório de poderes (2 habilidades + ultimate)
+	var player_kit: Array = marathon.kit()
+	var player_ult: String = String(Skins.CATALOG[marathon_current_player_skin].ultimate)
+	if player_ult == "":
+		player_ult = marathon.random_ultimate()
+	var player_loadout: Array = [player_kit[0], player_kit[1], player_ult]
+
+	# 3. Adversário: sorteio aleatório de poderes (2 habilidades + ultimate)
+	var rival_kit: Array = marathon.kit()
+	var rival_ult: String = String(Skins.CATALOG[boss].ultimate)
+	if rival_ult == "" or randf() < 0.4:
+		rival_ult = marathon.random_ultimate()
+	var rival_loadout: Array = [rival_kit[0], rival_kit[1], rival_ult]
+
+	rules.loadouts = [player_loadout, rival_loadout] if local_team == 0 else [rival_loadout, player_loadout]
+	credited_bricks = 0
+
 	rules.reset_match()
+	hud.level_info = {"number": marathon.round_number, "name": tr(String(level.name)), "challenge": "", "boss_name": String(Skins.CATALOG[boss].name),
+		"has_next": true, "marathon": true, "record": marathon.record, "wins": marathon.wins}
 	dress_pilots(local_team)
 	arena.set_skin(1, boss, false)
 	hud.team_hues = arena.unit_hues
-	hud.level_info = {"number": marathon.round_number, "name": tr(String(level.name)), "challenge": "", "boss_name": String(Skins.CATALOG[boss].name),
-		"has_next": true, "marathon": true, "record": marathon.record, "wins": marathon.wins}
 	hud.level_result = ""
 	hud.level_skin = ""
 	hud.level_opened = false
@@ -443,7 +473,7 @@ func begin_marathon_round() -> void:
 	arena.warm_shaders.call_deferred()
 	hud.show_game(mode, local_team)
 	sync_assist()
-	music.play_skin(boss)
+	music.play_skin(Skins.base_of(boss))
 
 func finish_marathon() -> void:
 	var won = rules.winner == local_team
@@ -453,6 +483,8 @@ func finish_marathon() -> void:
 	hud.level_info["record"] = marathon.record
 	hud.level_info["new_record"] = beaten
 	hud.level_result = "won" if won else "lost"
+	if not won:
+		marathon_current_player_skin = -1
 	# Fifteen in a row earns the gold paint.
 	if marathon.wins >= 15 and cosmetics.award("ouro"):
 		save_cosmetics()
@@ -462,6 +494,7 @@ func leave_campaign(layout: Dictionary = {}) -> void:
 	story_run = {}
 	arena.angry = [false, false]
 	level_index = -1
+	marathon_current_player_skin = -1
 	rules.ai_profile = {}
 	hud.level_info = {}
 	hud.level_result = ""
@@ -599,6 +632,8 @@ func story_pilot(boss: int, hard: bool) -> int:
 	return StoryScript.BIT_ELITE if hard or boss == StoryScript.FINAL else StoryScript.BIT
 
 func worn_skin() -> int:
+	if marathon_live() and marathon_current_player_skin >= 0:
+		return marathon_current_player_skin
 	return story_pilot(int(story_run.boss), bool(story_run.hard)) if not story_run.is_empty() else skins.selected
 
 func story_prize(boss: int, hard: bool) -> int:

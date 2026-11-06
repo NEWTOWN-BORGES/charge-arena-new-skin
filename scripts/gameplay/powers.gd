@@ -3,6 +3,7 @@ extends RefCounted
 ## equipped in the kit, plus the ultimate that comes with the skin. Tijolos destroyed in
 ## any mode are the currency. Progress stays on this device.
 const CONFIG_PATH = "user://powers.cfg"
+const SecurityGuard = preload("res://systems/security/SecurityGuard.gd")
 # charge: enemy bricks to destroy in the match before it can be fired the first time.
 # wait: seconds before it can be fired again, once it has been.
 # price: tijolos accumulated across matches to buy it in the shop.
@@ -215,6 +216,9 @@ func load_preferences() -> void:
 	var saved_version = int(config.get_value("powers", "version", 1))
 	if saved_version < 2:
 		return
+	if config.has_section("_security") and not SecurityGuard.verify_config(config, "powers"):
+		# Detectado arquivo de save adulterado por mod / hex editor
+		return
 	# Version 3 closes the shop for new installs, not for earned version-2 saves.
 	if saved_version < SAVE_VERSION and not FileAccess.file_exists(config_path + ".before-v3"):
 		DirAccess.copy_absolute(config_path, config_path + ".before-v3")
@@ -238,4 +242,5 @@ func save_preferences() -> Error:
 	config.set_value("powers", "owned", owned)
 	config.set_value("powers", "kit", kit)
 	config.set_value("powers", "tutorial_done", tutorial_done)
+	SecurityGuard.sign_config(config, "powers")
 	return config.save(config_path)

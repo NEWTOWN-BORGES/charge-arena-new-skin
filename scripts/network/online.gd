@@ -44,6 +44,18 @@ static func parse(text: String) -> Dictionary:
 static func available() -> bool:
 	return String(server_address().host) != ""
 
+static func save_custom_server(text: String) -> void:
+	var config = ConfigFile.new()
+	config.load("user://online.cfg")
+	config.set_value("online", "server", text.strip_edges())
+	config.save("user://online.cfg")
+
+static func clear_custom_server() -> void:
+	var config = ConfigFile.new()
+	if config.load("user://online.cfg") == OK:
+		config.erase_section_key("online", "server")
+		config.save("user://online.cfg")
+
 static func clean_code(text: String) -> String:
 	# Typed codes forgive case, spaces and dashes.
 	var code = text.strip_edges().to_upper()

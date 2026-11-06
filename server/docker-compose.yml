@@ -1,0 +1,12 @@
+services:
+  charge-arena-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: charge-arena-server
+    restart: unless-stopped
+    ports:
+      - "27941:27941/udp"
+    environment:
+      - PORT=27941
+

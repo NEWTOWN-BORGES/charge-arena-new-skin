@@ -2,6 +2,7 @@ extends RefCounted
 ## Cosmetic pilot skins. Every skin but the first is a campaign boss: beating its level
 ## unlocks it. Progress stays on this device.
 const CONFIG_PATH = "user://skins.cfg"
+const SecurityGuard = preload("res://systems/security/SecurityGuard.gd")
 const SHOT_SOUND = "res://audio/sfx/premium/shot_%d_0.wav"
 # "level" is the campaign level (2-11) whose boss wears the skin; 0 means always owned.
 # "ultimate" is the power in the third slot (see Powers.ULTIMATES); "" while one is missing.
@@ -147,6 +148,9 @@ func load_preferences() -> void:
 		return
 	if int(config.get_value("skins", "version", 1)) < SAVE_VERSION:
 		return
+	if config.has_section("_security") and not SecurityGuard.verify_config(config, "skins"):
+		# Detectado arquivo de save adulterado por mod / hex editor
+		return
 	defeated = []
 	for index in Array(config.get_value("skins", "defeated", [])):
 		if index is int and index > 0 and index < CATALOG.size() and not defeated.has(index):
@@ -163,4 +167,5 @@ func save_preferences() -> Error:
 	config.set_value("skins", "seen", seen)
 	config.set_value("skins", "story_won", story_won)
 	config.set_value("skins", "selected", selected)
+	SecurityGuard.sign_config(config, "skins")
 	return config.save(config_path)

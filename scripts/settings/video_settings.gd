@@ -16,12 +16,28 @@ const RENDER_SCALES = [1.0, 1.0, 1.0]
 # had to be undone, so a phone that cannot hold it does not see-saw.
 const RECOVER_WINDOWS = 12
 const CONFIG_PATH = "user://video_settings.cfg"
-# An entry-level phone (32-bit Android Go, like a Redmi A3, or under ~3.5 GB of memory)
-# starts on Leve at a steady 30 FPS: even frames and a cool CPU instead of a 60 it cannot
-# hold, which stutters every time it drops.
-var fps = 30 if low_end() else 60
+static func is_budget_phone() -> bool:
+	if not OS.has_feature("mobile"):
+		return false
+	var model = OS.get_model_name().to_lower()
+	if model.contains("redmi") or model.contains("2312") or model.contains("2409") or model.contains("2411") or model.contains("2501") or model.contains("g85") or model.contains("g81") or model.contains("g36") or model.contains("a15"):
+		return true
+	return low_end() or weak_gpu()
+
+static func default_fps() -> int:
+	if not OS.has_feature("mobile"):
+		return 60
+	if is_budget_phone():
+		return 45
+	if low_end():
+		return 30
+	return 60
+
+# An entry-level phone (like a Redmi 15C, Redmi A3, or under ~3.5 GB of memory)
+# starts on Leve at a steady 45 FPS on 90 Hz displays or 30 FPS.
+var fps = default_fps()
 # A phone starts on the performance profile; a PC has no reason to.
-var quality = 0 if low_end() else ((1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2))
+var quality = 0 if (low_end() or is_budget_phone()) else ((1 if OS.has_feature("mobile") else 2) if OS.has_feature("open_test") else (0 if OS.has_feature("mobile") else 2))
 var vsync = true
 var show_fps = false
 # Real shadows from the sun (robots and the court furniture). They draw the lit scene again,
@@ -43,7 +59,7 @@ var recovered = false
 # Mali-G57 (Galaxy A15) and its kin, old Adrenos and PowerVR.
 static func weak_gpu(adapter: String = "") -> bool:
 	var name = adapter if adapter != "" else RenderingServer.get_video_adapter_name()
-	var weak = RegEx.create_from_string("(?i)mali-(t|g3|g5|g68|g71|g72)|adreno[^0-9]*([2-5][0-9][0-9]|6[0-1][0-9])|powervr")
+	var weak = RegEx.create_from_string("(?i)mali-(t|g3|g5|g52|g68|g71|g72)|adreno[^0-9]*([2-5][0-9][0-9]|6[0-1][0-9])|powervr|helio.g[3-8]")
 	return weak.search(name) != null
 
 static func low_end(arm64: bool = OS.has_feature("arm64"), memory: int = -1) -> bool:
@@ -76,6 +92,10 @@ func load_preferences(path: String = CONFIG_PATH) -> void:
 	if low_end() and int(config.get_value("video", "low_end_version", 0)) < 1:
 		saved_quality = 0
 		saved_fps = 30
+	# Budget devices (e.g. Redmi 13C/14C/15C with 90 Hz displays) default to Leve and 45 FPS.
+	if is_budget_phone() and int(config.get_value("video", "budget_v1", 0)) < 1:
+		saved_quality = 0
+		saved_fps = 45
 	configure(saved_fps, saved_quality, bool(config.get_value("video", "vsync", true)), bool(config.get_value("video", "show_fps", false)), int(bool(config.get_value("video", "shadows", false))))
 	battery_saver = bool(config.get_value("video", "battery_saver", false))
 
@@ -110,6 +130,7 @@ func save_preferences(path: String = CONFIG_PATH) -> Error:
 	config.set_value("video", "performance_version", 2)
 	config.set_value("video", "presentation_version", 3)
 	config.set_value("video", "low_end_version", 1)
+	config.set_value("video", "budget_v1", 1)
 	return config.save(path)
 
 # The frame limit and picture actually used: the battery saver overrides the choices.

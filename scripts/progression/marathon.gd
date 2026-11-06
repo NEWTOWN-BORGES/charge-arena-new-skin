@@ -4,9 +4,13 @@ extends RefCounted
 # the last; the best run is kept as the record.
 
 const Campaign = preload("res://scripts/progression/campaign.gd")
+const Skins = preload("res://scripts/progression/skins.gd")
+const SecurityGuard = preload("res://systems/security/SecurityGuard.gd")
 const CAST = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 # Two abilities drawn at random for each rival, from the same pool as the 3 v 3 arena.
 const ABILITIES = ["blast", "rapid", "air", "laser", "pierce", "sniper", "cluster", "ricochet", "mortar", "drain", "emp", "walls", "mirror", "weld", "freeze", "stun", "thorns", "dome", "slow", "immune", "magnet", "rebuild", "sponge", "ghost"]
+# Ultimates pool for random assignment in Marathon mode.
+const ULTIMATES = ["sun_ray", "sun_beam", "meteors", "thunder", "singularity", "sentries", "bloom", "plunder", "surge", "volley", "plating", "b_charge", "b_quick", "b_fan", "b_salvo", "b_hail", "b_spark", "b_patch", "b_bar", "b_push", "b_slow", "b_forge", "b_aim", "b_drill"]
 # Past the eleventh round the AI keeps tightening, down to this share of its gaps.
 const LATE_FLOOR = 0.6
 const LATE_STEP = 0.94
@@ -22,6 +26,9 @@ var active = false
 func load_record() -> void:
 	var config = ConfigFile.new()
 	if config.load(path) == OK:
+		if config.has_section("_security") and not SecurityGuard.verify_config(config, "marathon"):
+			# Adulteração de recorde evitada
+			return
 		record = int(config.get_value("marathon", "record", 0))
 		runs = int(config.get_value("marathon", "runs", 0))
 
@@ -29,6 +36,7 @@ func save_record() -> int:
 	var config = ConfigFile.new()
 	config.set_value("marathon", "record", record)
 	config.set_value("marathon", "runs", runs)
+	SecurityGuard.sign_config(config, "marathon")
 	return config.save(path)
 
 func start(rng: RandomNumberGenerator = null) -> void:
@@ -53,10 +61,18 @@ func rival() -> int:
 
 # The arena the rival plays at home in.
 static func level_of(boss: int) -> int:
+	var base: int = boss
+	if boss >= 12 and boss < Skins.CATALOG.size():
+		base = int(Skins.CATALOG[boss].get("hard_of", boss))
 	for i in range(Campaign.LEVELS.size()):
-		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].boss) == boss:
+		if not Campaign.is_minor(i) and int(Campaign.LEVELS[i].boss) == base:
 			return i
 	return Campaign.LEVELS.size() - 1
+
+# Random ultimate from the available pool.
+func random_ultimate(rng: RandomNumberGenerator = null) -> String:
+	var idx = rng.randi_range(0, ULTIMATES.size() - 1) if rng != null else randi_range(0, ULTIMATES.size() - 1)
+	return ULTIMATES[idx]
 
 # The AI climbs the campaign's curve one step per round, then keeps tightening.
 func ai_profile(difficulty: int) -> Dictionary:
