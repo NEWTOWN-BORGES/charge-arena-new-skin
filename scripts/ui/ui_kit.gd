@@ -210,32 +210,73 @@ static func panel_style(color: Color = PANEL, rim: Color = PANEL_EDGE, radius: i
 static var _keys: Dictionary = {}
 
 static func key_styles(kind: String) -> Dictionary:
-	# A toy key: a face on a thick lip that sinks when it is pressed. `kind` is "primary"
-	# (the sun: one per screen), "toggle" (a chosen option) or "secondary". Built once per
-	# kind: fresh boxes on every call made each repaint count as a theme change.
+	# Clash Royale style 3D toy keys: vibrant saturated faces, thick extruded lips,
+	# specular rim highlights and soft drop shadows that sink with physical weight when pressed.
 	if _keys.has(kind):
 		return _keys[kind]
-	var face = CARD
-	var lip = LIP
+	var face = Color("1c4475")
+	var rim = Color("4085d4")
+	var lip = Color("0c1c36")
+	var lip_height = 6
 	match kind:
 		"primary":
-			face = SUN
-			lip = SUN_LIP
+			face = Color("ffcc00")
+			rim = Color("fff085")
+			lip = Color("9e4e00")
+			lip_height = 8
 		"toggle":
-			face = MINT
-			lip = MINT_LIP
+			face = Color("2cd58a")
+			rim = Color("75f5bc")
+			lip = Color("106e44")
+			lip_height = 6
 		"danger":
-			face = DANGER
-			lip = Color("9c2440")
-	var normal = flat(face, Color.TRANSPARENT, 18, 6, lip)
-	var hover = flat(face.lightened(0.08), Color.TRANSPARENT, 18, 6, lip)
-	var pressed: StyleBoxFlat = flat(face.darkened(0.08), Color.TRANSPARENT, 18, 2, lip).duplicate()
-	pressed.expand_margin_top = -4
-	pressed.content_margin_top = 16
-	var disabled = flat(Color(CARD, 0.55), Color.TRANSPARENT, 18, 6, Color(LIP, 0.6))
-	var focus = flat(Color.TRANSPARENT, Color(SUN, 0.8), 20)
-	focus.set_border_width_all(3)
+			face = Color("ff2a4b")
+			rim = Color("ff7a90")
+			lip = Color("8c1428")
+			lip_height = 6
+
+	var normal = StyleBoxFlat.new()
+	normal.bg_color = face
+	normal.border_color = rim
+	normal.set_border_width_all(2)
+	normal.border_width_bottom = lip_height
+	normal.set_corner_radius_all(18)
+	normal.corner_detail = 8
+	normal.anti_aliasing = true
+	normal.shadow_color = Color(0, 0, 0, 0.42)
+	normal.shadow_size = 5
+	normal.shadow_offset = Vector2(0, 4)
+	normal.content_margin_left = 18
+	normal.content_margin_right = 18
+	normal.content_margin_top = 12
+	normal.content_margin_bottom = 12 + lip_height
+
+	var hover = normal.duplicate()
+	hover.bg_color = face.lightened(0.12)
+	hover.border_color = rim.lightened(0.2)
+
+	var pressed = normal.duplicate()
+	pressed.bg_color = face.darkened(0.08)
+	pressed.border_width_bottom = 2
+	pressed.shadow_size = 2
+	pressed.shadow_offset = Vector2(0, 2)
+	pressed.expand_margin_top = -(lip_height - 2)
+	pressed.content_margin_top = 12 + (lip_height - 2)
+	pressed.content_margin_bottom = 14
+
+	var disabled = normal.duplicate()
+	disabled.bg_color = Color(CARD, 0.55)
+	disabled.border_color = Color(LIP, 0.4)
+	disabled.shadow_size = 0
+
+	var focus = StyleBoxFlat.new()
 	focus.draw_center = false
+	focus.border_color = Color(SUN, 0.85)
+	focus.set_border_width_all(3)
+	focus.set_corner_radius_all(20)
+	focus.corner_detail = 8
+	focus.anti_aliasing = true
+
 	_keys[kind] = {"normal": normal, "hover": hover, "pressed": pressed, "hover_pressed": pressed, "disabled": disabled, "focus": focus}
 	return _keys[kind]
 

@@ -221,40 +221,52 @@ func refresh() -> void:
 
 # --- drawing ---------------------------------------------------------------------------------
 func _draw() -> void:
-	# The wallet: bricks earned in matches, which buy powers.
+	# The wallet: bricks earned in matches, which buy powers (Clash Royale style capsule).
 	var shop = hud.power_shop
 	var bricks: int = shop.bricks if shop != null else 0
 	var text = str(bricks)
 	var f = UiKit.title_font()
-	var width = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 62
+	var width = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 68
 	var chip = Rect2(gear.position.x - width - 12, gear.position.y + 12, width, 48)
-	UiKit.plate(self, chip, Color(UiKit.PANEL, 0.9), UiKit.PANEL_EDGE, 4.0)
-	brick_glyph(self, chip.position + Vector2(24, 24), 1.0)
-	draw_string(f, chip.position + Vector2(44, 33), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
+	# 3D capsule plate with golden metallic rim:
+	UiKit.box(self, chip.grow_side(SIDE_BOTTOM, 3), Color("050c18"), Color.TRANSPARENT, false)
+	UiKit.box(self, chip, Color("0b182d"), Color("ffcc00"), false)
+	# Top gloss reflection:
+	draw_rect(Rect2(chip.position + Vector2(6, 3), Vector2(chip.size.x - 12, 18)), Color(1, 1, 1, 0.12), true)
+	brick_glyph(self, chip.position + Vector2(24, 24), 1.15)
+	# Number with shadow:
+	draw_string(f, chip.position + Vector2(46, 34), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0, 0, 0, 0.6))
+	draw_string(f, chip.position + Vector2(45, 33), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
 
 func brick_glyph(c: CanvasItem, at: Vector2, k: float) -> void:
 	UiKit.box(c, Rect2(at + Vector2(-11, -6) * k, Vector2(22, 14) * k), UiKit.SUN_LIP, Color.TRANSPARENT, true)
-	UiKit.box(c, Rect2(at + Vector2(-11, -9) * k, Vector2(22, 13) * k), UiKit.SUN, Color.TRANSPARENT, true)
+	UiKit.box(c, Rect2(at + Vector2(-11, -9) * k, Vector2(22, 13) * k), UiKit.SUN, Color("ffffff"), true)
 	UiKit.fill(c, Rect2(at + Vector2(-1, -9) * k, Vector2(2, 13) * k), UiKit.SUN_LIP)
 
 func draw_profile() -> void:
 	var skins = hud.skins_progress
 	var skin: int = skins.selected if skins != null else 0
 	var at = Vector2(40, 38)
-	UiKit.disc(profile, at, 30, UiKit.FIELD)
+	# Double metallic gold + cyan ring around avatar:
+	UiKit.disc(profile, at, 32, UiKit.FIELD)
+	UiKit.ring(profile, at, 32, Color("ffcc00"))
 	var picture: Texture2D = hud.robot_portrait(skin, false)
 	if picture != null:
 		profile.draw_texture_rect(picture, Rect2(at - Vector2(36, 40), Vector2(72, 72)), false)
-	UiKit.ring(profile, at, 30, Color(UiKit.CYAN, 0.8))
+	UiKit.ring(profile, at, 29, Color("00e5ff", 0.9))
+	# Gloss on profile card:
+	profile.draw_rect(Rect2(4, 3, profile.size.x - 8, 26), Color(1, 1, 1, 0.08), true)
 	var name = String(Skins.CATALOG[clampi(skin, 0, Skins.CATALOG.size() - 1)].name)
+	# Name with drop shadow:
+	profile.draw_string(UiKit.title_font(), Vector2(83, 33), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, Color(0, 0, 0, 0.6))
 	profile.draw_string(UiKit.title_font(), Vector2(82, 32), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, UiKit.WHITE)
 	var state = hud.campaign_state
 	var done: int = state.completed.size() if state != null else 0
 	var total: int = Campaign.menu_levels().size()
-	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), tr("CAMPANHA %d/%d") % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
+	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), tr("CAMPANHA %d/%d") % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("9ec5f2"))
 	var bar = Rect2(82, 59, profile.size.x - 100, 7)
 	UiKit.box(profile, bar, UiKit.FIELD, Color.TRANSPARENT, true)
-	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxi(total, 1), 0, 1), bar.size.y)), UiKit.SUN, Color.TRANSPARENT, true)
+	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxi(total, 1), 0, 1), bar.size.y)), Color("ffcc00"), Color.TRANSPARENT, true)
 
 func draw_gear() -> void:
 	# A cog: eight teeth round a ring, drawn from the kit's shapes.
@@ -270,43 +282,78 @@ func draw_gear() -> void:
 func draw_rail_icon(key: Button, kind: String) -> void:
 	var c = Vector2(key.size.x * 0.5, 30 + (3 if key.button_pressed else 0))
 	var ink = UiKit.WHITE
-	# The icons are drawn at rail size; the phone's bar keys are bigger, so are their icons.
+	# Top specular sheen on the tab button:
+	var gloss_h = (key.size.y - 12) * 0.38
+	key.draw_rect(Rect2(4, 4, key.size.x - 8, gloss_h), Color(1, 1, 1, 0.12), true)
+
 	var grow = 1.35 if key.size.x > RAIL_KEY.x + 20 else 1.0
 	if grow > 1.0:
 		c.y += 4
 		key.draw_set_transform(c * (1.0 - grow), 0.0, Vector2.ONE * grow)
+
 	match kind:
 		"hangar":
-			# A TV head with two eyes.
-			UiKit.box(key, Rect2(c + Vector2(-17, -13), Vector2(34, 26)), UiKit.CYAN, Color.TRANSPARENT, true)
-			UiKit.box(key, Rect2(c + Vector2(-13, -9), Vector2(26, 18)), UiKit.INK, Color.TRANSPARENT, true)
-			UiKit.disc(key, c + Vector2(-5, 0), 3, UiKit.CYAN)
-			UiKit.disc(key, c + Vector2(5, 0), 3, UiKit.CYAN)
-			UiKit.fill(key, Rect2(c + Vector2(-1, -19), Vector2(2, 6)), UiKit.CYAN)
-			UiKit.disc(key, c + Vector2(0, -20), 3, UiKit.SUN)
+			# Glowing backdrop aura:
+			UiKit.disc(key, c, 23, Color(UiKit.CYAN, 0.25))
+			# Robot combat helmet with golden trim:
+			UiKit.box(key, Rect2(c + Vector2(-19, -14), Vector2(38, 28)), UiKit.CYAN, Color("ffffff"), true)
+			UiKit.box(key, Rect2(c + Vector2(-15, -10), Vector2(30, 20)), Color("061324"), Color.TRANSPARENT, true)
+			# Glowing cyan eye lenses:
+			UiKit.disc(key, c + Vector2(-6, 0), 4, Color("00ffff"))
+			UiKit.disc(key, c + Vector2(6, 0), 4, Color("00ffff"))
+			UiKit.disc(key, c + Vector2(-6, 0), 2, Color("ffffff"))
+			UiKit.disc(key, c + Vector2(6, 0), 2, Color("ffffff"))
+			# Golden antenna with energy beacon:
+			UiKit.fill(key, Rect2(c + Vector2(-1.5, -20), Vector2(3, 7)), Color("ffd23f"))
+			UiKit.disc(key, c + Vector2(0, -21), 4, Color("ffd23f"))
+			UiKit.disc(key, c + Vector2(0, -21), 2, Color("ffffff"))
 		"powers":
-			var bolt = PackedVector2Array([c + Vector2(4, -16), c + Vector2(-9, 2), c + Vector2(0, 2), c + Vector2(-4, 16), c + Vector2(10, -3), c + Vector2(1, -3), c + Vector2(6, -16)])
-			key.draw_colored_polygon(bolt, UiKit.SUN)
+			# Glowing backdrop aura:
+			UiKit.disc(key, c, 23, Color(UiKit.SUN, 0.25))
+			# Dual-tone 3D Lightning bolt with electric aura and white core:
+			var bolt_shadow = PackedVector2Array([c + Vector2(6, -18), c + Vector2(-11, 2), c + Vector2(0, 2), c + Vector2(-5, 18), c + Vector2(12, -3), c + Vector2(2, -3), c + Vector2(8, -18)])
+			key.draw_colored_polygon(bolt_shadow, Color("9e4e00"))
+			var bolt_main = PackedVector2Array([c + Vector2(5, -17), c + Vector2(-9, 1), c + Vector2(0, 1), c + Vector2(-4, 16), c + Vector2(10, -3), c + Vector2(1, -3), c + Vector2(6, -17)])
+			key.draw_colored_polygon(bolt_main, Color("ffea00"))
+			# White specular core:
+			var bolt_core = PackedVector2Array([c + Vector2(3, -13), c + Vector2(-5, 0), c + Vector2(0, 0), c + Vector2(-2, 10), c + Vector2(5, -2), c + Vector2(1, -2), c + Vector2(4, -13)])
+			key.draw_colored_polygon(bolt_core, Color("ffffff"))
 		"story":
-			# A cup on a plinth.
-			UiKit.box(key, Rect2(c + Vector2(-12, -15), Vector2(24, 18)), UiKit.GOLD, Color.TRANSPARENT, true)
-			UiKit.ring(key, c + Vector2(-13, -8), 6, UiKit.GOLD)
-			UiKit.ring(key, c + Vector2(13, -8), 6, UiKit.GOLD)
-			UiKit.fill(key, Rect2(c + Vector2(-2, 2), Vector2(4, 8)), UiKit.GOLD)
-			UiKit.box(key, Rect2(c + Vector2(-10, 9), Vector2(20, 6)), UiKit.GOLD, Color.TRANSPARENT, true)
+			# Glowing backdrop aura:
+			UiKit.disc(key, c, 23, Color(UiKit.GOLD, 0.25))
+			# Championship Golden Cup with handles and ruby gem:
+			UiKit.ring(key, c + Vector2(-15, -7), 7, Color("ffd23f"))
+			UiKit.ring(key, c + Vector2(15, -7), 7, Color("ffd23f"))
+			UiKit.box(key, Rect2(c + Vector2(-14, -17), Vector2(28, 20)), Color("ffd23f"), Color("ffffff"), true)
+			UiKit.fill(key, Rect2(c + Vector2(-3, 3), Vector2(6, 7)), Color("d7931d"))
+			UiKit.box(key, Rect2(c + Vector2(-12, 10), Vector2(24, 7)), Color("ffd23f"), Color("9e5a00"), true)
+			# Sparkling ruby gem in the center:
+			UiKit.disc(key, c + Vector2(0, -7), 4, Color("ff2a4b"))
+			UiKit.disc(key, c + Vector2(-1, -8), 1.5, Color("ffffff"))
 		"pvp":
-			for side in [-1.0, 1.0]:
-				key.draw_line(c + Vector2(-13 * side, -13), c + Vector2(13 * side, 13), UiKit.CORAL if side > 0 else UiKit.CYAN, 5.0, true)
-			UiKit.disc(key, c, 4, ink)
+			# Glowing backdrop aura:
+			UiKit.disc(key, c, 23, Color(UiKit.CORAL, 0.22))
+			# Crossed battle swords:
+			key.draw_line(c + Vector2(-15, -15), c + Vector2(13, 13), Color("00e5ff"), 6.0, true)
+			key.draw_line(c + Vector2(-15, -15), c + Vector2(13, 13), Color("ffffff"), 2.0, true)
+			key.draw_line(c + Vector2(15, -15), c + Vector2(-13, 13), Color("ff2a4b"), 6.0, true)
+			key.draw_line(c + Vector2(15, -15), c + Vector2(-13, 13), Color("ffffff"), 2.0, true)
+			key.draw_line(c + Vector2(-11, -5), c + Vector2(-5, -11), Color("ffd23f"), 4.0, true)
+			key.draw_line(c + Vector2(11, -5), c + Vector2(5, -11), Color("ffd23f"), 4.0, true)
+			UiKit.disc(key, c, 5, Color("ffffff"))
 	key.draw_set_transform(Vector2.ZERO)
+
 	if key.has_meta("count"):
 		var count: String = key.get_meta("count")
 		var f = UiKit.strong_font()
 		var width = f.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		key.draw_string(f, Vector2((key.size.x - width) * 0.5, key.size.y - 12), tr(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.MUTED)
+		key.draw_string(f, Vector2((key.size.x - width) * 0.5, key.size.y - 12), tr(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("a8c6ea"))
 	if key.get_meta("dot", false):
-		UiKit.disc(key, Vector2(key.size.x - 12, 12), 7, UiKit.DANGER)
-		UiKit.ring(key, Vector2(key.size.x - 12, 12), 7, UiKit.WHITE)
+		# Deluxe notification badge with drop shadow:
+		UiKit.disc(key, Vector2(key.size.x - 12, 13), 9, Color(0, 0, 0, 0.5))
+		UiKit.disc(key, Vector2(key.size.x - 12, 12), 8, Color("ff2244"))
+		UiKit.ring(key, Vector2(key.size.x - 12, 12), 8, Color("ffffff"))
+		UiKit.disc(key, Vector2(key.size.x - 14, 10), 2, Color("ffffff"))
 
 func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 	UiKit.disc(c, at, 24, UiKit.FIELD)
@@ -336,9 +383,17 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 func draw_mode_card() -> void:
 	var entry = mode_entry()
 	var sink = 3.0 if mode_card.button_pressed else 0.0
-	mode_glyph(mode_card, Vector2(42, 46 + sink), entry.id, UiKit.SUN)
+	# Glossy top reflection:
+	var gloss_h = (mode_card.size.y - 12) * 0.42
+	mode_card.draw_rect(Rect2(4, 4 + sink, mode_card.size.x - 8, gloss_h), Color(1, 1, 1, 0.1), true)
+	# Mode icon with glowing backdrop:
+	UiKit.disc(mode_card, Vector2(42, 46 + sink), 26, Color(UiKit.SUN, 0.22))
+	mode_glyph(mode_card, Vector2(42, 46 + sink), entry.id, Color("ffcc00"))
 	var f = UiKit.strong_font()
-	mode_card.draw_string(f, Vector2(80, 28 + sink), tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UiKit.MUTED)
+	# Colorful mode badge:
+	var badge_w = f.get_string_size(tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14
+	UiKit.box(mode_card, Rect2(80, 16 + sink, badge_w, 18), Color("ffcc00", 0.25), Color("ffcc00"), true)
+	mode_card.draw_string(f, Vector2(87, 29 + sink), tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("ffea00"))
 	var name: String = tr(String(entry.name))
 	var about: String = tr(String(entry.about))
 	var room = mode_card.size.x - 84
@@ -361,8 +416,10 @@ func draw_mode_card() -> void:
 		room -= 80
 	if entry.id == "marathon" and hud.marathon_record > 0:
 		about = tr("Recorde: %d vitórias") % hud.marathon_record
+	# Name with 3D drop shadow:
+	mode_card.draw_string(UiKit.title_font(), Vector2(81, 57 + sink), tr(name), HORIZONTAL_ALIGNMENT_LEFT, room, 24, Color(0, 0, 0, 0.6))
 	mode_card.draw_string(UiKit.title_font(), Vector2(80, 56 + sink), tr(name), HORIZONTAL_ALIGNMENT_LEFT, room, 24, UiKit.WHITE)
-	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), tr(about), HORIZONTAL_ALIGNMENT_LEFT, room, 14, UiKit.MUTED)
+	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), tr(about), HORIZONTAL_ALIGNMENT_LEFT, room, 14, Color("9ec5f2"))
 
 func draw_sheet_card(card: Button, entry: Dictionary) -> void:
 	var chosen: bool = entry.id == mode_id

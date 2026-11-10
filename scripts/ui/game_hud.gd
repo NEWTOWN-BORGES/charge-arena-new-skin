@@ -1406,7 +1406,7 @@ func label(text: String, font_size: int, color: Color, bold: bool = false) -> La
 
 func build_menu() -> void:
 	menu = PanelContainer.new()
-	menu.add_theme_stylebox_override("panel", UiKit.panel_style(Color(UiKit.PANEL, 0.97)))
+	menu.add_theme_stylebox_override("panel", UiKit.panel_style(Color("0c1a32", 0.98), Color("3d7ec8"), 26))
 	add_child(menu)
 	var list = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 13)
@@ -1468,6 +1468,20 @@ func build_menu() -> void:
 	campaign_button = make_button("JOGAR", true)
 	campaign_button.custom_minimum_size = Vector2(220, 96)
 	campaign_button.add_theme_font_size_override("font_size", 38)
+	campaign_button.add_theme_color_override("font_outline_color", Color("7a3e00"))
+	campaign_button.add_theme_constant_override("outline_size", 8)
+	campaign_button.add_theme_color_override("font_color", Color("ffffff"))
+	campaign_button.add_theme_color_override("font_hover_color", Color("fff5a0"))
+	campaign_button.add_theme_color_override("font_pressed_color", Color("ffe066"))
+	campaign_button.draw.connect(func():
+		var sink = 4.0 if campaign_button.button_pressed else 0.0
+		var r = campaign_button.get_rect()
+		# Top glossy reflection:
+		var gloss = Rect2(8, 4 + sink, r.size.x - 16, (r.size.y - 14) * 0.44)
+		campaign_button.draw_rect(gloss, Color(1, 1, 1, 0.24), true)
+		# Specular white rim highlight line along the upper edge:
+		campaign_button.draw_line(Vector2(20, 5 + sink), Vector2(r.size.x - 20, 5 + sink), Color(1, 1, 1, 0.75), 2.5)
+	)
 	play_row.add_child(campaign_button)
 	campaign_button.pressed.connect(play_chosen_mode)
 	add_child(lobby)
@@ -1483,7 +1497,8 @@ func draw_level_strip() -> void:
 	var visible_levels = Campaign.menu_levels()
 	var open = campaign_state.is_unlocked(menu_level)
 	var done = campaign_state.is_completed(menu_level)
-	UiKit.box(c, Rect2(Vector2.ZERO, c.size), UiKit.FIELD, UiKit.CARD_EDGE)
+	UiKit.box(c, Rect2(Vector2.ZERO, c.size), Color("0a182d"), Color("3d7ec8"))
+	c.draw_rect(Rect2(4, 2, c.size.x - 8, 16), Color(1, 1, 1, 0.08), true)
 	var tag = tr("NÍVEL %02d / %02d") % [visible_levels.find(menu_level) + 1, visible_levels.size()]
 	c.draw_string(font_bold, Vector2(14, 21), tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, SUN if done else (CYAN if open else CORAL))
 	var name = tr(String(level.name)).to_upper() + ("" if open else tr("  ·  BLOQUEADO"))
