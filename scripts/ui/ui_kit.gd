@@ -178,6 +178,9 @@ static func flat(color: Color, border: Color = Color.TRANSPARENT, radius: int = 
 	s.set_border_width_all(2 if border.a > 0.0 and lip == 0 else 0)
 	if lip > 0:
 		s.border_width_bottom = lip
+		s.shadow_color = Color(0.04, 0.08, 0.16, 0.38)
+		s.shadow_size = 3
+		s.shadow_offset = Vector2(0, 3)
 	s.set_corner_radius_all(radius)
 	s.corner_detail = 8
 	s.anti_aliasing = true
@@ -239,10 +242,29 @@ static func key_styles(kind: String) -> Dictionary:
 static func text_on(kind: String) -> Color:
 	return INK if kind == "primary" or kind == "toggle" else WHITE
 
+static func add_bounce(button: Button) -> void:
+	if button == null or button.has_meta("has_bounce") or DisplayServer.get_name() == "headless":
+		return
+	button.set_meta("has_bounce", true)
+	button.resized.connect(func():
+		button.pivot_offset = button.size * 0.5
+	)
+	button.button_down.connect(func():
+		button.pivot_offset = button.size * 0.5
+		var tw = button.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(button, "scale", Vector2(0.95, 0.95), 0.06)
+	)
+	button.button_up.connect(func():
+		button.pivot_offset = button.size * 0.5
+		var tw = button.create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(button, "scale", Vector2.ONE, 0.28)
+	)
+
 static func paint_key(button: Button, kind: String) -> void:
 	# Every override is a theme change, and a theme change sends the whole screen back
 	# through layout: the HUD asked for the same colours 30 times a second and that alone
 	# cost a phone more than the rest of the frame. Paint only when the kind changes.
+	add_bounce(button)
 	if button.get_meta("key_kind", "") == kind:
 		return
 	button.set_meta("key_kind", kind)

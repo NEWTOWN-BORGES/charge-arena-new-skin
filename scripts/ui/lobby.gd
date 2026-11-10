@@ -49,12 +49,14 @@ func _ready() -> void:
 	profile.add_theme_stylebox_override("pressed", UiKit.panel_style(UiKit.CARD_HI, UiKit.SUN, 20))
 	profile.draw.connect(draw_profile)
 	profile.pressed.connect(func(): hud.open_skins())
+	UiKit.add_bounce(profile)
 	add_child(profile)
 	gear = Button.new()
 	gear.focus_mode = Control.FOCUS_NONE
 	gear.tooltip_text = "Opções"
 	gear.draw.connect(draw_gear)
 	gear.pressed.connect(func(): hud.open_video())
+	UiKit.add_bounce(gear)
 	add_child(gear)
 	rail = VBoxContainer.new()
 	rail.add_theme_constant_override("separation", 12)
@@ -66,7 +68,7 @@ func _ready() -> void:
 		var key = Button.new()
 		key.custom_minimum_size = RAIL_KEY
 		key.focus_mode = Control.FOCUS_NONE
-		key.text = entry[1]
+		key.text = tr(entry[1])
 		key.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		key.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key.add_theme_font_override("font", UiKit.strong_font())
@@ -80,6 +82,7 @@ func _ready() -> void:
 			key.add_theme_stylebox_override(state, style)
 		var kind: String = entry[0]
 		key.draw.connect(draw_rail_icon.bind(key, kind))
+		UiKit.add_bounce(key)
 		rail.add_child(key)
 		rail_keys[kind] = key
 	rail_keys.hangar.pressed.connect(func(): hud.open_skins())
@@ -101,6 +104,7 @@ func build_mode_card() -> Button:
 		mode_card.add_theme_stylebox_override(state, UiKit.flat(UiKit.CARD if state != "hover" else UiKit.CARD_HI, UiKit.CARD_EDGE, 18, 5, UiKit.LIP))
 	mode_card.draw.connect(draw_mode_card)
 	mode_card.pressed.connect(open_sheet)
+	UiKit.add_bounce(mode_card)
 	return mode_card
 
 func build_sheet() -> void:
@@ -201,9 +205,9 @@ func refresh() -> void:
 	var shop = hud.power_shop
 	var fresh = skins != null and not skins.unseen().is_empty()
 	var buyable = shop != null and not shop.affordable().is_empty()
-	rail_keys.hangar.text = "HANGAR"
-	rail_keys.powers.text = "PODERES"
-	rail_keys.story.text = "HISTÓRIA"
+	rail_keys.hangar.text = tr("HANGAR")
+	rail_keys.powers.text = tr("PODERES")
+	rail_keys.story.text = tr("HISTÓRIA")
 	rail_keys.hangar.set_meta("dot", fresh)
 	rail_keys.powers.set_meta("dot", buyable)
 	rail_keys.hangar.set_meta("count", "%d/%d" % [skins.unlocked_count() if skins != null else 0, Skins.CATALOG.size()])
