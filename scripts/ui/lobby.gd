@@ -1,170 +1,158 @@
 extends Control
-## The lobby around the previewed arena: your profile and wallet on top, the pilot big in the
-## middle, and at the bottom the dock (the AI level, the mode you will play and one big PLAY
-## key) over a bar of large shortcut keys (hangar, powers, arenas, PvP). On a wide screen the
-## shortcuts stand in a rail down the left instead. The mode card opens a sheet with the four
-## ways to play; PLAY then starts whichever is chosen.
+## Persistent chrome around the Command Hub. This keeps the player identity, live wallet and
+## four touch destinations visible while the arena itself remains the character showroom.
+
 const UiKit = preload("res://scripts/ui/ui_kit.gd")
 const Skins = preload("res://scripts/progression/skins.gd")
 const Campaign = preload("res://scripts/progression/campaign.gd")
 const Powers = preload("res://scripts/gameplay/powers.gd")
 
-# The campaign is the story: the Taça Aurora, round by round. ARENAS keeps the arenas
-# already won for free play, with their bosses.
 const MODES = [
-	# The story mode (the Taça Aurora) is out of the lobby until its new form is decided; its
-	# code stays behind the "story" id.
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
 	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "A aventura do BIT na Taça"},
 	{"id": "marathon", "name": "MARATONA", "about": "Rivais seguidos até perderes"},
 	{"id": "campaign", "name": "ARENAS", "about": "As arenas que já venceste, em jogo livre"},
 	{"id": "pvp", "name": "PvP", "about": "Dois jogadores na mesma rede, ou o Coliseu"},
-	{"id": "test", "name": "ARENA DE TESTE", "about": "Mais comprida, mais tijolos, bumpers dourados"},
 ]
-const RAIL_KEY = Vector2(88, 88)
-# The shortcut bar under the dock on a phone: four keys the full width of the screen.
-const NAV_HEIGHT = 96.0
+const RAIL_KEY := Vector2(96, 84)
+const NAV_HEIGHT := 88.0
+const NAV_ITEMS = [
+	["hangar", "HANGAR"],
+	["powers", "PODERES"],
+	["home", "INÍCIO"],
+	["settings", "AJUSTES"],
+]
 
 var hud
-var mode_id = "quick"
-# What the story says right now, filled in by main.sync_story().
+var mode_id := "bosses"
 var profile: Button
+var wallet: Button
 var gear: Button
 var rail: VBoxContainer
 var navbar: HBoxContainer
 var rail_keys: Dictionary = {}
 var mode_card: Button
 var sheet: ColorRect
-var sheet_panel: PanelContainer
 var sheet_cards: Dictionary = {}
+var active_destination := "home"
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_header()
+	_build_navigation()
+	# Kept as a harmless compatibility layer for older callers. The Command Hub does not use a
+	# mode sheet: every tile opens its actual destination directly.
+	sheet = ColorRect.new()
+	sheet.color = Color.TRANSPARENT
+	sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(sheet)
+	sheet.hide()
+	arrange()
+
+func set_hub(hub) -> void:
+	if hub == null:
+		return
+	mode_card = hub.story_button
+	sheet_cards = hub.mode_buttons.duplicate()
+	# Backward compatibility: "campaign" is the old name for arenas in tests and external code.
+	if sheet_cards.has("arenas") and not sheet_cards.has("campaign"):
+		sheet_cards["campaign"] = sheet_cards["arenas"]
+
+func _build_header() -> void:
 	profile = Button.new()
-	profile.focus_mode = Control.FOCUS_NONE
-	profile.tooltip_text = "Hangar: muda de piloto"
-	profile.add_theme_stylebox_override("normal", UiKit.panel_style(Color(UiKit.PANEL, 0.9), UiKit.PANEL_EDGE, 20))
-	profile.add_theme_stylebox_override("hover", UiKit.panel_style(Color(UiKit.CARD, 0.95), UiKit.CARD_EDGE, 20))
-	profile.add_theme_stylebox_override("pressed", UiKit.panel_style(UiKit.CARD_HI, UiKit.SUN, 20))
+	profile.name = "PilotProfile"
+	profile.focus_mode = Control.FOCUS_ALL
+	profile.tooltip_text = tr("Abrir hangar e escolher piloto")
+	profile.add_theme_stylebox_override("normal", UiKit.flat(Color(UiKit.PANEL, 0.95), Color(UiKit.CARD_EDGE, 0.75), 13))
+	profile.add_theme_stylebox_override("hover", UiKit.flat(Color(UiKit.CARD, 0.98), UiKit.CYAN, 13))
+	profile.add_theme_stylebox_override("pressed", UiKit.flat(UiKit.FIELD, UiKit.SUN, 13))
+	profile.add_theme_stylebox_override("focus", UiKit.key_styles("secondary").focus)
 	profile.draw.connect(draw_profile)
-	profile.pressed.connect(func(): hud.open_skins())
+	profile.pressed.connect(func(): _open_destination("hangar"))
 	UiKit.add_bounce(profile)
 	add_child(profile)
+
+	wallet = Button.new()
+	wallet.name = "Currency"
+	wallet.focus_mode = Control.FOCUS_ALL
+	wallet.tooltip_text = tr("Abrir poderes")
+	wallet.add_theme_stylebox_override("normal", UiKit.flat(Color(UiKit.PANEL, 0.95), Color(UiKit.SUN, 0.7), 13))
+	wallet.add_theme_stylebox_override("hover", UiKit.flat(Color(UiKit.CARD, 0.98), UiKit.SUN, 13))
+	wallet.add_theme_stylebox_override("pressed", UiKit.flat(UiKit.FIELD, UiKit.SUN, 13))
+	wallet.add_theme_stylebox_override("focus", UiKit.key_styles("secondary").focus)
+	wallet.draw.connect(draw_wallet)
+	wallet.pressed.connect(func(): _open_destination("powers"))
+	UiKit.add_bounce(wallet)
+	add_child(wallet)
+
 	gear = Button.new()
-	gear.focus_mode = Control.FOCUS_NONE
-	gear.tooltip_text = "Opções"
+	gear.name = "Settings"
+	gear.focus_mode = Control.FOCUS_ALL
+	gear.tooltip_text = tr("Abrir ajustes")
+	gear.add_theme_stylebox_override("normal", UiKit.flat(Color(UiKit.PANEL, 0.95), Color(UiKit.CARD_EDGE, 0.75), 13))
+	gear.add_theme_stylebox_override("hover", UiKit.flat(Color(UiKit.CARD, 0.98), UiKit.CYAN, 13))
+	gear.add_theme_stylebox_override("pressed", UiKit.flat(UiKit.FIELD, UiKit.SUN, 13))
+	gear.add_theme_stylebox_override("focus", UiKit.key_styles("secondary").focus)
 	gear.draw.connect(draw_gear)
-	gear.pressed.connect(func(): hud.open_video())
+	gear.pressed.connect(func(): _open_destination("settings"))
 	UiKit.add_bounce(gear)
 	add_child(gear)
+
+func _build_navigation() -> void:
 	rail = VBoxContainer.new()
-	rail.add_theme_constant_override("separation", 12)
+	rail.add_theme_constant_override("separation", 10)
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(rail)
 	navbar = HBoxContainer.new()
-	navbar.add_theme_constant_override("separation", 10)
+	navbar.add_theme_constant_override("separation", 8)
+	navbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(navbar)
-	for entry in [["hangar", "HANGAR"], ["powers", "PODERES"], ["story", "HISTÓRIA"], ["pvp", "PvP"]]:
-		var key = Button.new()
-		key.custom_minimum_size = RAIL_KEY
-		key.focus_mode = Control.FOCUS_NONE
-		key.text = tr(entry[1])
-		key.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		key.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		key.add_theme_font_override("font", UiKit.strong_font())
-		key.add_theme_font_size_override("font_size", 14)
+	for item in NAV_ITEMS:
+		var kind: String = item[0]
+		var key := Button.new()
+		key.name = "%sNavigation" % kind.capitalize()
+		key.focus_mode = Control.FOCUS_ALL
+		key.tooltip_text = tr(String(item[1]))
 		key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		for state in ["normal", "hover", "pressed"]:
-			var style: StyleBoxFlat = UiKit.key_styles("secondary")[state].duplicate()
-			style.content_margin_top = 58 if state != "pressed" else 62
-			style.content_margin_left = 4
-			style.content_margin_right = 4
-			key.add_theme_stylebox_override(state, style)
-		var kind: String = entry[0]
-		key.draw.connect(draw_rail_icon.bind(key, kind))
+		key.draw.connect(draw_nav_key.bind(key, kind, String(item[1])))
+		key.pressed.connect(func(): _open_destination(kind))
 		UiKit.add_bounce(key)
 		rail.add_child(key)
 		rail_keys[kind] = key
-	rail_keys.hangar.pressed.connect(func(): hud.open_skins())
-	rail_keys.powers.pressed.connect(func(): hud.open_powers())
-	rail_keys.pvp.pressed.connect(func(): hud.open_pvp())
-	# The story is one tap away: the twelve bosses, NORMAL and DIFÍCIL. The arenas stay
-	# in the mode list.
-	rail_keys.story.pressed.connect(func(): hud.bosses_requested.emit())
-	build_sheet()
+	set_active_destination("home")
 
-func build_mode_card() -> Button:
-	# Lives in the dock (the HUD's menu panel); drawn here because it reads lobby state.
-	mode_card = Button.new()
-	mode_card.focus_mode = Control.FOCUS_NONE
-	mode_card.custom_minimum_size = Vector2(0, 96)
-	mode_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mode_card.tooltip_text = "Escolher o modo de jogo"
-	for state in ["normal", "hover", "pressed"]:
-		mode_card.add_theme_stylebox_override(state, UiKit.flat(UiKit.CARD if state != "hover" else UiKit.CARD_HI, UiKit.CARD_EDGE, 18, 5, UiKit.LIP))
-	mode_card.draw.connect(draw_mode_card)
-	mode_card.pressed.connect(open_sheet)
-	UiKit.add_bounce(mode_card)
-	return mode_card
+func _open_destination(destination: String) -> void:
+	set_active_destination(destination)
+	if hud == null:
+		return
+	match destination:
+		"hangar": hud.open_skins()
+		"powers": hud.open_powers()
+		"settings": hud.open_video()
+		"home":
+			if hud.command_hub != null:
+				hud.command_hub.refresh()
 
-func build_sheet() -> void:
-	sheet = ColorRect.new()
-	sheet.color = Color(UiKit.NIGHT, 0.9)
-	sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sheet.gui_input.connect(func(event):
-		if event is InputEventMouseButton and event.pressed:
-			close_sheet())
-	add_child(sheet)
-	sheet_panel = PanelContainer.new()
-	sheet_panel.add_theme_stylebox_override("panel", UiKit.panel_style())
-	sheet.add_child(sheet_panel)
-	var list = VBoxContainer.new()
-	list.add_theme_constant_override("separation", 12)
-	sheet_panel.add_child(list)
-	list.add_child(hud.label("ESCOLHE O MODO", 28, UiKit.WHITE, true))
-	list.add_child(hud.label("O modo fica no lobby: depois é só carregar em JOGAR.", 14, UiKit.MUTED))
-	for entry in MODES:
-		# The test arena belongs to the LAB build only.
-		if entry.id == "test" and not (OS.has_feature("open_test") or OS.has_feature("editor")):
-			continue
-		var card = Button.new()
-		card.custom_minimum_size = Vector2(0, 82)
-		card.focus_mode = Control.FOCUS_NONE
-		for state in ["normal", "hover", "pressed"]:
-			card.add_theme_stylebox_override(state, UiKit.flat(UiKit.CARD if state == "normal" else UiKit.CARD_HI, UiKit.CARD_EDGE, 18, 5, UiKit.LIP))
-		var id: String = entry.id
-		card.draw.connect(draw_sheet_card.bind(card, entry))
-		card.pressed.connect(func(): choose_mode(id))
-		list.add_child(card)
-		sheet_cards[id] = card
-	var levels = hud.make_button("TODOS OS NÍVEIS", false)
-	levels.pressed.connect(func():
-		close_sheet()
-		hud.open_levels())
-	var back = hud.make_button("VOLTAR", false)
-	back.pressed.connect(close_sheet)
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	for button in [levels, back]:
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(button)
-	list.add_child(row)
-	sheet.hide()
-
-func open_sheet() -> void:
-	hud.reset_touch()
-	arrange()
-	sheet.show()
-	for card in sheet_cards.values():
-		card.queue_redraw()
-
-func close_sheet() -> void:
-	sheet.hide()
+func set_active_destination(destination: String) -> void:
+	active_destination = destination
+	for kind in rail_keys:
+		var key: Button = rail_keys[kind]
+		var chosen: bool = kind == destination
+		var face = Color("143d5f") if chosen else Color(UiKit.PANEL, 0.96)
+		var edge = UiKit.CYAN if chosen else Color(UiKit.CARD_EDGE, 0.42)
+		key.add_theme_stylebox_override("normal", UiKit.flat(face, edge, 11, 2 if chosen else 0, UiKit.LIP))
+		key.add_theme_stylebox_override("hover", UiKit.flat(face.lightened(0.09), UiKit.CYAN, 11, 2 if chosen else 0, UiKit.LIP))
+		key.add_theme_stylebox_override("pressed", UiKit.flat(UiKit.FIELD, UiKit.SUN if chosen else UiKit.CYAN, 11))
+		key.add_theme_stylebox_override("focus", UiKit.key_styles("secondary").focus)
+		key.queue_redraw()
 
 func choose_mode(id: String) -> void:
 	mode_id = id
-	close_sheet()
-	hud.refresh_menu_level()
+	set_active_destination("home")
+	if hud != null:
+		hud.refresh_menu_level()
 
 func mode_entry() -> Dictionary:
 	for entry in MODES:
@@ -172,17 +160,32 @@ func mode_entry() -> Dictionary:
 			return entry
 	return MODES[0]
 
+func open_sheet() -> void:
+	# The previous menu opened a full mode sheet. The stable hub exposes every mode directly.
+	if sheet != null:
+		sheet.hide()
+
+func close_sheet() -> void:
+	if sheet != null:
+		sheet.hide()
+
 func arrange() -> void:
-	var top: float = hud.safe_top + 14.0
+	if hud == null or profile == null:
+		return
+	var top: float = float(hud.safe_top) + 12.0
+	var gear_w := 62.0
+	var wallet_w := clampf(size.x * 0.25, 92.0, 142.0)
+	var profile_w := clampf(size.x - 48.0 - gear_w - wallet_w - 16.0, 136.0, 276.0)
 	profile.position = Vector2(16, top)
-	profile.size = Vector2(minf(380.0, size.x * 0.52), 76)
-	gear.position = Vector2(size.x - 88, top)
-	gear.size = Vector2(72, 72)
-	# A phone keeps the shortcuts in a bar of big keys under the dock, so nothing stands in
-	# front of the pilot; a wide screen keeps them in the rail down the left.
+	profile.size = Vector2(profile_w, 70)
+	wallet.position = Vector2(profile.position.x + profile.size.x + 8, top)
+	wallet.size = Vector2(wallet_w, 70)
+	gear.position = Vector2(size.x - gear_w - 16, top)
+	gear.size = Vector2(gear_w, 70)
+
 	var bar: Container = navbar if hud.vertical else rail
-	for kind in ["hangar", "powers", "story", "pvp"]:
-		var key: Button = rail_keys[kind]
+	for item in NAV_ITEMS:
+		var key: Button = rail_keys[item[0]]
 		if key.get_parent() != bar:
 			key.get_parent().remove_child(key)
 			bar.add_child(key)
@@ -191,242 +194,88 @@ func arrange() -> void:
 	rail.visible = not hud.vertical
 	navbar.position = Vector2(16, size.y - hud.safe_bottom - NAV_HEIGHT - 12)
 	navbar.size = Vector2(size.x - 32, NAV_HEIGHT)
-	rail.position = Vector2(16, top + 92.0)
+	rail.position = Vector2(16, top + 84)
 	rail.size = Vector2(RAIL_KEY.x, 0)
-	var panel_width = minf(size.x - 48, 560)
-	sheet_panel.size = Vector2(panel_width, 0)
-	sheet_panel.size = sheet_panel.get_combined_minimum_size().max(Vector2(panel_width, 0))
-	sheet_panel.position = hud.thumb_panel_position(sheet_panel.size)
 	queue_redraw()
 
 func refresh() -> void:
-	# Counts and dots on the rail keys, the profile and the mode card.
+	if hud == null or profile == null:
+		return
 	var skins = hud.skins_progress
 	var shop = hud.power_shop
-	var fresh = skins != null and not skins.unseen().is_empty()
-	var buyable = shop != null and not shop.affordable().is_empty()
-	rail_keys.hangar.text = tr("HANGAR")
-	rail_keys.powers.text = tr("PODERES")
-	rail_keys.story.text = tr("HISTÓRIA")
-	rail_keys.hangar.set_meta("dot", fresh)
-	rail_keys.powers.set_meta("dot", buyable)
+	rail_keys.hangar.set_meta("dot", skins != null and not skins.unseen().is_empty())
+	rail_keys.powers.set_meta("dot", shop != null and not shop.affordable().is_empty())
 	rail_keys.hangar.set_meta("count", "%d/%d" % [skins.unlocked_count() if skins != null else 0, Skins.CATALOG.size()])
 	rail_keys.powers.set_meta("count", "%d/%d" % [shop.owned.size() if shop != null else 0, Powers.CATALOG.size()])
+	profile.queue_redraw()
+	wallet.queue_redraw()
+	gear.queue_redraw()
 	for key in rail_keys.values():
 		key.queue_redraw()
-	profile.queue_redraw()
-	if mode_card != null:
-		mode_card.queue_redraw()
-	queue_redraw()
-
-# --- drawing ---------------------------------------------------------------------------------
-func _draw() -> void:
-	# The wallet: bricks earned in matches, which buy powers (Clash Royale style capsule).
-	var shop = hud.power_shop
-	var bricks: int = shop.bricks if shop != null else 0
-	var text = str(bricks)
-	var f = UiKit.title_font()
-	var width = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 68
-	var chip = Rect2(gear.position.x - width - 12, gear.position.y + 12, width, 48)
-	# 3D capsule plate with golden metallic rim:
-	UiKit.box(self, chip.grow_side(SIDE_BOTTOM, 3), Color("050c18"), Color.TRANSPARENT, false)
-	UiKit.box(self, chip, Color("0b182d"), Color("ffcc00"), false)
-	# Top gloss reflection:
-	draw_rect(Rect2(chip.position + Vector2(6, 3), Vector2(chip.size.x - 12, 18)), Color(1, 1, 1, 0.12), true)
-	brick_glyph(self, chip.position + Vector2(24, 24), 1.15)
-	# Number with shadow:
-	draw_string(f, chip.position + Vector2(46, 34), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0, 0, 0, 0.6))
-	draw_string(f, chip.position + Vector2(45, 33), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.SUN)
-
-func brick_glyph(c: CanvasItem, at: Vector2, k: float) -> void:
-	UiKit.box(c, Rect2(at + Vector2(-11, -6) * k, Vector2(22, 14) * k), UiKit.SUN_LIP, Color.TRANSPARENT, true)
-	UiKit.box(c, Rect2(at + Vector2(-11, -9) * k, Vector2(22, 13) * k), UiKit.SUN, Color("ffffff"), true)
-	UiKit.fill(c, Rect2(at + Vector2(-1, -9) * k, Vector2(2, 13) * k), UiKit.SUN_LIP)
 
 func draw_profile() -> void:
 	var skins = hud.skins_progress
-	var skin: int = skins.selected if skins != null else 0
-	var at = Vector2(40, 38)
-	# Double metallic gold + cyan ring around avatar:
-	UiKit.disc(profile, at, 32, UiKit.FIELD)
-	UiKit.ring(profile, at, 32, Color("ffcc00"))
+	var skin: int = int(skins.selected) if skins != null else 0
+	var at := Vector2(37, profile.size.y * 0.5)
+	UiKit.disc(profile, at, 26, UiKit.FIELD)
+	UiKit.ring(profile, at, 26, UiKit.CYAN)
 	var picture: Texture2D = hud.robot_portrait(skin, false)
 	if picture != null:
-		profile.draw_texture_rect(picture, Rect2(at - Vector2(36, 40), Vector2(72, 72)), false)
-	UiKit.ring(profile, at, 29, Color("00e5ff", 0.9))
-	# Gloss on profile card:
-	profile.draw_rect(Rect2(4, 3, profile.size.x - 8, 26), Color(1, 1, 1, 0.08), true)
-	var name = String(Skins.CATALOG[clampi(skin, 0, Skins.CATALOG.size() - 1)].name)
-	# Name with drop shadow:
-	profile.draw_string(UiKit.title_font(), Vector2(83, 33), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, Color(0, 0, 0, 0.6))
-	profile.draw_string(UiKit.title_font(), Vector2(82, 32), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 96, 24, UiKit.WHITE)
-	var state = hud.campaign_state
-	var done: int = state.completed.size() if state != null else 0
-	var total: int = Campaign.menu_levels().size()
-	profile.draw_string(UiKit.strong_font(), Vector2(82, 53), tr("CAMPANHA %d/%d") % [mini(done, total), total], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("9ec5f2"))
-	var bar = Rect2(82, 59, profile.size.x - 100, 7)
+		profile.draw_texture_rect(picture, Rect2(at - Vector2(29, 32), Vector2(58, 58)), false)
+	var name := String(Skins.CATALOG[clampi(skin, 0, Skins.CATALOG.size() - 1)].name).to_upper()
+	profile.draw_string(UiKit.strong_font(), Vector2(73, 29), tr(name), HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 82, 17, UiKit.WHITE)
+	var done := 0
+	var total := Campaign.menu_levels().size()
+	if hud.campaign_state != null:
+		for index in Campaign.menu_levels():
+			if hud.campaign_state.is_completed(index):
+				done += 1
+	profile.draw_string(UiKit.strong_font(), Vector2(73, 48), tr("TAÇA  %d/%d") % [done, total], HORIZONTAL_ALIGNMENT_LEFT, profile.size.x - 82, 11, UiKit.MUTED)
+	var bar := Rect2(73, 55, maxf(22, profile.size.x - 88), 5)
 	UiKit.box(profile, bar, UiKit.FIELD, Color.TRANSPARENT, true)
-	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxi(total, 1), 0, 1), bar.size.y)), Color("ffcc00"), Color.TRANSPARENT, true)
+	UiKit.box(profile, Rect2(bar.position, Vector2(bar.size.x * clampf(float(done) / maxf(total, 1.0), 0.0, 1.0), bar.size.y)), UiKit.SUN, Color.TRANSPARENT, true)
+
+func draw_wallet() -> void:
+	var bricks: int = int(hud.power_shop.bricks) if hud != null and hud.power_shop != null else 0
+	var c := Vector2(22, wallet.size.y * 0.5)
+	UiKit.box(wallet, Rect2(c - Vector2(10, 7), Vector2(20, 14)), UiKit.SUN, UiKit.WHITE, true)
+	UiKit.fill(wallet, Rect2(c + Vector2(-1, -7), Vector2(2, 14)), UiKit.SUN_LIP)
+	wallet.draw_string(UiKit.strong_font(), Vector2(39, 31), tr("TIJOLOS"), HORIZONTAL_ALIGNMENT_LEFT, wallet.size.x - 46, 10, UiKit.MUTED)
+	wallet.draw_string(UiKit.strong_font(), Vector2(39, 51), str(bricks), HORIZONTAL_ALIGNMENT_LEFT, wallet.size.x - 46, 18, UiKit.SUN)
 
 func draw_gear() -> void:
-	# A cog: eight teeth round a ring, drawn from the kit's shapes.
-	var c = gear.size * 0.5 + Vector2(0, -2 if not gear.button_pressed else 1)
+	var c := gear.size * 0.5
 	for i in range(8):
-		var angle = i * TAU / 8.0
-		gear.draw_set_transform(c, angle, Vector2.ONE * 1.15)
-		UiKit.box(gear, Rect2(-4, -17, 8, 9), UiKit.WHITE, Color.TRANSPARENT, true)
+		var angle := i * TAU / 8.0
+		gear.draw_set_transform(c, angle, Vector2.ONE)
+		UiKit.box(gear, Rect2(-3, -18, 6, 10), UiKit.WHITE, Color.TRANSPARENT, true)
 	gear.draw_set_transform(Vector2.ZERO)
-	UiKit.disc(gear, c, 14, UiKit.WHITE)
-	UiKit.disc(gear, c, 6, UiKit.CARD)
+	UiKit.ring(gear, c, 14, UiKit.WHITE)
+	UiKit.disc(gear, c, 5, UiKit.CARD)
 
-func draw_rail_icon(key: Button, kind: String) -> void:
-	var c = Vector2(key.size.x * 0.5, 30 + (3 if key.button_pressed else 0))
-	var ink = UiKit.WHITE
-	# Top specular sheen on the tab button:
-	var gloss_h = (key.size.y - 12) * 0.38
-	key.draw_rect(Rect2(4, 4, key.size.x - 8, gloss_h), Color(1, 1, 1, 0.12), true)
-
-	var grow = 1.35 if key.size.x > RAIL_KEY.x + 20 else 1.0
-	if grow > 1.0:
-		c.y += 4
-		key.draw_set_transform(c * (1.0 - grow), 0.0, Vector2.ONE * grow)
-
-	match kind:
-		"hangar":
-			# Glowing backdrop aura:
-			UiKit.disc(key, c, 23, Color(UiKit.CYAN, 0.25))
-			# Robot combat helmet with golden trim:
-			UiKit.box(key, Rect2(c + Vector2(-19, -14), Vector2(38, 28)), UiKit.CYAN, Color("ffffff"), true)
-			UiKit.box(key, Rect2(c + Vector2(-15, -10), Vector2(30, 20)), Color("061324"), Color.TRANSPARENT, true)
-			# Glowing cyan eye lenses:
-			UiKit.disc(key, c + Vector2(-6, 0), 4, Color("00ffff"))
-			UiKit.disc(key, c + Vector2(6, 0), 4, Color("00ffff"))
-			UiKit.disc(key, c + Vector2(-6, 0), 2, Color("ffffff"))
-			UiKit.disc(key, c + Vector2(6, 0), 2, Color("ffffff"))
-			# Golden antenna with energy beacon:
-			UiKit.fill(key, Rect2(c + Vector2(-1.5, -20), Vector2(3, 7)), Color("ffd23f"))
-			UiKit.disc(key, c + Vector2(0, -21), 4, Color("ffd23f"))
-			UiKit.disc(key, c + Vector2(0, -21), 2, Color("ffffff"))
-		"powers":
-			# Glowing backdrop aura:
-			UiKit.disc(key, c, 23, Color(UiKit.SUN, 0.25))
-			# Dual-tone 3D Lightning bolt with electric aura and white core:
-			var bolt_shadow = PackedVector2Array([c + Vector2(6, -18), c + Vector2(-11, 2), c + Vector2(0, 2), c + Vector2(-5, 18), c + Vector2(12, -3), c + Vector2(2, -3), c + Vector2(8, -18)])
-			key.draw_colored_polygon(bolt_shadow, Color("9e4e00"))
-			var bolt_main = PackedVector2Array([c + Vector2(5, -17), c + Vector2(-9, 1), c + Vector2(0, 1), c + Vector2(-4, 16), c + Vector2(10, -3), c + Vector2(1, -3), c + Vector2(6, -17)])
-			key.draw_colored_polygon(bolt_main, Color("ffea00"))
-			# White specular core:
-			var bolt_core = PackedVector2Array([c + Vector2(3, -13), c + Vector2(-5, 0), c + Vector2(0, 0), c + Vector2(-2, 10), c + Vector2(5, -2), c + Vector2(1, -2), c + Vector2(4, -13)])
-			key.draw_colored_polygon(bolt_core, Color("ffffff"))
-		"story":
-			# Glowing backdrop aura:
-			UiKit.disc(key, c, 23, Color(UiKit.GOLD, 0.25))
-			# Championship Golden Cup with handles and ruby gem:
-			UiKit.ring(key, c + Vector2(-15, -7), 7, Color("ffd23f"))
-			UiKit.ring(key, c + Vector2(15, -7), 7, Color("ffd23f"))
-			UiKit.box(key, Rect2(c + Vector2(-14, -17), Vector2(28, 20)), Color("ffd23f"), Color("ffffff"), true)
-			UiKit.fill(key, Rect2(c + Vector2(-3, 3), Vector2(6, 7)), Color("d7931d"))
-			UiKit.box(key, Rect2(c + Vector2(-12, 10), Vector2(24, 7)), Color("ffd23f"), Color("9e5a00"), true)
-			# Sparkling ruby gem in the center:
-			UiKit.disc(key, c + Vector2(0, -7), 4, Color("ff2a4b"))
-			UiKit.disc(key, c + Vector2(-1, -8), 1.5, Color("ffffff"))
-		"pvp":
-			# Glowing backdrop aura:
-			UiKit.disc(key, c, 23, Color(UiKit.CORAL, 0.22))
-			# Crossed battle swords:
-			key.draw_line(c + Vector2(-15, -15), c + Vector2(13, 13), Color("00e5ff"), 6.0, true)
-			key.draw_line(c + Vector2(-15, -15), c + Vector2(13, 13), Color("ffffff"), 2.0, true)
-			key.draw_line(c + Vector2(15, -15), c + Vector2(-13, 13), Color("ff2a4b"), 6.0, true)
-			key.draw_line(c + Vector2(15, -15), c + Vector2(-13, 13), Color("ffffff"), 2.0, true)
-			key.draw_line(c + Vector2(-11, -5), c + Vector2(-5, -11), Color("ffd23f"), 4.0, true)
-			key.draw_line(c + Vector2(11, -5), c + Vector2(5, -11), Color("ffd23f"), 4.0, true)
-			UiKit.disc(key, c, 5, Color("ffffff"))
-	key.draw_set_transform(Vector2.ZERO)
-
+func draw_nav_key(key: Button, kind: String, caption: String) -> void:
+	var center := Vector2(key.size.x * 0.5, 30 + (2 if key.button_pressed else 0))
+	var accent := UiKit.CYAN if kind == active_destination else UiKit.MUTED
+	_draw_nav_icon(key, center, kind, accent)
+	key.draw_string(UiKit.strong_font(), Vector2(0, key.size.y - 13), tr(caption), HORIZONTAL_ALIGNMENT_CENTER, key.size.x, 10, UiKit.WHITE if kind == active_destination else UiKit.MUTED)
 	if key.has_meta("count"):
 		var count: String = key.get_meta("count")
-		var f = UiKit.strong_font()
-		var width = f.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		key.draw_string(f, Vector2((key.size.x - width) * 0.5, key.size.y - 12), tr(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("a8c6ea"))
+		key.draw_string(UiKit.body_font(), Vector2(0, key.size.y - 27), tr(count), HORIZONTAL_ALIGNMENT_CENTER, key.size.x, 9, Color(UiKit.MUTED, 0.82))
 	if key.get_meta("dot", false):
-		# Deluxe notification badge with drop shadow:
-		UiKit.disc(key, Vector2(key.size.x - 12, 13), 9, Color(0, 0, 0, 0.5))
-		UiKit.disc(key, Vector2(key.size.x - 12, 12), 8, Color("ff2244"))
-		UiKit.ring(key, Vector2(key.size.x - 12, 12), 8, Color("ffffff"))
-		UiKit.disc(key, Vector2(key.size.x - 14, 10), 2, Color("ffffff"))
+		UiKit.disc(key, Vector2(key.size.x * 0.5 + 22, 17), 6, UiKit.DANGER)
+		UiKit.ring(key, Vector2(key.size.x * 0.5 + 22, 17), 6, UiKit.WHITE)
 
-func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
-	UiKit.disc(c, at, 24, UiKit.FIELD)
-	UiKit.ring(c, at, 24, Color(color, 0.7))
-	match id:
-		"campaign":
-			UiKit.fill(c, Rect2(at + Vector2(-7, -12), Vector2(3, 24)), color)
-			c.draw_colored_polygon(PackedVector2Array([at + Vector2(-4, -12), at + Vector2(11, -7), at + Vector2(-4, -1)]), color)
-		"quick":
-			c.draw_colored_polygon(PackedVector2Array([at + Vector2(3, -13), at + Vector2(-8, 2), at + Vector2(0, 2), at + Vector2(-3, 13), at + Vector2(9, -3), at + Vector2(1, -3)]), color)
-		"story", "bosses":
-			UiKit.box(c, Rect2(at + Vector2(-8, -11), Vector2(16, 12)), color, Color.TRANSPARENT, true)
-			UiKit.fill(c, Rect2(at + Vector2(-1.5, 1), Vector2(3, 6)), color)
-			UiKit.box(c, Rect2(at + Vector2(-7, 7), Vector2(14, 4)), color, Color.TRANSPARENT, true)
-		"marathon":
-			# Three chevrons climbing: one rival after another.
-			for step in range(3):
-				var y = 9.0 - step * 8.0
-				c.draw_polyline(PackedVector2Array([at + Vector2(-9, y + 4), at + Vector2(0, y - 3), at + Vector2(9, y + 4)]), color, 3.0, true)
-		"test":
-			UiKit.ring(c, at, 11, UiKit.SUN)
-			UiKit.disc(c, at, 6, UiKit.SUN)
-		"pvp":
-			c.draw_line(at + Vector2(-9, -9), at + Vector2(9, 9), UiKit.CORAL, 4.0, true)
-			c.draw_line(at + Vector2(9, -9), at + Vector2(-9, 9), UiKit.CYAN, 4.0, true)
-
-func draw_mode_card() -> void:
-	var entry = mode_entry()
-	var sink = 3.0 if mode_card.button_pressed else 0.0
-	# Glossy top reflection:
-	var gloss_h = (mode_card.size.y - 12) * 0.42
-	mode_card.draw_rect(Rect2(4, 4 + sink, mode_card.size.x - 8, gloss_h), Color(1, 1, 1, 0.1), true)
-	# Mode icon with glowing backdrop:
-	UiKit.disc(mode_card, Vector2(42, 46 + sink), 26, Color(UiKit.SUN, 0.22))
-	mode_glyph(mode_card, Vector2(42, 46 + sink), entry.id, Color("ffcc00"))
-	var f = UiKit.strong_font()
-	# Colorful mode badge:
-	var badge_w = f.get_string_size(tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14
-	UiKit.box(mode_card, Rect2(80, 16 + sink, badge_w, 18), Color("ffcc00", 0.25), Color("ffcc00"), true)
-	mode_card.draw_string(f, Vector2(87, 29 + sink), tr("MODO  ▾"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("ffea00"))
-	var name: String = tr(String(entry.name))
-	var about: String = tr(String(entry.about))
-	var room = mode_card.size.x - 84
-	if entry.id == "campaign" and hud.campaign_state != null:
-		var level: Dictionary = Campaign.LEVELS[hud.menu_level]
-		var rival = tr(String(level.name)).to_upper() if int(level.boss) >= 100 else String(Skins.CATALOG[int(level.boss)].name)
-		about = (tr("Posto · ") if int(level.boss) >= 100 else tr("Boss · ")) + rival
-		# The boss of the level waits at the right of the card.
-		var station: bool = int(level.boss) >= 100
-		var skins = hud.skins_progress
-		var beaten: bool = skins != null and int(level.boss) < Skins.CATALOG.size() and skins.is_unlocked(level.boss)
-		var boss_at = Vector2(mode_card.size.x - 42, 38 + sink)
-		UiKit.disc(mode_card, boss_at, 30, UiKit.FIELD)
-		var picture: Texture2D = hud.robot_portrait(int(level.boss), false)
-		if picture != null:
-			var tone = Color(UiKit.CORAL.darkened(0.55), 1.0) if station or not beaten else Color.WHITE
-			mode_card.draw_texture_rect(picture, Rect2(boss_at - Vector2(36, 40), Vector2(72, 72)), false, tone)
-		UiKit.ring(mode_card, boss_at, 30, UiKit.CORAL if not beaten else UiKit.SUN)
-		mode_card.draw_string(f, boss_at + Vector2(-16, 40), tr("POSTO" if station else "BOSS"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UiKit.CORAL)
-		room -= 80
-	if entry.id == "marathon" and hud.marathon_record > 0:
-		about = tr("Recorde: %d vitórias") % hud.marathon_record
-	# Name with 3D drop shadow:
-	mode_card.draw_string(UiKit.title_font(), Vector2(81, 57 + sink), tr(name), HORIZONTAL_ALIGNMENT_LEFT, room, 24, Color(0, 0, 0, 0.6))
-	mode_card.draw_string(UiKit.title_font(), Vector2(80, 56 + sink), tr(name), HORIZONTAL_ALIGNMENT_LEFT, room, 24, UiKit.WHITE)
-	mode_card.draw_string(UiKit.body_font(), Vector2(80, 78 + sink), tr(about), HORIZONTAL_ALIGNMENT_LEFT, room, 14, Color("9ec5f2"))
-
-func draw_sheet_card(card: Button, entry: Dictionary) -> void:
-	var chosen: bool = entry.id == mode_id
-	if chosen:
-		UiKit.box(card, Rect2(0, 8, 6, card.size.y - 21), UiKit.SUN, Color.TRANSPARENT, true)
-	mode_glyph(card, Vector2(44, 38), entry.id, UiKit.SUN if chosen else UiKit.WHITE)
-	card.draw_string(UiKit.title_font(), Vector2(84, 38), tr(entry.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, UiKit.WHITE)
-	card.draw_string(UiKit.body_font(), Vector2(84, 60), tr(entry.about), HORIZONTAL_ALIGNMENT_LEFT, card.size.x - 170, 13, UiKit.MUTED)
-	if chosen:
-		card.draw_string(UiKit.strong_font(), Vector2(card.size.x - 92, 24), tr("ESCOLHIDO"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.SUN)
+func _draw_nav_icon(canvas: CanvasItem, at: Vector2, kind: String, color: Color) -> void:
+	match kind:
+		"hangar":
+			UiKit.box(canvas, Rect2(at + Vector2(-13, -10), Vector2(26, 20)), color, Color(UiKit.WHITE, 0.6), true)
+			UiKit.disc(canvas, at + Vector2(-5, 0), 3, UiKit.NIGHT)
+			UiKit.disc(canvas, at + Vector2(5, 0), 3, UiKit.NIGHT)
+		"powers":
+			canvas.draw_colored_polygon(PackedVector2Array([at + Vector2(3, -16), at + Vector2(-9, 1), at + Vector2(-1, 1), at + Vector2(-5, 16), at + Vector2(11, -3), at + Vector2(2, -3)]), color)
+		"home":
+			canvas.draw_colored_polygon(PackedVector2Array([at + Vector2(-15, -1), at, at + Vector2(15, -1), at + Vector2(11, 14), at + Vector2(-11, 14)]), color)
+			UiKit.box(canvas, Rect2(at + Vector2(-3, 5), Vector2(6, 9)), UiKit.NIGHT, Color.TRANSPARENT, true)
+		"settings":
+			UiKit.ring(canvas, at, 13, color)
+			UiKit.disc(canvas, at, 5, color)

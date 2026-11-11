@@ -110,6 +110,7 @@ signal map_picker_closed
 signal map_orbited(dx: float, dy: float)
 signal map_zoomed(factor: float)
 const UiKit = preload("res://scripts/ui/ui_kit.gd")
+const CommandHub = preload("res://scripts/ui/command_hub.gd")
 const Online = preload("res://scripts/network/online.gd")
 const AnalyticsConfig = preload("res://systems/analytics/AnalyticsConfig.gd")
 const Localization = preload("res://systems/localization/Localization.gd")
@@ -127,6 +128,7 @@ const ArenaTheme = preload("res://scripts/presentation/arena_theme.gd")
 var menu: PanelContainer
 var menu_status: Label
 var lobby
+var command_hub
 var level_strip: HBoxContainer
 var level_label: Control
 var ip: LineEdit
@@ -261,6 +263,17 @@ var power_cards: Array = []
 var power_slot_buttons: Array = []
 var power_buy: Button
 var power_actions: GridContainer
+var power_filter := "all"
+var power_filter_buttons: Dictionary = {}
+var power_filter_note: Label
+var power_confirm_overlay: ColorRect
+var power_confirm_panel: PanelContainer
+var power_confirm_title: Label
+var power_confirm_cost: Label
+var power_confirm_balance: Label
+var power_confirm_button: Button
+var pending_power_id := ""
+var power_confirming := false
 var power_shop = null
 var shop_index = 0
 var power_demo: Control
@@ -880,23 +893,21 @@ func refresh_news() -> void:
 	# main action stays where the thumb rests.
 	menu_status.text = news_text if news_text != "" else MENU_HINT
 	menu_status.add_theme_color_override("font_color", UiKit.SUN_INK if news_text != "" else MUTED)
-	# With nothing new to say the line goes away instead of repeating the controls.
-	menu_status.visible = news_text != ""
+	# The Command Hub owns the notice plate, so the empty state collapses completely.
+	if command_hub != null:
+		command_hub.set_news(news_text)
+	else:
+		menu_status.visible = news_text != ""
 	# The rail keys carry the counts, and a red dot while something waits behind them.
 	if lobby != null:
 		lobby.refresh()
 	show_level_strip()
 
 func show_level_strip() -> void:
-	# The strip adds a row to the dock: when it comes or goes the dock has to be laid out
-	# again, or the row lands on top of the mode card and the PLAY key.
-	if not is_instance_valid(level_strip):
-		return
-	var wanted: bool = lobby.mode_id == "campaign"
-	if level_strip.visible != wanted:
-		level_strip.visible = wanted
-		call_deferred("layout")
-	level_label.queue_redraw()
+	# Level browsing now belongs to the Arenas operation itself. The home screen remains a
+	# stable command hub, but it still refreshes its campaign count after every result.
+	if command_hub != null:
+		command_hub.refresh()
 
 func tint_backdrop() -> void:
 	# The halo and the floor rings take the colour of the pilot on show.
@@ -1406,23 +1417,57 @@ func label(text: String, font_size: int, color: Color, bold: bool = false) -> La
 
 func build_menu() -> void:
 	menu = PanelContainer.new()
-	menu.add_theme_stylebox_override("panel", UiKit.panel_style(Color("0c1a32", 0.98), Color("3d7ec8"), 26))
+	menu.name = "CommandHubPanel"
+	menu.add_theme_stylebox_override("panel", UiKit.panel_style(Color(UiKit.NIGHT, 0.94), Color(UiKit.CARD_EDGE, 0.82), 16))
 	add_child(menu)
-	var list = VBoxContainer.new()
-	list.add_theme_constant_override("separation", 13)
-	menu.add_child(list)
-	# The dock: a line of news, the AI level, then the mode and one big PLAY key, low on the
-	# screen where the thumb already rests. Everything else lives in the lobby around it.
+	var inset := MarginContainer.new()
+	inset.add_theme_constant_override("margin_left", 8)
+	inset.add_theme_constant_override("margin_right", 8)
+	inset.add_theme_constant_override("margin_top", 8)
+	inset.add_theme_constant_override("margin_bottom", 8)
+	menu.add_child(inset)
+
 	lobby = preload("res://scripts/ui/lobby.gd").new()
 	lobby.hud = self
-	menu_status = label(MENU_HINT, 13, MUTED)
-	menu_status.clip_text = true
-	menu_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	list.add_child(menu_status)
-	# The level strip: which level the campaign plays, stepped with the two round keys.
+	add_child(lobby)
+	command_hub = CommandHub.new()
+	command_hub.hud = self
+	inset.add_child(command_hub)
+	lobby.set_hub(command_hub)
+	campaign_button = command_hub.story_button
+	# campaign_button still dispatches through play_chosen_mode so the rest of the codebase
+	# (tutorials, tests, result-screen flow) keeps working without changes.
+	campaign_button.pressed.connect(play_chosen_mode)
+	quick_button = command_hub.mode_buttons.quick
+	difficulty_buttons = command_hub.difficulty_buttons
+	menu_status = command_hub.status_label
+	skins_button = lobby.rail_keys.hangar
+	powers_button = lobby.rail_keys.powers
+	# The Command Hub mode cards set the lobby mode AND open their destination directly.
+	command_hub.story_requested.connect(func():
+		lobby.choose_mode("bosses")
+		bosses_requested.emit())
+	command_hub.quick_requested.connect(func():
+		lobby.choose_mode("quick")
+		open_map_picker())
+	command_hub.marathon_requested.connect(func():
+		lobby.choose_mode("marathon")
+		marathon_requested.emit())
+	command_hub.pvp_requested.connect(func():
+		lobby.choose_mode("pvp")
+		open_pvp())
+	command_hub.arenas_requested.connect(func():
+		lobby.choose_mode("campaign")
+		open_levels())
+	command_hub.difficulty_requested.connect(func(level: int): difficulty_changed.emit(level))
+	command_hub.set_difficulty(1)
+	# Backward compatibility: a hidden level strip so external code that references it does
+	# not crash. Level browsing now lives in the Arenas/Levels overlay.
 	level_strip = HBoxContainer.new()
+	level_strip.name = "LevelStrip"
+	level_strip.visible = false
 	level_strip.add_theme_constant_override("separation", 8)
-	list.add_child(level_strip)
+	add_child(level_strip)
 	for step in [-1, 1]:
 		var arrow = make_button("‹" if step < 0 else "›", false)
 		arrow.custom_minimum_size = Vector2(56, 52)
@@ -1436,58 +1481,6 @@ func build_menu() -> void:
 			level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			level_label.draw.connect(draw_level_strip)
 			level_strip.add_child(level_label)
-	var level_row = HBoxContainer.new()
-	level_row.add_theme_constant_override("separation", 6)
-	list.add_child(level_row)
-	var level_caption = label("IA", 15, MUTED, true)
-	level_caption.custom_minimum_size.x = 30
-	level_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	level_row.add_child(level_caption)
-	var levels = ButtonGroup.new()
-	for level in range(GameSettings.DIFFICULTIES.size()):
-		var pick = make_button(GameSettings.DIFFICULTIES[level], false)
-		pick.custom_minimum_size.y = 56
-		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		pick.toggle_mode = true
-		pick.button_group = levels
-		pick.focus_mode = Control.FOCUS_NONE
-		pick.add_theme_font_size_override("font_size", 19)
-		# The chosen level is a mint key sunk into its lip; the others stand up.
-		var chosen: Dictionary = UiKit.key_styles("toggle")
-		pick.add_theme_stylebox_override("pressed", chosen.pressed)
-		pick.add_theme_stylebox_override("hover_pressed", chosen.pressed)
-		pick.add_theme_color_override("font_pressed_color", INK)
-		pick.add_theme_color_override("font_hover_pressed_color", INK)
-		pick.pressed.connect(func(): difficulty_changed.emit(level))
-		level_row.add_child(pick)
-		difficulty_buttons.append(pick)
-	var play_row = HBoxContainer.new()
-	play_row.add_theme_constant_override("separation", 12)
-	list.add_child(play_row)
-	play_row.add_child(lobby.build_mode_card())
-	campaign_button = make_button("JOGAR", true)
-	campaign_button.custom_minimum_size = Vector2(220, 96)
-	campaign_button.add_theme_font_size_override("font_size", 38)
-	campaign_button.add_theme_color_override("font_outline_color", Color("7a3e00"))
-	campaign_button.add_theme_constant_override("outline_size", 8)
-	campaign_button.add_theme_color_override("font_color", Color("ffffff"))
-	campaign_button.add_theme_color_override("font_hover_color", Color("fff5a0"))
-	campaign_button.add_theme_color_override("font_pressed_color", Color("ffe066"))
-	campaign_button.draw.connect(func():
-		var sink = 4.0 if campaign_button.button_pressed else 0.0
-		var r = campaign_button.get_rect()
-		# Top glossy reflection:
-		var gloss = Rect2(8, 4 + sink, r.size.x - 16, (r.size.y - 14) * 0.44)
-		campaign_button.draw_rect(gloss, Color(1, 1, 1, 0.24), true)
-		# Specular white rim highlight line along the upper edge:
-		campaign_button.draw_line(Vector2(20, 5 + sink), Vector2(r.size.x - 20, 5 + sink), Color(1, 1, 1, 0.75), 2.5)
-	)
-	play_row.add_child(campaign_button)
-	campaign_button.pressed.connect(play_chosen_mode)
-	add_child(lobby)
-	skins_button = lobby.rail_keys.hangar
-	powers_button = lobby.rail_keys.powers
-	quick_button = lobby.sheet_cards.quick
 
 func draw_level_strip() -> void:
 	if campaign_state == null:
@@ -1838,8 +1831,8 @@ func close_pvp() -> void:
 	pvp_overlay.hide()
 
 func build_powers_menu() -> void:
-	# The shop: the chosen power big at the top (spin it with a finger, tap it to flip it), a
-	# three-step lesson of how it works (charge, tap, effect), the buttons, then every power.
+	# Real inventory and economy remain in PowerShop. This screen only presents that data as a
+	# compact armory: category, inspection, purchase confirmation and actual kit slots.
 	powers_overlay = ColorRect.new()
 	powers_overlay.color = Color(UiKit.NIGHT, 0.94)
 	powers_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1855,10 +1848,29 @@ func build_powers_menu() -> void:
 	var titles = VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
-	titles.add_child(label("PODERES", 25, WHITE, true))
-	titles.add_child(label("Compra com os tijolos que destruíres e leva dois para a partida.", 14, MUTED))
+	titles.add_child(label("ARSENAL · PODERES", 25, WHITE, true))
+	titles.add_child(label("Compra com tijolos reais e equipa dois poderes para a partida.", 14, MUTED))
 	powers_wallet = label("", 15, CYAN, true)
 	header.add_child(powers_wallet)
+	var filters = HFlowContainer.new()
+	filters.name = "PowerCategories"
+	filters.add_theme_constant_override("h_separation", 8)
+	filters.add_theme_constant_override("v_separation", 8)
+	list.add_child(filters)
+	for data in [["all", "TODOS"], ["ataque", "ATAQUE"], ["defesa", "DEFESA"], ["utility", "UTILIDADE"]]:
+		var key: String = data[0]
+		var filter := Button.new()
+		filter.text = tr(String(data[1]))
+		filter.custom_minimum_size = Vector2(112, 44)
+		filter.focus_mode = Control.FOCUS_ALL
+		filter.add_theme_font_override("font", UiKit.strong_font())
+		filter.add_theme_font_size_override("font_size", 12)
+		filter.pressed.connect(func(): set_power_filter(key))
+		filters.add_child(filter)
+		power_filter_buttons[key] = filter
+	power_filter_note = label("", 12, MUTED, true)
+	power_filter_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(power_filter_note)
 	# The chosen power, big, next to its name, numbers and story.
 	var hero_row = HBoxContainer.new()
 	hero_row.add_theme_constant_override("separation", 12)
@@ -1906,7 +1918,7 @@ func build_powers_menu() -> void:
 	power_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	power_buy.add_theme_stylebox_override("disabled", style(UiKit.FIELD, UiKit.CARD_EDGE))
 	power_buy.add_theme_color_override("font_disabled_color", MUTED)
-	power_buy.pressed.connect(func(): power_bought.emit(String(shop_entries()[shop_index].id)))
+	power_buy.pressed.connect(open_power_purchase_confirmation)
 	actions.add_child(power_buy)
 	for slot in range(Powers.KIT_SIZE):
 		var equip = make_button(tr("SLOT %d") % (slot + 1), false)
@@ -1936,8 +1948,8 @@ func build_powers_menu() -> void:
 	shop_scroll.add_child(grid)
 	for index in range(shop_entries().size()):
 		var card = Button.new()
-		card.custom_minimum_size = Vector2(190, 92)
-		card.focus_mode = Control.FOCUS_NONE
+		card.custom_minimum_size = Vector2(190, 102)
+		card.focus_mode = Control.FOCUS_ALL
 		card.add_theme_stylebox_override("hover", style(UiKit.CARD_HI, UiKit.PANEL_EDGE, 16))
 		card.add_theme_stylebox_override("pressed", style(UiKit.CARD_HI, SUN, 16))
 		grid.add_child(card)
@@ -1948,7 +1960,123 @@ func build_powers_menu() -> void:
 		card.add_child(face)
 		card.pressed.connect(func(): preview_power(index))
 		power_cards.append(card)
+	build_power_confirmation()
 	powers_overlay.hide()
+
+func build_power_confirmation() -> void:
+	# A purchase must be deliberate on a phone. The real PowerShop still validates the wallet
+	# after confirmation, so this dialog never becomes a second or fake economy.
+	power_confirm_overlay = ColorRect.new()
+	power_confirm_overlay.name = "PowerPurchaseConfirmation"
+	power_confirm_overlay.color = Color(UiKit.NIGHT, 0.82)
+	power_confirm_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	power_confirm_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	powers_overlay.add_child(power_confirm_overlay)
+	power_confirm_panel = PanelContainer.new()
+	power_confirm_panel.add_theme_stylebox_override("panel", UiKit.panel_style(Color("102a43"), UiKit.SUN, 16))
+	power_confirm_overlay.add_child(power_confirm_panel)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 10)
+	power_confirm_panel.add_child(stack)
+	stack.add_child(label("CONFIRMAR AQUISIÇÃO", 22, WHITE, true))
+	power_confirm_title = label("", 18, UiKit.CYAN, true)
+	stack.add_child(power_confirm_title)
+	var note := label("Esta compra usa os teus tijolos guardados. O poder fica disponível para equipar logo a seguir.", 14, MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(note)
+	power_confirm_cost = label("", 18, SUN, true)
+	stack.add_child(power_confirm_cost)
+	power_confirm_balance = label("", 14, WHITE, true)
+	stack.add_child(power_confirm_balance)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	stack.add_child(actions)
+	var cancel := make_button("CANCELAR", false)
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cancel.pressed.connect(close_power_purchase_confirmation)
+	actions.add_child(cancel)
+	power_confirm_button = make_button("COMPRAR", true)
+	power_confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	power_confirm_button.pressed.connect(confirm_power_purchase)
+	actions.add_child(power_confirm_button)
+	power_confirm_overlay.hide()
+
+func power_category_name(category: String) -> String:
+	match category:
+		"ataque": return tr("ATAQUE")
+		"defesa": return tr("DEFESA")
+		"utility": return tr("UTILIDADE")
+		_: return tr("TODOS OS PODERES")
+
+func entry_matches_power_filter(entry: Dictionary) -> bool:
+	if power_filter == "all":
+		return true
+	var kind := String(entry.get("kind", ""))
+	if power_filter == "utility":
+		return kind in ["vida", "debuff", "buff"]
+	return kind == power_filter
+
+func set_power_filter(category: String) -> void:
+	power_filter = category if category in ["all", "ataque", "defesa", "utility"] else "all"
+	if not entry_matches_power_filter(shop_entries()[shop_index]):
+		for index in range(shop_entries().size()):
+			if entry_matches_power_filter(shop_entries()[index]):
+				shop_index = index
+				break
+	refresh_powers()
+	if shop_scroll != null:
+		shop_scroll.scroll_vertical = 0
+
+func refresh_power_filter() -> void:
+	if power_filter_note != null:
+		var shown := shop_entries().filter(func(entry): return entry_matches_power_filter(entry)).size()
+		power_filter_note.text = tr("%s · %d PODERES DISPONÍVEIS") % [power_category_name(power_filter), shown]
+	for category in power_filter_buttons:
+		var button: Button = power_filter_buttons[category]
+		UiKit.paint_key(button, "toggle" if category == power_filter else "secondary")
+		button.add_theme_font_size_override("font_size", 12)
+	for index in range(power_cards.size()):
+		var card: Button = power_cards[index]
+		card.visible = entry_matches_power_filter(shop_entries()[index])
+
+func open_power_purchase_confirmation() -> void:
+	if power_shop == null or power_confirm_overlay == null:
+		return
+	var entry: Dictionary = shop_entries()[shop_index]
+	var id := String(entry.id)
+	if not power_shop.can_buy(id):
+		refresh_powers()
+		return
+	pending_power_id = id
+	power_confirming = false
+	var price := int(entry.price)
+	var balance := int(power_shop.bricks)
+	power_confirm_title.text = tr(String(entry.name))
+	power_confirm_cost.text = tr("CUSTO  ·  %d TIJOLOS") % price
+	power_confirm_balance.text = tr("SALDO  %d  →  %d TIJOLOS") % [balance, balance - price]
+	power_confirm_button.text = tr("COMPRAR · %d") % price
+	power_confirm_button.disabled = false
+	power_confirm_overlay.show()
+	layout()
+
+func close_power_purchase_confirmation() -> void:
+	pending_power_id = ""
+	power_confirming = false
+	if power_confirm_overlay != null:
+		power_confirm_overlay.hide()
+
+func confirm_power_purchase() -> void:
+	if power_confirming or power_shop == null or pending_power_id == "" or not power_shop.can_buy(pending_power_id):
+		if power_confirm_overlay != null:
+			power_confirm_overlay.hide()
+		refresh_powers()
+		return
+	power_confirming = true
+	power_confirm_button.disabled = true
+	var id := pending_power_id
+	# main.gd calls PowerShop.buy(), saves, and syncs the exact same shop instance.
+	power_bought.emit(id)
+	close_power_purchase_confirmation()
 
 # --- the shop's show piece and lesson ------------------------------------------------------
 const TUTORIAL_STEPS = ["CARREGA", "TOCA", "EFEITO"]
@@ -2071,9 +2199,9 @@ func refresh_powers() -> void:
 	var entry: Dictionary = shop_entries()[shop_index]
 	var ultimate: bool = Powers.is_ultimate(String(entry.id))
 	var owned: bool = ultimate or power_shop.is_owned(entry.id)
-	powers_wallet.text = tr("TIJOLOS: %d") % power_shop.bricks
+	powers_wallet.text = tr("TIJOLOS  ·  %d") % power_shop.bricks
 	power_hero_name.text = tr(String(entry.name))
-	power_hero_stats.text = tr("%s  ·  CARGA %d TIJOLOS  ·  RECARGA %d s") % [tr(String(entry.kind)).to_upper(), entry.charge, entry.wait]
+	power_hero_stats.text = tr("%s  ·  CARGA %d TIJOLOS  ·  RECARGA %d s") % [power_category_name("utility" if String(entry.kind) in ["vida", "debuff", "buff"] else String(entry.kind)), entry.charge, entry.wait]
 	powers_detail.text = tr(String(entry.about)).replace("**", "")
 	# Bought just now: the coin celebrates.
 	if owned and not shop_owned_seen.has(entry.id) and shop_owned_seen.size() > 0:
@@ -2090,8 +2218,9 @@ func refresh_powers() -> void:
 		button.disabled = ultimate or here or not owned
 	for index in range(power_cards.size()):
 		var card: Button = power_cards[index]
-		card.add_theme_stylebox_override("normal", style(UiKit.CARD_HI if index == shop_index else UiKit.CARD, SUN if index == shop_index else UiKit.CARD_EDGE, 16))
+		card.add_theme_stylebox_override("normal", style(UiKit.CARD_HI if index == shop_index else UiKit.CARD, SUN if index == shop_index else Color(UiKit.CARD_EDGE, 0.65), 12))
 		card.get_child(0).queue_redraw()
+	refresh_power_filter()
 
 func draw_power_card(canvas: Control, index: int) -> void:
 	# A ceramic tile: brass medallion with the sigil, the name, a type pill and the state.
@@ -2110,10 +2239,13 @@ func draw_power_card(canvas: Control, index: int) -> void:
 		power_icon(String(entry.id), medallion, color if owned else Color(color, 0.42), canvas)
 	var left = 76.0
 	canvas.draw_string(font_bold, Vector2(left, medallion.y - 14), tr(String(entry.short)), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, WHITE if owned else Color(WHITE, 0.55))
-	# Type pill in the family colour: coral attacks, jade defends.
-	var attack: bool = entry.kind == "ataque"
-	var pill_color = BRASS if ultimate else (CORAL if attack else CYAN)
-	var pill_text = tr(String(entry.kind)).to_upper()
+	# Type pill follows real data: attack and defense retain their identity, while healing,
+	# buffs and debuffs deliberately live in the utility group rather than a made-up rarity.
+	var kind := String(entry.kind)
+	var attack: bool = kind == "ataque"
+	var defense: bool = kind == "defesa"
+	var pill_color = BRASS if ultimate else (CORAL if attack else (CYAN if defense else UiKit.MINT))
+	var pill_text = power_category_name("utility" if kind in ["vida", "debuff", "buff"] else kind)
 	var pill_width = font_bold.get_string_size(pill_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 14
 	var pill = Rect2(Vector2(left, medallion.y + 1), Vector2(pill_width, 15))
 	canvas.draw_style_box(style(Color(pill_color, 0.16), Color(pill_color, 0.5), 7), pill)
@@ -2655,12 +2787,17 @@ func open_powers() -> void:
 	reset_touch()
 	# Always on top, also when it is opened from the story or a result screen.
 	move_child(powers_overlay, -1)
+	if lobby != null:
+		lobby.set_active_destination("powers")
 	powers_overlay.show()
 	refresh_powers()
 	powers_opened.emit()
 
 func close_powers() -> void:
+	close_power_purchase_confirmation()
 	powers_overlay.hide()
+	if lobby != null:
+		lobby.set_active_destination("home")
 
 func build_levels_menu() -> void:
 	# The arenas: a whole screen of its own (the 3D behind is switched off while it is open),
@@ -2844,24 +2981,24 @@ func sync_menu_level(index: int) -> void:
 	refresh_menu_level()
 
 func refresh_menu_level() -> void:
-	var open = campaign_state == null or campaign_state.is_unlocked(menu_level)
-	var locked = lobby.mode_id == "campaign" and not open
-	campaign_button.text = "BLOQUEADO" if locked else "JOGAR"
-	campaign_button.add_theme_font_size_override("font_size", 22 if locked else 32)
-	campaign_button.disabled = locked
+	# Arenas validates its own unlocks on selection. Story always opens its real campaign
+	# panel, so the featured operation never becomes a misleading locked home-screen key.
+	if campaign_button != null:
+		campaign_button.disabled = false
 	lobby.refresh()
-	# The level strip belongs to ARENAS; the story picks its own arena, round by round.
+	if command_hub != null:
+		command_hub.refresh()
 	show_level_strip()
 	queue_redraw()
 
 func menu_overlay_open() -> bool:
-	return map_overlay.visible or video_overlay.visible or skins_overlay.visible or pvp_overlay.visible or levels_overlay.visible or powers_overlay.visible or lobby.sheet.visible
+	return map_overlay.visible or video_overlay.visible or skins_overlay.visible or pvp_overlay.visible or levels_overlay.visible or powers_overlay.visible
 
 func lobby_stage() -> Rect2:
-	# Where the lobby shows your pilot: the band between the level's name and the dock on a
-	# phone, the room right of the dock on a wide screen.
+	# The persistent arena is the Command Hub's character stage. It stays visible above the
+	# operation cards rather than being split into a carousel of separate menu pages.
 	if vertical:
-		return Rect2(arena_rect.position.x, arena_rect.position.y, arena_rect.size.x, arena_rect.size.y - 84)
+		return arena_rect
 	var left = menu.get_rect().end.x + 20
 	return Rect2(left, 70, size.x - left - 20, size.y - 190)
 
@@ -2897,14 +3034,14 @@ func menu_swipe(event: InputEvent) -> void:
 		swipe_start = Vector2.INF
 
 func draw_menu_level() -> void:
-	# The lobby's stage is your pilot; the words under it say who it is.
+	# The lobby's stage is your pilot. The label sits inside the 3D stage, clear of the hub.
 	var stage = lobby_stage()
 	var pilot_skin: int = skins_progress.selected if skins_progress != null else 0
 	var entry: Dictionary = Skins.CATALOG[clampi(pilot_skin, 0, Skins.CATALOG.size() - 1)]
 	var x = stage.get_center().x
-	centered(String(entry.name), Vector2(x, stage.end.y + 36), 44, WHITE, true, 10, Color(UiKit.NIGHT, 0.9))
+	centered(String(entry.name), Vector2(x, stage.end.y - 38), 30, WHITE, true, 8, Color(UiKit.NIGHT, 0.9))
 	var tagline = tr(String(entry.get("weapon", ""))).to_upper()
-	centered(tr("PILOTO EQUIPADO") + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y + 62), 13, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
+	centered(tr("PILOTO EQUIPADO") + ("  ·  " + tagline if tagline != "" else ""), Vector2(x, stage.end.y - 14), 12, UiKit.SUN_INK, true, 5, Color(UiKit.NIGHT, 0.85))
 
 func open_levels() -> void:
 	reset_touch()
@@ -3491,6 +3628,8 @@ func layout() -> void:
 	fire_center = Vector2(lerpf(fire_margin, size.x - fire_margin, fire_x), lerpf(safe_top + 160 + fire_margin, size.y - safe_bottom - fire_margin, fire_y))
 	move_center = move_home
 	camera_home = Vector2(size.x - 18 - CAMERA_RADIUS, safe_top + 200)
+	# The Command Hub has one deliberate, stable composition. Its cards never become a feed:
+	# on small phones the 3D stage gives up space first, while all touch targets remain intact.
 	var menu_height = menu.get_combined_minimum_size().y
 	# The arenas fill the screen: one column of wide cards on a phone, two on a wide screen.
 	var levels_width = minf(size.x - 32, 1100)
@@ -3502,6 +3641,10 @@ func layout() -> void:
 	levels_panel.position = Vector2((size.x - levels_width) * 0.5, safe_top + 16)
 	pvp_panel.size = pvp_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 	pvp_panel.position = thumb_panel_position(pvp_panel.size)
+	if is_instance_valid(power_confirm_panel):
+		var confirm_width = minf(size.x - 48.0, 500.0)
+		power_confirm_panel.size = power_confirm_panel.get_combined_minimum_size().max(Vector2(confirm_width, 0))
+		power_confirm_panel.position = ((size - power_confirm_panel.size) * 0.5).floor()
 	if is_instance_valid(privacy_panel):
 		privacy_panel.size = privacy_panel.get_combined_minimum_size().max(Vector2(minf(size.x - 48, 520), 0))
 		privacy_panel.position = ((size - privacy_panel.size) * 0.5).floor()
@@ -3520,8 +3663,9 @@ func layout() -> void:
 	if vertical:
 		layout_vertical(menu_height)
 	else:
-		menu.size = Vector2(580, menu_height)
-		menu.position = Vector2(124, maxf(76, size.y - menu.size.y - 40))
+		var menu_width = minf(620.0, maxf(460.0, size.x * 0.43))
+		menu.size = Vector2(menu_width, minf(menu_height, size.y - 92.0))
+		menu.position = Vector2(128, maxf(36, (size.y - menu.size.y) * 0.5))
 		fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		fps_label.size = Vector2.ZERO
 		# In a match the stick and its caption own the bottom right corner, so the counter
@@ -3530,7 +3674,7 @@ func layout() -> void:
 		score_rect = Rect2(size.x * 0.5 - 152, 19, 304, 59)
 		card_rects = [Rect2(38, 184, 200, 222), Rect2(size.x - 238, 184, 200, 222)]
 		message_center = size * 0.5
-		arena_rect = Rect2(Vector2.ZERO, size)
+		arena_rect = Rect2(menu.get_rect().end.x + 16, 0, maxf(120, size.x - menu.get_rect().end.x - 16), size.y)
 		touch_top = size.y * 0.42
 	# Powers: a row between the thumb controls on a phone, where the band under the arena is
 	# free; on a wide screen that band is the stadium itself, so they take the pocket under
@@ -3576,14 +3720,15 @@ func layout_vertical(menu_height: float) -> void:
 	# The stick sits on the right of the band with its caption under it, so in a match the
 	# counter takes the left corner instead of landing on top of them.
 	fps_label.position = Vector2(mid - 120, bottom - 46) if mode == "menu" else Vector2(30, bottom - 26)
-	menu.size = Vector2(minf(size.x - 32, 600), menu_height)
-	# In the lobby the dock stands on the bar of shortcut keys; in a match it has the bottom.
-	var under = lobby.NAV_HEIGHT + 26.0 if mode == "menu" else 44.0
-	menu.position = Vector2((size.x - menu.size.x) * 0.5, maxf(safe_top + 150, bottom - menu.size.y - under))
+	menu.size = Vector2(minf(size.x - 24, 640), menu_height)
+	# The dock stands immediately above the fixed navigation. The stage keeps at least a
+	# character-sized band even on short phones, rather than clipping the command cards.
+	var under = lobby.NAV_HEIGHT + 22.0 if mode == "menu" else 44.0
+	menu.position = Vector2((size.x - menu.size.x) * 0.5, maxf(safe_top + 178, bottom - menu.size.y - under))
 	if mode == "menu":
-		# Under the top bar the pilot has the whole width, down to its name over the dock.
-		var top = safe_top + 100
-		arena_rect = Rect2(10, top, size.x - 20, maxf(menu.position.y - 20 - top, 120))
+		# Under the header the pilot has the whole width down to the operation panel.
+		var top = safe_top + 94
+		arena_rect = Rect2(10, top, size.x - 20, maxf(menu.position.y - 12 - top, 156))
 	else:
 		# Top match info band sits comfortably below the header buttons (bar_y = safe_top + 48)
 		# Measured from the buttons themselves: their theme makes them taller than asked, and
@@ -3654,6 +3799,8 @@ func show_menu(message: String = "") -> void:
 	reset_touch()
 	if message != "":
 		menu_status.text = message
+		if command_hub != null:
+			command_hub.set_news(message)
 	layout()
 
 func show_game(new_mode: String, local_team: int) -> void:
@@ -5021,17 +5168,15 @@ func lobby_steps() -> Array:
 				box = b.get_global_rect() if not box.has_area() else box.merge(b.get_global_rect())
 		return box
 	return [
-		{"title": "Bem-vindo ao Charge Arena", "text": "Este é o teu piloto. Vamos ver, em poucos passos, onde fica cada coisa. Se já sabes, carrega em SALTAR."},
-		{"title": "Jogar", "text": "Carrega em JOGAR para começar uma partida no modo que está escolhido.", "target": control_rect(campaign_button)},
-		{"title": "Escolher o modo", "text": "Toca aqui para mudar de modo: Jogo rápido, Modo história, Arenas, PvP.", "target": control_rect(lobby.mode_card)},
+		{"title": "Bem-vindo ao Charge Arena", "text": "Este é o teu piloto no hangar. O menu mantém a arena visível e deixa os modos sempre ao alcance do polegar. Se já sabes, carrega em SALTAR."},
+		{"title": "Modo História", "text": "A operação em destaque abre a Taça Charge Arena, a tua campanha principal com chefes, recompensas e progresso guardado.", "target": control_rect(campaign_button)},
+		{"title": "Modos de combate", "text": "Jogo Rápido, Maratona, PvP e Arenas têm cartões próprios. Cada cartão abre diretamente a funcionalidade real do jogo.", "target": func(): return command_hub.mode_buttons.quick.get_global_rect().merge(command_hub.mode_buttons.arenas.get_global_rect())},
 		{"title": "Dificuldade", "text": "Escolhe a força da IA: Fácil, Normal ou Difícil.", "target": level_row},
 		{"title": "Hangar", "text": "No HANGAR vês todas as skins: as que já tens e as que ganhas ao vencer os chefes. Toca numa skin para a vestir.", "target": control_rect(lobby.rail_keys.hangar)},
 		{"title": "Poderes", "text": "Em PODERES gastas os tijolos que partes nas partidas: compras habilidades novas e escolhes as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
 		{"title": "Comprar na loja", "text": "Na loja de PODERES toca numa habilidade para ver o que faz e carrega em COMPRAR · (preço) TIJOLOS. Os tijolos juntas partindo muralhas em qualquer modo. Depois escolhe as duas que levas para o combate.", "target": control_rect(lobby.rail_keys.powers)},
-		{"title": "Modo história", "text": "Em HISTÓRIA vives a aventura do BIT: sem dinheiro para a universidade, entra na TAÇA CHARGE ARENA e enfrenta 11 adversários, com conversas antes e depois de cada partida. Aqui jogas com o BIT (e, perto do fim, com o BIT DE ELITE); as outras skins usas nos outros modos.", "target": control_rect(lobby.rail_keys.story)},
 		{"title": "Ganhar skins", "text": "As skins não se compram: ganham-se. No Modo história, em NORMAL, vence um chefe e a skin dele fica tua no HANGAR, com a sua ultimate. Veste-a no HANGAR e leva-a para o Jogo rápido, as Arenas e o PvP.", "target": control_rect(lobby.rail_keys.hangar)},
-		{"title": "Skins difíceis", "text": "Acaba a história no NORMAL e abre-se o DIFÍCIL. Aí os chefes vestem as skins difíceis, com néon e adereços novos: vence um e a sua skin difícil é tua. No HANGAR, as que ainda não tens aparecem no escuro, só com o néon aceso.", "target": control_rect(lobby.rail_keys.story)},
-		{"title": "PvP", "text": "Em PvP jogas contra outra pessoa na mesma rede Wi-Fi.", "target": control_rect(lobby.rail_keys.pvp)},
+		{"title": "PvP", "text": "Em PvP jogas contra outra pessoa na mesma rede Wi-Fi. Abre o cartão PvP para criar ou entrar numa sala.", "target": control_rect(command_hub.mode_buttons.pvp)},
 		{"title": "Opções", "text": "Aqui ajustas os controlos, a imagem e o som. Em Opções › Jogo podes rever estes tutoriais quando quiseres.", "target": control_rect(lobby.gear)},
 	]
 
