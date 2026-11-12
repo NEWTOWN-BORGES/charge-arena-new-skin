@@ -5,33 +5,34 @@ extends RefCounted
 ##
 ## Shapes are drawn from one small generated atlas (`atlas()`), so a whole screen of discs,
 ## rings and rounded boxes lands in a single batch instead of one draw call per shape.
+const TITLE_FILE = preload("res://art/fonts/LilitaOne-Regular.ttf")
 const BODY_FILE = preload("res://art/fonts/Rubik-Variable.ttf")
 
 # Stadium blues for the plates, bright ink for the words, one warm sun for the action that
 # matters, the teams' own colours for everything that belongs to a side. The names keep
 # their roles: WHITE is the main text colour and PANEL the plates, whatever their tone.
-const NIGHT = Color("071329")
-const PANEL = Color("172431")
-const PANEL_EDGE = Color("0755a5")
-const CARD = Color("102b48")
-const CARD_HI = Color("16456d")
-const CARD_EDGE = Color("32c8e7")
-const FIELD = Color("0a1d30")
-const LIP = Color("030a13")
-const EMPTY = Color("20303d")
-const INK = Color("071329")
-const WHITE = Color("f0f4f8")
-const MUTED = Color("adc4d5")
-const SUN = Color("f2b943")
-const SUN_LIP = Color("a66d1e")
+const NIGHT = Color("0d1b35")
+const PANEL = Color("18365d")
+const PANEL_EDGE = Color("477db4")
+const CARD = Color("24558a")
+const CARD_HI = Color("326eaa")
+const CARD_EDGE = Color("4687c4")
+const FIELD = Color("102442")
+const LIP = Color("08152d")
+const EMPTY = Color("1a2d49")
+const INK = Color("101b30")
+const WHITE = Color("f4f9ff")
+const MUTED = Color("b2c9e4")
+const SUN = Color("ffd23f")
+const SUN_LIP = Color("d7931d")
 # The sun as ink: gold that reads on the dark plates, for accent words.
-const SUN_INK = Color("f8cf72")
-const MINT = Color("4adba5")
-const MINT_LIP = Color("176b53")
-const GOLD = Color("f2b943")
-const DANGER = Color("e65b64")
-const CYAN = Color("32c8e7")
-const CORAL = Color("e65b64")
+const SUN_INK = Color("ffd05a")
+const MINT = Color("38dfa3")
+const MINT_LIP = Color("147554")
+const GOLD = Color("ffb703")
+const DANGER = Color("ff2a4b")
+const CYAN = Color("00caff")
+const CORAL = Color("ff2a4b")
 
 # Where each shape sits in the atlas.
 const DISC = Rect2(0, 0, 128, 128)
@@ -65,9 +66,10 @@ static func _prepare(file: FontFile) -> FontFile:
 	return file
 
 static func title_font() -> Font:
-	# The old rounded display font made the combat UI read younger than the game itself.
-	# Rubik at a heavy weight stays compact on mobile and gives headings a clean tactical feel.
-	return _weight(760)
+	# Chunky rounded capitals for titles, keys, the score and the big moments.
+	if not _fonts.has("title"):
+		_fonts["title"] = _prepare(TITLE_FILE)
+	return _fonts["title"]
 
 static func _weight(value: int) -> Font:
 	var key = "body%d" % value
@@ -83,7 +85,7 @@ static func body_font() -> Font:
 
 static func strong_font() -> Font:
 	# Captions and small labels in capitals: heavier, so they hold up at ten pixels.
-	return _weight(650)
+	return _weight(640)
 
 # --- shapes ---------------------------------------------------------------------------------
 static func atlas() -> Texture2D:
@@ -166,7 +168,7 @@ static func plate(canvas: CanvasItem, rect: Rect2, color: Color = PANEL, rim: Co
 	box(canvas, rect, color, rim)
 
 # --- controls -------------------------------------------------------------------------------
-static func flat(color: Color, border: Color = Color.TRANSPARENT, radius: int = 14, lip: int = 0, lip_color: Color = LIP) -> StyleBoxFlat:
+static func flat(color: Color, border: Color = Color.TRANSPARENT, radius: int = 18, lip: int = 0, lip_color: Color = LIP) -> StyleBoxFlat:
 	var key = "%s|%s|%d|%d|%s" % [color, border, radius, lip, lip_color]
 	if _styles.has(key):
 		return _styles[key]
@@ -176,9 +178,6 @@ static func flat(color: Color, border: Color = Color.TRANSPARENT, radius: int = 
 	s.set_border_width_all(2 if border.a > 0.0 and lip == 0 else 0)
 	if lip > 0:
 		s.border_width_bottom = lip
-		s.shadow_color = Color(0.04, 0.08, 0.16, 0.38)
-		s.shadow_size = 3
-		s.shadow_offset = Vector2(0, 3)
 	s.set_corner_radius_all(radius)
 	s.corner_detail = 8
 	s.anti_aliasing = true
@@ -189,120 +188,61 @@ static func flat(color: Color, border: Color = Color.TRANSPARENT, radius: int = 
 	_styles[key] = s
 	return s
 
-static func panel_style(color: Color = PANEL, rim: Color = PANEL_EDGE, radius: int = 16) -> StyleBoxFlat:
-	# A restrained equipment panel: depth comes from the rim and shadow, not a toy-like lip.
+static func panel_style(color: Color = PANEL, rim: Color = PANEL_EDGE, radius: int = 26) -> StyleBoxFlat:
+	# A panel plate: lit rim and a solid dark lip under it, drawn as an offset shadow.
 	var key = "panel|%s|%s|%d" % [color, rim, radius]
 	if _styles.has(key):
 		return _styles[key]
 	var s: StyleBoxFlat = flat(color, rim, radius).duplicate()
 	s.shadow_color = LIP
-	s.shadow_size = 6
-	s.shadow_offset = Vector2(0, 3)
-	s.content_margin_left = 18
-	s.content_margin_right = 18
-	s.content_margin_top = 16
-	s.content_margin_bottom = 16
+	s.shadow_size = 2
+	s.shadow_offset = Vector2(0, 7)
+	s.content_margin_left = 22
+	s.content_margin_right = 22
+	s.content_margin_top = 18
+	s.content_margin_bottom = 20
 	_styles[key] = s
 	return s
 
 static var _keys: Dictionary = {}
 
 static func key_styles(kind: String) -> Dictionary:
-	# Command controls read as fabricated equipment: compact corners, a fine lit edge and a
-	# shallow physical press. This keeps actions clear without turning every panel into a toy.
+	# A toy key: a face on a thick lip that sinks when it is pressed. `kind` is "primary"
+	# (the sun: one per screen), "toggle" (a chosen option) or "secondary". Built once per
+	# kind: fresh boxes on every call made each repaint count as a theme change.
 	if _keys.has(kind):
 		return _keys[kind]
-	var face = Color("12334f")
-	var rim = Color("2774a6")
-	var lip = Color("061522")
-	var lip_height = 2
+	var face = CARD
+	var lip = LIP
 	match kind:
 		"primary":
-			face = Color("c88f2f")
-			rim = Color("f8d47d")
-			lip = Color("765018")
-			lip_height = 3
+			face = SUN
+			lip = SUN_LIP
 		"toggle":
-			face = Color("0c7184")
-			rim = Color("65dff2")
-			lip = Color("06404d")
-			lip_height = 3
+			face = MINT
+			lip = MINT_LIP
 		"danger":
-			face = Color("a63f4b")
-			rim = Color("f08a93")
-			lip = Color("61222a")
-			lip_height = 3
-
-	var normal = StyleBoxFlat.new()
-	normal.bg_color = face
-	normal.border_color = rim
-	normal.set_border_width_all(1)
-	normal.border_width_bottom = lip_height
-	normal.set_corner_radius_all(12)
-	normal.corner_detail = 8
-	normal.anti_aliasing = true
-	normal.shadow_color = Color(0, 0, 0, 0.26)
-	normal.shadow_size = 3
-	normal.shadow_offset = Vector2(0, 2)
-	normal.content_margin_left = 14
-	normal.content_margin_right = 14
-	normal.content_margin_top = 10
-	normal.content_margin_bottom = 10 + lip_height
-
-	var hover = normal.duplicate()
-	hover.bg_color = face.lightened(0.12)
-	hover.border_color = rim.lightened(0.2)
-
-	var pressed = normal.duplicate()
-	pressed.bg_color = face.darkened(0.08)
-	pressed.border_width_bottom = 1
-	pressed.shadow_size = 0
-	pressed.shadow_offset = Vector2.ZERO
-	pressed.content_margin_top = 11
-	pressed.content_margin_bottom = 10
-
-	var disabled = normal.duplicate()
-	disabled.bg_color = Color(CARD, 0.55)
-	disabled.border_color = Color(LIP, 0.4)
-	disabled.shadow_size = 0
-
-	var focus = StyleBoxFlat.new()
+			face = DANGER
+			lip = Color("9c2440")
+	var normal = flat(face, Color.TRANSPARENT, 18, 6, lip)
+	var hover = flat(face.lightened(0.08), Color.TRANSPARENT, 18, 6, lip)
+	var pressed: StyleBoxFlat = flat(face.darkened(0.08), Color.TRANSPARENT, 18, 2, lip).duplicate()
+	pressed.expand_margin_top = -4
+	pressed.content_margin_top = 16
+	var disabled = flat(Color(CARD, 0.55), Color.TRANSPARENT, 18, 6, Color(LIP, 0.6))
+	var focus = flat(Color.TRANSPARENT, Color(SUN, 0.8), 20)
+	focus.set_border_width_all(3)
 	focus.draw_center = false
-	focus.border_color = Color(CYAN, 0.92)
-	focus.set_border_width_all(2)
-	focus.set_corner_radius_all(14)
-	focus.corner_detail = 8
-	focus.anti_aliasing = true
-
 	_keys[kind] = {"normal": normal, "hover": hover, "pressed": pressed, "hover_pressed": pressed, "disabled": disabled, "focus": focus}
 	return _keys[kind]
 
 static func text_on(kind: String) -> Color:
 	return INK if kind == "primary" or kind == "toggle" else WHITE
 
-static func add_bounce(button: Button) -> void:
-	if button == null or button.has_meta("has_bounce") or DisplayServer.get_name() == "headless":
-		return
-	button.set_meta("has_bounce", true)
-	button.resized.connect(func():
-		button.pivot_offset = button.size * 0.5
-	)
-	button.button_down.connect(func():
-		button.pivot_offset = button.size * 0.5
-		var tw = button.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(button, "scale", Vector2(0.985, 0.985), 0.07)
-	)
-	button.button_up.connect(func():
-		button.pivot_offset = button.size * 0.5
-		var tw = button.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(button, "scale", Vector2.ONE, 0.14)
-	)
-
 static func paint_key(button: Button, kind: String) -> void:
 	# Every override is a theme change, and a theme change sends the whole screen back
 	# through layout: the HUD asked for the same colours 30 times a second and that alone
 	# cost a phone more than the rest of the frame. Paint only when the kind changes.
-	add_bounce(button)
 	if button.get_meta("key_kind", "") == kind:
 		return
 	button.set_meta("key_kind", kind)
@@ -330,8 +270,8 @@ static func theme() -> Theme:
 		t.set_color(state, "Button", WHITE)
 	t.set_color("font_disabled_color", "Button", Color(MUTED, 0.7))
 	t.set_color("font_color", "Label", WHITE)
-	t.set_stylebox("panel", "PanelContainer", flat(PANEL, PANEL_EDGE, 16))
-	t.set_stylebox("panel", "Panel", flat(PANEL, PANEL_EDGE, 16))
+	t.set_stylebox("panel", "PanelContainer", flat(PANEL, PANEL_EDGE, 26))
+	t.set_stylebox("panel", "Panel", flat(PANEL, PANEL_EDGE, 26))
 	var field = flat(FIELD, CARD_EDGE, 14)
 	t.set_stylebox("normal", "LineEdit", field)
 	t.set_stylebox("focus", "LineEdit", flat(FIELD, SUN, 14))

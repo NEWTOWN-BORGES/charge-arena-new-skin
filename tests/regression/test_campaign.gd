@@ -192,18 +192,21 @@ func run() -> void:
 	hud.sync_menu_level(0)
 	game.show_menu_preview()
 
-	# Command Hub: the story operation is the featured card; mode tiles sit in a grid.
-	# campaign_button (= story button) dispatches through play_chosen_mode.
-	check(hud.campaign_button != null and hud.campaign_button.size.y >= 60, "The story operation card is prominent")
-	check(hud.lobby.navbar != null and hud.lobby.navbar.get_global_rect().end.y >= hud.size.y * 0.95, "The navigation bar sits at the bottom of the screen")
-	check(hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick") and hud.lobby.sheet_cards.has("campaign"), "The command hub provides the play button and mode access")
+	var menu_buttons = hud.menu.find_children("*", "Button", true, false).filter(func(b): return b.visible)
+	var lowest = menu_buttons.all(func(b): return b.get_global_rect().end.y <= hud.campaign_button.get_global_rect().end.y + 0.5)
+	check(lowest and hud.campaign_button.size.y >= 60, "JOGAR is the largest button and sits on the lowest row")
+	# The shortcut bar takes the very bottom; JOGAR stands right on top of it.
+	var play_end = hud.campaign_button.get_global_rect().end.y
+	check(play_end > hud.size.y * 0.78 and play_end <= hud.lobby.navbar.get_global_rect().position.y, "In portrait the main action sits in the bottom thumb zone, over the shortcut bar")
+	check(hud.lobby.mode_id == "quick" and hud.campaign_button.text == "JOGAR" and hud.lobby.sheet_cards.has("quick") and hud.lobby.sheet_cards.has("campaign") and not hud.lobby.sheet_cards.has("story"), "The lobby starts on quick play, the arenas one tap away, the story mode out for now")
 	# The arenas already won are played from ARENAS, level by level.
 	hud.lobby.choose_mode("campaign")
-	var arrows: Array = hud.level_strip.get_children().filter(func(child): return child is Button)
 
-	# Level browsing now uses game.step_menu_level; the hidden level strip is kept for compat.
-	game.step_menu_level(1)
-	check(game.menu_level == 1 and hud.menu_level == 1, "Stepping forward selects the next level")
+	# The level strip in the dock steps through the levels; the arena follows once settled.
+	var arrows: Array = hud.level_strip.get_children().filter(func(child): return child is Button)
+	check(hud.level_strip.visible and arrows.size() == 2, "The dock carries the level strip with its two arrows")
+	arrows[1].pressed.emit()
+	check(game.menu_level == 1 and hud.menu_level == 1 and game.arena.map.id == "treino", "The next arrow selects the next level at once, before rebuilding")
 	game._process(0.1)
 	game._process(0.1)
 	await process_frame

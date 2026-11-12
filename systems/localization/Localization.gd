@@ -13,12 +13,13 @@ const FALLBACK = "en"
 
 static var path = "user://locale.cfg"
 
-# First launch defaults to English for international itch.io release (or saved choice).
+# First launch picks the phone's language when the game speaks it, English otherwise.
 # Automated runs without a screen stay in Portuguese, the language the tests read.
 static func detect() -> String:
 	if DisplayServer.get_name() == "headless":
 		return "pt"
-	return FALLBACK
+	var phone = OS.get_locale_language()
+	return phone if LANGUAGES.has(phone) else FALLBACK
 
 static func saved() -> String:
 	var config = ConfigFile.new()
@@ -29,7 +30,7 @@ static func saved() -> String:
 
 static func current() -> String:
 	var locale = TranslationServer.get_locale().substr(0, 2)
-	return locale if LANGUAGES.has(locale) else FALLBACK
+	return locale if LANGUAGES.has(locale) else "pt"
 
 # Called once at start: the player's choice, or the detected language.
 static func apply_startup() -> String:

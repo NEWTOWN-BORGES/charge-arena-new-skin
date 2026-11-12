@@ -36,5 +36,4 @@ common/physics_jitter_fix=0.0
 
 [internationalization]
 
-locale/fallback="en"
 locale/translations=PackedStringArray("res://localization/translations.pt.translation", "res://localization/translations.en.translation", "res://localization/translations.fr.translation", "res://localization/translations.es.translation", "res://localization/translations.it.translation")
