@@ -14,6 +14,7 @@ const Powers = preload("res://scripts/gameplay/powers.gd")
 const MODES = [
 	# The story mode (the Taça Aurora) is out of the lobby until its new form is decided; its
 	# code stays behind the "story" id.
+	{"id": "moba", "name": "MOBA 2v2 (FORTALEZA)", "about": "Shooter 1ª pessoa: 2v2, rotas e fortalezas destrutíveis"},
 	{"id": "quick", "name": "JOGO RÁPIDO", "about": "Uma partida contra a IA, já"},
 	{"id": "bosses", "name": "MODO HISTÓRIA", "about": "A aventura do BIT na Taça"},
 	{"id": "marathon", "name": "MARATONA", "about": "Rivais seguidos até perderes"},
@@ -308,6 +309,12 @@ func mode_glyph(c: CanvasItem, at: Vector2, id: String, color: Color) -> void:
 	UiKit.disc(c, at, 24, UiKit.FIELD)
 	UiKit.ring(c, at, 24, Color(color, 0.7))
 	match id:
+		"moba":
+			# Duas pequenas torres e um portão (estilo castelo/fortaleza)
+			UiKit.box(c, Rect2(at + Vector2(-12, -9), Vector2(7, 18)), color, Color.TRANSPARENT, true)
+			UiKit.box(c, Rect2(at + Vector2(5, -9), Vector2(7, 18)), color, Color.TRANSPARENT, true)
+			UiKit.box(c, Rect2(at + Vector2(-5, 0), Vector2(10, 9)), color, Color.TRANSPARENT, true)
+			UiKit.fill(c, Rect2(at + Vector2(-2, 3), Vector2(4, 6)), UiKit.FIELD)
 		"campaign":
 			UiKit.fill(c, Rect2(at + Vector2(-7, -12), Vector2(3, 24)), color)
 			c.draw_colored_polygon(PackedVector2Array([at + Vector2(-4, -12), at + Vector2(11, -7), at + Vector2(-4, -1)]), color)

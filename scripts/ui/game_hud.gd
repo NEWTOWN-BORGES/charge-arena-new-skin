@@ -1493,6 +1493,8 @@ func draw_level_strip() -> void:
 
 func play_chosen_mode() -> void:
 	match lobby.mode_id:
+		"moba":
+			get_tree().change_scene_to_file("res://scenes/moba/moba_demo.tscn")
 		"quick":
 			open_map_picker()
 		"bosses":

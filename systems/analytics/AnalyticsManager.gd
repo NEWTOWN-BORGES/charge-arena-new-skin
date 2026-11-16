@@ -96,7 +96,8 @@ func _exit_tree() -> void:
 		save_queue()
 		Engine.remove_meta(META)
 	if errors != null:
-		OS.remove_logger(errors)
+		if OS.has_method("remove_logger"):
+			OS.remove_logger(errors)
 		errors = null
 
 func _ready() -> void:
@@ -109,8 +110,11 @@ func _ready() -> void:
 	load_identity()
 	if provider.active():
 		queue.restore()
-	errors = ErrorMonitor.new()
-	OS.add_logger(errors)
+	if ClassDB.class_exists("Logger") and OS.has_method("add_logger"):
+		errors = ErrorMonitor.new()
+		OS.add_logger(errors)
+	else:
+		errors = null
 	tier = "low" if preload("res://scripts/settings/video_settings.gd").low_end() else "normal"
 	start_session()
 	record(EventSchema.GAME_OPEN, {"cold_start": true})
